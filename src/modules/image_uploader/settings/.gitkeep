@@ -1,0 +1,4 @@
+# Runtime settings for the image uploader live here, one JSON file per
+# target module (e.g. products.json). They are written by the code
+# generator; the runtime also reads data/settings/image_uploader/*.json
+# first, so deployments can override the module-local copy.

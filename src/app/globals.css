@@ -1,0 +1,11 @@
+/* Global overrides — Trongate's own stylesheets do the heavy lifting. */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

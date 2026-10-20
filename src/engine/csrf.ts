@@ -1,0 +1,72 @@
+import { getContext } from "./request-context";
+import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from "./config";
+import { sqlite } from "./db";
+import * as crypto from "node:crypto";
+
+/**
+ * CSRF protection — port of Trongate's `csrf_token` flow.
+ *
+ * The PHP original stores the token in the session and renders it as a hidden
+ * field via form_close(); validation.run() compares the posted value.
+ *
+ * The port uses a signed double-submit cookie: middleware guarantees a
+ * `tg_csrf` cookie exists (nonce + HMAC), forms embed the same value, and
+ * validation compares the posted value against the cookie with hash_equals-
+ * style constant-time comparison.
+ */
+
+export const csrfFieldName = CSRF_FIELD;
+
+function secret(): Buffer {
+  const env = process.env.TG_SECRET;
+  if (env && env.length >= 16) return Buffer.from(env, "utf8");
+  // Fallback: derive a stable secret for dev so tokens survive restarts.
+  // (A TG_SECRET should always be configured in production.)
+  const g = globalThis as unknown as { __tgCsrfSecret?: Buffer };
+  if (!g.__tgCsrfSecret) {
+    g.__tgCsrfSecret = crypto.createHash("sha256").update("trongate-next-dev-secret").digest();
+  }
+  return g.__tgCsrfSecret;
+}
+
+/** Create a fresh signed token (nonce.signature). */
+export function createCsrfToken(): string {
+  const nonce = crypto.randomBytes(32).toString("hex");
+  const sig = crypto.createHmac("sha256", secret()).update(nonce).digest("hex");
+  return `${nonce}.${sig}`;
+}
+
+export function isValidCsrfToken(token: string): boolean {
+  if (typeof token !== "string") return false;
+  const parts = token.split(".");
+  if (parts.length !== 2) return false;
+  const [nonce, sig] = parts;
+  const expected = crypto.createHmac("sha256", secret()).update(nonce).digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+/** Token for this request — middleware-issued header, cookie, or fresh token. */
+export function csrfToken(): string {
+  const ctx = getContext();
+  const fromHeader = ctx.headers.get(CSRF_HEADER);
+  if (fromHeader && isValidCsrfToken(fromHeader)) return fromHeader;
+  const existing = ctx.cookies[CSRF_COOKIE];
+  if (existing && isValidCsrfToken(existing)) return existing;
+  return createCsrfToken();
+}
+
+/** Compare posted token with the request's expected value (constant time). */
+export function csrfCheck(posted: string): boolean {
+  const ctx = getContext();
+  const expected = ctx.headers.get(CSRF_HEADER) ?? ctx.cookies[CSRF_COOKIE];
+  if (!expected || !posted) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(posted));
+  } catch {
+    return false;
+  }
+}

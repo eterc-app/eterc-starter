@@ -1,0 +1,78 @@
+/*
+ * Query builder — page-level styles.
+ *
+ * Port of the inline <style> block of
+ * modules/trongate_control/query_builder/views/query_builder.php (the original
+ * page loaded these directly in the document head).
+ */
+
+@font-face {
+    font-family: 'VT323';
+    src: url('../fonts/VT323-Regular.ttf') format('truetype');
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    background-color: silver;
+    font-family: 'VT323', monospace;
+    font-size: 24px;
+    color: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+}
+
+/* Keep #main in flex flow so justify-content can centre it */
+#main {
+    position: relative !important;
+    top: auto !important;
+}
+
+/* Overlay popups as fixed, not in flex flow */
+#join-selector, #sql-code {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999 !important;
+}
+
+/* Position buttons at top via absolute; match original centre + 200px offset */
+#buttons {
+    position: absolute !important;
+    top: 30px !important;
+    left: calc(50% + 200px) !important;
+    transform: translateX(-50%) !important;
+    margin: 0 !important;
+}
+
+#loading-msg {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    color: #333;
+    text-align: center;
+    z-index: 999;
+}
+
+.spinner {
+    border: 6px solid #ccc;
+    border-top: 6px solid #333;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

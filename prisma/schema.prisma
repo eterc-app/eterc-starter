@@ -1,0 +1,77 @@
+// Trongate (Next.js port) database schema — mirrors modules/setup/sql/setup.sql
+// SQLite via Prisma; the framework Db layer also speaks to the same file.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model TrongateUserLevel {
+  id          Int     @id @default(autoincrement())
+  level_title String? @default("")
+
+  @@map("trongate_user_levels")
+}
+
+model TrongateUser {
+  id            Int     @id @default(autoincrement())
+  code          String?
+  user_level_id Int     @default(0)
+
+  @@map("trongate_users")
+}
+
+model TrongateAdministrator {
+  id                   Int     @id @default(autoincrement())
+  username             String?
+  email                String?
+  password             String?
+  trongate_user_id     Int?
+  active               Int     @default(0)
+  failed_login_attempts Int    @default(0)
+  last_failed_attempt  Int     @default(0)
+  login_blocked_until  Int     @default(0)
+  failed_login_ip      String  @default("")
+
+  @@map("trongate_administrators")
+}
+
+model TrongateToken {
+  id          Int    @id @default(autoincrement())
+  token       String?
+  user_id     Int    @default(0)
+  expiry_date Int?
+  code        String? @default("0")
+
+  @@index([token])
+  @@map("trongate_tokens")
+}
+
+model LoginAttempt {
+  id           Int    @id @default(autoincrement())
+  target_table String
+  identifier   String
+  ip_address   String @default("")
+  attempted_at Int
+
+  @@index([target_table])
+  @@index([identifier])
+  @@map("login_attempts")
+}
+
+model PasswordReset {
+  id           Int    @id @default(autoincrement())
+  target_table String
+  identifier   String
+  token        String
+  expiry_date  Int
+  used         Int    @default(0)
+  created_at   Int
+
+  @@index([token])
+  @@map("password_resets")
+}

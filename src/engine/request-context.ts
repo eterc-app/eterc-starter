@@ -1,0 +1,135 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
+/**
+ * Request-scoped context — the port's replacement for PHP's superglobals
+ * (SEGMENTS, $_POST, $_GET, $_SERVER, $_COOKIE). Controllers and helpers read
+ * from this context; it is established once per request by the dispatcher.
+ */
+
+export interface TgUploadedFile {
+  fieldName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  /** Absolute path of the saved temp file, if persisted by the platform. */
+  bytes: Buffer | null;
+}
+
+export interface TgRequest {
+  /** URL segments. segment(1) === segments[0] (module), segment(2) === segments[1] (method). */
+  segments: string[];
+  httpMethod: "GET" | "POST" | string;
+  /** Raw form data for POST requests (server actions / API route). */
+  formData?: FormData;
+  /** Parsed JSON body, when the client posted JSON. */
+  json?: unknown;
+  /** Full request URL. */
+  url: string;
+  pathname: string;
+  /** Query string parameters. */
+  query: Record<string, string | string[]>;
+  /** Incoming headers. */
+  headers: Headers;
+  /** Cookie values captured at dispatch time. */
+  cookies: Record<string, string>;
+  /** True when the request originated from fetch()/XHR (mirrors JS detection). */
+  isAjax: boolean;
+  /** True when the context runs inside a server action or route handler (can set cookies). */
+  canSetCookies: boolean;
+  /** Response cookies collected during the request (set by handlers). */
+  responseCookies: Array<{
+    name: string;
+    value: string;
+    options?: Record<string, unknown>;
+  }>;
+  /** Flash messages set during this request (for immediate action replies). */
+  flashBuffer: string[];
+}
+
+const store = new AsyncLocalStorage<TgRequest>();
+
+export function runWithContext<T>(request: TgRequest, fn: () => T): T {
+  return store.run(request, fn);
+}
+
+export function getContext(): TgRequest {
+  const ctx = store.getStore();
+  if (!ctx) {
+    throw new Error(
+      "Trongate request context is not available. This helper can only be used while handling a request (controllers, models, actions)."
+    );
+  }
+  return ctx;
+}
+
+export function hasContext(): boolean {
+  return store.getStore() !== undefined;
+}
+
+/** segment(n) — 1-based URL segment with optional type cast. */
+export function segment(n: number, varType?: string): string | number | boolean | null {
+  const ctx = getContext();
+  let value: string | undefined = ctx.segments[n - 1];
+
+  // Strip query strings that may have been glued onto a segment.
+  if (value !== undefined) {
+    value = value.split("?")[0];
+  } else {
+    value = "";
+  }
+
+  if (varType === undefined || varType === null) return value;
+
+  switch (varType) {
+    case "int":
+    case "integer": {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    case "float":
+    case "double": {
+      const parsed = parseFloat(value);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    case "bool":
+    case "boolean":
+      return value !== "" && value !== "0" && value.toLowerCase() !== "false";
+    case "string":
+      return String(value);
+    case "null":
+      return null;
+    default:
+      return value;
+  }
+}
+
+export function currentUrl(): string {
+  return getContext().url;
+}
+
+export function previousUrl(): string {
+  return getContext().headers.get("referer") ?? "";
+}
+
+export function removeQueryString(url: string): string {
+  return url.split("?")[0];
+}
+
+export function getNumSegments(): number {
+  return getContext().segments.length;
+}
+
+export function getLastSegment(): string {
+  const ctx = getContext();
+  if (ctx.segments.length === 0) return "";
+  return ctx.segments[ctx.segments.length - 1].split("?")[0];
+}
+
+/** True when the request was made by fetch()/XHR rather than navigation. */
+export function fromTrongateMx(): boolean {
+  const ctx = getContext();
+  return (
+    ctx.isAjax ||
+    ctx.headers.get("Trongate-MX-Request") === "true"
+  );
+}
