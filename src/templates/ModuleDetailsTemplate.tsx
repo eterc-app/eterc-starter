@@ -15,10 +15,12 @@ export function ModuleDetailsTemplate({
   afterCloseHeight?: string;
 }) {
   return (
-    <div className="module-details-body">
-      <header>
-        <span
-          className="close-btn"
+    <div className="flex min-h-screen flex-col bg-[#cae5fe] text-[#2d2d2d] [&_h1]:mt-0 [&_h1]:text-center [&_h1]:text-3xl [&_p]:text-center [&_td]:align-top [&_table]:bg-white">
+      <header className="fixed inset-x-0 top-0 z-[1000] bg-[#ff744a] px-3 py-1.5 text-right text-lg font-bold text-[#eee]">
+        <button
+          type="button"
+          className="cursor-pointer border-0 bg-transparent p-0 text-inherit"
+          aria-label="Close"
           onClick={() =>
             window.parent.postMessage(
               `reload_iframe:${afterCloseUrl}|${afterCloseWidth}|${afterCloseHeight}`,
@@ -27,54 +29,9 @@ export function ModuleDetailsTemplate({
           }
         >
           &times;
-        </span>
+        </button>
       </header>
-      <main>{children}</main>
-      <style jsx global>{`
-        .module-details-body {
-          background-color: #cae5fe;
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          color: #2d2d2d;
-        }
-        .module-details-body header {
-          background-color: #ff744a;
-          color: #eee;
-          text-align: right;
-          font-weight: bold;
-          font-size: 18px;
-          padding: 6px 12px;
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 1000;
-        }
-        .module-details-body main {
-          margin-top: 48px;
-        }
-        .module-details-body h1 {
-          text-align: center;
-          margin-top: 0;
-          font-size: 33px;
-        }
-        .module-details-body p {
-          text-align: center;
-        }
-        .module-details-body table {
-          background-color: #fff;
-        }
-        .module-details-body tr > td {
-          vertical-align: top;
-        }
-        .module-details-body .close-btn {
-          cursor: pointer;
-        }
-        .module-details-body .validation-error-report > div {
-          font-size: 0.9em;
-        }
-      `}</style>
+      <main className="mt-12">{children}</main>
     </div>
   );
 }

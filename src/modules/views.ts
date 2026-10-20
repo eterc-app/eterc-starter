@@ -1,4 +1,4 @@
-import { registerViews } from "@/engine/views-registry";
+import { register_views } from "@/engine/views-registry";
 import { views as welcomeViews } from "./welcome/views";
 import { views as setupViews } from "./setup/views";
 import { views as loginViews } from "./login/views";
@@ -25,20 +25,20 @@ import "@/modules/generated";
  * Central view registration — imports each module's view map so views can be
  * addressed as "{module}/{view_file}" (PHP parity). Generators append entries.
  */
-registerViews(welcomeViews);
-registerViews(setupViews);
-registerViews(loginViews);
-registerViews(administratorsViews);
-registerViews(controlViews);
-registerViews(paginationViews);
-registerViews(imageUploaderViews);
-registerViews(dbViews);
-registerViews(moduleRelationsViews);
-registerViews(languageViews);
-registerViews(moduleBuilderViews);
-registerViews(imageUploaderBuilderViews);
-registerViews(moduleRelationsBuilderViews);
-registerViews(propertiesBuilderViews);
-registerViews(pluralMakerViews);
-registerViews(queryBuilderViews);
-registerViews(siteBuilderViews);
+register_views(welcomeViews);
+register_views(setupViews);
+register_views(loginViews);
+register_views(administratorsViews);
+register_views(controlViews);
+register_views(paginationViews);
+register_views(imageUploaderViews);
+register_views(dbViews);
+register_views(moduleRelationsViews);
+register_views(languageViews);
+register_views(moduleBuilderViews);
+register_views(imageUploaderBuilderViews);
+register_views(moduleRelationsBuilderViews);
+register_views(propertiesBuilderViews);
+register_views(pluralMakerViews);
+register_views(queryBuilderViews);
+register_views(siteBuilderViews);

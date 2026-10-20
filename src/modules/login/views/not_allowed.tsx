@@ -1,5 +1,5 @@
 import type { TgViewProps } from "@/engine/views-registry";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
 
 /**
  * Rate-limited page — port of modules/login/views/not_allowed.php.
@@ -16,7 +16,7 @@ export function NotAllowed({ data }: TgViewProps) {
         address. Please wait {blockDuration} minutes and try again.
       </p>
       <p>
-        <a href={siteUrl(`login/login/${loginUrl}`)}>Return to login page</a>
+        <a href={site_url(`login/login/${loginUrl}`)}>Return to login page</a>
       </p>
     </main>
   );

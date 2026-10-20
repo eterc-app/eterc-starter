@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 /**
  * Pre-generation confirmation — port of
  * image_uploader_builder/views/conf_generate_uploader.php.
@@ -19,34 +21,20 @@ export function ConfGenerateUploaderStep({
   error?: string;
 }) {
   return (
-    <div className="center-stage">
-      <div id="form-area">
-        <div className="mt-1">
-          <button
-            type="button"
-            className="highlight"
-            onClick={onGenerate}
-            disabled={busy}
-          >
-            Generate Image Uploader
-          </button>
-        </div>
-        <div className="mt-1">
-          <button type="button" onClick={onViewDetails}>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Generate Image Uploader</h2>
+      <div id="form-area" className="space-y-3">
+        <Button type="button" onClick={onGenerate} disabled={busy}>
+          Generate Image Uploader
+        </Button>
+        <div>
+          <Button type="button" variant="outline" onClick={onViewDetails}>
             View Uploader Details
-          </button>
+          </Button>
         </div>
         {error ? (
-          <div className="mt-1" style={{ color: "#b00020" }}>
-            <p>{error}</p>
-          </div>
+          <p className="text-sm font-medium text-destructive">{error}</p>
         ) : null}
-      </div>
-      <div id="loading" className="mx-indicator" style={{ display: "none" }}>
-        <img
-          src="/trongate_control-image_uploader_builder_module/images/loader.svg"
-          alt="loading"
-        />
       </div>
     </div>
   );

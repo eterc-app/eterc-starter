@@ -1,0 +1,2836 @@
+{
+  "generated_at": "2026-10-20T12:26:42.669Z",
+  "classes": {
+    "Core": {
+      "file": "engine/Core.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "serve_controller",
+          "visibility": "private"
+        },
+        {
+          "name": "get_controller_path",
+          "visibility": "private"
+        },
+        {
+          "name": "try_child_controller",
+          "visibility": "private"
+        },
+        {
+          "name": "draw_error_page",
+          "visibility": "private"
+        },
+        {
+          "name": "invoke_controller_method",
+          "visibility": "private"
+        },
+        {
+          "name": "attempt_sql_transfer",
+          "visibility": "private"
+        },
+        {
+          "name": "serve_vendor_asset",
+          "visibility": "private"
+        },
+        {
+          "name": "serve_module_asset",
+          "visibility": "private"
+        },
+        {
+          "name": "sanitize_file_path",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Model": {
+      "file": "engine/Model.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "__get",
+          "visibility": "public"
+        },
+        {
+          "name": "module",
+          "visibility": "public"
+        },
+        {
+          "name": "try_child_module_path",
+          "visibility": "private"
+        },
+        {
+          "name": "__call",
+          "visibility": "public"
+        },
+        {
+          "name": "is_database_group",
+          "visibility": "private"
+        },
+        {
+          "name": "is_potential_module",
+          "visibility": "private"
+        },
+        {
+          "name": "is_potential_database_group",
+          "visibility": "private"
+        },
+        {
+          "name": "load_model",
+          "visibility": "private"
+        },
+        {
+          "name": "get_model_path",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Modules": {
+      "file": "engine/Modules.php",
+      "methods": [
+        {
+          "name": "run",
+          "visibility": "public"
+        },
+        {
+          "name": "load",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate": {
+      "file": "engine/Trongate.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "__get",
+          "visibility": "public"
+        },
+        {
+          "name": "module",
+          "visibility": "protected"
+        },
+        {
+          "name": "try_child_module_path",
+          "visibility": "private"
+        },
+        {
+          "name": "view",
+          "visibility": "protected"
+        },
+        {
+          "name": "get_view_path",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Db": {
+      "file": "modules/db/Db.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "insert",
+          "visibility": "public"
+        },
+        {
+          "name": "update",
+          "visibility": "public"
+        },
+        {
+          "name": "delete",
+          "visibility": "public"
+        },
+        {
+          "name": "query",
+          "visibility": "public"
+        },
+        {
+          "name": "query_bind",
+          "visibility": "public"
+        },
+        {
+          "name": "count",
+          "visibility": "public"
+        },
+        {
+          "name": "insert_batch",
+          "visibility": "public"
+        },
+        {
+          "name": "get",
+          "visibility": "public"
+        },
+        {
+          "name": "get_where",
+          "visibility": "public"
+        },
+        {
+          "name": "get_one_where",
+          "visibility": "public"
+        },
+        {
+          "name": "get_where_in",
+          "visibility": "public"
+        },
+        {
+          "name": "resequence_ids",
+          "visibility": "public"
+        },
+        {
+          "name": "table_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "get_tables",
+          "visibility": "public"
+        },
+        {
+          "name": "describe_table",
+          "visibility": "public"
+        },
+        {
+          "name": "attempt_truncate",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_table_exists",
+          "visibility": "private"
+        },
+        {
+          "name": "prepare_and_execute",
+          "visibility": "private"
+        },
+        {
+          "name": "show_query",
+          "visibility": "private"
+        }
+      ]
+    },
+    "File": {
+      "file": "modules/file/File.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "upload",
+          "visibility": "public"
+        },
+        {
+          "name": "ensure_unique_path",
+          "visibility": "private"
+        },
+        {
+          "name": "info",
+          "visibility": "public"
+        },
+        {
+          "name": "create_directory",
+          "visibility": "public"
+        },
+        {
+          "name": "exists",
+          "visibility": "public"
+        },
+        {
+          "name": "read",
+          "visibility": "public"
+        },
+        {
+          "name": "write",
+          "visibility": "public"
+        },
+        {
+          "name": "delete",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_directory",
+          "visibility": "public"
+        },
+        {
+          "name": "download",
+          "visibility": "public"
+        },
+        {
+          "name": "list_directory",
+          "visibility": "public"
+        },
+        {
+          "name": "copy",
+          "visibility": "public"
+        },
+        {
+          "name": "move",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_upload_path",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_secure_filename",
+          "visibility": "private"
+        },
+        {
+          "name": "is_path_valid",
+          "visibility": "private"
+        },
+        {
+          "name": "validate_file",
+          "visibility": "private"
+        },
+        {
+          "name": "validate_mime_type",
+          "visibility": "private"
+        },
+        {
+          "name": "validate_memory_requirements",
+          "visibility": "private"
+        },
+        {
+          "name": "get_upload_error_message",
+          "visibility": "private"
+        },
+        {
+          "name": "convert_to_bytes",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Flashdata": {
+      "file": "modules/flashdata/Flashdata.php",
+      "methods": [
+        {
+          "name": "set_flashdata",
+          "visibility": "public"
+        },
+        {
+          "name": "flashdata",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Form": {
+      "file": "modules/form/Form.php",
+      "methods": [
+        {
+          "name": "generate_input_element",
+          "visibility": "public"
+        },
+        {
+          "name": "form_checkbox",
+          "visibility": "public"
+        },
+        {
+          "name": "form_radio",
+          "visibility": "public"
+        },
+        {
+          "name": "form_input",
+          "visibility": "public"
+        },
+        {
+          "name": "form_email",
+          "visibility": "public"
+        },
+        {
+          "name": "form_url",
+          "visibility": "public"
+        },
+        {
+          "name": "form_password",
+          "visibility": "public"
+        },
+        {
+          "name": "form_search",
+          "visibility": "public"
+        },
+        {
+          "name": "form_number",
+          "visibility": "public"
+        },
+        {
+          "name": "form_hidden",
+          "visibility": "public"
+        },
+        {
+          "name": "form_open",
+          "visibility": "public"
+        },
+        {
+          "name": "form_open_upload",
+          "visibility": "public"
+        },
+        {
+          "name": "form_close",
+          "visibility": "public"
+        },
+        {
+          "name": "get_attributes_str",
+          "visibility": "public"
+        },
+        {
+          "name": "form_label",
+          "visibility": "public"
+        },
+        {
+          "name": "form_textarea",
+          "visibility": "public"
+        },
+        {
+          "name": "form_date",
+          "visibility": "public"
+        },
+        {
+          "name": "form_datetime_local",
+          "visibility": "public"
+        },
+        {
+          "name": "form_time",
+          "visibility": "public"
+        },
+        {
+          "name": "form_month",
+          "visibility": "public"
+        },
+        {
+          "name": "form_week",
+          "visibility": "public"
+        },
+        {
+          "name": "form_submit",
+          "visibility": "public"
+        },
+        {
+          "name": "form_button",
+          "visibility": "public"
+        },
+        {
+          "name": "form_dropdown",
+          "visibility": "public"
+        },
+        {
+          "name": "form_file_select",
+          "visibility": "public"
+        },
+        {
+          "name": "post",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Image": {
+      "file": "modules/image/Image.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "upload",
+          "visibility": "public"
+        },
+        {
+          "name": "get_upload_error_message",
+          "visibility": "private"
+        },
+        {
+          "name": "extension_for_mime_type",
+          "visibility": "private"
+        },
+        {
+          "name": "carries_short_open_tag_bytes",
+          "visibility": "private"
+        },
+        {
+          "name": "random_base_name",
+          "visibility": "private"
+        },
+        {
+          "name": "ensure_unique_path",
+          "visibility": "private"
+        },
+        {
+          "name": "load",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_image",
+          "visibility": "private"
+        },
+        {
+          "name": "save",
+          "visibility": "public"
+        },
+        {
+          "name": "output",
+          "visibility": "public"
+        },
+        {
+          "name": "get_width",
+          "visibility": "public"
+        },
+        {
+          "name": "get_height",
+          "visibility": "public"
+        },
+        {
+          "name": "resize_to_height",
+          "visibility": "public"
+        },
+        {
+          "name": "resize_to_width",
+          "visibility": "public"
+        },
+        {
+          "name": "scale",
+          "visibility": "public"
+        },
+        {
+          "name": "resize_and_crop",
+          "visibility": "public"
+        },
+        {
+          "name": "resize",
+          "visibility": "protected"
+        },
+        {
+          "name": "prepare_transparency",
+          "visibility": "private"
+        },
+        {
+          "name": "crop",
+          "visibility": "public"
+        },
+        {
+          "name": "get_image_type",
+          "visibility": "protected"
+        },
+        {
+          "name": "get_memory_limit",
+          "visibility": "private"
+        },
+        {
+          "name": "destroy",
+          "visibility": "public"
+        },
+        {
+          "name": "save_image",
+          "visibility": "private"
+        },
+        {
+          "name": "get_header",
+          "visibility": "public"
+        },
+        {
+          "name": "check_file_exists",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Image_uploader": {
+      "file": "modules/image_uploader/Image_uploader.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_panel",
+          "visibility": "public"
+        },
+        {
+          "name": "render_panel_body",
+          "visibility": "public"
+        },
+        {
+          "name": "upload_form",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_upload",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_picture",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_files",
+          "visibility": "public"
+        },
+        {
+          "name": "panel_data",
+          "visibility": "private"
+        },
+        {
+          "name": "render_upload_form",
+          "visibility": "private"
+        },
+        {
+          "name": "page_data",
+          "visibility": "private"
+        },
+        {
+          "name": "picture_url",
+          "visibility": "private"
+        },
+        {
+          "name": "record_folder",
+          "visibility": "private"
+        },
+        {
+          "name": "folder_contents",
+          "visibility": "private"
+        },
+        {
+          "name": "rollback_upload",
+          "visibility": "private"
+        },
+        {
+          "name": "prune_empty_folders",
+          "visibility": "private"
+        },
+        {
+          "name": "enforce_file_extension",
+          "visibility": "private"
+        },
+        {
+          "name": "is_safe_file_name",
+          "visibility": "private"
+        },
+        {
+          "name": "upload_failed",
+          "visibility": "private"
+        },
+        {
+          "name": "public_message",
+          "visibility": "private"
+        },
+        {
+          "name": "delete_recorded_files",
+          "visibility": "private"
+        },
+        {
+          "name": "valid_panel_id",
+          "visibility": "private"
+        },
+        {
+          "name": "not_configured",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Image_uploader_model": {
+      "file": "modules/image_uploader/Image_uploader_model.php",
+      "methods": [
+        {
+          "name": "get_uploader_settings",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_settings",
+          "visibility": "private"
+        },
+        {
+          "name": "get_picture_file_name",
+          "visibility": "public"
+        },
+        {
+          "name": "set_picture_file_name",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Language": {
+      "file": "modules/language/Language.php",
+      "methods": [
+        {
+          "name": "set_language",
+          "visibility": "public"
+        },
+        {
+          "name": "get_language",
+          "visibility": "public"
+        },
+        {
+          "name": "reset_language",
+          "visibility": "public"
+        },
+        {
+          "name": "load",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Forgot_password": {
+      "file": "modules/login/forgot_password/Forgot_password.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "get_login_model",
+          "visibility": "private"
+        },
+        {
+          "name": "form",
+          "visibility": "public"
+        },
+        {
+          "name": "submit",
+          "visibility": "public"
+        },
+        {
+          "name": "show_email_sent",
+          "visibility": "private"
+        },
+        {
+          "name": "reset",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_reset",
+          "visibility": "public"
+        },
+        {
+          "name": "resolve_level",
+          "visibility": "private"
+        },
+        {
+          "name": "set_flashdata",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Login": {
+      "file": "modules/login/Login.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "resolve_level",
+          "visibility": "private"
+        },
+        {
+          "name": "resolve_level_from_secret",
+          "visibility": "private"
+        },
+        {
+          "name": "index",
+          "visibility": "public"
+        },
+        {
+          "name": "login",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_login",
+          "visibility": "public"
+        },
+        {
+          "name": "not_allowed",
+          "visibility": "public"
+        },
+        {
+          "name": "unlock",
+          "visibility": "public"
+        },
+        {
+          "name": "logout",
+          "visibility": "public"
+        },
+        {
+          "name": "is_logged_in",
+          "visibility": "public"
+        },
+        {
+          "name": "hash_password",
+          "visibility": "public"
+        },
+        {
+          "name": "forgot_password",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_forgot_password",
+          "visibility": "public"
+        },
+        {
+          "name": "reset_password",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_reset_password",
+          "visibility": "public"
+        },
+        {
+          "name": "credentials_valid",
+          "visibility": "public"
+        },
+        {
+          "name": "show_404",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Login_model": {
+      "file": "modules/login/Login_model.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "load_config",
+          "visibility": "public"
+        },
+        {
+          "name": "get_level_config",
+          "visibility": "public"
+        },
+        {
+          "name": "get_global_config",
+          "visibility": "public"
+        },
+        {
+          "name": "get_configured_levels",
+          "visibility": "public"
+        },
+        {
+          "name": "get_configured_level_configs",
+          "visibility": "public"
+        },
+        {
+          "name": "get_login_url",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_credentials",
+          "visibility": "public"
+        },
+        {
+          "name": "get_identifier_columns",
+          "visibility": "public"
+        },
+        {
+          "name": "get_identifier_label",
+          "visibility": "public"
+        },
+        {
+          "name": "find_user",
+          "visibility": "public"
+        },
+        {
+          "name": "find_user_lax",
+          "visibility": "public"
+        },
+        {
+          "name": "get_timing_safe_hash",
+          "visibility": "private"
+        },
+        {
+          "name": "is_login_allowed",
+          "visibility": "public"
+        },
+        {
+          "name": "count_recent_attempts",
+          "visibility": "private"
+        },
+        {
+          "name": "record_failed_attempt",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_expired_restrictions",
+          "visibility": "public"
+        },
+        {
+          "name": "clear_failed_attempts",
+          "visibility": "public"
+        },
+        {
+          "name": "unlock_all",
+          "visibility": "public"
+        },
+        {
+          "name": "log_user_in",
+          "visibility": "public"
+        },
+        {
+          "name": "update_login_stats",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_reset_token",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_reset_token",
+          "visibility": "public"
+        },
+        {
+          "name": "reset_password",
+          "visibility": "public"
+        },
+        {
+          "name": "send_reset_email",
+          "visibility": "public"
+        },
+        {
+          "name": "get_level_id_for_token",
+          "visibility": "public"
+        },
+        {
+          "name": "get_level_id_for_table",
+          "visibility": "private"
+        },
+        {
+          "name": "hash_password",
+          "visibility": "public"
+        },
+        {
+          "name": "quote_id",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Module_relations": {
+      "file": "modules/module_relations/Module_relations.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_summary_panel",
+          "visibility": "public"
+        },
+        {
+          "name": "render_panel_body",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_association",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_association",
+          "visibility": "public"
+        },
+        {
+          "name": "fetch_create_options",
+          "visibility": "public"
+        },
+        {
+          "name": "sync_create_claim",
+          "visibility": "public"
+        },
+        {
+          "name": "release_create_link",
+          "visibility": "public"
+        },
+        {
+          "name": "release_children",
+          "visibility": "public"
+        },
+        {
+          "name": "release_junction_links",
+          "visibility": "public"
+        },
+        {
+          "name": "panel_data",
+          "visibility": "private"
+        },
+        {
+          "name": "valid_panel_id",
+          "visibility": "private"
+        },
+        {
+          "name": "css_escape_id",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Module_relations_model": {
+      "file": "modules/module_relations/Module_relations_model.php",
+      "methods": [
+        {
+          "name": "get_table_columns",
+          "visibility": "public"
+        },
+        {
+          "name": "fetch_create_options",
+          "visibility": "public"
+        },
+        {
+          "name": "sync_create_claim",
+          "visibility": "public"
+        },
+        {
+          "name": "release_create_link",
+          "visibility": "public"
+        },
+        {
+          "name": "release_children",
+          "visibility": "public"
+        },
+        {
+          "name": "release_junction_links",
+          "visibility": "public"
+        },
+        {
+          "name": "get_relation_settings",
+          "visibility": "public"
+        },
+        {
+          "name": "est_associated_module",
+          "visibility": "public"
+        },
+        {
+          "name": "get_settings_for_module",
+          "visibility": "public"
+        },
+        {
+          "name": "is_direct_one_to_one",
+          "visibility": "public"
+        },
+        {
+          "name": "fetch_associated_rows",
+          "visibility": "public"
+        },
+        {
+          "name": "fetch_available_options",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_association",
+          "visibility": "public"
+        },
+        {
+          "name": "disassociate_association",
+          "visibility": "public"
+        },
+        {
+          "name": "fetch_one_to_many_associated",
+          "visibility": "private"
+        },
+        {
+          "name": "submit_direct_one_to_one",
+          "visibility": "private"
+        },
+        {
+          "name": "fk_column",
+          "visibility": "private"
+        },
+        {
+          "name": "junction_fk",
+          "visibility": "private"
+        },
+        {
+          "name": "valid_identifier_columns",
+          "visibility": "private"
+        },
+        {
+          "name": "identifier_expr",
+          "visibility": "private"
+        },
+        {
+          "name": "identifier_order",
+          "visibility": "private"
+        },
+        {
+          "name": "options_to_dropdown",
+          "visibility": "private"
+        },
+        {
+          "name": "rows_to_options",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Pagination": {
+      "file": "modules/pagination/Pagination.php",
+      "methods": [
+        {
+          "name": "display",
+          "visibility": "public"
+        },
+        {
+          "name": "get_showing_statement",
+          "visibility": "private"
+        },
+        {
+          "name": "render_pagination",
+          "visibility": "private"
+        },
+        {
+          "name": "build_link",
+          "visibility": "private"
+        },
+        {
+          "name": "get_default_css",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Pagination_model": {
+      "file": "modules/pagination/Pagination_model.php",
+      "methods": [
+        {
+          "name": "prepare_pagination_data",
+          "visibility": "public"
+        },
+        {
+          "name": "check_for_required_properties",
+          "visibility": "private"
+        },
+        {
+          "name": "init_optional_properties",
+          "visibility": "private"
+        },
+        {
+          "name": "validate_settings",
+          "visibility": "private"
+        },
+        {
+          "name": "get_current_page",
+          "visibility": "private"
+        },
+        {
+          "name": "auto_detect_pagination_root",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Setup": {
+      "file": "modules/setup/Setup.php",
+      "methods": [
+        {
+          "name": "index",
+          "visibility": "public"
+        },
+        {
+          "name": "database_config",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_database_config",
+          "visibility": "public"
+        },
+        {
+          "name": "build_session_data",
+          "visibility": "public"
+        },
+        {
+          "name": "database_config_setup",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_database_config_setup",
+          "visibility": "public"
+        },
+        {
+          "name": "db_config_check",
+          "visibility": "public"
+        },
+        {
+          "name": "admin_account",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_admin_account",
+          "visibility": "public"
+        },
+        {
+          "name": "update_default_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_update_default_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "update_default_mod_check",
+          "visibility": "public"
+        },
+        {
+          "name": "test_db_connection",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_steps_indicator",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_help_link",
+          "visibility": "public"
+        },
+        {
+          "name": "show_help_message",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Setup_model": {
+      "file": "modules/setup/Setup_model.php",
+      "methods": [
+        {
+          "name": "get_db_config_form_data",
+          "visibility": "public"
+        },
+        {
+          "name": "suggest_db_name",
+          "visibility": "private"
+        },
+        {
+          "name": "get_db_config_path",
+          "visibility": "public"
+        },
+        {
+          "name": "build_config_code",
+          "visibility": "public"
+        },
+        {
+          "name": "verify_db_connection",
+          "visibility": "public"
+        },
+        {
+          "name": "create_admin_account",
+          "visibility": "public"
+        },
+        {
+          "name": "update_default_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "get_pdo_connection",
+          "visibility": "private"
+        }
+      ]
+    },
+    "String_service": {
+      "file": "modules/string_service/String_service.php",
+      "methods": [
+        {
+          "name": "truncate_str",
+          "visibility": "public"
+        },
+        {
+          "name": "truncate_words",
+          "visibility": "public"
+        },
+        {
+          "name": "get_last_part",
+          "visibility": "public"
+        },
+        {
+          "name": "extract_content",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_substr_between",
+          "visibility": "public"
+        },
+        {
+          "name": "nice_price",
+          "visibility": "public"
+        },
+        {
+          "name": "url_title",
+          "visibility": "public"
+        },
+        {
+          "name": "sanitize_filename",
+          "visibility": "public"
+        },
+        {
+          "name": "out",
+          "visibility": "public"
+        },
+        {
+          "name": "make_rand_str",
+          "visibility": "public"
+        },
+        {
+          "name": "replace_html_tags",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_html_code",
+          "visibility": "public"
+        },
+        {
+          "name": "filter_str",
+          "visibility": "public"
+        },
+        {
+          "name": "filter_string",
+          "visibility": "public"
+        },
+        {
+          "name": "filter_name",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Templates": {
+      "file": "modules/templates/Templates.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "admin",
+          "visibility": "public"
+        },
+        {
+          "name": "public",
+          "visibility": "public"
+        },
+        {
+          "name": "module_details",
+          "visibility": "public"
+        },
+        {
+          "name": "error_404",
+          "visibility": "public"
+        },
+        {
+          "name": "show_url_setup",
+          "visibility": "public"
+        },
+        {
+          "name": "save_base_url",
+          "visibility": "public"
+        },
+        {
+          "name": "detect_base_url",
+          "visibility": "public"
+        },
+        {
+          "name": "display",
+          "visibility": "private"
+        },
+        {
+          "name": "build_additional_includes",
+          "visibility": "private"
+        },
+        {
+          "name": "build_js_include_code",
+          "visibility": "private"
+        },
+        {
+          "name": "build_css_include_code",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Trongate_administrators": {
+      "file": "modules/trongate_administrators/Trongate_administrators.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "create",
+          "visibility": "public"
+        },
+        {
+          "name": "show",
+          "visibility": "public"
+        },
+        {
+          "name": "update_your_details",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_conf",
+          "visibility": "public"
+        },
+        {
+          "name": "update_password",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_update_password",
+          "visibility": "public"
+        },
+        {
+          "name": "logout",
+          "visibility": "public"
+        },
+        {
+          "name": "not_found",
+          "visibility": "public"
+        },
+        {
+          "name": "get_back_url",
+          "visibility": "private"
+        },
+        {
+          "name": "submit",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_delete",
+          "visibility": "public"
+        },
+        {
+          "name": "manage",
+          "visibility": "public"
+        },
+        {
+          "name": "make_sure_allowed",
+          "visibility": "public"
+        },
+        {
+          "name": "get_limit",
+          "visibility": "private"
+        },
+        {
+          "name": "get_offset",
+          "visibility": "private"
+        },
+        {
+          "name": "get_pagination_data",
+          "visibility": "private"
+        },
+        {
+          "name": "get_selected_per_page",
+          "visibility": "private"
+        },
+        {
+          "name": "set_per_page",
+          "visibility": "public"
+        },
+        {
+          "name": "username_check",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate_administrators_model": {
+      "file": "modules/trongate_administrators/Trongate_administrators_model.php",
+      "methods": [
+        {
+          "name": "find_one",
+          "visibility": "private"
+        },
+        {
+          "name": "get_data_from_db",
+          "visibility": "public"
+        },
+        {
+          "name": "get_data_from_post",
+          "visibility": "public"
+        },
+        {
+          "name": "convert_posted_data_for_db",
+          "visibility": "public"
+        },
+        {
+          "name": "update",
+          "visibility": "public"
+        },
+        {
+          "name": "update_password",
+          "visibility": "public"
+        },
+        {
+          "name": "hash_password",
+          "visibility": "private"
+        },
+        {
+          "name": "get_user_by_id",
+          "visibility": "public"
+        },
+        {
+          "name": "get_any_active_user",
+          "visibility": "public"
+        },
+        {
+          "name": "log_user_in",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_by_token",
+          "visibility": "public"
+        },
+        {
+          "name": "get_all_paginated",
+          "visibility": "public"
+        },
+        {
+          "name": "prepare_records_for_display",
+          "visibility": "public"
+        },
+        {
+          "name": "prepare_for_display",
+          "visibility": "public"
+        },
+        {
+          "name": "count_all",
+          "visibility": "public"
+        },
+        {
+          "name": "is_username_available",
+          "visibility": "public"
+        },
+        {
+          "name": "create_new_record",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_record",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Evo": {
+      "file": "modules/trongate_control/evo/Evo.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "home",
+          "visibility": "public"
+        },
+        {
+          "name": "module_manager",
+          "visibility": "public"
+        },
+        {
+          "name": "ask",
+          "visibility": "public"
+        },
+        {
+          "name": "reset",
+          "visibility": "public"
+        },
+        {
+          "name": "render_error",
+          "visibility": "public"
+        },
+        {
+          "name": "render_details_iframe",
+          "visibility": "public"
+        },
+        {
+          "name": "render_generation_error",
+          "visibility": "public"
+        },
+        {
+          "name": "render_disabled_response",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Flo": {
+      "file": "modules/trongate_control/flo/Flo.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "home",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_flow_trigger",
+          "visibility": "public"
+        },
+        {
+          "name": "draw_open_flo",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Image_uploader_builder": {
+      "file": "modules/trongate_control/image_uploader_builder/Image_uploader_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "choose_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "uploader_details",
+          "visibility": "public"
+        },
+        {
+          "name": "run_gen",
+          "visibility": "public"
+        },
+        {
+          "name": "render_code_block",
+          "visibility": "private"
+        },
+        {
+          "name": "build_plan",
+          "visibility": "private"
+        },
+        {
+          "name": "preflight",
+          "visibility": "private"
+        },
+        {
+          "name": "view_tail_is_panel_calls",
+          "visibility": "private"
+        },
+        {
+          "name": "commit",
+          "visibility": "private"
+        },
+        {
+          "name": "partial_state_note",
+          "visibility": "private"
+        },
+        {
+          "name": "apply_item",
+          "visibility": "private"
+        },
+        {
+          "name": "assert_parses",
+          "visibility": "private"
+        },
+        {
+          "name": "excerpt",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Image_uploader_builder_model": {
+      "file": "modules/trongate_control/image_uploader_builder/Image_uploader_builder_model.php",
+      "methods": [
+        {
+          "name": "prep_file_contents",
+          "visibility": "public"
+        },
+        {
+          "name": "get_crud_modules",
+          "visibility": "public"
+        },
+        {
+          "name": "get_eligible_module",
+          "visibility": "public"
+        },
+        {
+          "name": "crud_shortfalls",
+          "visibility": "private"
+        },
+        {
+          "name": "has_delete_flow",
+          "visibility": "private"
+        },
+        {
+          "name": "uploader_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_settings_file",
+          "visibility": "public"
+        },
+        {
+          "name": "guard_uploader_ready",
+          "visibility": "public"
+        },
+        {
+          "name": "ensure_settings_dir_writable",
+          "visibility": "private"
+        },
+        {
+          "name": "ensure_destination_writable",
+          "visibility": "private"
+        },
+        {
+          "name": "apply_column",
+          "visibility": "public"
+        },
+        {
+          "name": "build_alter_sql",
+          "visibility": "public"
+        },
+        {
+          "name": "get_column_state",
+          "visibility": "private"
+        },
+        {
+          "name": "describe_column",
+          "visibility": "private"
+        },
+        {
+          "name": "table_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "write_settings_file",
+          "visibility": "public"
+        },
+        {
+          "name": "encode_settings",
+          "visibility": "private"
+        },
+        {
+          "name": "settings_path",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Module_builder": {
+      "file": "modules/trongate_control/module_builder/Module_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "enter_mod_name",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_mod_name",
+          "visibility": "public"
+        },
+        {
+          "name": "add_nav_label",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_nav_label",
+          "visibility": "public"
+        },
+        {
+          "name": "lets_add_properties_conf",
+          "visibility": "public"
+        },
+        {
+          "name": "store_properties",
+          "visibility": "public"
+        },
+        {
+          "name": "choose_url_column",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_url_column",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_url_col",
+          "visibility": "public"
+        },
+        {
+          "name": "choose_order_by",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_order_by",
+          "visibility": "public"
+        },
+        {
+          "name": "conf_generate_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "run_gen",
+          "visibility": "public"
+        },
+        {
+          "name": "module_details",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_mod_details",
+          "visibility": "public"
+        },
+        {
+          "name": "module_dir_check",
+          "visibility": "public"
+        },
+        {
+          "name": "properties_check",
+          "visibility": "public"
+        },
+        {
+          "name": "url_column_check",
+          "visibility": "public"
+        },
+        {
+          "name": "order_by_check",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Module_relations_builder": {
+      "file": "modules/trongate_control/module_relations_builder/Module_relations_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "choose_relation_type",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_relation_type",
+          "visibility": "public"
+        },
+        {
+          "name": "render_module_selection",
+          "visibility": "private"
+        },
+        {
+          "name": "submit_parent",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_child",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_bridging_option",
+          "visibility": "public"
+        },
+        {
+          "name": "render_confirmation",
+          "visibility": "private"
+        },
+        {
+          "name": "relation_details",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_relation_details",
+          "visibility": "public"
+        },
+        {
+          "name": "identifier_column_a_check",
+          "visibility": "public"
+        },
+        {
+          "name": "identifier_column_b_check",
+          "visibility": "public"
+        },
+        {
+          "name": "run_gen",
+          "visibility": "public"
+        },
+        {
+          "name": "render_code_block",
+          "visibility": "private"
+        },
+        {
+          "name": "build_plan",
+          "visibility": "private"
+        },
+        {
+          "name": "plan_show_panel",
+          "visibility": "private"
+        },
+        {
+          "name": "plan_form_module",
+          "visibility": "private"
+        },
+        {
+          "name": "plan_parent_delete_hook",
+          "visibility": "private"
+        },
+        {
+          "name": "plan_junction_delete_hook",
+          "visibility": "private"
+        },
+        {
+          "name": "preflight",
+          "visibility": "private"
+        },
+        {
+          "name": "view_tail_is_panel_calls",
+          "visibility": "private"
+        },
+        {
+          "name": "apply",
+          "visibility": "private"
+        },
+        {
+          "name": "normalize_line_endings",
+          "visibility": "private"
+        },
+        {
+          "name": "apply_item",
+          "visibility": "private"
+        },
+        {
+          "name": "remove_existing_field_row",
+          "visibility": "private"
+        },
+        {
+          "name": "field_row_pattern",
+          "visibility": "private"
+        },
+        {
+          "name": "has_field_call",
+          "visibility": "private"
+        },
+        {
+          "name": "excerpt",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Module_relations_builder_model": {
+      "file": "modules/trongate_control/module_relations_builder/Module_relations_builder_model.php",
+      "methods": [
+        {
+          "name": "get_runtime_route",
+          "visibility": "public"
+        },
+        {
+          "name": "fk_name",
+          "visibility": "public"
+        },
+        {
+          "name": "options_var",
+          "visibility": "public"
+        },
+        {
+          "name": "label",
+          "visibility": "public"
+        },
+        {
+          "name": "display_name",
+          "visibility": "public"
+        },
+        {
+          "name": "column_name",
+          "visibility": "public"
+        },
+        {
+          "name": "marker",
+          "visibility": "public"
+        },
+        {
+          "name": "prep_file_contents",
+          "visibility": "public"
+        },
+        {
+          "name": "get_relation_tables",
+          "visibility": "public"
+        },
+        {
+          "name": "is_relation_table",
+          "visibility": "public"
+        },
+        {
+          "name": "is_eligible",
+          "visibility": "private"
+        },
+        {
+          "name": "get_default_identifier_column",
+          "visibility": "public"
+        },
+        {
+          "name": "identifier_columns_valid",
+          "visibility": "public"
+        },
+        {
+          "name": "get_table_columns",
+          "visibility": "public"
+        },
+        {
+          "name": "column_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "table_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "relation_exists",
+          "visibility": "public"
+        },
+        {
+          "name": "guard_relation_ready",
+          "visibility": "public"
+        },
+        {
+          "name": "write_settings_file",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_settings_file",
+          "visibility": "public"
+        },
+        {
+          "name": "build_relation_sql",
+          "visibility": "public"
+        },
+        {
+          "name": "guard_fk_free",
+          "visibility": "private"
+        },
+        {
+          "name": "build_alter_add_fk",
+          "visibility": "private"
+        },
+        {
+          "name": "build_junction_sql",
+          "visibility": "private"
+        },
+        {
+          "name": "fallback_singular",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Plural_maker": {
+      "file": "modules/trongate_control/plural_maker/Plural_maker.php",
+      "methods": [
+        {
+          "name": "make_plural",
+          "visibility": "public"
+        },
+        {
+          "name": "get_singular",
+          "visibility": "public"
+        },
+        {
+          "name": "pluralize_single",
+          "visibility": "private"
+        },
+        {
+          "name": "singularize_single",
+          "visibility": "private"
+        },
+        {
+          "name": "preserve_case",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Properties": {
+      "file": "modules/trongate_control/properties/Properties.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "get_fields_info",
+          "visibility": "public"
+        },
+        {
+          "name": "get_address_types",
+          "visibility": "public"
+        },
+        {
+          "name": "get_address_data",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Properties_builder": {
+      "file": "modules/trongate_control/properties_builder/Properties_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "web",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Query_builder": {
+      "file": "modules/trongate_control/query_builder/Query_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "home",
+          "visibility": "public"
+        },
+        {
+          "name": "get_tables",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Site_builder": {
+      "file": "modules/trongate_control/site_builder/Site_builder.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "submit_generate_mod",
+          "visibility": "public"
+        },
+        {
+          "name": "generate_controller_content",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_model_content",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_view_content",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_dynamic_table",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_dynamic_details",
+          "visibility": "private"
+        },
+        {
+          "name": "generate_table_sql",
+          "visibility": "private"
+        },
+        {
+          "name": "map_property_type_to_sql",
+          "visibility": "private"
+        },
+        {
+          "name": "extract_max_length",
+          "visibility": "private"
+        },
+        {
+          "name": "chmod_recursive",
+          "visibility": "private"
+        },
+        {
+          "name": "rmdir_recursive",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Site_builder_model": {
+      "file": "modules/trongate_control/site_builder/Site_builder_model.php",
+      "methods": [
+        {
+          "name": "check_write_permissions",
+          "visibility": "public"
+        },
+        {
+          "name": "empty_directory",
+          "visibility": "public"
+        },
+        {
+          "name": "has_searchable_property",
+          "visibility": "public"
+        },
+        {
+          "name": "get_searchable_columns",
+          "visibility": "public"
+        },
+        {
+          "name": "render",
+          "visibility": "private"
+        },
+        {
+          "name": "est_posted_properties",
+          "visibility": "public"
+        },
+        {
+          "name": "split_date_range_property",
+          "visibility": "private"
+        },
+        {
+          "name": "split_time_range_property",
+          "visibility": "private"
+        },
+        {
+          "name": "derive_range_labels",
+          "visibility": "private"
+        },
+        {
+          "name": "build_validation_tests",
+          "visibility": "public"
+        },
+        {
+          "name": "return_table_properties",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_form_fields",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_posted_data",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_prepared_record",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_date_constraint_js",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_callback_methods",
+          "visibility": "public"
+        },
+        {
+          "name": "build_dynamic_validation_methods",
+          "visibility": "public"
+        },
+        {
+          "name": "prep_file_contents",
+          "visibility": "public"
+        },
+        {
+          "name": "add_nav_menu_link",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate_control": {
+      "file": "modules/trongate_control/Trongate_control.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "index",
+          "visibility": "public"
+        },
+        {
+          "name": "manifests",
+          "visibility": "public"
+        },
+        {
+          "name": "process",
+          "visibility": "public"
+        },
+        {
+          "name": "get_sql_files",
+          "visibility": "private"
+        },
+        {
+          "name": "get_return_url",
+          "visibility": "private"
+        },
+        {
+          "name": "build_file_list",
+          "visibility": "private"
+        },
+        {
+          "name": "get_file_too_big_button",
+          "visibility": "private"
+        },
+        {
+          "name": "get_file_action_button",
+          "visibility": "private"
+        },
+        {
+          "name": "get_post_data",
+          "visibility": "private"
+        },
+        {
+          "name": "route_action",
+          "visibility": "private"
+        },
+        {
+          "name": "handle_view_sql",
+          "visibility": "private"
+        },
+        {
+          "name": "handle_delete_file",
+          "visibility": "private"
+        },
+        {
+          "name": "handle_run_sql",
+          "visibility": "private"
+        },
+        {
+          "name": "handle_check_finish",
+          "visibility": "private"
+        },
+        {
+          "name": "get_finish_url",
+          "visibility": "private"
+        },
+        {
+          "name": "scan_for_manifests",
+          "visibility": "private"
+        },
+        {
+          "name": "finish_and_redirect",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Trongate_control_model": {
+      "file": "modules/trongate_control/Trongate_control_model.php",
+      "methods": [
+        {
+          "name": "check_sql_safety",
+          "visibility": "public"
+        },
+        {
+          "name": "execute_sql",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_sql_file",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate_email": {
+      "file": "modules/trongate_email/Trongate_email.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "load_config",
+          "visibility": "private"
+        },
+        {
+          "name": "send",
+          "visibility": "public"
+        },
+        {
+          "name": "html_to_plain",
+          "visibility": "private"
+        },
+        {
+          "name": "build_message",
+          "visibility": "private"
+        },
+        {
+          "name": "format_address",
+          "visibility": "private"
+        },
+        {
+          "name": "encode_header",
+          "visibility": "private"
+        },
+        {
+          "name": "quoted_printable_encode",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_send",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_connect",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_authenticate",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_mail_from",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_rcpt_to",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_data",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_quit",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_disconnect",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_send_command",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_get_response",
+          "visibility": "private"
+        },
+        {
+          "name": "smtp_response_ok",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Trongate_security": {
+      "file": "modules/trongate_security/Trongate_security.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "make_sure_allowed",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate_tokens": {
+      "file": "modules/trongate_tokens/Trongate_tokens.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "attempt_get_valid_token",
+          "visibility": "public"
+        },
+        {
+          "name": "destroy",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_old_tokens",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_id",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_obj",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_level",
+          "visibility": "public"
+        },
+        {
+          "name": "generate_token",
+          "visibility": "public"
+        },
+        {
+          "name": "regenerate",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Trongate_tokens_model": {
+      "file": "modules/trongate_tokens/Trongate_tokens_model.php",
+      "methods": [
+        {
+          "name": "gather_user_tokens",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_token_single_level",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_token_multi_level",
+          "visibility": "public"
+        },
+        {
+          "name": "validate_token_any_level",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_tokens",
+          "visibility": "public"
+        },
+        {
+          "name": "delete_old_tokens",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_id",
+          "visibility": "public"
+        },
+        {
+          "name": "get_user_obj",
+          "visibility": "public"
+        },
+        {
+          "name": "generate_token",
+          "visibility": "public"
+        },
+        {
+          "name": "regenerate_token",
+          "visibility": "public"
+        },
+        {
+          "name": "build_token_array",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Url": {
+      "file": "modules/url/Url.php",
+      "methods": [
+        {
+          "name": "current_url",
+          "visibility": "public"
+        },
+        {
+          "name": "segment",
+          "visibility": "public"
+        },
+        {
+          "name": "remove_query_string",
+          "visibility": "public"
+        },
+        {
+          "name": "get_num_segments",
+          "visibility": "public"
+        },
+        {
+          "name": "get_last_segment",
+          "visibility": "public"
+        },
+        {
+          "name": "redirect",
+          "visibility": "public"
+        },
+        {
+          "name": "previous_url",
+          "visibility": "public"
+        },
+        {
+          "name": "anchor",
+          "visibility": "public"
+        },
+        {
+          "name": "get_last_part",
+          "visibility": "private"
+        }
+      ]
+    },
+    "Utilities": {
+      "file": "modules/utilities/Utilities.php",
+      "methods": [
+        {
+          "name": "block_url",
+          "visibility": "public"
+        },
+        {
+          "name": "json",
+          "visibility": "public"
+        },
+        {
+          "name": "ip_address",
+          "visibility": "public"
+        },
+        {
+          "name": "display",
+          "visibility": "public"
+        },
+        {
+          "name": "return_file_info",
+          "visibility": "public"
+        },
+        {
+          "name": "sort_by_property",
+          "visibility": "public"
+        },
+        {
+          "name": "sort_rows_by_property",
+          "visibility": "public"
+        },
+        {
+          "name": "from_trongate_mx",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Validation": {
+      "file": "modules/validation/Validation.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "set_language",
+          "visibility": "public"
+        },
+        {
+          "name": "reset_language",
+          "visibility": "public"
+        },
+        {
+          "name": "set_caller",
+          "visibility": "public"
+        },
+        {
+          "name": "set_rules",
+          "visibility": "public"
+        },
+        {
+          "name": "run_validation_test",
+          "visibility": "private"
+        },
+        {
+          "name": "csrf_protect",
+          "visibility": "private"
+        },
+        {
+          "name": "csrf_block_request",
+          "visibility": "private"
+        },
+        {
+          "name": "is_javascript_request",
+          "visibility": "private"
+        },
+        {
+          "name": "run",
+          "visibility": "public"
+        },
+        {
+          "name": "display_errors",
+          "visibility": "public"
+        },
+        {
+          "name": "json_validation_errors",
+          "visibility": "private"
+        },
+        {
+          "name": "inline_validation_errors",
+          "visibility": "private"
+        },
+        {
+          "name": "general_validation_errors",
+          "visibility": "private"
+        },
+        {
+          "name": "get_render_type",
+          "visibility": "private"
+        },
+        {
+          "name": "get_js_injection",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Validation_model": {
+      "file": "modules/validation/Validation_model.php",
+      "methods": [
+        {
+          "name": "__construct",
+          "visibility": "public"
+        },
+        {
+          "name": "execute_rule",
+          "visibility": "public"
+        },
+        {
+          "name": "run_file_rule",
+          "visibility": "private"
+        },
+        {
+          "name": "run_image_rule",
+          "visibility": "private"
+        },
+        {
+          "name": "scan_file_content",
+          "visibility": "private"
+        },
+        {
+          "name": "required",
+          "visibility": "public"
+        },
+        {
+          "name": "numeric",
+          "visibility": "public"
+        },
+        {
+          "name": "integer",
+          "visibility": "public"
+        },
+        {
+          "name": "decimal",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_email",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_url",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_ip",
+          "visibility": "public"
+        },
+        {
+          "name": "min_length",
+          "visibility": "public"
+        },
+        {
+          "name": "max_length",
+          "visibility": "public"
+        },
+        {
+          "name": "exact_length",
+          "visibility": "public"
+        },
+        {
+          "name": "matches",
+          "visibility": "public"
+        },
+        {
+          "name": "greater_than",
+          "visibility": "public"
+        },
+        {
+          "name": "less_than",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_date",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_time",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_datetime_local",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_month",
+          "visibility": "public"
+        },
+        {
+          "name": "valid_week",
+          "visibility": "public"
+        },
+        {
+          "name": "get_validation_language",
+          "visibility": "private"
+        },
+        {
+          "name": "load_validation_language",
+          "visibility": "public"
+        },
+        {
+          "name": "get_error_message",
+          "visibility": "private"
+        },
+        {
+          "name": "resolve_error_message",
+          "visibility": "public"
+        }
+      ]
+    },
+    "Welcome": {
+      "file": "modules/welcome/Welcome.php",
+      "methods": [
+        {
+          "name": "index",
+          "visibility": "public"
+        }
+      ]
+    }
+  },
+  "helpers": [
+    "anchor",
+    "block_url",
+    "current_url",
+    "display",
+    "extract_content",
+    "filter_name",
+    "filter_str",
+    "filter_string",
+    "flashdata",
+    "form_button",
+    "form_checkbox",
+    "form_close",
+    "form_date",
+    "form_datetime_local",
+    "form_dropdown",
+    "form_email",
+    "form_file_select",
+    "form_hidden",
+    "form_input",
+    "form_label",
+    "form_month",
+    "form_number",
+    "form_open",
+    "form_open_upload",
+    "form_password",
+    "form_radio",
+    "form_search",
+    "form_submit",
+    "form_textarea",
+    "form_time",
+    "form_url",
+    "form_week",
+    "from_trongate_mx",
+    "generate_input_element",
+    "get_attributes_str",
+    "get_last_part",
+    "get_last_segment",
+    "get_num_segments",
+    "ip_address",
+    "json",
+    "make_rand_str",
+    "nice_price",
+    "out",
+    "post",
+    "previous_url",
+    "redirect",
+    "remove_html_code",
+    "remove_query_string",
+    "remove_substr_between",
+    "replace_html_tags",
+    "return_file_info",
+    "sanitize_filename",
+    "segment",
+    "set_flashdata",
+    "sort_by_property",
+    "sort_rows_by_property",
+    "truncate_str",
+    "truncate_words",
+    "url_title",
+    "validation_errors"
+  ]
+}

@@ -377,7 +377,7 @@ export class Db {
 export const db = new Db(null);
 
 /** Escape helper for identifiers embedded in dynamically built SQL. */
-export function escapeIdentifier(identifier: string): string {
+export function escape_identifier(identifier: string): string {
   return "`" + identifier.replace(/`/g, "``") + "`";
 }
 

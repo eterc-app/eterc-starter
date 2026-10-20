@@ -3,9 +3,9 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import * as v8 from "node:v8";
 import { segment } from "@/engine/request-context";
-import { uploadedFiles } from "@/engine/post";
-import { sanitizeFilename } from "@/engine/string-service";
-import { blockUrl } from "@/modules/utilities/Utilities";
+import { uploaded_files } from "@/engine/post";
+import { sanitize_filename } from "@/engine/String_service";
+import { block_url } from "@/modules/utilities/Utilities";
 import {
   ensureDirectory,
   resolveUploadDirectory,
@@ -130,7 +130,7 @@ export default class Image {
    */
   constructor(filename?: string | null) {
     // Protect this module from unwanted browser access (PHP parity).
-    blockUrl("image");
+    block_url("image");
 
     if (filename) {
       this.file_name = filename;
@@ -146,7 +146,7 @@ export default class Image {
    * Handle the upload and processing of an image file.
    *
    * PHP read $_FILES synchronously; the port reads the request's FormData
-   * through uploadedFiles(), hence the async signature. The returned shape
+   * through uploaded_files(), hence the async signature. The returned shape
    * matches the PHP array: file_name, file_path, file_type, file_size and
    * (when a thumbnail was requested) thumbnail_path.
    */
@@ -162,7 +162,7 @@ export default class Image {
     const target_module = String(data.target_module ?? segment(1) ?? "");
 
     // VALIDATION: follow the File module's approach (first uploaded file).
-    const files = await uploadedFiles();
+    const files = await uploaded_files();
     const uploaded_file = Object.values(files)[0];
 
     if (uploaded_file === undefined) {
@@ -213,8 +213,8 @@ export default class Image {
         "." + extension
       );
     } else {
-      // Use sanitizeFilename() for robust cleaning.
-      const sanitized = sanitizeFilename(uploaded_file.originalName);
+      // Use sanitize_filename() for robust cleaning.
+      const sanitized = sanitize_filename(uploaded_file.originalName);
       const file_info_parts = returnFileInfo(sanitized);
       file_path = this.ensure_unique_path(
         destination_dir,

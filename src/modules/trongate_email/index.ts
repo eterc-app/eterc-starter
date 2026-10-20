@@ -3,7 +3,7 @@ import { Trongate_email } from "./Trongate_email";
 /**
  * trongate_email module entry.
  *
- * `sendEmail()` is the module-level convenience sender used by other modules:
+ * `send_email()` is the module-level convenience sender used by other modules:
  * HTML body, subject and sender identity taken from EMAIL_CONFIG (TG_SMTP_*)
  * — the same behavior as the PHP `Trongate_email::send()`.
  *
@@ -19,7 +19,7 @@ export interface SendEmailOptions {
   replyTo?: string;
 }
 
-export async function sendEmail(
+export async function send_email(
   to: string,
   subject: string,
   body: string,

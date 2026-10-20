@@ -1,12 +1,15 @@
 import type { TgViewProps } from "@/engine/views-registry";
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AuthShell } from "./AuthShell";
 
 /**
  * Login form (default) — port of modules/login/views/login_default.php.
- *
- * Stylesheet: public/login_module/css/login_default.css
+ * Markup uses the Eterc shadcn/Tailwind auth surface.
  */
 export function LoginDefault({ data }: TgViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
@@ -20,61 +23,64 @@ export function LoginDefault({ data }: TgViewProps) {
     typeof data.forgot_password_url === "string" ? data.forgot_password_url : null;
 
   return (
-    <>
-      <link rel="stylesheet" href="/login_module/css/login_default.css" />
-      <div className="card">
-        <div className="card-body">
-          <h1>Ahoy!</h1>
-          <p className="text-center">Please sign in to access your account.</p>
+    <AuthShell
+      title="Welcome back"
+      description="Please sign in to access your account."
+    >
+      <ValidationErrors />
 
-          <ValidationErrors />
-
-          <TgForm action="login/submit_login" params={[loginUrl]}>
-            <label htmlFor="identifier">{identifierLabel}</label>
-            <input
-              id="identifier"
-              type="text"
-              name="identifier"
-              placeholder={identifierLabel}
-              autoComplete="username"
-              required
-            />
-
-            <label htmlFor="password">{passwordLabel}</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              placeholder={passwordLabel}
-              autoComplete="current-password"
-              required
-            />
-
-            {allowRemember ? (
-              <div>
-                <label className="mb-2">
-                  <input type="checkbox" name="remember" value="1" /> Remember me
-                </label>
-              </div>
-            ) : null}
-
-            <div className="mt-1">
-              <button type="submit" className="button">
-                Sign In
-              </button>{" "}
-              <a href={siteUrl("")} className="button alt">
-                Cancel
-              </a>
-            </div>
-          </TgForm>
-
-          {forgotUrl !== null ? (
-            <p className="sm text-center">
-              <a href={siteUrl(forgotUrl)}>Forgot your password?</a>
-            </p>
-          ) : null}
+      <TgForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="identifier">{identifierLabel}</Label>
+          <Input
+            id="identifier"
+            type="text"
+            name="identifier"
+            placeholder={identifierLabel}
+            autoComplete="username"
+            required
+          />
         </div>
-      </div>
-    </>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">{passwordLabel}</Label>
+          <Input
+            id="password"
+            type="password"
+            name="password"
+            placeholder={passwordLabel}
+            autoComplete="current-password"
+            required
+          />
+        </div>
+
+        {allowRemember ? (
+          <Label className="flex items-center gap-2 text-sm font-normal">
+            <input type="checkbox" name="remember" value="1" className="m-0 size-4" />
+            Remember me
+          </Label>
+        ) : null}
+
+        <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+          <Button type="submit" className="w-full">
+            Sign In
+          </Button>
+          <Button asChild variant="outline" className="w-full">
+            <a href={site_url("")}>Cancel</a>
+          </Button>
+        </div>
+      </TgForm>
+
+      {forgotUrl !== null ? (
+        <p className="mt-4 text-center text-sm">
+          <a
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href={site_url(forgotUrl)}
+          >
+            Forgot your password?
+          </a>
+        </p>
+      ) : null}
+    </AuthShell>
   );
 }

@@ -1,4 +1,5 @@
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
 import { ResetButton } from "./ResetButton";
 
 /**
@@ -15,21 +16,21 @@ export default function EvoGenerationError({
   );
 
   return (
-    <div>
-      <p className="error-msg">{text}</p>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <p
+        className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+        role="alert"
+      >
+        {text}
+      </p>
       {moreInfoUrl !== "" ? (
-        <div className="mt-0">
-          <a
-            className="button learn-more"
-            href={moreInfoUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
+        <Button asChild variant="outline">
+          <a href={moreInfoUrl} target="_blank" rel="noreferrer">
             Learn More About This Error
           </a>
-        </div>
+        </Button>
       ) : null}
-      <div className="mt-1">
+      <div>
         <ResetButton label="Okay" />
       </div>
     </div>

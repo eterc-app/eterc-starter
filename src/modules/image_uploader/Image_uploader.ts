@@ -3,22 +3,22 @@ import * as path from "node:path";
 import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { BASE_URL } from "@/engine/config";
-import { csrfToken } from "@/engine/csrf";
-import { setFlashdata } from "@/engine/flashdata";
+import { csrf_token } from "@/engine/csrf";
+import { set_flashdata } from "@/engine/Flashdata";
 import { post } from "@/engine/post";
 import { PROJECT_ROOT } from "@/engine/paths";
-import { getContext, segment } from "@/engine/request-context";
-import { makeRandStr } from "@/engine/string-service";
+import { get_context, segment } from "@/engine/request-context";
+import { make_rand_str } from "@/engine/String_service";
 import { TgHttpError } from "@/engine/signals";
-import { redirect } from "@/engine/url";
-import { blockUrl } from "@/modules/utilities/Utilities";
+import { redirect } from "@/engine/Url";
+import { block_url } from "@/modules/utilities/Utilities";
 import { moduleAssetsDir } from "@/modules/file/upload-paths";
 import Image, { type ImageUploadConfig, type ImageUploadInfo } from "@/modules/image/Image";
 import {
-  ImageUploaderModel,
+  Image_uploader_model,
   type UploaderSettings,
 } from "./Image_uploader_model";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 
 /**
  * Image_uploader controller — runtime for generated single-image features.
@@ -52,22 +52,22 @@ const IMAGE_EXTENSIONS: Record<string, string[]> = {
   "image/webp": ["webp"],
 };
 
-export default class ImageUploader extends Trongate {
+export default class Image_uploader extends Trongate {
   constructor(moduleName?: string | null) {
     super(moduleName);
-    this.model = new ImageUploaderModel(this.module_name || "image_uploader");
+    this.model = new Image_uploader_model(this.module_name || "image_uploader");
   }
 
   // -------------------------------------------------------------------------
   // Service accessors (PHP: $this->model, $this->trongate_security)
   // -------------------------------------------------------------------------
 
-  private uploaderModel(): ImageUploaderModel {
-    return this.model as ImageUploaderModel;
+  private uploaderModel(): Image_uploader_model {
+    return this.model as Image_uploader_model;
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
@@ -83,7 +83,7 @@ export default class ImageUploader extends Trongate {
    * the show page must look exactly as if this call had never been made.
    */
   async draw_panel(module_name?: string | null): Promise<ReactNode> {
-    blockUrl("image_uploader/draw_panel");
+    block_url("image_uploader/draw_panel");
 
     const module = String(module_name ?? segment(1) ?? "").toLowerCase();
     const update_id = Number(segment(3, "int"));
@@ -94,7 +94,7 @@ export default class ImageUploader extends Trongate {
       return null; // No uploader configured — render nothing.
     }
 
-    const panel_id = makeRandStr(16);
+    const panel_id = make_rand_str(16);
     const data = this.panel_data(settings, module, update_id, panel_id);
 
     if (data === null) {
@@ -115,7 +115,7 @@ export default class ImageUploader extends Trongate {
   async render_panel_body(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
 
-    const headers = getContext().headers;
+    const headers = get_context().headers;
     const module = String(headers.get("x-module") ?? "").toLowerCase();
     const update_id_header = headers.get("x-update-id");
     const update_id =
@@ -258,7 +258,7 @@ export default class ImageUploader extends Trongate {
       this.delete_recorded_files(settings, module, update_id, old_file_name);
     }
 
-    setFlashdata("The picture was successfully uploaded");
+    set_flashdata("The picture was successfully uploaded");
     redirect(`${module}/show/${update_id}`);
   }
 
@@ -332,7 +332,7 @@ export default class ImageUploader extends Trongate {
    * or the settings no longer exist.
    */
   delete_files(params: Record<string, unknown> = {}): void {
-    blockUrl("image_uploader/delete_files");
+    block_url("image_uploader/delete_files");
 
     const module = String(params.module_name ?? "").toLowerCase();
     const update_id = Number(params.update_id ?? 0);
@@ -387,7 +387,7 @@ export default class ImageUploader extends Trongate {
       module: module,
       update_id: update_id,
       panel_id: panel_id,
-      csrf_token: csrfToken(),
+      csrf_token: csrf_token(),
       file_name: file_name,
       thumbnails: settings.thumbnails,
       upload_url: `${BASE_URL}image_uploader/upload_form/${module}/${update_id}`,
@@ -463,7 +463,7 @@ export default class ImageUploader extends Trongate {
       form_location: `${BASE_URL}image_uploader/submit_upload`,
       view_module: "image_uploader",
       view_file: "upload_form",
-      // The port's TemplatesService addresses views with camelCase keys.
+      // The port's Templates addresses views with camelCase keys.
       viewModule: "image_uploader",
       viewFile: "upload_form",
     };
@@ -697,7 +697,7 @@ export default class ImageUploader extends Trongate {
     message: string
   ): never {
     this.rollback_upload(folder, before);
-    setFlashdata(`The picture could not be uploaded: ${message}.`);
+    set_flashdata(`The picture could not be uploaded: ${message}.`);
     redirect(`image_uploader/upload_form/${module}/${update_id}`);
   }
 

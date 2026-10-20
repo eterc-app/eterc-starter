@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 /**
  * Generation result — port of
  * image_uploader_builder/views/generate_result.php.
@@ -21,39 +23,29 @@ export function GenerateResultStep({
 }) {
   if (error) {
     return (
-      <div className="center-stage">
-        <div className="mt-1">
-          <strong>{headline ?? "Generation Error"}</strong>
-        </div>
-        <p style={{ color: "#b00020" }}>{error}</p>
-        <div className="mt-1">
-          <button type="button" onClick={onOkay}>
-            Okay
-          </button>
-        </div>
+      <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+        <h2>{headline ?? "Generation Error"}</h2>
+        <p className="text-sm font-medium text-destructive">{error}</p>
+        <Button type="button" variant="outline" onClick={onOkay}>
+          Okay
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">
-        <strong>Image Uploader Successfully Created</strong>
-      </div>
-
-      <div className="mt-1">
-        <button
-          type="button"
-          className="success"
-          onClick={() => onViewModule(moduleUrl ?? "")}
-        >
-          View {moduleLabel} Module
-        </button>
-      </div>
-      <div className="mt-1">
-        <button type="button" onClick={onOkay}>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Image Uploader Successfully Created</h2>
+      <Button
+        type="button"
+        onClick={() => onViewModule(moduleUrl ?? "")}
+      >
+        View {moduleLabel} Module
+      </Button>
+      <div>
+        <Button type="button" variant="outline" onClick={onOkay}>
           Okay
-        </button>
+        </Button>
       </div>
     </div>
   );

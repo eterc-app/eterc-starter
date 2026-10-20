@@ -29,6 +29,7 @@ export function PerPageSelect({
         window.location.href =
           base + module + "/set_per_page/" + event.target.value;
       }}
+      className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {options.map((option, index) => (
         <option key={index} value={index}>

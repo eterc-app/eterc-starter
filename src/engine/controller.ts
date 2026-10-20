@@ -1,8 +1,8 @@
 import { Db } from "./db";
 import { Model } from "./model";
-import { ValidationService } from "./validation";
-import { TrongateTokensService } from "./tokens";
-import { TemplatesService } from "./templates";
+import { Validation } from "./Validation";
+import { Trongate_tokens } from "./Trongate_tokens";
+import { Templates } from "./Templates";
 
 /**
  * Trongate base controller — port of engine/Trongate.php.
@@ -12,7 +12,7 @@ import { TemplatesService } from "./templates";
  * `this.templates`, `this.trongate_tokens`, ...).
  *
  * Unknown properties resolve through the synchronously-registered service
- * factories (see registerSyncService) with a lazy per-request cache.
+ * factories (see register_sync_service) with a lazy per-request cache.
  */
 
 type SyncFactory = (controller: Trongate) => unknown;
@@ -20,7 +20,7 @@ type SyncFactory = (controller: Trongate) => unknown;
 const syncFactories = new Map<string, SyncFactory>();
 
 /** Register a synchronously-available service/controller (called at boot). */
-export function registerSyncService(name: string, factory: SyncFactory): void {
+export function register_sync_service(name: string, factory: SyncFactory): void {
   syncFactories.set(name, factory);
 }
 
@@ -36,9 +36,9 @@ export class Trongate {
   child_module = "";
 
   db!: Db;
-  validation!: ValidationService;
+  validation!: Validation;
   model!: Model;
-  templates!: TemplatesService;
+  templates!: Templates;
 
   constructor(moduleName?: string | null) {
     this.module_name = moduleName ?? "";
@@ -55,8 +55,8 @@ export class Trongate {
     const key = name.toLowerCase();
     if (this.instances[key]) return this.instances[key] as T;
 
-    const { loadController } = await import("./router");
-    const instance = await loadController(key);
+    const { load_controller } = await import("./router");
+    const instance = await load_controller(key);
     this.instances[key] = instance;
     return instance as T;
   }
@@ -74,7 +74,7 @@ export class Trongate {
    * Resolve properties not declared on the subclass through the sync service
    * registry — the equivalent of PHP's __get() auto-loading.
    */
-  static createProxy<T extends Trongate>(controller: T): T {
+  static create_proxy<T extends Trongate>(controller: T): T {
     return new Proxy(controller, {
       get(target, prop, receiver) {
         if (typeof prop === "symbol") {
@@ -97,7 +97,7 @@ export class Trongate {
 
         // Well-known framework singleton.
         if (prop === "trongate_tokens") {
-          const service = new TrongateTokensService();
+          const service = new Trongate_tokens();
           if (cached) cached[prop] = service;
           return service;
         }
@@ -109,16 +109,16 @@ export class Trongate {
 }
 
 /** Wire the standard framework services onto a freshly created controller. */
-export function prepareController(controller: Trongate, moduleName: string): Trongate {
+export function prepare_controller(controller: Trongate, moduleName: string): Trongate {
   controller.db = new Db(moduleName);
-  const validation = new ValidationService();
+  const validation = new Validation();
   validation.set_caller(controller);
   controller.validation = validation;
-  controller.templates = templatesService;
+  controller.templates = templates_service;
   if (!controller.model) {
     controller.model = new Model(moduleName);
   }
-  return Trongate.createProxy(controller);
+  return Trongate.create_proxy(controller);
 }
 
-export const templatesService = new TemplatesService();
+export const templates_service = new Templates();

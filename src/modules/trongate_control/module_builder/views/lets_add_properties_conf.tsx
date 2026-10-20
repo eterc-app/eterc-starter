@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Step 3 — port of module_builder/views/lets_add_properties_conf.php.
@@ -68,55 +71,42 @@ export function LetsAddPropertiesConfStep({
   };
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">Now Add Some Properties</div>
-      <div className="mt-1">
-        <button type="button" onClick={openBuilder}>
-          Okay
-        </button>
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Now Add Some Properties</h2>
+      <Button type="button" onClick={openBuilder}>
+        Okay
+      </Button>
 
-      <div className="mt-1">
-        <label htmlFor="properties-json">Properties (JSON)</label>
-        <textarea
+      <div className="space-y-2">
+        <Label htmlFor="properties-json">Properties (JSON)</Label>
+        <Textarea
           id="properties-json"
           rows={12}
-          style={{ width: "100%", fontFamily: "monospace" }}
+          className="min-h-48 font-mono"
           value={propertiesJson}
           onChange={(event) => setPropertiesJson(event.target.value)}
         />
       </div>
-      {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
-      <div className="mt-1">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onContinue(propertiesJson)}
-        >
-          Continue
-        </button>
-      </div>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={busy}
+        onClick={() => onContinue(propertiesJson)}
+      >
+        Continue
+      </Button>
 
       {builderOpen ? (
         <div
           role="dialog"
           aria-label="Properties Builder"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(0, 0, 0, 0.6)",
-          }}
+          className="fixed inset-0 z-[1000] bg-black/60"
         >
           <iframe
             src="/trongate_control-properties_builder/web"
             title="Properties Builder"
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "0",
-              background: "#fff",
-            }}
+            className="h-full w-full border-0 bg-white"
           />
         </div>
       ) : null}

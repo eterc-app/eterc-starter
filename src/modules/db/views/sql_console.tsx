@@ -4,11 +4,22 @@ import { useState } from "react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * SQL console — run one SQL statement against the SQLite database.
  *
- * Rendered by DbAdmin::sql_console() with
+ * Rendered by Db::sql_console() with
  * { headline, tables, browse_url_root, tables_url, sample_sql }.
  *
  * Statements POST as JSON to /api/xhr/db/run_sql; the model returns a
@@ -40,7 +51,7 @@ interface XhrReply<T> {
 }
 
 export default function SqlConsole({ data }: TgViewProps) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
 
   const tables = (data.tables ?? []) as TableSummary[];
   const browse_url_root = String(data.browse_url_root ?? "").replace(/\/+$/, "");
@@ -59,7 +70,7 @@ export default function SqlConsole({ data }: TgViewProps) {
       const response = await fetch("/api/xhr/db/run_sql", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql, csrf_token: csrfToken }),
+        body: JSON.stringify({ sql, csrf_token: csrf_token }),
       });
       const json = (await response.json()) as XhrReply<SqlResult>;
 
@@ -77,20 +88,22 @@ export default function SqlConsole({ data }: TgViewProps) {
   };
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
       <Flashdata />
 
-      <div className="card">
-        <div className="card-heading">Run SQL</div>
-        <div className="card-body">
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Run SQL</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void run();
             }}
+            className="space-y-4"
           >
-            <textarea
+            <Textarea
               name="sql"
               rows={8}
               value={sql}
@@ -98,81 +111,99 @@ export default function SqlConsole({ data }: TgViewProps) {
               placeholder="SELECT * FROM sqlite_master WHERE type = 'table';"
               spellCheck={false}
               autoComplete="off"
+              className="min-h-40 font-mono text-sm"
             />
-            <div className="text-center">
-              <a className="button alt" href={String(data.tables_url ?? "")}>
-                Database Tables
-              </a>
-              <button type="submit" disabled={busy || sql.trim() === ""}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button asChild variant="outline">
+                <a href={String(data.tables_url ?? "")}>Database Tables</a>
+              </Button>
+              <Button type="submit" disabled={busy || sql.trim() === ""}>
                 {busy ? "Running…" : "Run SQL"}
-              </button>
+              </Button>
             </div>
           </form>
 
           {error ? (
-            <p style={{ color: "red" }} role="alert">
+            <p
+              className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
-
-          {busy ? <div className="spinner spinner-lhs"></div> : null}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {result ? (
-        <div className="card">
-          <div
-            className={`card-heading${result.ok ? " success" : " danger"}`}
-          >
-            {result.ok ? "Result" : "SQL Error"}
-          </div>
-          <div className="card-body">
-            <p style={{ color: result.ok ? "green" : "red" }}>{result.message}</p>
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>
+              <span className={result.ok ? "text-emerald-600" : "text-destructive"}>
+                {result.ok ? "Result" : "SQL Error"}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <p
+              className={
+                result.ok
+                  ? "text-sm text-emerald-700"
+                  : "text-sm font-medium text-destructive"
+              }
+            >
+              {result.message}
+            </p>
 
             {result.ok && result.columns.length > 0 && result.rows.length > 0 ? (
-              <table className="records-table">
-                <thead>
-                  <tr>
-                    {result.columns.map((column) => (
-                      <th key={column}>{column}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.map((row, row_index) => (
-                    <tr key={row_index}>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
                       {result.columns.map((column) => (
-                        <td key={column}>{format_cell(row[column])}</td>
+                        <TableHead key={column} className="px-3">
+                          {column}
+                        </TableHead>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {result.rows.map((row, row_index) => (
+                      <TableRow key={row_index}>
+                        {result.columns.map((column) => (
+                          <TableCell key={column} className="px-3">
+                            {format_cell(row[column])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : null}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {/* Quick access to every table, alongside the SQL form. */}
       {tables.length > 0 ? (
-        <div className="card options-card">
-          <div className="card-heading">Tables</div>
-          <div className="card-body">
-            <div className="actions">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>Tables</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-2">
               {tables.map((table) => (
-                <a
-                  className="button alt"
-                  key={table.name}
-                  href={`${browse_url_root}/${table.name}`}
-                >
-                  {table.name} ({table.num_rows.toLocaleString("en-US")})
-                </a>
+                <Button asChild variant="outline" size="sm" key={table.name}>
+                  <a href={`${browse_url_root}/${table.name}`}>
+                    {table.name} ({table.num_rows.toLocaleString("en-US")})
+                  </a>
+                </Button>
               ))}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
-    </>
+    </div>
   );
 }
 

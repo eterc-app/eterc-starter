@@ -2,19 +2,19 @@ import { createElement, type ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { ENV } from "@/engine/config";
 import { post } from "@/engine/post";
-import { getContext } from "@/engine/request-context";
-import { sessionUnset } from "@/engine/session";
+import { get_context } from "@/engine/request-context";
+import { session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { redirect, siteUrl } from "@/engine/url";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
-import { registerViews } from "@/engine/views-registry";
+import type { TgTemplateData } from "@/engine/Templates";
+import { redirect, site_url } from "@/engine/Url";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import { register_views } from "@/engine/views-registry";
 import { FloGenerator } from "./FloGenerator";
 import type { GenerationData, GenerationResult } from "./FloTypes";
 import { FloTrigger } from "./FloTrigger";
 import { views } from "./views";
 
-registerViews(views);
+register_views(views);
 
 /**
  * Flo — port of modules/trongate_control/flo/Flo.php.
@@ -46,8 +46,8 @@ export default class Flo extends Trongate {
     }
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
@@ -112,10 +112,10 @@ export default class Flo extends Trongate {
     const result = await this.run_generation(this.get_posted_values());
     const module_url =
       result.status === "success" && result.module_name
-        ? siteUrl(`${result.module_name}/manage`)
+        ? site_url(`${result.module_name}/manage`)
         : "";
 
-    if (getContext().isAjax) {
+    if (get_context().isAjax) {
       return {
         ...result,
         ok: result.status === "success",
@@ -145,7 +145,7 @@ export default class Flo extends Trongate {
    */
   async reset(): Promise<Record<string, unknown>> {
     this.securityService().make_sure_allowed();
-    sessionUnset("evo_wizard");
+    session_unset("evo_wizard");
     return { ok: true };
   }
 
@@ -166,7 +166,7 @@ export default class Flo extends Trongate {
     const generated = this.generator().list_modules().map((module) => ({
       ...module,
       label: module.nav_label || module.record_name_plural || module.module_name,
-      href: siteUrl(`${module.module_name}/manage`),
+      href: site_url(`${module.module_name}/manage`),
     }));
 
     const data: TgTemplateData = {
@@ -174,7 +174,7 @@ export default class Flo extends Trongate {
       viewFile: "home",
       pageTitle: "Flo — Code Generator",
       api_base: "/api/xhr/trongate_control-flo",
-      module_builder_url: siteUrl("trongate_control-module_builder"),
+      module_builder_url: site_url("trongate_control-module_builder"),
       generated_modules: generated,
       generation_result: result,
       module_url,
@@ -204,7 +204,7 @@ export default class Flo extends Trongate {
   /** Read the posted generator values (JSON body first, then form fields). */
   private get_posted_values(): GenerationData {
     const values: Record<string, unknown> = {};
-    const json = getContext().json;
+    const json = get_context().json;
 
     if (json !== null && typeof json === "object" && !Array.isArray(json)) {
       for (const [key, value] of Object.entries(

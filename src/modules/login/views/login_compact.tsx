@@ -1,12 +1,13 @@
 import type { TgViewProps } from "@/engine/views-registry";
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AuthShell } from "./AuthShell";
 
-/**
- * Login form (compact) — port of modules/login/views/login_compact.php.
- * The original CSS was inline in the view; it is preserved verbatim here.
- */
+/** Login form (compact) — port of modules/login/views/login_compact.php. */
 export function LoginCompact({ data }: TgViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(
@@ -18,198 +19,54 @@ export function LoginCompact({ data }: TgViewProps) {
     typeof data.forgot_password_url === "string" ? data.forgot_password_url : null;
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: LOGIN_COMPACT_CSS }} />
-      <main>
-        <TgForm action="login/submit_login" params={[loginUrl]} className="card" id="loginForm">
-          <div className="card-heading">
-            <h2>Log In</h2>
-          </div>
+    <AuthShell title="Log In">
+      <ValidationErrors />
 
-          <div className="card-body">
-            <ValidationErrors />
+      <TgForm
+        action="login/submit_login"
+        params={[loginUrl]}
+        className="space-y-4"
+        id="loginForm"
+      >
+        <div className="space-y-2">
+          <Label htmlFor="identifier">{identifierLabel}</Label>
+          <Input
+            id="identifier"
+            type="text"
+            name="identifier"
+            placeholder={identifierLabel}
+            autoComplete="username"
+            required
+          />
+        </div>
 
-            <div className="form-group">
-              <label htmlFor="identifier">{identifierLabel}</label>
-              <input
-                id="identifier"
-                type="text"
-                name="identifier"
-                placeholder={identifierLabel}
-                autoComplete="username"
-                required
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">{passwordLabel}</Label>
+          <Input
+            id="password"
+            type="password"
+            name="password"
+            placeholder={passwordLabel}
+            autoComplete="current-password"
+            required
+          />
+        </div>
 
-            <div className="form-group">
-              <label htmlFor="password">{passwordLabel}</label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                placeholder={passwordLabel}
-                autoComplete="current-password"
-                required
-              />
-            </div>
+        <Button type="submit" className="w-full">
+          Log In
+        </Button>
 
-            <button type="submit" className="button">
-              Log In
-            </button>
-
-            {forgotUrl !== null ? (
-              <p className="mt-1 text-center">
-                <a href={siteUrl(forgotUrl)}>Forgot password?</a>
-              </p>
-            ) : null}
-          </div>
-        </TgForm>
-      </main>
-    </>
+        {forgotUrl !== null ? (
+          <p className="text-center text-sm">
+            <a
+              className="font-medium text-primary underline-offset-4 hover:underline"
+              href={site_url(forgotUrl)}
+            >
+              Forgot password?
+            </a>
+          </p>
+        ) : null}
+      </TgForm>
+    </AuthShell>
   );
 }
-
-// Verbatim port of the <style> block from login_compact.php.
-const LOGIN_COMPACT_CSS = `
-:root {
-    --primary-color: #4f46e5;
-    --primary-hover: #4338ca;
-    --text-color: #1f2937;
-    --text-muted: #6b7280;
-    --bg-glass: #ffffff;
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --input-border: #d1d5db;
-    --input-focus: #4f46e5;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f3f4f6;
-    background: linear-gradient(135deg, #252427 0.000%, #262528 5.000%, #27252b 10.000%, #29272e 15.000%, #2c2833 20.000%, #2f2a39 25.000%, #322d40 30.000%, #362f47 35.000%, #3b334e 40.000%, #403656 45.000%, #453a5d 50.000%, #4b3e64 55.000%, #51426a 60.000%, #584770 65.000%, #5f4d74 70.000%, #675277 75.000%, #6f5879 80.000%, #785e7a 85.000%, #816579 90.000%, #8a6c77 95.000%, #947373 100.000%);
-    color: var(--text-color);
-    padding: 20px;
-}
-
-.card {
-    background: var(--bg-glass);
-    width: 100%;
-    max-width: 400px;
-    padding: 2.5rem;
-    border-radius: 1rem;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid rgba(0,0,0,0.05);
-}
-
-.card-heading h2 {
-    text-align: center;
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-bottom: 2rem;
-    color: var(--text-color);
-    letter-spacing: -0.025em;
-}
-
-.form-group {
-    margin-bottom: 1.25rem;
-    position: relative;
-}
-
-label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    color: var(--text-color);
-}
-
-input[type="text"],
-input[type="email"],
-input[type="password"] {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    border: 1px solid var(--input-border);
-    border-radius: 0.5rem;
-    transition: all 0.2s ease;
-    outline: none;
-    background-color: #f9fafb;
-}
-
-input:focus {
-    border-color: var(--input-focus);
-    background-color: #fff;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-}
-
-button[type="submit"] {
-    width: 100%;
-    padding: 0.875rem;
-    margin-top: 1rem;
-    background-color: var(--primary-color);
-    color: white;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-button[type="submit"]:hover {
-    background-color: var(--primary-hover);
-}
-
-.validation-errors {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
-    color: #991b1b;
-    font-size: 0.875rem;
-}
-
-.validation-errors p {
-    margin-bottom: 0.25rem;
-}
-
-.validation-errors p:last-child {
-    margin-bottom: 0;
-}
-
-.validation-errors li {
-    margin-left: 1.2em;
-    padding-left: 0;
-}
-
-.mt-1 {
-    margin-top: 1rem;
-}
-
-.text-center {
-    text-align: center;
-}
-
-a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-a:hover {
-    color: var(--primary-hover);
-    text-decoration: underline;
-}
-`;

@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { BASE_URL, ENV } from "@/engine/config";
 import { post } from "@/engine/post";
-import { getLastSegment, redirect, segment, siteUrl } from "@/engine/url";
+import { get_last_segment, redirect, segment, site_url } from "@/engine/Url";
 import { TgHttpError } from "@/engine/signals";
-import type { TrongateTokensService } from "@/engine/tokens";
-import { LoginModel } from "./Login_model";
-import ForgotPassword from "./forgot_password/ForgotPassword";
+import type { Trongate_tokens } from "@/engine/Trongate_tokens";
+import { Login_model } from "./Login_model";
+import Forgot_password from "./forgot_password/Forgot_password";
 
 /**
  * Login module — port of modules/login/Login.php.
@@ -28,15 +28,15 @@ import ForgotPassword from "./forgot_password/ForgotPassword";
 export default class Login extends Trongate {
   constructor(moduleName?: string | null) {
     super(moduleName);
-    this.model = new LoginModel("login");
+    this.model = new Login_model("login");
   }
 
-  private loginModel(): LoginModel {
-    return this.model as LoginModel;
+  private loginModel(): Login_model {
+    return this.model as Login_model;
   }
 
-  private tokens(): TrongateTokensService {
-    return this.trongate_tokens as TrongateTokensService;
+  private tokens(): Trongate_tokens {
+    return this.trongate_tokens as Trongate_tokens;
   }
 
   /**
@@ -54,7 +54,7 @@ export default class Login extends Trongate {
    */
   private resolve_level(allow_default = false): number {
     const levels = this.loginModel().get_configured_level_configs();
-    const last_segment = getLastSegment();
+    const last_segment = get_last_segment();
 
     // Check if the last URL segment matches a configured secret word.
     for (const [level_id, config] of Object.entries(levels)) {
@@ -94,7 +94,7 @@ export default class Login extends Trongate {
     levels: Record<number, { secret_login_word?: string }>,
     matched_level: number
   ): number {
-    const last = getLastSegment();
+    const last = get_last_segment();
     const level = parseInt(last, 10);
 
     if (level > 0 && levels[level]) {
@@ -138,7 +138,7 @@ export default class Login extends Trongate {
     const view_file = config.view_file || "login_default";
 
     const data: Record<string, unknown> = {
-      form_location: siteUrl(`login/submit_login/${level_slug}`),
+      form_location: site_url(`login/submit_login/${level_slug}`),
       user_level_id,
       login_url: level_slug,
       fields: config.fields,
@@ -306,8 +306,8 @@ export default class Login extends Trongate {
   // -----------------------------------------------------------------
 
   /** Load the login-forgot_password child module (PHP: $this->module()). */
-  private forgotPasswordModule(): ForgotPassword {
-    return new ForgotPassword(this, "login-forgot_password");
+  private forgotPasswordModule(): Forgot_password {
+    return new Forgot_password(this, "login-forgot_password");
   }
 
   /** Display the forgot password form. */

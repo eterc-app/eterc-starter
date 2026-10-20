@@ -141,7 +141,7 @@ export function isDigits(value: string): boolean {
  * (e.g. "Postage &amp; Packaging"). The original rendered suggestions with
  * innerHTML, so the browser decoded them.
  */
-export function decodeHtmlEntities(value: string): string {
+export function decode_html_entities(value: string): string {
   return value
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")

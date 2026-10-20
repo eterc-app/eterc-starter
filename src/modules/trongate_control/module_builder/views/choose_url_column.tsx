@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { WizardProperty } from "../Module_builder";
 
 /**
@@ -21,33 +22,46 @@ export function ChooseUrlColumnStep({
   const [showingOptions, setShowingOptions] = useState(false);
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">Choose URL Column</div>
-      <div className="mt-1">
-        <button
-          type="button"
-          className="selector-btn"
-          onClick={() => setShowingOptions(true)}
-          disabled={busy}
-        >
-          Select Option...
-        </button>
-        <p>Submit empty option if not required</p>
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Choose URL Column</h2>
+      <p className="text-sm text-muted-foreground">
+        The URL column is used when linking to a record. Submit an empty option
+        if a URL column is not required.
+      </p>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowingOptions(true)}
+        disabled={busy}
+      >
+        Select Option...
+      </Button>
 
       {showingOptions ? (
-        <div id="uc-options-list">
-          <ul className="options-selector">
-            <li onClick={() => onSelect("")}>&nbsp;</li>
-            {properties.map((prop, index) => {
-              const propName = prop.propertyName ?? "";
-              return (
-                <li key={`${propName}-${index}`} onClick={() => onSelect(propName)}>
-                  {propName}
-                </li>
-              );
-            })}
-          </ul>
+        <div id="uc-options-list" className="space-y-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => onSelect("")}
+          >
+            No URL column
+          </Button>
+          {properties.map((prop, index) => {
+            const propName = prop.propertyName ?? "";
+            return (
+              <Button
+                key={`${propName}-${index}`}
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => onSelect(propName)}
+              >
+                {propName}
+              </Button>
+            );
+          })}
         </div>
       ) : null}
     </div>

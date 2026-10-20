@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 /**
  * Pre-generation confirmation — port of
  * module_relations_builder/views/conf_generate_relation.php.
@@ -20,34 +22,20 @@ export function ConfGenerateRelationStep({
   error?: string;
 }) {
   return (
-    <div className="center-stage">
-      <div id="form-area">
-        <div className="mt-1">
-          <button
-            type="button"
-            className="highlight"
-            onClick={onGenerate}
-            disabled={busy}
-          >
-            Generate Relation
-          </button>
-        </div>
-        <div className="mt-1">
-          <button type="button" onClick={onViewDetails}>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Generate Relation</h2>
+      <div id="form-area" className="space-y-3">
+        <Button type="button" onClick={onGenerate} disabled={busy}>
+          Generate Relation
+        </Button>
+        <div>
+          <Button type="button" variant="outline" onClick={onViewDetails}>
             View Relation Details
-          </button>
+          </Button>
         </div>
         {error ? (
-          <div className="mt-1" style={{ color: "#b00020" }}>
-            <p>{error}</p>
-          </div>
+          <p className="text-sm font-medium text-destructive">{error}</p>
         ) : null}
-      </div>
-      <div id="loading" className="mx-indicator" style={{ display: "none" }}>
-        <img
-          src="/trongate_control-module_relations_builder_module/images/loader.svg"
-          alt="loading"
-        />
       </div>
     </div>
   );

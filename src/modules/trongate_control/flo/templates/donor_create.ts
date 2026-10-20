@@ -4,6 +4,11 @@
 export const DONOR_CREATE_TEMPLATE = `import type { TgViewProps } from "@/engine/views-registry";
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Create/update <?= singular_comment ?> form
@@ -13,31 +18,34 @@ export default function Create({ data }: TgViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">
+        {String(data.headline ?? "")}
+      </h1>
       <ValidationErrors />
-      <div className="card">
-        <div className="card-heading">
-          <?= record_name_singular ?> Details
-        </div>
-        <div className="card-body">
-          <TgForm action="<?= module_folder_name ?>/submit" params={[update_id]}>
+
+      <Card>
+        <CardHeader>
+          <CardTitle><?= record_name_singular ?> Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TgForm action="<?= module_folder_name ?>/submit" params={[update_id]} className="space-y-4">
 <?= dynamic_form_fields ?>
-            <div className="text-center">
-              <a className="button alt" href={String(data.cancel_url ?? "")}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Submit">
+            <div className="flex flex-wrap justify-center gap-2 pt-4">
+              <Button asChild variant="outline">
+                <a href={String(data.cancel_url ?? "")}>Cancel</a>
+              </Button>
+              <Button type="submit" name="submit" value="Submit">
                 Submit
-              </button>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 <?php if (needs_date_constraint_js): ?>
       <script dangerouslySetInnerHTML={{ __html: <?= date_constraint_js_literal ?> }} />
 <?php endif; ?>
-    </>
+    </div>
   );
 }
 `;

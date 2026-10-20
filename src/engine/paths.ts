@@ -19,21 +19,21 @@ export const MODULES_DIR = path.join(PROJECT_ROOT, "src", "modules");
 /** Directory where code generators write new Next.js modules. */
 export const GENERATED_MODULES_DIR = path.join(MODULES_DIR, "generated");
 
-export function ensureDir(dir: string): string {
+export function ensure_dir(dir: string): string {
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export function dataPath(...parts: string[]): string {
-  const dir = ensureDir(path.join(DATA_DIR, ...parts.slice(0, -1)));
+export function data_path(...parts: string[]): string {
+  const dir = ensure_dir(path.join(DATA_DIR, ...parts.slice(0, -1)));
   return parts.length === 1 ? path.join(dir, parts[0]) : path.join(dir, ...parts);
 }
 
-export function ensureDataDirs(): void {
-  ensureDir(DATA_DIR);
-  ensureDir(path.join(DATA_DIR, "properties"));
-  ensureDir(path.join(DATA_DIR, "settings"));
-  ensureDir(path.join(DATA_DIR, "generated"));
-  ensureDir(UPLOADS_DIR);
-  ensureDir(GENERATED_MODULES_DIR);
+export function ensure_data_dirs(): void {
+  ensure_dir(DATA_DIR);
+  ensure_dir(path.join(DATA_DIR, "properties"));
+  ensure_dir(path.join(DATA_DIR, "settings"));
+  ensure_dir(path.join(DATA_DIR, "generated"));
+  ensure_dir(UPLOADS_DIR);
+  ensure_dir(GENERATED_MODULES_DIR);
 }

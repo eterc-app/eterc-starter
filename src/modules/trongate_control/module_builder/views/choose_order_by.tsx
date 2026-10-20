@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { WizardProperty } from "../Module_builder";
 
 /** PHP url_title() equivalent for property names (client-side). */
-function urlTitle(value: string): string {
+function url_title(value: string): string {
   return value
     .replace(/[^\p{L}\d]+/gu, "-")
     .replace(/^[-\s]+|[-\s]+$/g, "")
@@ -43,34 +44,36 @@ export function ChooseOrderByStep({
   for (const prop of properties) {
     const propName = prop.propertyName ?? "";
     if (propName === "") continue;
-    const column = urlTitle(propName).replace(/-/g, "_");
+    const column = url_title(propName).replace(/-/g, "_");
     options.push({ propertyName: propName, column });
     options.push({ propertyName: `${propName} DESC`, column: `${column} DESC` });
   }
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">Choose Default Order By</div>
-      <div className="mt-1">
-        <button
-          type="button"
-          className="selector-btn"
-          onClick={() => setShowingOptions(true)}
-          disabled={busy}
-        >
-          Select Option...
-        </button>
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Choose Default Order By</h2>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowingOptions(true)}
+        disabled={busy}
+      >
+        Select Option...
+      </Button>
 
       {showingOptions ? (
-        <div id="ob-options-list">
-          <ul className="options-selector">
-            {options.map((opt, index) => (
-              <li key={`${opt.column}-${index}`} onClick={() => onSelect(opt.column)}>
-                {opt.propertyName}
-              </li>
-            ))}
-          </ul>
+        <div id="ob-options-list" className="space-y-2">
+          {options.map((opt, index) => (
+            <Button
+              key={`${opt.column}-${index}`}
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => onSelect(opt.column)}
+            >
+              {opt.propertyName}
+            </Button>
+          ))}
         </div>
       ) : null}
     </div>

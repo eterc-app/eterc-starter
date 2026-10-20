@@ -3,6 +3,18 @@
 import { useState, type FormEvent } from "react";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { RelationsWizard } from "../types";
 
 /**
@@ -28,64 +40,8 @@ function ucwords(value: string): string {
 
 const API_ROOT = "/api/xhr/trongate_control-module_relations_builder";
 
-const PAGE_CSS = `
-.relation-summary {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5em;
-}
-
-.relation-summary td {
-    border: 1px solid #ccc;
-    padding: 8px 12px;
-}
-
-.relation-summary .row-key {
-    width: 35%;
-    background: #f4f4f4;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.form-column {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-column label {
-    margin-bottom: 5px;
-}
-
-.form-column input {
-    width: 100%;
-}
-
-.hint-text {
-    font-size: .85em;
-    color: #555;
-    margin-top: 1.5em;
-    text-align: left;
-}
-
-.form-buttons {
-    margin-top: 2em;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-}
-
-.form-buttons button {
-    margin-left: 1em;
-}
-`;
-
 export default function ConfRelationDetails({ data }: TgViewProps) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
 
   const wizard = (data.wizard ?? {}) as RelationsWizard;
   const afterCloseUrl = String(
@@ -132,7 +88,7 @@ export default function ConfRelationDetails({ data }: TgViewProps) {
     const payload: Record<string, string> = {
       identifierColumnA: String(form.get("identifierColumnA") ?? ""),
       identifierColumnB: String(form.get("identifierColumnB") ?? ""),
-      csrf_token: csrfToken,
+      csrf_token: csrf_token,
     };
 
     try {
@@ -183,7 +139,7 @@ export default function ConfRelationDetails({ data }: TgViewProps) {
     const messages = errors[field];
     if (!messages || messages.length === 0) return null;
     return (
-      <ul className="validation-errors">
+      <ul className="space-y-1 text-sm text-destructive">
         {messages.map((message, index) => (
           <li key={index}>{message}</li>
         ))}
@@ -192,75 +148,96 @@ export default function ConfRelationDetails({ data }: TgViewProps) {
   };
 
   return (
-    <div className="container">
-      <h1>Relation Details</h1>
-
-      <table className="relation-summary">
-        <tbody>
-          {summaryRows.map(([label, value]) => (
-            <tr key={label}>
-              <td className="row-key">
-                <strong>{label}</strong>
-              </td>
-              <td>{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <form
-        action="#"
-        className="highlight-errors sm"
-        onSubmit={handleSubmit}
-      >
-        <div className="form-row">
-          <div className="form-column">
-            <label htmlFor="identifierColumnA-input">
-              Identifier Column A
-            </label>
-            {fieldErrors("identifierColumnA")}
-            <input
-              type="text"
-              name="identifierColumnA"
-              id="identifierColumnA-input"
-              autoComplete="off"
-              defaultValue={wizard.identifier_column_a ?? ""}
-            />
-          </div>
-
-          <div className="form-column">
-            <label htmlFor="identifierColumnB-input">
-              Identifier Column B
-            </label>
-            {fieldErrors("identifierColumnB")}
-            <input
-              type="text"
-              name="identifierColumnB"
-              id="identifierColumnB-input"
-              autoComplete="off"
-              defaultValue={wizard.identifier_column_b ?? ""}
-            />
-          </div>
-        </div>
-
-        <p className="hint-text">
-          Identifier columns are used to describe a record in dropdowns and
-          association panels. Comma-separated multi-column values are allowed.
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+      <div>
+        <h1>Relation Details</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose the identifier columns used to describe each record in
+          dropdowns and association panels.
         </p>
+      </div>
 
-        {notice ? <p style={{ color: "#b00020" }}>{notice}</p> : null}
+      <Card className="overflow-hidden p-0">
+        <CardHeader className="border-b px-4 py-3">
+          <CardTitle>Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="px-4">Setting</TableHead>
+                <TableHead className="px-4">Value</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summaryRows.map(([label, value]) => (
+                <TableRow key={label}>
+                  <TableCell className="px-4 font-medium">{label}</TableCell>
+                  <TableCell className="px-4">{value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-        <div className="text-center form-buttons">
-          <button type="button" className="close-btn alt" onClick={closeWindow}>
-            Close Window
-          </button>
-          <button type="submit" className="submit-btn" disabled={busy}>
-            Update Details
-          </button>
-        </div>
-      </form>
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Identifier Columns</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <form action="#" className="space-y-5" onSubmit={handleSubmit}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="identifierColumnA-input">
+                  Identifier Column A
+                </Label>
+                {fieldErrors("identifierColumnA")}
+                <Input
+                  type="text"
+                  name="identifierColumnA"
+                  id="identifierColumnA-input"
+                  autoComplete="off"
+                  defaultValue={wizard.identifier_column_a ?? ""}
+                />
+              </div>
 
-      <style>{PAGE_CSS}</style>
+              <div className="space-y-2">
+                <Label htmlFor="identifierColumnB-input">
+                  Identifier Column B
+                </Label>
+                {fieldErrors("identifierColumnB")}
+                <Input
+                  type="text"
+                  name="identifierColumnB"
+                  id="identifierColumnB-input"
+                  autoComplete="off"
+                  defaultValue={wizard.identifier_column_b ?? ""}
+                />
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Identifier columns are used to describe a record in dropdowns and
+              association panels. Comma-separated multi-column values are
+              allowed.
+            </p>
+
+            {notice ? (
+              <p className="text-sm font-medium text-destructive">{notice}</p>
+            ) : null}
+
+            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+              <Button type="button" variant="outline" onClick={closeWindow}>
+                Close Window
+              </Button>
+              <Button type="submit" disabled={busy}>
+                Update Details
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

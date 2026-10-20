@@ -2,6 +2,8 @@
  * Generated not-found view — port of site_builder/views/donor_not_found.php.
  */
 export const DONOR_NOT_FOUND_TEMPLATE = `import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * <?= record_name_singular ?> not found
@@ -9,22 +11,29 @@ export const DONOR_NOT_FOUND_TEMPLATE = `import type { TgViewProps } from "@/eng
  */
 export default function NotFound({ data }: TgViewProps) {
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
-      <div className="card">
-        <div className="card-heading">
-          {String(data.headline ?? "")}
-        </div>
-        <div className="card-body">
-          <p>{String(data.message ?? "")}</p>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">
+        {String(data.headline ?? "")}
+      </h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{String(data.headline ?? "")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {String(data.message ?? "")}
+          </p>
           <div className="text-center">
-            <a className="button alt" href={String(data.back_url ?? "")}>
-              {String(data.back_label ?? "Go Back")}
-            </a>
+            <Button asChild variant="outline">
+              <a href={String(data.back_url ?? "")}>
+                {String(data.back_label ?? "Go Back")}
+              </a>
+            </Button>
           </div>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 `;

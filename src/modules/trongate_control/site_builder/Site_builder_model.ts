@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Model } from "@/engine/model";
-import { dataPath, GENERATED_MODULES_DIR, MODULES_DIR } from "@/engine/paths";
-import { urlTitle } from "@/engine/string-service";
+import { data_path, GENERATED_MODULES_DIR, MODULES_DIR } from "@/engine/paths";
+import { url_title } from "@/engine/String_service";
 import type {
   GenerateModuleInput,
   GeneratorContext,
@@ -374,7 +374,7 @@ export class Site_builder_model extends Model {
 
   /** PHP: build_form_field_name(). */
   build_form_field_name(property_name: string): string {
-    return urlTitle(property_name).replace(/-/g, "_");
+    return url_title(property_name).replace(/-/g, "_");
   }
 
   private split_range_property(
@@ -383,7 +383,7 @@ export class Site_builder_model extends Model {
   ): RangeProperty {
     const fallback = field_type === "date" ? "Date Range" : "Time Range";
     const base_name = asString(property.propertyName, fallback);
-    const base_field = urlTitle(base_name).replace(/-/g, "_");
+    const base_field = url_title(base_name).replace(/-/g, "_");
     const on_form = asString(property.onForm, "yes");
     const is_searchable = asString(property.isSearchable, "no");
     const on_summary_table = asString(property.onSummaryTable, "no");
@@ -533,7 +533,7 @@ export class Site_builder_model extends Model {
    * Build the `await this.validation.set_rules(...)` lines for submit().
    *
    * The PHP generator returned pre-indented PHP statements; the port returns
-   * indented TypeScript statements because `ValidationService::set_rules` is
+   * indented TypeScript statements because `Validation::set_rules` is
    * asynchronous.
    */
   build_validation_tests(data: GeneratorContext): string {
@@ -715,13 +715,13 @@ export class Site_builder_model extends Model {
     lines.push(
       `  ${method_name}(${parameter_name}: string): string | true {`
     );
-    lines.push("    if (!fromTrongateMx()) {");
+    lines.push("    if (!from_trongate_mx()) {");
     lines.push(
       '      throw new TgHttpError(403, "403 Forbidden - Direct URL access not permitted");'
     );
     lines.push("    }");
     lines.push(
-      `    return this.moduleModel().validate_${model_method_suffix}_in_${direction}(${parameter_name});`
+      `    return this.module_model().validate_${model_method_suffix}_in_${direction}(${parameter_name});`
     );
     lines.push("  }");
     return lines.join("\n");
@@ -937,20 +937,24 @@ export class Site_builder_model extends Model {
 
   private build_form_field_row(property: PostedProperty): string {
     const field = property.form_field_name;
-    const label = property.property_name;
-    const validation = `          <ValidationErrors field=${js(field)} />`;
+    const label = ucwords(property.property_name.replace(/_/g, " "));
+    const validation = `            <ValidationErrors field=${js(field)} />`;
 
     if (property.property_type === "boolean") {
       return [
-        "          <label>",
-        `            <input`,
-        '              type="checkbox"',
-        `              name=${js(field)}`,
-        '              value="1"',
-        `              defaultChecked={Number(data.${field} ?? 0) === 1 || data.${field} === "yes"}`,
-        "            />",
-        `            {" "}${jsxText(label)}`,
-        "          </label>",
+        '          <div className="space-y-2">',
+        '            <label className="flex items-center gap-2 text-sm font-medium">',
+        "              <input",
+        '                type="checkbox"',
+        `                name=${js(field)}`,
+        '                value="1"',
+        `                defaultChecked={Number(data.${field} ?? 0) === 1 || data.${field} === "yes"}`,
+        '                className="size-4 rounded border-input"',
+        "              />",
+        `              ${jsxText(label)}`,
+        "            </label>",
+        validation,
+        "          </div>",
       ].join("\n");
     }
 
@@ -959,15 +963,18 @@ export class Site_builder_model extends Model {
 
     if (tag === "textarea") {
       return [
-        `          <label>${jsxText(label)}</label>`,
+        '          <div className="space-y-2">',
+        `            <Label htmlFor=${js(field)}>${jsxText(label)}</Label>`,
         validation,
-        `          <textarea`,
-        `            name=${js(field)}`,
-        `            defaultValue={String(data.${field} ?? "")}`,
-        `            placeholder=${js(`Enter ${label}`)}`,
-        "            rows={5}",
+        "            <Textarea",
+        `              id=${js(field)}`,
+        `              name=${js(field)}`,
+        `              defaultValue={String(data.${field} ?? "")}`,
+        `              placeholder=${js(`Enter ${label}`)}`,
+        "              rows={5}",
         attributes,
-        "          />",
+        "            />",
+        "          </div>",
       ]
         .filter((line) => line !== "")
         .join("\n");
@@ -975,15 +982,18 @@ export class Site_builder_model extends Model {
 
     const input_type = this.form_field_input_type(property);
     return [
-      `          <label>${jsxText(label)}</label>`,
+      '          <div className="space-y-2">',
+      `            <Label htmlFor=${js(field)}>${jsxText(label)}</Label>`,
       validation,
-      `          <input`,
-      `            type=${js(input_type)}`,
-      `            name=${js(field)}`,
-      `            defaultValue={String(data.${field} ?? "")}`,
-      `            placeholder=${js(`Enter ${label}`)}`,
+      "            <Input",
+      `              id=${js(field)}`,
+      `              type=${js(input_type)}`,
+      `              name=${js(field)}`,
+      `              defaultValue={String(data.${field} ?? "")}`,
+      `              placeholder=${js(`Enter ${label}`)}`,
       attributes,
-      "          />",
+      "            />",
+      "          </div>",
     ]
       .filter((line) => line !== "")
       .join("\n");
@@ -1148,14 +1158,14 @@ export class Site_builder_model extends Model {
     const properties = data.table_properties;
     const lines: string[] = [];
 
-    lines.push("            <table className=\"records-table\">");
-    lines.push("              <thead>");
+    lines.push('            <table className="w-full border-collapse text-sm">');
+    lines.push('              <thead className="bg-muted/60">');
     lines.push("                <tr>");
-    lines.push(`                  <th colSpan={${properties.length + 1}}>`);
-    lines.push("                    <div>");
-    lines.push("                      <div>&nbsp;</div>");
-    lines.push("                      <div>");
-    lines.push("                        Records Per Page:{\" \"}");
+    lines.push(`                  <th colSpan={${properties.length + 1}} className="p-3 text-left">`);
+    lines.push('                    <div className="flex flex-wrap items-center justify-between gap-2">');
+    lines.push('                      <span className="font-semibold">Records</span>');
+    lines.push('                      <div className="flex items-center gap-2 text-sm font-normal">');
+    lines.push('                        Records Per Page:{" "}');
     lines.push("                        <PerPageSelect");
     lines.push("                          options={per_page_options}");
     lines.push("                          selected={selected_per_page}");
@@ -1165,52 +1175,64 @@ export class Site_builder_model extends Model {
     lines.push("                    </div>");
     lines.push("                  </th>");
     lines.push("                </tr>");
-    lines.push("                <tr>");
+    lines.push("                <tr className=\"border-t\">");
     for (const property of properties) {
       lines.push(
-        `                  <th className="text-left">${jsxText(
-          property.property_name
+        `                  <th className="p-3 text-left font-semibold">${jsxText(
+          ucwords(property.property_name.replace(/_/g, " "))
         )}</th>`
       );
     }
-    lines.push("                  <th>Actions</th>");
+    lines.push('                  <th className="p-3 text-right font-semibold">Actions</th>');
     lines.push("                </tr>");
     lines.push("              </thead>");
     lines.push("              <tbody>");
     lines.push("                {rows.map((row) => (");
-    lines.push("                  <tr key={String(row.id)}>");
+    lines.push('                  <tr key={String(row.id)} className="border-t transition-colors hover:bg-muted/40">');
 
     properties.forEach((property, index) => {
       const field = property.form_field_name;
       if (index === 0) {
         lines.push(
-          `                    <td><a href={siteUrl(${js(
+          `                    <td className="p-3"><a className="font-medium text-primary hover:underline" href={site_url(${js(
             `${data.module_folder_name}/show/`
           )} + String(row.id))}>{String(row.${field} ?? "")}</a></td>`
         );
       } else {
         lines.push(
-          `                    <td>{String(row.${field} ?? "")}</td>`
+          `                    <td className="p-3">{String(row.${field} ?? "")}</td>`
         );
       }
     });
 
-    lines.push("                    <td>");
-    lines.push("                      <div className=\"actions\">");
+    lines.push('                    <td className="p-3">');
+    lines.push('                      <div className="flex items-center justify-end gap-1">');
     lines.push(
-      `                        <a href={siteUrl(${js(
-        `${data.module_folder_name}/show/`
-      )} + String(row.id))} className="button alt button-round"><i className="tg tg-eye"></i></a>`
+      `                        <Button asChild variant="ghost" size="icon">
+                          <a href={site_url(${js(
+                            `${data.module_folder_name}/show/`
+                          )} + String(row.id))} aria-label="View record">
+                            <Eye className="size-4" />
+                          </a>
+                        </Button>`
     );
     lines.push(
-      `                        <a href={siteUrl(${js(
-        `${data.module_folder_name}/create/`
-      )} + String(row.id))} className="button alt button-round"><i className="tg tg-pencil"></i></a>`
+      `                        <Button asChild variant="ghost" size="icon">
+                          <a href={site_url(${js(
+                            `${data.module_folder_name}/create/`
+                          )} + String(row.id))} aria-label="Edit record">
+                            <Pencil className="size-4" />
+                          </a>
+                        </Button>`
     );
     lines.push(
-      `                        <a href={siteUrl(${js(
-        `${data.module_folder_name}/delete_conf/`
-      )} + String(row.id))} className="button alt button-round"><i className="tg tg-trash"></i></a>`
+      `                        <Button asChild variant="ghost" size="icon">
+                          <a href={site_url(${js(
+                            `${data.module_folder_name}/delete_conf/`
+                          )} + String(row.id))} aria-label="Delete record">
+                            <Trash2 className="size-4 text-destructive" />
+                          </a>
+                        </Button>`
     );
     lines.push("                      </div>");
     lines.push("                    </td>");
@@ -1225,30 +1247,34 @@ export class Site_builder_model extends Model {
   /** Build the detail grid markup for the generated show view. */
   build_dynamic_details(data: GeneratorContext): string {
     const lines: string[] = [];
-    lines.push("          <div className=\"detail-grid\">");
+    lines.push('          <div className="space-y-4">');
 
     for (const property of data.posted_properties) {
       const field = property.form_field_name;
       if (property.property_type === "textarea") {
-        lines.push("            <div className=\"detail-block\">");
         lines.push(
-          `              <div className="detail-label">${jsxText(
-            property.property_name
+          '            <div className="space-y-1 border-b pb-4 last:border-0 last:pb-0">'
+        );
+        lines.push(
+          `              <div className="text-sm font-medium text-muted-foreground">${jsxText(
+            ucwords(property.property_name.replace(/_/g, " "))
           )}</div>`
         );
         lines.push(
-          `              <div className="detail-content" style={{ whiteSpace: "pre-wrap" }}>{String(data.${field} ?? "")}</div>`
+          `              <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{String(data.${field} ?? "")}</div>`
         );
         lines.push("            </div>");
       } else {
-        lines.push("            <div className=\"detail-row\">");
         lines.push(
-          `              <div className="detail-label">${jsxText(
-            property.property_name
+          '            <div className="grid gap-1 border-b pb-4 last:border-0 last:pb-0 sm:grid-cols-[12rem_1fr]">'
+        );
+        lines.push(
+          `              <div className="text-sm font-medium text-muted-foreground">${jsxText(
+            ucwords(property.property_name.replace(/_/g, " "))
           )}</div>`
         );
         lines.push(
-          `              <div className="detail-value">{String(data.${field} ?? "")}</div>`
+          `              <div className="text-sm">{String(data.${field} ?? "")}</div>`
         );
         lines.push("            </div>");
       }
@@ -1284,31 +1310,31 @@ export class Site_builder_model extends Model {
     lines.push('import type { ReactNode } from "react";');
     lines.push('import { Trongate } from "@/engine/controller";');
     lines.push('import { BASE_URL } from "@/engine/config";');
-    lines.push('import { setFlashdata } from "@/engine/flashdata";');
-    lines.push('import { getParam, post } from "@/engine/post";');
+    lines.push('import { set_flashdata } from "@/engine/Flashdata";');
+    lines.push('import { get_param, post } from "@/engine/post";');
     lines.push(
       needs_callbacks
-        ? 'import { fromTrongateMx, getContext } from "@/engine/request-context";'
-        : 'import { getContext } from "@/engine/request-context";'
+        ? 'import { from_trongate_mx, get_context } from "@/engine/request-context";'
+        : 'import { get_context } from "@/engine/request-context";'
     );
-    lines.push('import { sessionGet, sessionSet } from "@/engine/session";');
+    lines.push('import { session_get, session_set } from "@/engine/session";');
     if (needs_callbacks) {
       lines.push('import { TgHttpError } from "@/engine/signals";');
     }
-    lines.push('import type { TgTemplateData } from "@/engine/templates";');
+    lines.push('import type { TgTemplateData } from "@/engine/Templates";');
     lines.push(
-      'import { previousUrl, redirect, segment, siteUrl } from "@/engine/url";'
+      'import { previous_url, redirect, segment } from "@/engine/Url";'
     );
-    lines.push('import { registerViews } from "@/engine/views-registry";');
+    lines.push('import { register_views } from "@/engine/views-registry";');
     lines.push(
-      'import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";'
+      'import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";'
     );
     lines.push(
       `import { ${data.class_name}_model } from "./${data.class_name}_model";`
     );
     lines.push('import { views } from "./views";');
     lines.push("");
-    lines.push("registerViews(views);");
+    lines.push("register_views(views);");
     lines.push("");
     lines.push("/**");
     lines.push(` * ${data.class_name} controller`);
@@ -1331,18 +1357,18 @@ export class Site_builder_model extends Model {
     );
     lines.push("  }");
     lines.push("");
-    lines.push("  private securityService(): TrongateSecurityService {");
+    lines.push("  private security_service(): Trongate_security {");
     lines.push(
-      "    return (this as unknown as { trongate_security: TrongateSecurityService })"
+      "    return (this as unknown as { trongate_security: Trongate_security })"
     );
     lines.push("      .trongate_security;");
     lines.push("  }");
     lines.push("");
-    lines.push(`  private moduleModel(): ${data.class_name}_model {`);
+    lines.push(`  private module_model(): ${data.class_name}_model {`);
     lines.push(`    return this.model as ${data.class_name}_model;`);
     lines.push("  }");
     lines.push("");
-    lines.push("  private baseUrl(): string {");
+    lines.push("  private base_url(): string {");
     lines.push(
       '    return BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";'
     );
@@ -1403,14 +1429,14 @@ export class Site_builder_model extends Model {
     const lines: string[] = [];
     lines.push(`  /** Display paginated list of ${data.record_name_plural.toLowerCase()}. */`);
     lines.push("  async manage(): Promise<ReactNode> {");
-    lines.push("    this.securityService().make_sure_allowed();");
+    lines.push("    this.security_service().make_sure_allowed();");
 
     if (data.has_searchable) {
       lines.push("");
-      lines.push('    let search_query = getParam("search_query");');
-      lines.push('    let search_column = getParam("search_column");');
+      lines.push('    const search_query = get_param("search_query");');
+      lines.push('    let search_column = get_param("search_column");');
       lines.push(
-        "    const allowed_columns = this.moduleModel().get_searchable_columns();"
+        "    const allowed_columns = this.module_model().get_searchable_columns();"
       );
       lines.push(
         '    if (search_column !== "" && !allowed_columns.includes(search_column)) {'
@@ -1422,14 +1448,14 @@ export class Site_builder_model extends Model {
       lines.push("    let total_rows = 0;");
       lines.push("    if (search_active) {");
       lines.push(
-        "      total_rows = this.moduleModel().count_search_results(search_query, search_column);"
+        "      total_rows = this.module_model().count_search_results(search_query, search_column);"
       );
       lines.push("    } else {");
-      lines.push("      total_rows = this.moduleModel().count_all();");
+      lines.push("      total_rows = this.module_model().count_all();");
       lines.push("    }");
     } else {
       lines.push("");
-      lines.push("    const total_rows = this.moduleModel().count_all();");
+      lines.push("    const total_rows = this.module_model().count_all();");
     }
 
     lines.push("");
@@ -1439,25 +1465,25 @@ export class Site_builder_model extends Model {
 
     if (data.has_searchable) {
       lines.push(
-        "    let rows = this.moduleModel().fetch_records(limit, offset);"
+        "    let rows = this.module_model().fetch_records(limit, offset);"
       );
       lines.push("    if (search_active) {");
       lines.push(
-        "      rows = this.moduleModel().search_records(search_query, search_column, limit, offset);"
+        "      rows = this.module_model().search_records(search_query, search_column, limit, offset);"
       );
       lines.push("    } else {");
       lines.push(
-        "      rows = this.moduleModel().fetch_records(limit, offset);"
+        "      rows = this.module_model().fetch_records(limit, offset);"
       );
       lines.push("    }");
     } else {
       lines.push(
-        "    let rows = this.moduleModel().fetch_records(limit, offset);"
+        "    let rows = this.module_model().fetch_records(limit, offset);"
       );
     }
 
     lines.push(
-      "    rows = this.moduleModel().prepare_records_for_display(rows);"
+      "    rows = this.module_model().prepare_records_for_display(rows);"
     );
     lines.push("");
     lines.push("    const data: TgTemplateData = {");
@@ -1491,19 +1517,19 @@ export class Site_builder_model extends Model {
     return [
       "  /** Display form for creating or editing a record. */",
       "  async create(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    const update_id = Number(segment(3, "int"));',
       "    let data: Record<string, unknown>;",
       "",
-      '    if (getContext().httpMethod === "GET" && update_id > 0) {',
-      "      const record = this.moduleModel().get_data_from_db(update_id);",
+      '    if (get_context().httpMethod === "GET" && update_id > 0) {',
+      "      const record = this.module_model().get_data_from_db(update_id);",
       "      if (record === false) {",
       "        return this.not_found();",
       "      }",
       "      data = record;",
       "    } else {",
-      "      data = this.moduleModel().get_data_from_post();",
+      "      data = this.module_model().get_data_from_post();",
       "    }",
       "",
       "    return this.templates.admin(this.build_create_data(data, update_id));",
@@ -1518,7 +1544,7 @@ export class Site_builder_model extends Model {
     const lines: string[] = [];
     lines.push("  /** Handle form submission for creating/updating records. */");
     lines.push("  async submit(): Promise<ReactNode> {");
-    lines.push("    this.securityService().make_sure_allowed();");
+    lines.push("    this.security_service().make_sure_allowed();");
     lines.push("");
     lines.push('    const submit = String(post("submit", true) ?? "");');
     lines.push("");
@@ -1537,20 +1563,20 @@ export class Site_builder_model extends Model {
       `        ${js(`${data.module_folder_name}/create`)},`
     );
     lines.push(
-      "        this.build_create_data(this.moduleModel().get_data_from_post(), update_id)"
+      "        this.build_create_data(this.module_model().get_data_from_post(), update_id)"
     );
     lines.push("      );");
     lines.push("    }");
     lines.push("");
     lines.push('    let update_id = Number(segment(3, "int"));');
     lines.push(
-      "    const data = this.moduleModel().get_data_from_post();"
+      "    const data = this.module_model().get_data_from_post();"
     );
     lines.push("");
     lines.push("    if (update_id > 0) {");
-    lines.push("      this.moduleModel().update_record(update_id, data);");
+    lines.push("      this.module_model().update_record(update_id, data);");
     lines.push(
-      `      setFlashdata(${js(
+      `      set_flashdata(${js(
         `${data.record_name_singular.charAt(0).toUpperCase()}${data.record_name_singular.slice(
           1
         )} updated successfully`
@@ -1560,10 +1586,10 @@ export class Site_builder_model extends Model {
     lines.push("    }");
     lines.push("");
     lines.push(
-      "    update_id = this.moduleModel().create_new_record(data);"
+      "    update_id = this.module_model().create_new_record(data);"
     );
     lines.push(
-      `    setFlashdata(${js(
+      `    set_flashdata(${js(
         `${data.record_name_singular.charAt(0).toUpperCase()}${data.record_name_singular.slice(
           1
         )} created successfully`
@@ -1578,7 +1604,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Display detailed view of a single record. */",
       "  async show(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    const update_id = Number(segment(3, "int"));',
       "",
@@ -1586,7 +1612,7 @@ export class Site_builder_model extends Model {
       '      redirect("__MODULE__/manage");',
       "    }",
       "",
-      "    const data = this.moduleModel().get_data_from_db(update_id, true);",
+      "    const data = this.module_model().get_data_from_db(update_id, true);",
       "",
       "    if (data === false) {",
       "      return this.not_found();",
@@ -1610,7 +1636,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Display confirmation page before deleting a record. */",
       "  async delete_conf(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    const update_id = Number(segment(3, "int"));',
       "",
@@ -1618,7 +1644,7 @@ export class Site_builder_model extends Model {
       "      return this.not_found();",
       "    }",
       "",
-      "    const data = this.moduleModel().get_data_for_edit(update_id);",
+      "    const data = this.module_model().get_data_for_edit(update_id);",
       "",
       "    if (data === false) {",
       "      return this.not_found();",
@@ -1630,8 +1656,8 @@ export class Site_builder_model extends Model {
       `      headline: ${js(
         `Delete ${ucwords(data.record_name_singular)} Record`
       )},`,
-      "      cancel_url: this.baseUrl() + \"__MODULE__/show/\" + update_id,",
-      "      form_location: this.baseUrl() + \"__MODULE__/submit_delete/\" + update_id,",
+      "      cancel_url: this.base_url() + \"__MODULE__/show/\" + update_id,",
+      "      form_location: this.base_url() + \"__MODULE__/submit_delete/\" + update_id,",
       "      viewModule: this.module_name,",
       '      viewFile: "delete_conf",',
       "    };",
@@ -1645,7 +1671,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Handle record deletion after confirmation. */",
       "  async submit_delete(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    const submit = String(post("submit", true) ?? "");',
       "",
@@ -1659,14 +1685,14 @@ export class Site_builder_model extends Model {
       '      redirect("__MODULE__/manage");',
       "    }",
       "",
-      "    const record = this.moduleModel().find_by_id(update_id);",
+      "    const record = this.module_model().find_by_id(update_id);",
       "",
       "    if (record === false) {",
       '      redirect("__MODULE__/manage");',
       "    }",
       "",
-      "    this.moduleModel().delete_record(update_id);",
-      '    setFlashdata("The record was successfully deleted");',
+      "    this.module_model().delete_record(update_id);",
+      '    set_flashdata("The record was successfully deleted");',
       '    redirect("__MODULE__/manage");',
       "  }",
     ];
@@ -1676,7 +1702,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Set number of records per page for pagination. */",
       "  async set_per_page(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    let selected_index = Number(segment(3, "int"));',
       "",
@@ -1684,7 +1710,7 @@ export class Site_builder_model extends Model {
       "      selected_index = 1;",
       "    }",
       "",
-      '    sessionSet("selected_per_page", selected_index);',
+      '    session_set("selected_per_page", selected_index);',
       '    redirect("__MODULE__/manage");',
       "  }",
     ];
@@ -1732,8 +1758,8 @@ export class Site_builder_model extends Model {
     return [
       "  /** Determine appropriate back URL for navigation. */",
       "  private get_back_url(): string {",
-      "    const previous = previousUrl();",
-      '    const expected = this.baseUrl() + "__MODULE__/manage";',
+      "    const previous = previous_url();",
+      '    const expected = this.base_url() + "__MODULE__/manage";',
       "",
       '    if (previous !== "" && previous.startsWith(expected)) {',
       "      return previous;",
@@ -1768,7 +1794,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Get selected per-page index from session. */",
       "  private get_selected_per_page(): number {",
-      '    return sessionGet<number>("selected_per_page") ?? 1;',
+      '    return session_get<number>("selected_per_page") ?? 1;',
       "  }",
     ];
   }
@@ -1777,7 +1803,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Get current pagination limit from session. */",
       "  private get_limit(): number {",
-      '    const selected = sessionGet<number>("selected_per_page");',
+      '    const selected = session_get<number>("selected_per_page");',
       "    if (selected !== undefined && this.per_page_options[selected] !== undefined) {",
       "      return this.per_page_options[selected];",
       "    }",
@@ -1809,8 +1835,8 @@ export class Site_builder_model extends Model {
       `      headline: update_id > 0 ? ${js(
         `Update ${ucwords(data.record_name_singular)} Record`
       )} : ${js(`Create New ${ucwords(data.record_name_singular)} Record`)},`,
-      '      cancel_url: update_id > 0 ? this.baseUrl() + "__MODULE__/show/" + update_id : this.baseUrl() + "__MODULE__/manage",',
-      '      form_location: this.baseUrl() + "__MODULE__/submit/" + update_id,',
+      '      cancel_url: update_id > 0 ? this.base_url() + "__MODULE__/show/" + update_id : this.base_url() + "__MODULE__/manage",',
+      '      form_location: this.base_url() + "__MODULE__/submit/" + update_id,',
       "      viewModule: this.module_name,",
       '      viewFile: "create",',
       "    };",
@@ -1822,12 +1848,12 @@ export class Site_builder_model extends Model {
     return [
       "  /** Handle search form submission for filtering records. */",
       "  async submit_search(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "",
       '    let search_query = String(post("search_query", true) ?? "");',
       '    let search_column = String(post("search_column", true) ?? "");',
       "",
-      "    const allowed_columns = this.moduleModel().get_searchable_columns();",
+      "    const allowed_columns = this.module_model().get_searchable_columns();",
       "    if (search_column !== \"\" && !allowed_columns.includes(search_column)) {",
       '      search_column = "";',
       "    }",
@@ -1835,7 +1861,7 @@ export class Site_builder_model extends Model {
       "    search_query = search_query.replace(/\\s+/g, \" \").trim();",
       "",
       "    if (search_query.length < 2) {",
-      '      setFlashdata("Search query must be at least 2 characters");',
+      '      set_flashdata("Search query must be at least 2 characters");',
       '      redirect("__MODULE__/manage");',
       "    }",
       "",
@@ -1848,7 +1874,7 @@ export class Site_builder_model extends Model {
     return [
       "  /** Display the search modal form. */",
       "  async search_modal(): Promise<ReactNode> {",
-      "    this.securityService().make_sure_allowed();",
+      "    this.security_service().make_sure_allowed();",
       "    return this.view(\"__MODULE__/search_modal\", {",
       "      viewModule: this.module_name,",
       '      viewFile: "search_modal",',
@@ -2133,6 +2159,13 @@ export class Site_builder_model extends Model {
     lines.push(
       'import { ValidationErrors } from "@/engine/ui/ValidationErrors";'
     );
+    lines.push('import { Button } from "@/components/ui/button";');
+    lines.push(
+      'import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";'
+    );
+    lines.push('import { Input } from "@/components/ui/input";');
+    lines.push('import { Label } from "@/components/ui/label";');
+    lines.push('import { Textarea } from "@/components/ui/textarea";');
     lines.push("");
     lines.push("/**");
     lines.push(
@@ -2144,37 +2177,35 @@ export class Site_builder_model extends Model {
     lines.push("  const update_id = Number(data.update_id ?? 0);");
     lines.push("");
     lines.push("  return (");
-    lines.push("    <>");
-    lines.push('      <h1>{String(data.headline ?? "")}</h1>');
+    lines.push('    <div className="space-y-6">');
+    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('        {String(data.headline ?? "")}');
+    lines.push("      </h1>");
     lines.push("      <ValidationErrors />");
-    lines.push('      <div className="card">');
-    lines.push('        <div className="card-heading">');
-    lines.push(`          ${data.record_name_singular} Details`);
-    lines.push("        </div>");
-    lines.push('        <div className="card-body">');
+    lines.push("      <Card>");
+    lines.push("        <CardHeader>");
+    lines.push(`          <CardTitle>${data.record_name_singular} Details</CardTitle>`);
+    lines.push("        </CardHeader>");
+    lines.push("        <CardContent>");
     lines.push(`          <TgForm action=${js(
       `${data.module_folder_name}/submit`
-    )} params={[update_id]}>`);
+    )} params={[update_id]} className="space-y-4">`);
     if (fields !== "") lines.push(fields);
-    lines.push('            <div className="text-center">');
-    lines.push(
-      '              <a className="button alt" href={String(data.cancel_url ?? "")}>'
-    );
-    lines.push("                Cancel");
-    lines.push("              </a>");
-    lines.push('              <button type="submit" name="submit" value="Submit">');
-    lines.push("                Submit");
-    lines.push("              </button>");
+    lines.push('            <div className="flex flex-wrap justify-center gap-2 pt-4">');
+    lines.push('              <Button asChild variant="outline">');
+    lines.push('                <a href={String(data.cancel_url ?? "")}>Cancel</a>');
+    lines.push("              </Button>");
+    lines.push('              <Button type="submit" name="submit" value="Submit">Submit</Button>');
     lines.push("            </div>");
     lines.push("          </TgForm>");
-    lines.push("        </div>");
-    lines.push("      </div>");
+    lines.push("        </CardContent>");
+    lines.push("      </Card>");
     if (script !== "") {
       lines.push(
         `      <script dangerouslySetInnerHTML={{ __html: ${js(script)} }} />`
       );
     }
-    lines.push("    </>");
+    lines.push("    </div>");
     lines.push("  );");
     lines.push("}");
     lines.push("");
@@ -2191,10 +2222,14 @@ export class Site_builder_model extends Model {
       lines.push('import { TgForm } from "@/engine/ui/TgForm";');
     }
     lines.push('import type { TgViewProps } from "@/engine/views-registry";');
-    lines.push('import { siteUrl } from "@/engine/url";');
+    lines.push('import { site_url } from "@/engine/Url";');
     lines.push(
       'import { Pagination } from "@/modules/pagination/PaginationRenderer";'
     );
+    lines.push('import { Button } from "@/components/ui/button";');
+    lines.push('import { Input } from "@/components/ui/input";');
+    lines.push('import { Label } from "@/components/ui/label";');
+    lines.push('import { Eye, Pencil, Trash2 } from "lucide-react";');
     lines.push('import { PerPageSelect } from "./PerPageSelect";');
     lines.push("");
     lines.push("/**");
@@ -2228,65 +2263,67 @@ export class Site_builder_model extends Model {
     }
     lines.push("");
     lines.push("  return (");
-    lines.push("    <>");
-    lines.push(`      <h1>Manage ${ucwords(data.record_name_plural)}</h1>`);
+    lines.push('    <div className="space-y-6">');
+    lines.push('      <div className="flex flex-wrap items-center justify-between gap-3">');
+    lines.push(`        <h1 className="text-2xl font-bold tracking-tight">Manage ${ucwords(data.record_name_plural)}</h1>`);
+    lines.push("        <Button asChild>");
+    lines.push(
+      `          <a href={site_url(${js(
+        `${data.module_folder_name}/create`
+      )})}>Create New ${ucwords(data.record_name_singular)} Record</a>`
+    );
+    lines.push("        </Button>");
+    lines.push("      </div>");
     lines.push("      <Flashdata />");
     if (data.has_searchable) {
       lines.push("      {search_active ? (");
-      lines.push("        <p>");
+      lines.push('        <p className="text-sm text-muted-foreground">');
       lines.push(
-        "          Showing results for <strong>{search_query}</strong>"
+        '          Showing results for <strong className="text-foreground">{search_query}</strong>'
       );
       lines.push("        </p>");
       lines.push("      ) : null}");
     }
-    lines.push('      <p className="flex-row justify-between">');
-    lines.push(
-      `        <a className="button alt" href={siteUrl(${js(
-        `${data.module_folder_name}/create`
-      )})}>`
-    );
-    lines.push(`          Create New ${ucwords(data.record_name_singular)} Record`);
-    lines.push("        </a>");
-    lines.push("      </p>");
     if (data.has_searchable) {
-      lines.push('      <details style={{ marginBottom: "1rem" }}>');
+      lines.push('      {rows.length > 9 || search_active ? (');
+      lines.push('        <details className="rounded-lg border bg-card p-4 shadow-sm">');
       lines.push(
-        `        <summary className="button alt">Search ${ucwords(
+        `          <summary className="cursor-pointer text-sm font-medium text-primary">Search ${ucwords(
           data.record_name_plural
         )}</summary>`
       );
       lines.push(
-        `        <TgForm action=${js(
+        `          <TgForm action=${js(
           `${data.module_folder_name}/submit_search`
-        )} id="search-form">`
+        )} id="search-form" className="mt-4 space-y-4">`
       );
-      lines.push('          <div className="form-group">');
-      lines.push("            <label>Search Query</label>");
+      lines.push('            <div className="space-y-2">');
+      lines.push('              <Label htmlFor="search_query">Search Query</Label>');
       lines.push(
-        '            <input type="text" name="search_query" placeholder="Enter search term..." defaultValue={search_query} autoComplete="off" />'
+        '              <Input id="search_query" type="text" name="search_query" placeholder="Enter search term..." defaultValue={search_query} autoComplete="off" />'
       );
-      lines.push("          </div>");
-      lines.push('          <div className="form-group">');
-      lines.push("            <label>Search In</label>");
+      lines.push("            </div>");
+      lines.push('            <div className="space-y-2">');
+      lines.push('              <Label htmlFor="search_column">Search In</Label>');
       lines.push(
-        '            <select name="search_column" defaultValue={search_column}>'
+        '              <select id="search_column" name="search_column" defaultValue={search_column} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">'
       );
-      lines.push('              <option value="">All searchable fields</option>');
-      const options = this.build_searchable_options(data, "              ");
+      lines.push('                <option value="">All searchable fields</option>');
+      const options = this.build_searchable_options(data, "                ");
       if (options !== "") lines.push(options);
-      lines.push("            </select>");
-      lines.push("          </div>");
-      lines.push('          <button type="submit">Search</button>');
-      lines.push("        </TgForm>");
-      lines.push("      </details>");
+      lines.push("              </select>");
+      lines.push("            </div>");
+      lines.push('            <Button type="submit">Search</Button>');
+      lines.push("          </TgForm>");
+      lines.push("        </details>");
+      lines.push("      ) : null}");
     }
     lines.push("      {rows.length === 0 ? (");
-    lines.push("        <p>There are currently no records to display.</p>");
+    lines.push('        <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">There are currently no records to display.</p>');
     lines.push("      ) : (");
-    lines.push("        <>");
+    lines.push('        <div className="space-y-4">');
     lines.push("          <Pagination data={pagination_data} />");
-    lines.push('          <div className="table-container">');
+    lines.push('          <div className="overflow-x-auto rounded-lg border bg-card">');
     lines.push(table);
     lines.push("          </div>");
     lines.push("          {rows.length > 9 ? (");
@@ -2294,9 +2331,9 @@ export class Site_builder_model extends Model {
       "            <Pagination data={{ ...pagination_data, include_showing_statement: false }} />"
     );
     lines.push("          ) : null}");
-    lines.push("        </>");
+    lines.push("        </div>");
     lines.push("      )}");
-    lines.push("    </>");
+    lines.push("    </div>");
     lines.push("  );");
     lines.push("}");
     lines.push("");
@@ -2310,7 +2347,11 @@ export class Site_builder_model extends Model {
 
     lines.push('import { Flashdata } from "@/engine/ui/Flashdata";');
     lines.push('import type { TgViewProps } from "@/engine/views-registry";');
-    lines.push('import { siteUrl } from "@/engine/url";');
+    lines.push('import { site_url } from "@/engine/Url";');
+    lines.push('import { Button } from "@/components/ui/button";');
+    lines.push(
+      'import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";'
+    );
     lines.push("");
     lines.push("/**");
     lines.push(` * ${data.record_name_singular} details`);
@@ -2320,39 +2361,39 @@ export class Site_builder_model extends Model {
     lines.push("  const update_id = Number(data.update_id ?? 0);");
     lines.push("");
     lines.push("  return (");
-    lines.push("    <>");
-    lines.push('      <h1>{String(data.headline ?? "")}</h1>');
+    lines.push('    <div className="space-y-6">');
+    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('        {String(data.headline ?? "")}');
+    lines.push("      </h1>");
     lines.push("      <Flashdata />");
-    lines.push('      <div className="card">');
-    lines.push('        <div className="card-heading">');
-    lines.push(`          ${data.record_name_singular} Details`);
-    lines.push("        </div>");
-    lines.push('        <div className="card-body">');
-    lines.push('          <div className="text-right mb-3">');
+    lines.push("      <Card>");
+    lines.push("        <CardHeader>");
+    lines.push(`          <CardTitle>${data.record_name_singular} Details</CardTitle>`);
+    lines.push("        </CardHeader>");
+    lines.push('        <CardContent className="space-y-5">');
+    lines.push('          <div className="flex flex-wrap justify-end gap-2">');
+    lines.push('            <Button asChild variant="outline">');
+    lines.push('              <a href={String(data.back_url ?? "")}>Back</a>');
+    lines.push("            </Button>");
+    lines.push('            <Button asChild>');
     lines.push(
-      '            <a className="button alt" href={String(data.back_url ?? "")}>'
-    );
-    lines.push("              Back");
-    lines.push("            </a>");
-    lines.push(
-      `            <a className="button" href={siteUrl(${js(
+      `              <a href={site_url(${js(
         `${data.module_folder_name}/create/`
-      )} + update_id)}>`
+      )} + update_id)}>Edit</a>`
     );
-    lines.push("              Edit");
-    lines.push("            </a>");
+    lines.push("            </Button>");
+    lines.push('            <Button asChild variant="destructive">');
     lines.push(
-      `            <a className="button danger" href={siteUrl(${js(
+      `              <a href={site_url(${js(
         `${data.module_folder_name}/delete_conf/`
-      )} + update_id)}>`
+      )} + update_id)}>Delete</a>`
     );
-    lines.push("              Delete");
-    lines.push("            </a>");
+    lines.push("            </Button>");
     lines.push("          </div>");
     lines.push(details);
-    lines.push("        </div>");
-    lines.push("      </div>");
-    lines.push("    </>");
+    lines.push("        </CardContent>");
+    lines.push("      </Card>");
+    lines.push("    </div>");
     lines.push("  );");
     lines.push("}");
     lines.push("");
@@ -2364,6 +2405,10 @@ export class Site_builder_model extends Model {
     const lines: string[] = [];
     lines.push('import type { TgViewProps } from "@/engine/views-registry";');
     lines.push('import { TgForm } from "@/engine/ui/TgForm";');
+    lines.push('import { Button } from "@/components/ui/button";');
+    lines.push(
+      'import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";'
+    );
     lines.push("");
     lines.push("/**");
     lines.push(` * Delete ${data.record_name_singular.toLowerCase()} confirmation`);
@@ -2373,36 +2418,34 @@ export class Site_builder_model extends Model {
     lines.push("  const update_id = Number(data.update_id ?? 0);");
     lines.push("");
     lines.push("  return (");
-    lines.push("    <>");
-    lines.push('      <h1>{String(data.headline ?? "")}</h1>');
-    lines.push('      <div className="card">');
-    lines.push('        <div className="card-heading">');
-    lines.push("          Confirmation Required");
-    lines.push("        </div>");
-    lines.push('        <div className="card-body">');
-    lines.push("          <p>Are you sure?</p>");
+    lines.push('    <div className="space-y-6">');
+    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('        {String(data.headline ?? "")}');
+    lines.push("      </h1>");
+    lines.push('      <Card className="border-destructive/40">');
+    lines.push("        <CardHeader>");
+    lines.push("          <CardTitle>Confirmation Required</CardTitle>");
+    lines.push("        </CardHeader>");
+    lines.push('        <CardContent className="space-y-4">');
+    lines.push('          <p className="font-medium">Are you sure?</p>');
     lines.push(
-      `          <p>You are about to delete a ${data.record_name_singular.toLowerCase()} record. This cannot be undone. Do you really want to do this?</p>`
+      `          <p className="text-sm text-muted-foreground">You are about to delete a ${data.record_name_singular.toLowerCase()} record. This cannot be undone. Do you really want to do this?</p>`
     );
     lines.push(`          <TgForm action=${js(
       `${data.module_folder_name}/submit_delete`
     )} params={[update_id]}>`);
-    lines.push('            <div className="text-center">');
+    lines.push('            <div className="flex flex-wrap justify-center gap-2 pt-2">');
+    lines.push('              <Button asChild variant="outline">');
+    lines.push('                <a href={String(data.cancel_url ?? "")}>Cancel</a>');
+    lines.push("              </Button>");
     lines.push(
-      '              <a className="button alt" href={String(data.cancel_url ?? "")}>'
+      '              <Button type="submit" name="submit" value="Yes - Delete Now" variant="destructive">Yes - Delete Now</Button>'
     );
-    lines.push("                Cancel");
-    lines.push("              </a>");
-    lines.push(
-      '              <button type="submit" name="submit" value="Yes - Delete Now" className="danger">'
-    );
-    lines.push("                Yes - Delete Now");
-    lines.push("              </button>");
     lines.push("            </div>");
     lines.push("          </TgForm>");
-    lines.push("        </div>");
-    lines.push("      </div>");
-    lines.push("    </>");
+    lines.push("        </CardContent>");
+    lines.push("      </Card>");
+    lines.push("    </div>");
     lines.push("  );");
     lines.push("}");
     lines.push("");
@@ -2412,6 +2455,8 @@ export class Site_builder_model extends Model {
   private build_not_found_view(data: GeneratorContext): string {
     return [
       'import type { TgViewProps } from "@/engine/views-registry";',
+      'import { Button } from "@/components/ui/button";',
+      'import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";',
       "",
       "/**",
       ` * ${data.record_name_singular} not found`,
@@ -2419,22 +2464,26 @@ export class Site_builder_model extends Model {
       " */",
       "export default function NotFound({ data }: TgViewProps) {",
       "  return (",
-      "    <>",
-      '      <h1>{String(data.headline ?? "")}</h1>',
-      '      <div className="card">',
-      '        <div className="card-heading">',
-      '          {String(data.headline ?? "")}',
-      "        </div>",
-      '        <div className="card-body">',
-      '          <p>{String(data.message ?? "")}</p>',
+      '    <div className="space-y-6">',
+      '      <h1 className="text-2xl font-bold tracking-tight">',
+      '        {String(data.headline ?? "")}',
+      "      </h1>",
+      "      <Card>",
+      "        <CardHeader>",
+      '          <CardTitle>{String(data.headline ?? "")}</CardTitle>',
+      "        </CardHeader>",
+      '        <CardContent className="space-y-4">',
+      '          <p className="text-sm text-muted-foreground">{String(data.message ?? "")}</p>',
       '          <div className="text-center">',
-      '            <a className="button alt" href={String(data.back_url ?? "")}>',
-      '              {String(data.back_label ?? "Go Back")}',
-      "            </a>",
+      '            <Button asChild variant="outline">',
+      '              <a href={String(data.back_url ?? "")}>',
+      '                {String(data.back_label ?? "Go Back")}',
+      "              </a>",
+      "            </Button>",
       "          </div>",
-      "        </div>",
-      "      </div>",
-      "    </>",
+      "        </CardContent>",
+      "      </Card>",
+      "    </div>",
       "  );",
       "}",
       "",
@@ -2446,6 +2495,9 @@ export class Site_builder_model extends Model {
     const lines: string[] = [];
     lines.push('import type { TgViewProps } from "@/engine/views-registry";');
     lines.push('import { TgForm } from "@/engine/ui/TgForm";');
+    lines.push('import { Button } from "@/components/ui/button";');
+    lines.push('import { Input } from "@/components/ui/input";');
+    lines.push('import { Label } from "@/components/ui/label";');
     lines.push("");
     lines.push("/**");
     lines.push(
@@ -2457,20 +2509,23 @@ export class Site_builder_model extends Model {
     lines.push("  return (");
     lines.push(`    <TgForm action=${js(
       `${data.module_folder_name}/submit_search`
-    )} id="search-form">`);
-    lines.push('      <div className="form-group">');
-    lines.push("        <label>Search Query</label>");
+    )} id="search-form" className="space-y-4">`);
+    lines.push('      <div className="space-y-2">');
+    lines.push('        <Label htmlFor="search_query">Search Query</Label>');
     lines.push(
-      '        <input type="text" name="search_query" placeholder="Enter search term..." autoComplete="off" />'
+      '        <Input id="search_query" type="text" name="search_query" placeholder="Enter search term..." autoComplete="off" />'
     );
     lines.push("      </div>");
-    lines.push('      <div className="form-group">');
-    lines.push("        <label>Search In</label>");
-    lines.push('        <select name="search_column">');
+    lines.push('      <div className="space-y-2">');
+    lines.push('        <Label htmlFor="search_column">Search In</Label>');
+    lines.push(
+      '        <select id="search_column" name="search_column" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">'
+    );
     lines.push('          <option value="">All searchable fields</option>');
     if (options !== "") lines.push(options);
     lines.push("        </select>");
     lines.push("      </div>");
+    lines.push('      <Button type="submit">Search</Button>');
     lines.push("    </TgForm>");
     lines.push("  );");
     lines.push("}");
@@ -2507,6 +2562,7 @@ export class Site_builder_model extends Model {
       "      onChange={(event) => {",
       '        window.location.href = base + module + "/set_per_page/" + event.target.value;',
       "      }}",
+      '      className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"',
       "    >",
       "      {options.map((option, index) => (",
       "        <option key={index} value={index}>",
@@ -2680,7 +2736,7 @@ export class Site_builder_model extends Model {
     if (nav_label === "") return false;
 
     try {
-      const settings_path = dataPath(
+      const settings_path = data_path(
         "settings",
         "site_builder",
         "nav_links.json"

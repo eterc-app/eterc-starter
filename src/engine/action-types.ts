@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ValidationErrors } from "./validation";
+import type { ValidationErrors } from "./Validation";
 
 /**
  * Reply contract between client components and the tgSubmit server action.
@@ -12,7 +12,7 @@ export type TgActionReply =
       node: ReactNode;
       errors: ValidationErrors | null;
       flash: string[];
-      csrfToken: string;
+      csrf_token: string;
       status: number;
     }
   | { kind: "error"; status: number; message: string };

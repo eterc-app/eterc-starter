@@ -2,6 +2,9 @@ import { Flashdata } from "@/engine/ui/Flashdata";
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 /**
  * Image Uploader — dedicated upload page (runtime).
@@ -24,23 +27,30 @@ export default function UploadForm({ data }: TgViewProps) {
   const cancel_url = String(data.cancel_url ?? "");
 
   return (
-    <>
+    <div className="space-y-6">
       <h1>{String(data.headline ?? "Upload Picture")}</h1>
       <Flashdata />
       <ValidationErrors />
 
-      <div className="card">
-        <div className="card-heading">Picture</div>
-        <div className="card-body">
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Picture</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5 pt-6">
           {current_file_name !== "" ? (
-            <div className="picture-upload__current">
+            <div className="space-y-2 rounded-md border bg-muted/30 p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={current_picture_url}
                 alt="Current picture"
-                className="picture-upload__current-img"
+                className="max-h-48 w-auto rounded-md border bg-background object-contain"
               />
-              <p>Current picture: {current_file_name}</p>
-              <p>Uploading a new picture replaces the current one.</p>
+              <p className="text-sm font-medium">
+                Current picture: {current_file_name}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Uploading a new picture replaces the current one.
+              </p>
             </div>
           ) : null}
 
@@ -48,26 +58,31 @@ export default function UploadForm({ data }: TgViewProps) {
             action="image_uploader/submit_upload"
             hidden={{ module: module, update_id: update_id }}
             encType="multipart/form-data"
+            className="space-y-4"
           >
-            <label>Picture</label>
-            <input
-              type="file"
-              name="picture"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="image-uploader-picture">Picture</Label>
+              <input
+                id="image-uploader-picture"
+                type="file"
+                name="picture"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                required
+                className="block w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-muted file:px-2 file:py-1 file:text-sm file:font-medium file:text-foreground"
+              />
+            </div>
 
-            <div className="text-center">
-              <a className="button alt" href={cancel_url}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Upload Picture">
+            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+              <Button asChild variant="outline">
+                <a href={cancel_url}>Cancel</a>
+              </Button>
+              <Button type="submit" name="submit" value="Upload Picture">
                 Upload Picture
-              </button>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

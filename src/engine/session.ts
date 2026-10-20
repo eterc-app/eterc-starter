@@ -1,4 +1,4 @@
-import { getContext, hasContext } from "./request-context";
+import { get_context, has_context } from "./request-context";
 import { SESSION_COOKIE, SESSION_TTL } from "./config";
 import { sqlite } from "./db";
 import * as crypto from "node:crypto";
@@ -57,8 +57,8 @@ function writeSessionRow(id: string, data: Record<string, unknown>): void {
 }
 
 /** Current session id from cookies, or null. */
-export function getSessionId(): string | null {
-  const ctx = getContext();
+export function get_session_id(): string | null {
+  const ctx = get_context();
   return ctx.cookies[SESSION_COOKIE] ?? null;
 }
 
@@ -67,8 +67,8 @@ export function getSessionId(): string | null {
  * response cannot set cookies; callers that need persistence must run inside a
  * server action or route handler (canSetCookies === true).
  */
-export function ensureSessionId(): string {
-  const ctx = getContext();
+export function ensure_session_id(): string {
+  const ctx = get_context();
   const existing = ctx.cookies[SESSION_COOKIE];
   if (existing) return existing;
 
@@ -90,8 +90,8 @@ export function ensureSessionId(): string {
 }
 
 function loadSession(): { id: string; data: Record<string, unknown>; transient: boolean } {
-  const ctx = getContext();
-  const id = ensureSessionId();
+  const ctx = get_context();
+  const id = ensure_session_id();
   const fromDb = readSessionRow(id);
   if (fromDb !== null) return { id, data: fromDb, transient: false };
 
@@ -103,7 +103,7 @@ function loadSession(): { id: string; data: Record<string, unknown>; transient: 
 }
 
 function persist(id: string, data: Record<string, unknown>, transient: boolean): void {
-  const ctx = getContext();
+  const ctx = get_context();
   if (transient) {
     transientSessions().set(id, data);
   }
@@ -114,13 +114,13 @@ function persist(id: string, data: Record<string, unknown>, transient: boolean):
   }
 }
 
-export function sessionGet<T = unknown>(key: string): T | undefined {
-  if (!hasContext()) return undefined;
+export function session_get<T = unknown>(key: string): T | undefined {
+  if (!has_context()) return undefined;
   const { data } = loadSession();
   return data[key] as T | undefined;
 }
 
-export function sessionSet(key: string, value: unknown): void {
+export function session_set(key: string, value: unknown): void {
   const { id, data, transient } = loadSession();
   if (value === undefined) {
     delete data[key];
@@ -130,18 +130,18 @@ export function sessionSet(key: string, value: unknown): void {
   persist(id, data, transient);
 }
 
-export function sessionUnset(key: string): void {
-  sessionSet(key, undefined);
+export function session_unset(key: string): void {
+  session_set(key, undefined);
 }
 
-export function sessionClear(): void {
+export function session_clear(): void {
   const { id } = loadSession();
   sqlite().prepare("DELETE FROM tg_sessions WHERE id = ?").run(id);
   transientSessions().delete(id);
 }
 
 /** Housekeeping — remove expired sessions. */
-export function purgeExpiredSessions(): void {
+export function purge_expired_sessions(): void {
   ensureTable();
   sqlite()
     .prepare("DELETE FROM tg_sessions WHERE expires < ?")

@@ -1,4 +1,4 @@
-import { getContext } from "./request-context";
+import { get_context } from "./request-context";
 import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from "./config";
 import { sqlite } from "./db";
 import * as crypto from "node:crypto";
@@ -15,7 +15,7 @@ import * as crypto from "node:crypto";
  * style constant-time comparison.
  */
 
-export const csrfFieldName = CSRF_FIELD;
+export const csrf_field_name = CSRF_FIELD;
 
 function secret(): Buffer {
   const env = process.env.TG_SECRET;
@@ -30,13 +30,13 @@ function secret(): Buffer {
 }
 
 /** Create a fresh signed token (nonce.signature). */
-export function createCsrfToken(): string {
+export function create_csrf_token(): string {
   const nonce = crypto.randomBytes(32).toString("hex");
   const sig = crypto.createHmac("sha256", secret()).update(nonce).digest("hex");
   return `${nonce}.${sig}`;
 }
 
-export function isValidCsrfToken(token: string): boolean {
+export function is_valid_csrf_token(token: string): boolean {
   if (typeof token !== "string") return false;
   const parts = token.split(".");
   if (parts.length !== 2) return false;
@@ -50,18 +50,18 @@ export function isValidCsrfToken(token: string): boolean {
 }
 
 /** Token for this request — middleware-issued header, cookie, or fresh token. */
-export function csrfToken(): string {
-  const ctx = getContext();
+export function csrf_token(): string {
+  const ctx = get_context();
   const fromHeader = ctx.headers.get(CSRF_HEADER);
-  if (fromHeader && isValidCsrfToken(fromHeader)) return fromHeader;
+  if (fromHeader && is_valid_csrf_token(fromHeader)) return fromHeader;
   const existing = ctx.cookies[CSRF_COOKIE];
-  if (existing && isValidCsrfToken(existing)) return existing;
-  return createCsrfToken();
+  if (existing && is_valid_csrf_token(existing)) return existing;
+  return create_csrf_token();
 }
 
 /** Compare posted token with the request's expected value (constant time). */
-export function csrfCheck(posted: string): boolean {
-  const ctx = getContext();
+export function csrf_check(posted: string): boolean {
+  const ctx = get_context();
   const expected = ctx.headers.get(CSRF_HEADER) ?? ctx.cookies[CSRF_COOKIE];
   if (!expected || !posted) return false;
   try {

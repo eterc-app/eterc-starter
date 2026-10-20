@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelBody } from "./PanelBody";
 import type { PanelBodyData } from "./types";
 
@@ -85,24 +87,27 @@ export default function SummaryPanel({ data }: TgViewProps) {
   }, [calling_module, alt_module, update_id, summary_panel_id]);
 
   return (
-    <div className="card">
-      <div className="card-heading">{card_heading}</div>
-      <div className="card-body">
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle>{card_heading}</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
         {panel === null && error === "" ? (
-          <div
-            className={`spinner mx-indicator indicator-${summary_panel_id}`}
-          ></div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading associated records…
+          </div>
         ) : null}
 
         <div id={summary_panel_id}>
           {error !== "" ? (
-            <p className="associated-items__empty" role="alert">
+            <p className="text-sm font-medium text-destructive" role="alert">
               {error}
             </p>
           ) : null}
           {panel !== null ? <PanelBody data={panel} /> : null}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

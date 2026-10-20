@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Trongate, prepareController, type ControllerCtor } from "./controller";
+import { Trongate, prepare_controller, type ControllerCtor } from "./controller";
 import { controllerLoaders } from "./registrations";
 import { DEFAULT_METHOD, DEFAULT_MODULE, CUSTOM_ROUTES } from "./config";
 import { TgHttpError } from "./signals";
-import type { ValidationService } from "./validation";
+import type { Validation } from "./Validation";
 
 /**
  * Router — port of engine/Core.php route resolution.
@@ -21,13 +21,13 @@ export interface DispatchResult {
   node: ReactNode;
   rawReturn: unknown;
   controller?: Trongate;
-  validation?: ValidationService;
+  validation?: Validation;
 }
 
 const VALID_SEGMENT = /^[a-z0-9_-]+$/i;
 
 /** Apply custom routes and split {module}/{method}/{params}. */
-export function resolveRoute(segments: string[]): RouteTarget {
+export function resolve_route(segments: string[]): RouteTarget {
   let working = [...segments];
 
   if (working.length > 0 && CUSTOM_ROUTES[working[0]]) {
@@ -47,7 +47,7 @@ export function resolveRoute(segments: string[]): RouteTarget {
 }
 
 /** Instantiate a module controller (with framework services prepared). */
-export async function loadController(moduleName: string): Promise<Trongate> {
+export async function load_controller(moduleName: string): Promise<Trongate> {
   const loader = controllerLoaders[moduleName];
   if (!loader) {
     throw new TgHttpError(404, `Module '${moduleName}' not found`);
@@ -55,13 +55,13 @@ export async function loadController(moduleName: string): Promise<Trongate> {
   const moduleExports = await loader();
   const Ctor = moduleExports.default;
   const controller = new Ctor(moduleName);
-  return prepareController(controller, moduleName);
+  return prepare_controller(controller, moduleName);
 }
 
 /** Dispatch a resolved route to its controller method. */
 export async function dispatch(segments: string[]): Promise<DispatchResult> {
-  const { module, method } = resolveRoute(segments);
-  const controller = await loadController(module);
+  const { module, method } = resolve_route(segments);
+  const controller = await load_controller(module);
 
   const handler = (controller as unknown as Record<string, unknown>)[method];
   if (

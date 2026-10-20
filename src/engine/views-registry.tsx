@@ -16,27 +16,31 @@ export type TgViewComponent = ComponentType<TgViewProps>;
 
 const views = new Map<string, TgViewComponent>();
 
-export function registerView(key: string, component: TgViewComponent): void {
+export function register_view(key: string, component: TgViewComponent): void {
   views.set(key, component);
 }
 
-export function registerViews(map: Record<string, TgViewComponent>): void {
+export function register_views(map: Record<string, TgViewComponent>): void {
   for (const [key, component] of Object.entries(map)) {
-    registerView(key, component);
+    register_view(key, component);
   }
 }
 
-export function getView(key: string): TgViewComponent | undefined {
+export function get_view(key: string): TgViewComponent | undefined {
   return views.get(key);
 }
 
-export function renderView(
+export function render_view(
   key: string,
   data: Record<string, unknown>
 ): ReactNode {
-  const Component = getView(key);
+  const Component = get_view(key);
   if (!Component) {
-    return <div className="container">View not found: {key}</div>;
+    return (
+      <div className="mx-auto max-w-3xl p-6 text-sm text-muted-foreground">
+        View not found: {key}
+      </div>
+    );
   }
   return <Component data={data} {...data} />;
 }

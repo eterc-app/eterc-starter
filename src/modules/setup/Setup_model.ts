@@ -1,7 +1,7 @@
 import { Model } from "@/engine/model";
 import { sqlite } from "@/engine/db";
-import { makeRandStr } from "@/engine/string-service";
-import { ensureDir } from "@/engine/paths";
+import { make_rand_str } from "@/engine/String_service";
+import { ensure_dir } from "@/engine/paths";
 import { hashSync } from "bcryptjs";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS "password_resets_token_idx" ON "password_resets"("tok
  * step verifies/creates the schema (prisma db push) instead of collecting
  * MySQL credentials.
  */
-export class SetupModel extends Model {
+export class Setup_model extends Model {
   /** True when an administrator account exists. */
   is_installed(): boolean {
     try {
@@ -122,7 +122,7 @@ export class SetupModel extends Model {
       this.db.insert({ id: 1, level_title: "admin" }, "trongate_user_levels");
     }
 
-    const userCode = makeRandStr(32);
+    const userCode = make_rand_str(32);
     const userId = this.db.insert(
       { code: userCode, user_level_id: 1 },
       "trongate_users"
@@ -147,7 +147,7 @@ export class SetupModel extends Model {
   finalize(adminUsername: string): { ok: boolean; message?: string } {
     try {
       const settingsDir = path.join(process.cwd(), "data", "settings");
-      ensureDir(settingsDir);
+      ensure_dir(settingsDir);
       fs.writeFileSync(
         path.join(settingsDir, "setup.json"),
         JSON.stringify(

@@ -4,6 +4,9 @@
  */
 export const DONOR_SEARCH_MODAL_TEMPLATE = `import type { TgViewProps } from "@/engine/views-registry";
 import { TgForm } from "@/engine/ui/TgForm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Search modal form for filtering <?= plural_comment ?>.
@@ -11,23 +14,29 @@ import { TgForm } from "@/engine/ui/TgForm";
  */
 export default function SearchModal(_props: TgViewProps) {
   return (
-    <TgForm action="<?= module_folder_name ?>/submit_search" id="search-form">
-      <div className="form-group">
-        <label>Search Query</label>
-        <input
+    <TgForm action="<?= module_folder_name ?>/submit_search" id="search-form" className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="search_query">Search Query</Label>
+        <Input
+          id="search_query"
           type="text"
           name="search_query"
           placeholder="Enter search term..."
           autoComplete="off"
         />
       </div>
-      <div className="form-group">
-        <label>Search In</label>
-        <select name="search_column">
+      <div className="space-y-2">
+        <Label htmlFor="search_column">Search In</Label>
+        <select
+          id="search_column"
+          name="search_column"
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           <option value="">All searchable fields</option>
 <?= searchable_options ?>
         </select>
       </div>
+      <Button type="submit">Search</Button>
     </TgForm>
   );
 }

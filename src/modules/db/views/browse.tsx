@@ -1,13 +1,23 @@
 import { Flashdata } from "@/engine/ui/Flashdata";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
 import type { TgViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PerPageSelector } from "./PerPageSelector";
 
 /**
  * Record browser — the `db` module's paginated table view.
  *
- * Rendered by DbAdmin::browse(); designed from the data contract that method
+ * Rendered by Db::browse(); designed from the data contract that method
  * supplies (there is no PHP original view to port):
  *
  *   headline, table, columns (ColumnInfo[]), rows (Row[]), primary_key,
@@ -38,98 +48,112 @@ export default function Browse({ data }: TgViewProps) {
   const rowId = (row: Record<string, unknown>): unknown => row[primary_key];
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Browse and edit records in {table}.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href={forger_url}>Forge New Record</a>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <a href={String(data.sql_console_url ?? "")}>SQL Console</a>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <a href={String(data.tables_url ?? "")}>Database Tables</a>
+          </Button>
+        </div>
+      </div>
+
       <Flashdata />
 
-      <p>
-        <a className="button alt" href={forger_url}>
-          Forge New Record
-        </a>{" "}
-        <a className="button alt" href={String(data.sql_console_url ?? "")}>
-          SQL Console
-        </a>{" "}
-        <a className="button alt" href={String(data.tables_url ?? "")}>
-          Database Tables
-        </a>
-      </p>
-
       {rows.length === 0 ? (
-        <p>There are currently no records to display.</p>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            There are currently no records to display.
+          </CardContent>
+        </Card>
       ) : (
         <>
-          <Pagination data={pagination_data} />
-
-          <table className="records-table">
-            <thead>
-              <tr>
-                <th colSpan={columns.length + 1}>
-                  <div>
-                    <div>&nbsp;</div>
-                    <div>
-                      Records Per Page:{" "}
-                      <PerPageSelector
-                        options={per_page_options}
-                        selected={selected_per_page}
-                        module={module}
-                        table={table}
-                      />
-                    </div>
-                  </div>
-                </th>
-              </tr>
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.name}>
-                    {column.name}
-                    {column.is_primary_key ? " (PK)" : ""}
-                  </th>
-                ))}
-                <th style={{ width: "20px" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, row_index) => {
-                const id = rowId(row);
-                const identified = primary_key !== "" && id !== null && id !== undefined;
-
-                return (
-                  <tr key={row_index}>
+          <Card className="overflow-hidden p-0">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3">
+              <CardTitle>{table}</CardTitle>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                Records Per Page:
+                <PerPageSelector
+                  options={per_page_options}
+                  selected={selected_per_page}
+                  module={module}
+                  table={table}
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="border-b px-4 py-2">
+                <Pagination data={pagination_data} />
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
                     {columns.map((column) => (
-                      <td key={column.name}>{format_cell(row[column.name])}</td>
+                      <TableHead key={column.name} className="px-4">
+                        {column.name}
+                        {column.is_primary_key ? " (PK)" : ""}
+                      </TableHead>
                     ))}
-                    <td>
-                      {identified ? (
-                        <div className="actions">
-                          <a
-                            className="button alt"
-                            href={`${forger_url}/${String(id)}`}
-                          >
-                            Edit
-                          </a>
-                          <a
-                            className="button danger"
-                            href={siteUrl(
-                              `${module}/delete_conf/${table}/${String(id)}`
-                            )}
-                          >
-                            Delete
-                          </a>
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    <TableHead className="px-4 text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, row_index) => {
+                    const id = rowId(row);
+                    const identified =
+                      primary_key !== "" && id !== null && id !== undefined;
 
-          <Pagination
-            data={{ ...pagination_data, include_showing_statement: false }}
-          />
+                    return (
+                      <TableRow key={row_index}>
+                        {columns.map((column) => (
+                          <TableCell key={column.name} className="px-4">
+                            {format_cell(row[column.name])}
+                          </TableCell>
+                        ))}
+                        <TableCell className="px-4 text-right">
+                          {identified ? (
+                            <div className="flex justify-end gap-1.5">
+                              <Button asChild variant="outline" size="sm">
+                                <a href={`${forger_url}/${String(id)}`}>Edit</a>
+                              </Button>
+                              <Button asChild variant="destructive" size="sm">
+                                <a
+                                  href={site_url(
+                                    `${module}/delete_conf/${table}/${String(id)}`
+                                  )}
+                                >
+                                  Delete
+                                </a>
+                              </Button>
+                            </div>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Pagination
+              data={{ ...pagination_data, include_showing_statement: false }}
+            />
+          </div>
         </>
       )}
-    </>
+    </div>
   );
 }
 

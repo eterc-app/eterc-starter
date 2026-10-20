@@ -5,10 +5,10 @@ import {
   DATA_DIR,
   GENERATED_MODULES_DIR,
   MODULES_DIR,
-  ensureDir,
+  ensure_dir,
 } from "@/engine/paths";
-import { urlTitle } from "@/engine/string-service";
-import { siteUrl } from "@/engine/url";
+import { url_title } from "@/engine/String_service";
+import { site_url } from "@/engine/Url";
 import type {
   FloArtifacts,
   GeneratedModuleManifest,
@@ -227,7 +227,7 @@ export class FloGenerator {
   }
 
   buildFormFieldName(property_name: string): string {
-    return urlTitle(property_name).replace(/-/g, "_");
+    return url_title(property_name).replace(/-/g, "_");
   }
 
   private splitRangeProperty(
@@ -236,7 +236,7 @@ export class FloGenerator {
   ): RangeProperty {
     const fallback = field_type === "date" ? "Date Range" : "Time Range";
     const base_name = asString(property.propertyName, fallback);
-    const base_field = urlTitle(base_name).replace(/-/g, "_");
+    const base_field = url_title(base_name).replace(/-/g, "_");
     const on_form = asString(property.onForm, "yes");
     const is_searchable = asString(property.isSearchable, "no");
     const on_summary_table = asString(property.onSummaryTable, "no");
@@ -656,8 +656,8 @@ export class FloGenerator {
     );
 
     try {
-      ensureDir(target_root);
-      ensureDir(staging_path);
+      ensure_dir(target_root);
+      ensure_dir(staging_path);
       this.write_files(staging_path, artifacts.files);
       fs.renameSync(staging_path, target_module_path);
     } catch {
@@ -785,7 +785,7 @@ export class FloGenerator {
 
   /** Rebuild src/modules/generated/index.ts from the modules on disk. */
   rebuild_generated_index(target_root = GENERATED_MODULES_DIR): string {
-    ensureDir(target_root);
+    ensure_dir(target_root);
     const index_path = path.join(target_root, "index.ts");
     const content = buildGeneratedIndex(this.list_modules(target_root));
     const existing = fs.existsSync(index_path)
@@ -836,7 +836,7 @@ export class FloGenerator {
 
     try {
       const settings_dir = path.join(DATA_DIR, "settings", "site_builder");
-      ensureDir(settings_dir);
+      ensure_dir(settings_dir);
       const settings_path = path.join(settings_dir, "nav_links.json");
 
       let links: Array<Record<string, unknown>> = [];
@@ -885,7 +885,7 @@ export class FloGenerator {
   private write_files(target: string, files: Map<string, string>): void {
     for (const [relative, content] of files) {
       const full_path = path.join(target, relative);
-      ensureDir(path.dirname(full_path));
+      ensure_dir(path.dirname(full_path));
       fs.writeFileSync(full_path, content, "utf8");
     }
   }
@@ -899,7 +899,7 @@ export class FloGenerator {
   }
 
   private moreInfoUrl(topic: string): string {
-    return `${siteUrl("trongate_control-flo/home")}#troubleshooting-${topic}`;
+    return `${site_url("trongate_control-flo/home")}#troubleshooting-${topic}`;
   }
 
   private error(

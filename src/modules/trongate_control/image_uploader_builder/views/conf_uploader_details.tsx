@@ -1,6 +1,16 @@
 "use client";
 
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { UPLOADER_DEFAULTS, type UploaderWizard } from "../types";
 
 /**
@@ -12,60 +22,6 @@ import { UPLOADER_DEFAULTS, type UploaderWizard } from "../types";
  * the copy tells the developer the settings file can be edited after
  * generation.
  */
-
-const PAGE_CSS = `
-/* Undo the global stylesheet's table rules (same overrides as the original). */
-body table {
-  border-collapse: separate;
-  width: auto;
-}
-
-body table th {
-  background-color: transparent;
-  color: inherit;
-}
-
-body table th,
-body table td {
-  border: none;
-  padding: 0;
-}
-
-body table tr,
-body table tr:nth-child(odd),
-body table tr:hover,
-body table tr:nth-child(odd):hover {
-  background-color: transparent;
-}
-
-.iu-summary {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5em;
-}
-
-.iu-summary td {
-    border: 1px solid #ccc;
-    padding: 8px 12px;
-}
-
-.iu-summary .row-key {
-    width: 35%;
-    background: #f4f4f4;
-}
-
-.form-buttons {
-    margin-top: 2em;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-}
-
-.form-buttons button {
-    margin-left: 1em;
-}
-`;
 
 export default function ConfUploaderDetails({ data }: TgViewProps) {
   const wizard = (data.wizard ?? {}) as UploaderWizard;
@@ -121,33 +77,42 @@ export default function ConfUploaderDetails({ data }: TgViewProps) {
   ];
 
   return (
-    <div className="container">
-      <h1>Image Uploader Details</h1>
-      <p>
-        Your uploader details are displayed below. If required, you can modify
-        these details after generation via the settings file.
-      </p>
-
-      <table className="iu-summary">
-        <tbody>
-          {rows.map(([label, value]) => (
-            <tr key={label}>
-              <td className="row-key">
-                <strong>{label}</strong>
-              </td>
-              <td>{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="text-center form-buttons">
-        <button type="button" className="close-btn alt" onClick={closeWindow}>
-          Close Window
-        </button>
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+      <div>
+        <h1>Image Uploader Details</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your uploader details are displayed below. If required, you can modify
+          these details after generation via the settings file.
+        </p>
       </div>
 
-      <style>{PAGE_CSS}</style>
+      <Card className="overflow-hidden p-0">
+        <CardHeader className="border-b px-4 py-3">
+          <CardTitle>Uploader Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="px-4">Setting</TableHead>
+                <TableHead className="px-4">Value</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(([label, value]) => (
+                <TableRow key={label}>
+                  <TableCell className="px-4 font-medium">{label}</TableCell>
+                  <TableCell className="px-4">{value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Button type="button" variant="outline" onClick={closeWindow}>
+        Close Window
+      </Button>
     </div>
   );
 }

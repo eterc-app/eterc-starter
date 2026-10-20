@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildRequest, runInContext, flushResponseCookies } from "@/engine/dispatch";
-import { runWithContext } from "@/engine/request-context";
+import { build_request, run_in_context, flush_response_cookies } from "@/engine/dispatch";
+import { run_with_context } from "@/engine/request-context";
 import { TgHttpError, TgRedirectSignal } from "@/engine/signals";
 
 /**
@@ -28,11 +28,11 @@ export async function POST(
     canSetCookies: true,
     method: "POST",
   };
-  const ctx = await buildRequest(options);
+  const ctx = await build_request(options);
 
   try {
-    const result = await runWithContext(ctx, () => runInContext(options));
-    await flushResponseCookies(ctx);
+    const result = await run_with_context(ctx, () => run_in_context(options));
+    await flush_response_cookies(ctx);
     return NextResponse.json({
       status: "ok",
       data: safeJson(result.rawReturn),
@@ -41,7 +41,7 @@ export async function POST(
       http: result.status,
     });
   } catch (error) {
-    await flushResponseCookies(ctx);
+    await flush_response_cookies(ctx);
 
     if (error instanceof TgRedirectSignal) {
       return NextResponse.json({ status: "redirect", redirect: error.url });

@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BASE_URL } from "@/engine/config";
+import { Button } from "@/components/ui/button";
+import { Wand2, X } from "lucide-react";
 
 /**
  * Flo launcher — port of
  * modules/trongate_control/flo/views/flo_trigger.php.
  *
  * The PHP trigger relied on the framework's MX modal and a global
- * `window` message listener. The React version keeps the same button artwork
- * and postMessage protocol, but renders its overlays as fixed-position
- * iframes. All interactive requests still go through the port's JSON API
- * (`/api/xhr/...`), never through PHP-style form posts.
+ * `window` message listener. The React version keeps the same postMessage
+ * protocol and renders its overlays as fixed-position iframes, with the
+ * launcher styled using the Eterc shadcn/Tailwind surface.
  */
 
 /** Respect BASE_URL without importing the server-only request context. */
@@ -34,89 +35,6 @@ function dimension(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
-
-const FLO_CSS = `
-.flo-btn-container {
-    width: 100%;
-    text-align: center;
-    padding: 20px 0;
-    margin-top: 12px;
-}
-.flo-flagship-div-trigger {
-    width: 162px;
-    height: 51px;
-    display: inline-block;
-    background: url('${BASE}trongate_control_module/images/flo_button.png') no-repeat center center;
-    background-size: contain;
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 0 12px rgba(16, 184, 255, 0.5);
-    animation: floPulse 3s infinite ease-in-out;
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px #4e85b5 solid;
-    opacity: .5;
-}
-.flo-flagship-div-trigger:hover {
-    transform: scale(1.04);
-    box-shadow: 0 0 20px rgba(16, 184, 255, 0.8);
-    opacity: 1;
-}
-.flo-flagship-div-trigger:active { transform: scale(0.96); }
-.flo-flagship-div-trigger:focus-visible {
-    outline: 2px solid #ffffff;
-    outline-offset: 4px;
-}
-.flo-overlay,
-.flo-pb-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1001;
-    background: rgba(0, 0, 0, 0.5);
-}
-.flo-modal,
-.flo-pb-modal {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    max-width: 96vw;
-    max-height: 96vh;
-}
-.flo-modal { background: #fff; }
-.flo-pb-modal { width: 96vw; height: 96vh; background: transparent; }
-.flo-modal iframe,
-.flo-pb-modal iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-    border-radius: 12px;
-    background: #000;
-}
-.flo-close {
-    position: absolute;
-    top: 6px;
-    right: 12px;
-    z-index: 2;
-    cursor: pointer;
-    color: #fff;
-    background: #ff744a;
-    border: none;
-    border-radius: 4px;
-    font-size: 20px;
-    line-height: 1;
-    padding: 2px 8px;
-}
-@keyframes floPulse {
-    0% { box-shadow: 0 0 10px rgba(16, 184, 255, 0.4); }
-    50% { box-shadow: 0 0 22px rgba(16, 184, 255, 0.8); }
-    100% { box-shadow: 0 0 10px rgba(16, 184, 255, 0.4); }
-}
-`;
 
 type FloWindow = Window & {
   openPropertiesBuilder?: () => void;
@@ -279,62 +197,86 @@ export function FloTrigger() {
 
   return (
     <>
-      <div className="flo-btn-container">
-        <div
-          className="flo-flagship-div-trigger"
-          aria-label="Open Flo"
-          role="button"
-          tabIndex={0}
-          onClick={openFlo}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              openFlo();
-            }
-          }}
-        />
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={openFlo}
+        className="h-auto w-full justify-start gap-2 border-slate-700 bg-slate-900 px-3 py-2 text-white hover:bg-slate-800 hover:text-white"
+        aria-label="Open Flo"
+      >
+        <Wand2 className="size-4" />
+        <span className="font-semibold">Flo</span>
+        <span className="ml-auto text-xs text-slate-400">Generator</span>
+      </Button>
 
       {overlay ? (
         <div
-          className="flo-overlay"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) setOverlay(null);
           }}
         >
           <div
-            className="flo-modal"
-            style={{ width: overlay.width, height: overlay.height }}
+            className="relative flex max-h-[90vh] w-full max-w-[min(1100px,95vw)] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
+            style={{
+              width: overlay.width,
+              height: overlay.height,
+              maxWidth: "95vw",
+              maxHeight: "90vh",
+            }}
           >
-            <iframe src={overlay.url} title={overlay.title} />
+            <div className="flex h-10 shrink-0 items-center justify-between border-b bg-muted/50 px-3">
+              <span className="text-sm font-medium">{overlay.title}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="Close"
+                onClick={() => setOverlay(null)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            <iframe
+              src={overlay.url}
+              title={overlay.title}
+              className="h-full w-full flex-1 border-0 bg-background"
+            />
           </div>
         </div>
       ) : null}
 
       {propertiesOpen ? (
         <div
-          className="flo-pb-overlay"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) setPropertiesOpen(false);
           }}
         >
-          <div className="flo-pb-modal">
-            <button
-              type="button"
-              className="flo-close"
-              aria-label="Close Properties Builder"
-              onClick={() => setPropertiesOpen(false)}
-            >
-              &times;
-            </button>
-            <iframe src={PROPERTIES_BUILDER_HOME} title="Properties Builder" />
+          <div className="relative flex h-[min(800px,90vh)] w-full max-w-[min(1100px,95vw)] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b bg-muted/50 px-3">
+              <span className="text-sm font-medium">Properties Builder</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="Close Properties Builder"
+                onClick={() => setPropertiesOpen(false)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            <iframe
+              src={PROPERTIES_BUILDER_HOME}
+              title="Properties Builder"
+              className="h-full w-full flex-1 border-0 bg-background"
+            />
           </div>
         </div>
       ) : null}
-
-      <style>{FLO_CSS}</style>
     </>
-  );
-}
+  );}
 
 export default FloTrigger;

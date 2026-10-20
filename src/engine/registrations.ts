@@ -25,8 +25,8 @@ export const controllerLoaders: Record<
   login: () => import("@/modules/login/Login"),
   pagination: () => import("@/modules/pagination/Pagination"),
   image_uploader: () => import("@/modules/image_uploader/Image_uploader"),
-  db: () => import("@/modules/db/DbAdmin"),
-  module_relations: () => import("@/modules/module_relations/ModuleRelations"),
+  db: () => import("@/modules/db/Db"),
+  module_relations: () => import("@/modules/module_relations/Module_relations"),
   "trongate_control-module_builder": () =>
     import("@/modules/trongate_control/module_builder/Module_builder"),
   "trongate_control-properties": () =>
@@ -46,7 +46,7 @@ export const controllerLoaders: Record<
   "trongate_control-site_builder": () =>
     import("@/modules/trongate_control/site_builder/Site_builder"),
   trongate_administrators: () =>
-    import("@/modules/trongate_administrators/TrongateAdministrators"),
+    import("@/modules/trongate_administrators/Trongate_administrators"),
   trongate_control: () =>
     import("@/modules/trongate_control/Trongate_control"),
   ...generatedControllerLoaders,

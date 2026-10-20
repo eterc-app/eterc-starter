@@ -13,25 +13,25 @@
 export const DONOR_CONTROLLER_TEMPLATE = `import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { BASE_URL } from "@/engine/config";
-import { setFlashdata } from "@/engine/flashdata";
-import { getParam, post } from "@/engine/post";
+import { set_flashdata } from "@/engine/Flashdata";
+import { get_param, post } from "@/engine/post";
 <?php if (has_callbacks): ?>
-import { fromTrongateMx, getContext } from "@/engine/request-context";
+import { from_trongate_mx, get_context } from "@/engine/request-context";
 <?php else: ?>
-import { getContext } from "@/engine/request-context";
+import { get_context } from "@/engine/request-context";
 <?php endif; ?>
-import { sessionGet, sessionSet } from "@/engine/session";
+import { session_get, session_set } from "@/engine/session";
 <?php if (has_callbacks): ?>
 import { TgHttpError } from "@/engine/signals";
 <?php endif; ?>
-import type { TgTemplateData } from "@/engine/templates";
-import { previousUrl, redirect, segment, siteUrl } from "@/engine/url";
-import { registerViews } from "@/engine/views-registry";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import type { TgTemplateData } from "@/engine/Templates";
+import { previous_url, redirect, segment } from "@/engine/Url";
+import { register_views } from "@/engine/views-registry";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 import { <?= controller_name ?>_model } from "./<?= controller_name ?>_model";
 import { views } from "./views";
 
-registerViews(views);
+register_views(views);
 
 /**
  * <?= controller_name ?> controller
@@ -48,16 +48,16 @@ export default class <?= controller_name ?> extends Trongate {
     this.model = new <?= controller_name ?>_model(this.module_name || "<?= module_folder_name ?>");
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private security_service(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
-  private moduleModel(): <?= controller_name ?>_model {
+  private module_model(): <?= controller_name ?>_model {
     return this.model as <?= controller_name ?>_model;
   }
 
-  private baseUrl(): string {
+  private base_url(): string {
     return BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
   }
 
@@ -68,13 +68,13 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Display a paginated list of <?= plural_comment ?>. */
   async manage(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
 <?php if (has_searchable): ?>
-    let search_query = getParam("search_query");
-    let search_column = getParam("search_column");
+    const search_query = get_param("search_query");
+    let search_column = get_param("search_column");
 
-    const allowed_columns = this.moduleModel().get_searchable_columns();
+    const allowed_columns = this.module_model().get_searchable_columns();
     if (search_column !== "" && !allowed_columns.includes(search_column)) {
       search_column = "";
     }
@@ -82,12 +82,12 @@ export default class <?= controller_name ?> extends Trongate {
     const search_active = search_query !== "";
     let total_rows = 0;
     if (search_active) {
-      total_rows = this.moduleModel().count_search_results(search_query, search_column);
+      total_rows = this.module_model().count_search_results(search_query, search_column);
     } else {
-      total_rows = this.moduleModel().count_all();
+      total_rows = this.module_model().count_all();
     }
 <?php else: ?>
-    const total_rows = this.moduleModel().count_all();
+    const total_rows = this.module_model().count_all();
 <?php endif; ?>
 
     const limit = this.get_limit();
@@ -95,12 +95,12 @@ export default class <?= controller_name ?> extends Trongate {
 
 <?php if (has_searchable): ?>
     let rows = search_active
-      ? this.moduleModel().search_records(search_query, search_column, limit, offset)
-      : this.moduleModel().fetch_records(limit, offset);
+      ? this.module_model().search_records(search_query, search_column, limit, offset)
+      : this.module_model().fetch_records(limit, offset);
 <?php else: ?>
-    let rows = this.moduleModel().fetch_records(limit, offset);
+    let rows = this.module_model().fetch_records(limit, offset);
 <?php endif; ?>
-    rows = this.moduleModel().prepare_records_for_display(rows);
+    rows = this.module_model().prepare_records_for_display(rows);
 
     const data: TgTemplateData = {
       rows,
@@ -125,19 +125,19 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Display the form for creating or editing a <?= singular_comment ?>. */
   async create(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
     let data: Record<string, unknown>;
 
-    if (getContext().httpMethod === "GET" && update_id > 0) {
-      const record = this.moduleModel().get_data_from_db(update_id);
+    if (get_context().httpMethod === "GET" && update_id > 0) {
+      const record = this.module_model().get_data_from_db(update_id);
       if (record === false) {
         return this.not_found();
       }
       data = record;
     } else {
-      data = this.moduleModel().get_data_from_post();
+      data = this.module_model().get_data_from_post();
     }
 
     return this.templates.admin(this.build_create_data(data, update_id));
@@ -145,7 +145,7 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Handle form submission for creating/updating records. */
   async submit(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -160,27 +160,27 @@ export default class <?= controller_name ?> extends Trongate {
     if ((await this.validation.run()) !== true) {
       const update_id = Number(segment(3, "int"));
       return this.templates.admin(
-        this.build_create_data(this.moduleModel().get_data_from_post(), update_id)
+        this.build_create_data(this.module_model().get_data_from_post(), update_id)
       );
     }
 
     let update_id = Number(segment(3, "int"));
-    const data = this.moduleModel().get_data_from_post();
+    const data = this.module_model().get_data_from_post();
 
     if (update_id > 0) {
-      this.moduleModel().update_record(update_id, data);
-      setFlashdata(<?= updated_flash_literal ?>);
+      this.module_model().update_record(update_id, data);
+      set_flashdata(<?= updated_flash_literal ?>);
       redirect("<?= module_folder_name ?>/show/" + update_id);
     }
 
-    update_id = this.moduleModel().create_new_record(data);
-    setFlashdata(<?= created_flash_literal ?>);
+    update_id = this.module_model().create_new_record(data);
+    set_flashdata(<?= created_flash_literal ?>);
     redirect("<?= module_folder_name ?>/manage");
   }
 
   /** Display a detailed view of a single record. */
   async show(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
 
@@ -188,7 +188,7 @@ export default class <?= controller_name ?> extends Trongate {
       redirect("<?= module_folder_name ?>/manage");
     }
 
-    const data = this.moduleModel().get_data_from_db(update_id, true);
+    const data = this.module_model().get_data_from_db(update_id, true);
 
     if (data === false) {
       return this.not_found();
@@ -208,7 +208,7 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Display the confirmation page before deleting a record. */
   async delete_conf(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
 
@@ -216,7 +216,7 @@ export default class <?= controller_name ?> extends Trongate {
       return this.not_found();
     }
 
-    const data = this.moduleModel().get_data_for_edit(update_id);
+    const data = this.module_model().get_data_for_edit(update_id);
 
     if (data === false) {
       return this.not_found();
@@ -226,8 +226,8 @@ export default class <?= controller_name ?> extends Trongate {
       ...data,
       update_id,
       headline: <?= delete_headline_literal ?>,
-      cancel_url: this.baseUrl() + "<?= module_folder_name ?>/show/" + update_id,
-      form_location: this.baseUrl() + "<?= module_folder_name ?>/submit_delete/" + update_id,
+      cancel_url: this.base_url() + "<?= module_folder_name ?>/show/" + update_id,
+      form_location: this.base_url() + "<?= module_folder_name ?>/submit_delete/" + update_id,
       viewModule: this.module_name,
       viewFile: "delete_conf",
     };
@@ -237,7 +237,7 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Handle record deletion after confirmation. */
   async submit_delete(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -251,20 +251,20 @@ export default class <?= controller_name ?> extends Trongate {
       redirect("<?= module_folder_name ?>/manage");
     }
 
-    const record = this.moduleModel().find_by_id(update_id);
+    const record = this.module_model().find_by_id(update_id);
 
     if (record === false) {
       redirect("<?= module_folder_name ?>/manage");
     }
 
-    this.moduleModel().delete_record(update_id);
-    setFlashdata("The record was successfully deleted");
+    this.module_model().delete_record(update_id);
+    set_flashdata("The record was successfully deleted");
     redirect("<?= module_folder_name ?>/manage");
   }
 
   /** Set the number of records per page for pagination. */
   async set_per_page(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     let selected_index = Number(segment(3, "int"));
 
@@ -272,7 +272,7 @@ export default class <?= controller_name ?> extends Trongate {
       selected_index = 1;
     }
 
-    sessionSet("selected_per_page", selected_index);
+    session_set("selected_per_page", selected_index);
     redirect("<?= module_folder_name ?>/manage");
   }
 
@@ -301,8 +301,8 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Determine the appropriate back URL for navigation. */
   private get_back_url(): string {
-    const previous = previousUrl();
-    const expected = this.baseUrl() + "<?= module_folder_name ?>/manage";
+    const previous = previous_url();
+    const expected = this.base_url() + "<?= module_folder_name ?>/manage";
 
     if (previous !== "" && previous.startsWith(expected)) {
       return previous;
@@ -327,12 +327,12 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Get the selected per-page index from the session. */
   private get_selected_per_page(): number {
-    return sessionGet<number>("selected_per_page") ?? 1;
+    return session_get<number>("selected_per_page") ?? 1;
   }
 
   /** Get the current pagination limit from the session. */
   private get_limit(): number {
-    const selected = sessionGet<number>("selected_per_page");
+    const selected = session_get<number>("selected_per_page");
     if (selected !== undefined && this.per_page_options[selected] !== undefined) {
       return this.per_page_options[selected];
     }
@@ -354,8 +354,8 @@ export default class <?= controller_name ?> extends Trongate {
       ...data,
       update_id,
       headline: update_id > 0 ? <?= update_headline_literal ?> : <?= create_headline_literal ?>,
-      cancel_url: update_id > 0 ? this.baseUrl() + "<?= module_folder_name ?>/show/" + update_id : this.baseUrl() + "<?= module_folder_name ?>/manage",
-      form_location: this.baseUrl() + "<?= module_folder_name ?>/submit/" + update_id,
+      cancel_url: update_id > 0 ? this.base_url() + "<?= module_folder_name ?>/show/" + update_id : this.base_url() + "<?= module_folder_name ?>/manage",
+      form_location: this.base_url() + "<?= module_folder_name ?>/submit/" + update_id,
       viewModule: this.module_name,
       viewFile: "create",
     };
@@ -364,12 +364,12 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Handle search form submission for filtering records. */
   async submit_search(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
 
     let search_query = String(post("search_query", true) ?? "");
     let search_column = String(post("search_column", true) ?? "");
 
-    const allowed_columns = this.moduleModel().get_searchable_columns();
+    const allowed_columns = this.module_model().get_searchable_columns();
     if (search_column !== "" && !allowed_columns.includes(search_column)) {
       search_column = "";
     }
@@ -377,7 +377,7 @@ export default class <?= controller_name ?> extends Trongate {
     search_query = search_query.replace(/\\s+/g, " ").trim();
 
     if (search_query.length < 2) {
-      setFlashdata("Search query must be at least 2 characters");
+      set_flashdata("Search query must be at least 2 characters");
       redirect("<?= module_folder_name ?>/manage");
     }
 
@@ -386,7 +386,7 @@ export default class <?= controller_name ?> extends Trongate {
 
   /** Display the search modal form. */
   async search_modal(): Promise<ReactNode> {
-    this.securityService().make_sure_allowed();
+    this.security_service().make_sure_allowed();
     return this.view("<?= module_folder_name ?>/search_modal", {
       viewModule: this.module_name,
       viewFile: "search_modal",

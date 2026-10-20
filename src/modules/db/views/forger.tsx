@@ -1,11 +1,16 @@
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * The forger — create/edit record form for one table.
  *
- * Rendered by DbAdmin::forger() / buildForgerViewData(); designed from the
+ * Rendered by Db::forger() / buildForgerViewData(); designed from the
  * data contract (no PHP original view exists):
  *
  *   headline, table, update_id, fields (FormField[]), primary_key, cancel_url
@@ -33,23 +38,36 @@ export default function Forger({ data }: TgViewProps) {
   const fields = (data.fields ?? []) as FormField[];
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">
+          {update_id > 0
+            ? `Edit record #${update_id} in ${table}.`
+            : `Create a new record in ${table}.`}
+        </p>
+      </div>
+
       <ValidationErrors />
 
-      <div className="card">
-        <div className="card-heading">Record Details</div>
-        <div className="card-body">
-          <TgForm action="db/submit_forge" params={[table, update_id]}>
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Record Details</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <TgForm
+            action="db/submit_forge"
+            params={[table, update_id]}
+            className="space-y-5"
+          >
             {fields.map((field) => (
-              <div key={field.name}>
-                <label htmlFor={`field-${field.name}`}>
+              <div key={field.name} className="space-y-2">
+                <Label htmlFor={`field-${field.name}`}>
                   {field.label}
                   {field.required ? " *" : ""}
-                </label>
+                </Label>
 
                 {!field.submit ? (
-                  <input
+                  <Input
                     id={`field-${field.name}`}
                     type="text"
                     defaultValue={field.value}
@@ -57,7 +75,7 @@ export default function Forger({ data }: TgViewProps) {
                     disabled
                   />
                 ) : field.input_type === "textarea" ? (
-                  <textarea
+                  <Textarea
                     id={`field-${field.name}`}
                     name={field.name}
                     defaultValue={field.value}
@@ -65,7 +83,7 @@ export default function Forger({ data }: TgViewProps) {
                     required={field.required}
                   />
                 ) : (
-                  <input
+                  <Input
                     id={`field-${field.name}`}
                     type={field.input_type}
                     name={field.name}
@@ -79,17 +97,17 @@ export default function Forger({ data }: TgViewProps) {
               </div>
             ))}
 
-            <div className="text-center">
-              <a className="button alt" href={String(data.cancel_url ?? "")}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Submit">
+            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+              <Button type="submit" name="submit" value="Submit">
                 Submit
-              </button>
+              </Button>
+              <Button asChild variant="outline">
+                <a href={String(data.cancel_url ?? "")}>Cancel</a>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

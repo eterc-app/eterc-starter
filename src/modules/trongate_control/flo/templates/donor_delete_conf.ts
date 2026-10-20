@@ -4,6 +4,8 @@
  */
 export const DONOR_DELETE_CONF_TEMPLATE = `import type { TgViewProps } from "@/engine/views-registry";
 import { TgForm } from "@/engine/ui/TgForm";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * Delete <?= singular_comment ?> confirmation
@@ -13,30 +15,33 @@ export default function DeleteConf({ data }: TgViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
-      <div className="card">
-        <div className="card-heading">
-          Confirmation Required
-        </div>
-        <div className="card-body">
-          <p>Are you sure?</p>
-          <p>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">
+        {String(data.headline ?? "")}
+      </h1>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle>Confirmation Required</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="font-medium">Are you sure?</p>
+          <p className="text-sm text-muted-foreground">
             You are about to delete a <?= singular_comment ?> record. This cannot be undone. Do you really want to do this?
           </p>
           <TgForm action="<?= module_folder_name ?>/submit_delete" params={[update_id]}>
-            <div className="text-center">
-              <a className="button alt" href={String(data.cancel_url ?? "")}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Yes - Delete Now" className="danger">
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              <Button asChild variant="outline">
+                <a href={String(data.cancel_url ?? "")}>Cancel</a>
+              </Button>
+              <Button type="submit" name="submit" value="Yes - Delete Now" variant="destructive">
                 Yes - Delete Now
-              </button>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 `;

@@ -8,12 +8,12 @@ import {
   DATA_DIR,
   GENERATED_MODULES_DIR,
   MODULES_DIR,
-  ensureDir,
+  ensure_dir,
 } from "@/engine/paths";
-import { getContext } from "@/engine/request-context";
+import { get_context } from "@/engine/request-context";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { siteUrl } from "@/engine/url";
+import type { TgTemplateData } from "@/engine/Templates";
+import { site_url } from "@/engine/Url";
 import { Site_builder_model } from "./Site_builder_model";
 import { FloGenerator } from "../flo/FloGenerator";
 import type {
@@ -148,7 +148,7 @@ export default class Site_builder extends Trongate {
     // ---------------------------------------------------------------------
     // Directory / table / permission checks (PHP parity).
     // ---------------------------------------------------------------------
-    ensureDir(GENERATED_MODULES_DIR);
+    ensure_dir(GENERATED_MODULES_DIR);
 
     const target_module_path = context.module_folder_path;
     const source_module_path = path.join(MODULES_DIR, module_name);
@@ -176,7 +176,7 @@ export default class Site_builder extends Trongate {
     const wants_nav_link = context.nav_label !== "";
 
     if (wants_nav_link) {
-      ensureDir(settings_dir);
+      ensure_dir(settings_dir);
     }
 
     const additional_paths = wants_nav_link ? [settings_dir] : [];
@@ -220,7 +220,7 @@ export default class Site_builder extends Trongate {
     let written_files: string[] = [];
 
     try {
-      ensureDir(target_module_path);
+      ensure_dir(target_module_path);
       written_files = this.write_files(target_module_path, files);
     } catch (error) {
       // The target directory was created by this request; remove it so a
@@ -324,7 +324,7 @@ export default class Site_builder extends Trongate {
   /** Read the posted values (JSON body first, then named form fields). */
   private get_posted_values(): GenerateModuleInput {
     const values: Record<string, unknown> = {};
-    const json = getContext().json;
+    const json = get_context().json;
 
     if (json !== null && typeof json === "object" && !Array.isArray(json)) {
       for (const [key, value] of Object.entries(
@@ -367,7 +367,7 @@ export default class Site_builder extends Trongate {
 
     for (const [relative, content] of files) {
       const full_path = path.join(target, relative);
-      ensureDir(path.dirname(full_path));
+      ensure_dir(path.dirname(full_path));
       fs.writeFileSync(full_path, content, "utf8");
       written.push(full_path);
     }
@@ -397,7 +397,7 @@ export default class Site_builder extends Trongate {
     };
 
     if (topic !== undefined) {
-      result.more_info_url = `${siteUrl(
+      result.more_info_url = `${site_url(
         "trongate_control-site_builder"
       )}#troubleshooting-${topic}`;
     }

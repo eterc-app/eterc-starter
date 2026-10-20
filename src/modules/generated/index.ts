@@ -6,7 +6,7 @@
  */
 
 import type { ControllerCtor } from "@/engine/controller";
-import { registerViews } from "@/engine/views-registry";
+import { register_views } from "@/engine/views-registry";
 
 // No generated modules yet.
 

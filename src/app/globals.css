@@ -1,11 +1,289 @@
-/* Global overrides — Trongate's own stylesheets do the heavy lifting. */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Eterc design tokens. The shadcn variables below are the product's single
+   styling source; Tailwind utilities and shadcn components consume them. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #2563eb;
+  --radius: 0.5rem;
+  --chart-1: #2563eb;
+  --chart-2: #16a34a;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #dc2626;
+  --sidebar: #f8fafc;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eff6ff;
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #2563eb;
 }
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --popover: #171717;
+  --popover-foreground: #fafafa;
+  --primary: #3b82f6;
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #1e3a8a;
+  --accent-foreground: #dbeafe;
+  --destructive: #ef4444;
+  --destructive-foreground: #0a0a0a;
+  --border: #262626;
+  --input: #262626;
+  --ring: #3b82f6;
+  --sidebar: #171717;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #262626;
+  --sidebar-ring: #3b82f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+  }
+  h1 {
+    @apply text-3xl font-bold tracking-tight;
+  }
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+/* Trongate Icons - v0.1.0 (Beta) */
+
+/* Base icon class */
+.tg {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    /* Improve rendering quality */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+/* Individual icon styles */
+.tg-envelope {
+    -webkit-mask-image: url('/trongate-icons/envelope.svg');
+    mask-image: url('/trongate-icons/envelope.svg');
+    transform: translateY(0.12em);
+}
+
+.tg-envelope-open {
+    -webkit-mask-image: url('/trongate-icons/envelope-open.svg');
+    mask-image: url('/trongate-icons/envelope-open.svg');
+    transform: translateY(0.06em);
+}
+
+.tg-home {
+    -webkit-mask-image: url('/trongate-icons/home.svg');
+    mask-image: url('/trongate-icons/home.svg');
+    transform: translateY(0.03em) scale(1.2);
+}
+
+.tg-list {
+    -webkit-mask-image: url('/trongate-icons/list.svg');
+    mask-image: url('/trongate-icons/list.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.1em;
+    margin-right: -0.1em;
+}
+
+.tg-padlock {
+    -webkit-mask-image: url('/trongate-icons/padlock.svg');
+    mask-image: url('/trongate-icons/padlock.svg');
+    margin-left: 0.1em;
+    margin-right: -0.1em;
+}
+
+.tg-shopping-basket {
+    -webkit-mask-image: url('/trongate-icons/shopping-basket.svg');
+    mask-image: url('/trongate-icons/shopping-basket.svg');
+    transform: translateY(0.10em) scale(1.2);
+}
+
+.tg-shopping-cart {
+    -webkit-mask-image: url('/trongate-icons/shopping-cart.svg');
+    mask-image: url('/trongate-icons/shopping-cart.svg');
+    transform: translateY(0.133em) scale(1.2);
+}
+
+.tg-sign-in {
+    -webkit-mask-image: url('/trongate-icons/sign-in.svg');
+    mask-image: url('/trongate-icons/sign-in.svg');
+    transform: translateY(0.10em) scale(1.2);
+}
+
+.tg-sign-out {
+    -webkit-mask-image: url('/trongate-icons/sign-out.svg');
+    mask-image: url('/trongate-icons/sign-out.svg');
+    transform: translateY(-0.03em) scale(1.2);
+    margin-left: 0.25em;
+    margin-right: -0.25em;
+}
+
+.tg-star {
+    -webkit-mask-image: url('/trongate-icons/star.svg');
+    mask-image: url('/trongate-icons/star.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.25em;
+    margin-right: -0.25em;
+}
+
+.tg-star-half {
+    -webkit-mask-image: url('/trongate-icons/star-half.svg');
+    mask-image: url('/trongate-icons/star-half.svg');
+    margin-left: 0.25em;
+    margin-right: -0.25em;
+}
+
+.tg-user {
+    -webkit-mask-image: url('/trongate-icons/user.svg');
+    mask-image: url('/trongate-icons/user.svg');
+}
+
+.tg-trash {
+    -webkit-mask-image: url('/trongate-icons/trash.svg');
+    mask-image: url('/trongate-icons/trash.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
+
+.tg-user-circle {
+    -webkit-mask-image: url('/trongate-icons/user-circle.svg');
+    mask-image: url('/trongate-icons/user-circle.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
+
+.tg-users {
+    -webkit-mask-image: url('/trongate-icons/users.svg');
+    mask-image: url('/trongate-icons/users.svg');
+    transform: translateY(0.06em) scale(1.33);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
+
+.tg-pencil {
+    -webkit-mask-image: url('/trongate-icons/pencil.svg');
+    mask-image: url('/trongate-icons/pencil.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
+
+.tg-eye {
+    -webkit-mask-image: url('/trongate-icons/eye.svg');
+    mask-image: url('/trongate-icons/eye.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
+
+.tg-search {
+    -webkit-mask-image: url('/trongate-icons/search.svg');
+    mask-image: url('/trongate-icons/search.svg');
+    transform: translateY(0.06em) scale(1.2);
+    margin-left: 0.15em;
+    margin-right: -0.15em;
+}
 }

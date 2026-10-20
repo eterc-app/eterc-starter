@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AddPropertyModal } from "./AddPropertyModal";
@@ -30,9 +32,9 @@ import type {
  * modules/trongate_control/properties_builder (views/home.php + js/properties_builder.js).
  *
  * The original was a standalone full-screen document loaded in a Flo iframe.
- * This component keeps the same layout, copy, Trongate/W3 CSS classes and
- * localStorage protocol, while replacing the DOM-string manipulation with
- * React state.
+ * This component keeps the same state and localStorage protocol, while
+ * replacing the DOM-string manipulation with React state and the Trongate/W3
+ * styling with shadcn/Tailwind.
  *
  * External contract (unchanged):
  *  - `localStorage.properties` holds the reduced property list;
@@ -85,7 +87,7 @@ async function callProperties<T>(
   return envelope.data as T;
 }
 
-/** Original: getLastSegment() — used to detect the `/web` entry point. */
+/** Original: get_last_segment() — used to detect the `/web` entry point. */
 function lastPathSegment(href: string): string {
   try {
     const path = new URL(href).pathname;
@@ -262,10 +264,6 @@ export function PropertiesBuilder({
     usingWebApp.current = lastPathSegment(window.location.href) === "web";
 
     document.title = "Properties Builder";
-    document.body.classList.add("showbg");
-    document.body.style.backgroundColor = "#000";
-    document.body.style.display = "block";
-    document.body.style.overflow = "hidden";
 
     // Reveal on the next frame (the original faded in on window load). Doing
     // this in a callback keeps the effect free of synchronous state updates.
@@ -300,8 +298,6 @@ export function PropertiesBuilder({
       timers.current = [];
 
       document.body.classList.remove("showbg");
-      document.body.style.backgroundColor = "";
-      document.body.style.display = "";
       document.body.style.overflow = "";
       document.body.style.overflowY = "";
       document.title = previousTitle;
@@ -381,7 +377,7 @@ export function PropertiesBuilder({
     setAddressLoading(true);
     setModalMode("address");
     setInstructions(
-      <span className="blink" style={{ top: "3em", position: "relative" }}>
+      <span className="relative top-12 animate-pulse">
         Fetching Address Types...
       </span>
     );
@@ -469,7 +465,7 @@ export function PropertiesBuilder({
     setAddressTypes([]);
     setAddressLoading(true);
     setInstructions(
-      <span className="blink" style={{ top: "3em", position: "relative" }}>
+      <span className="relative top-12 animate-pulse">
         Fetching Address Properties...
       </span>
     );
@@ -806,127 +802,133 @@ export function PropertiesBuilder({
   return (
     <div
       id="particles-div"
-      style={{ opacity: revealed ? 1 : 0 }}
+      className={cn(
+        "transition-opacity duration-500",
+        revealed ? "opacity-100" : "pointer-events-none opacity-0"
+      )}
     >
-      <div className="container">
-        <div className="w3-row stage">
-          <div className="w3-col s3 w3-center left-side">
-            <div
-              className="properties-selector cloak"
-              style={{ opacity: revealed && !shuttingDown ? 1 : 0 }}
-            >
-              <h2>Properties Fields</h2>
-              <div id="properties_fields">
-                {fieldEntries.map(([key, field], index) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => openPropertyModal(field.property_label, index)}
-                    className="w3-button w3-block w3-white w3-border w3-border-blue"
-                  >
-                    {field.property_label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => void openAddressModal()}
-                className="w3-button w3-block w3-white w3-border w3-border-blue"
-              >
-                address
-              </button>
-              {error !== "" ? (
-                <p style={{ color: "#b00020", background: "#fff", padding: "0.5em" }}>
-                  {error}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="w3-col s9 w3-center right-side">
-            <div
-              className="logo cloak"
-              style={{ opacity: revealed ? 1 : 0 }}
-            >
-              Properties BuilDER
-            </div>
-            <h2 className="cloak" style={{ opacity: revealed ? 1 : 0 }}>
-              Click A Property Field To Add A New Property
+      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside
+          className={cn(
+            "space-y-3 transition-opacity",
+            revealed && !shuttingDown ? "opacity-100" : "opacity-50"
+          )}
+        >
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Properties Fields
             </h2>
-
-            <div className="center-stage">
-              <div id="current-properties">
-                {properties.map((property, index) =>
-                  removedRows.has(index) ? null : (
-                    <PropertyAccordion
-                      key={index}
-                      property={property}
-                      index={index}
-                      expanded={expanded.has(index)}
-                      overrides={ruleOverrides[index] ?? {}}
-                      onToggle={() => toggleProperty(index)}
-                      onDelete={() => deleteProperty(index)}
-                      onAddRule={(rule_label) =>
-                        addValidationRule(index, rule_label)
-                      }
-                      onRemoveRule={(rule_index) =>
-                        removeValidationRule(index, rule_index)
-                      }
-                      onCheckValue={(rule_index, value) =>
-                        checkValue(index, rule_index, value)
-                      }
-                      onToggleCheckbox={(code) => toggleCheckbox(index, code)}
-                    />
-                  )
-                )}
-              </div>
-
-              <div
-                className="close-btns"
-                id="close-btns"
-                style={{
-                  opacity: closeButtonsVisible ? 1 : 0,
-                  marginLeft: closeButtonsVisible ? "0" : "600px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => submitProperties("submit")}
-                  className="w3-button w3-large w3-blue-grey submit-btn"
-                  id="submit-btn"
-                >
-                  {properties.length < 2
-                    ? "Submit Property"
-                    : "Submit Properties"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => submitProperties("cancel")}
-                  className="w3-button w3-large cancel-btn"
-                >
-                  Cancel &amp; Close
-                </button>
-              </div>
-
-              <AddPropertyModal
-                mode={modalMode}
-                headline={headline}
-                instructions={instructions}
-                title={title}
-                suggestions={suggestions}
-                onTitleChange={setTitle}
-                onAddProperty={addNewProperty}
-                addressTypes={addressTypes}
-                addressType={addressType}
-                addressLoading={addressLoading}
-                onAddressTypeChange={setAddressType}
-                onAddAddress={() => void addAddress()}
-                onClose={closeModal}
-                titleInputRef={titleInputRef}
-              />
-            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Choose a field to add it to the module.
+            </p>
           </div>
-        </div>
+
+          <div className="space-y-2" id="properties_fields">
+            {fieldEntries.map(([key, field], index) => (
+              <Button
+                key={key}
+                type="button"
+                variant="outline"
+                onClick={() => openPropertyModal(field.property_label, index)}
+                className="w-full justify-start"
+              >
+                {field.property_label}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void openAddressModal()}
+              className="w-full justify-start"
+            >
+              Address
+            </Button>
+          </div>
+
+          {error !== "" ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </aside>
+
+        <section className="min-w-0 space-y-4 text-center">
+          <div className="space-y-1 text-center">
+            <h2 className="text-xl font-semibold tracking-tight">
+              Properties Builder
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Click a property field to add a new property.
+            </p>
+          </div>
+
+          <div id="current-properties" className="space-y-3 text-left">
+            {properties.length === 0 ? (
+              <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
+                No properties yet. Select a field on the left to begin.
+              </div>
+            ) : null}
+            {properties.map((property, index) =>
+              removedRows.has(index) ? null : (
+                <PropertyAccordion
+                  key={index}
+                  property={property}
+                  index={index}
+                  expanded={expanded.has(index)}
+                  overrides={ruleOverrides[index] ?? {}}
+                  onToggle={() => toggleProperty(index)}
+                  onDelete={() => deleteProperty(index)}
+                  onAddRule={(rule_label) => addValidationRule(index, rule_label)}
+                  onRemoveRule={(rule_index) =>
+                    removeValidationRule(index, rule_index)
+                  }
+                  onCheckValue={(rule_index, value) =>
+                    checkValue(index, rule_index, value)
+                  }
+                  onToggleCheckbox={(code) => toggleCheckbox(index, code)}
+                />
+              )
+            )}
+          </div>
+
+          {closeButtonsVisible ? (
+            <div className="flex flex-col justify-center gap-2 border-t pt-4 sm:flex-row">
+              <Button
+                type="button"
+                onClick={() => submitProperties("submit")}
+                id="submit-btn"
+              >
+                {properties.length < 2
+                  ? "Submit Property"
+                  : "Submit Properties"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => submitProperties("cancel")}
+              >
+                Cancel &amp; Close
+              </Button>
+            </div>
+          ) : null}
+
+          <AddPropertyModal
+            mode={modalMode}
+            headline={headline}
+            instructions={instructions}
+            title={title}
+            suggestions={suggestions}
+            onTitleChange={setTitle}
+            onAddProperty={addNewProperty}
+            addressTypes={addressTypes}
+            addressType={addressType}
+            addressLoading={addressLoading}
+            onAddressTypeChange={setAddressType}
+            onAddAddress={() => void addAddress()}
+            onClose={closeModal}
+            titleInputRef={titleInputRef}
+          />
+        </section>
       </div>
     </div>
   );

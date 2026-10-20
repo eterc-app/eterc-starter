@@ -1,6 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Step 1 — port of module_builder/views/enter_mod_name.php.
@@ -16,21 +19,27 @@ export function EnterModNameStep({
   error?: string;
 }) {
   return (
-    <div className="center-stage">
-      <div className="mt-1">Enter Module Name (singular)</div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Enter Module Name</h2>
       <form
         action="#"
         id="enter-mod-name-form"
-        className="highlight-errors"
+        className="space-y-3"
         onSubmit={onSubmit}
       >
-        <div className="mt-1">
-          <input type="text" name="mod_name" autoComplete="off" />
+        <div className="space-y-2">
+          <Label htmlFor="mod-name-input">Module name (singular)</Label>
+          <Input
+            id="mod-name-input"
+            type="text"
+            name="mod_name"
+            autoComplete="off"
+          />
         </div>
-        {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
-        <div className="mt-1">
-          <button disabled={busy}>Submit</button>
-        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button type="submit" disabled={busy}>
+          Submit
+        </Button>
       </form>
     </div>
   );

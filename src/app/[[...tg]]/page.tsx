@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { runRequest, type TgRunResult } from "@/engine/dispatch";
+import { run_request, type TgRunResult } from "@/engine/dispatch";
 import { TgRedirectSignal } from "@/engine/signals";
 import { TgUiProvider } from "@/engine/ui/TgUiProvider";
 
@@ -30,7 +30,7 @@ export default async function TrongatePage({
   let result: TgRunResult;
 
   try {
-    result = await runRequest({ segments, query, canSetCookies: false });
+    result = await run_request({ segments, query, canSetCookies: false });
   } catch (error) {
     if (error instanceof TgRedirectSignal) {
       redirect(error.url);
@@ -46,7 +46,7 @@ export default async function TrongatePage({
     <TgUiProvider
       errors={result.errors}
       flash={result.flash}
-      csrfToken={result.csrfToken}
+      csrf_token={result.csrf_token}
     >
       {result.node}
     </TgUiProvider>

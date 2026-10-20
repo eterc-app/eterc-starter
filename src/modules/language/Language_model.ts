@@ -22,7 +22,7 @@ import { MODULES_DIR, PROJECT_ROOT } from "@/engine/paths";
  *      carry an `_error` suffix ("required_error"); the port's validation
  *      service keys rules without it ("required"), so
  *      get_port_validation_errors() returns the catalog re-keyed for
- *      ValidationService::set_language().
+ *      Validation::set_language().
  *
  * No database tables are involved.
  */
@@ -277,7 +277,7 @@ export class Language_model extends Model {
   }
 
   /**
-   * The validation catalog re-keyed for the port's ValidationService: PHP's
+   * The validation catalog re-keyed for the port's Validation: PHP's
    * "required_error" becomes the port's "required" rule key. Custom rule keys
    * (e.g. "title_check") carry no suffix and pass through unchanged.
    */

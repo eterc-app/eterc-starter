@@ -2,16 +2,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ReactNode } from "react";
 import ts from "typescript";
-import { Trongate, prepareController } from "@/engine/controller";
+import { Trongate, prepare_controller } from "@/engine/controller";
 import { ENV } from "@/engine/config";
 import { post } from "@/engine/post";
-import { getContext } from "@/engine/request-context";
-import { sessionGet, sessionSet, sessionUnset } from "@/engine/session";
+import { get_context } from "@/engine/request-context";
+import { session_get, session_set, session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { segment, siteUrl } from "@/engine/url";
-import { registerViews } from "@/engine/views-registry";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import type { TgTemplateData } from "@/engine/Templates";
+import { segment, site_url } from "@/engine/Url";
+import { register_views } from "@/engine/views-registry";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 import Plural_maker from "../plural_maker/Plural_maker";
 import { views } from "./views";
 import {
@@ -47,7 +47,7 @@ import {
   type RelationsWizard,
 } from "./types";
 
-registerViews(views);
+register_views(views);
 
 /**
  * Module_relations_builder - the "Create Module Relation" wizard.
@@ -106,22 +106,22 @@ export default class Module_relations_builder extends Trongate {
     return this.model as Module_relations_builder_model;
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
   private isAjax(): boolean {
-    return getContext().isAjax;
+    return get_context().isAjax;
   }
 
   private getWizard(): RelationsWizard {
-    const wizard = sessionGet<RelationsWizard>(WIZARD_SESSION_KEY);
+    const wizard = session_get<RelationsWizard>(WIZARD_SESSION_KEY);
     return wizard && typeof wizard === "object" ? wizard : {};
   }
 
   private saveWizard(wizard: RelationsWizard): void {
-    sessionSet(WIZARD_SESSION_KEY, wizard);
+    session_set(WIZARD_SESSION_KEY, wizard);
   }
 
   private updateWizard(partial: Partial<RelationsWizard>): RelationsWizard {
@@ -138,7 +138,7 @@ export default class Module_relations_builder extends Trongate {
       );
     } catch {
       const instance = new Plural_maker("trongate_control-plural_maker");
-      return prepareController(
+      return prepare_controller(
         instance,
         "trongate_control-plural_maker"
       ) as unknown as Plural_maker;
@@ -182,7 +182,7 @@ export default class Module_relations_builder extends Trongate {
   /** Step 1: choose the relation type; clears stale wizard state. */
   async choose_relation_type(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
-    sessionUnset(WIZARD_SESSION_KEY);
+    session_unset(WIZARD_SESSION_KEY);
 
     if (this.isAjax()) {
       return { ok: true, next_step: "choose_relation_type" };
@@ -395,9 +395,9 @@ export default class Module_relations_builder extends Trongate {
       wizard,
       parent_label: ucwords(parent.replace(/_/g, " ")),
       child_label: ucwords(child.replace(/_/g, " ")),
-      module_a_manage_url: siteUrl(`${parent}/manage`),
-      module_b_manage_url: siteUrl(`${child}/manage`),
-      relation_details_url: siteUrl(
+      module_a_manage_url: site_url(`${parent}/manage`),
+      module_b_manage_url: site_url(`${child}/manage`),
+      relation_details_url: site_url(
         "trongate_control-module_relations_builder/relation_details/web"
       ),
     };
@@ -434,7 +434,7 @@ export default class Module_relations_builder extends Trongate {
     this.securityService().make_sure_allowed();
 
     const wizard = this.getWizard();
-    const after_close_url = siteUrl(
+    const after_close_url = site_url(
       "trongate_control-module_relations_builder/conf_generate_relation?template=c64"
     );
 
@@ -582,8 +582,8 @@ export default class Module_relations_builder extends Trongate {
       ok: true,
       parent_label: ucwords(parent.replace(/_/g, " ")),
       child_label: ucwords(child.replace(/_/g, " ")),
-      module_a_manage_url: siteUrl(`${parent}/manage`),
-      module_b_manage_url: siteUrl(`${child}/manage`),
+      module_a_manage_url: site_url(`${parent}/manage`),
+      module_b_manage_url: site_url(`${child}/manage`),
       wizard,
     };
 

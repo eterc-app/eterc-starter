@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { UploaderModuleChoice } from "../types";
 
 /**
@@ -24,37 +25,39 @@ export function ChooseModStep({
   const ready = modules.filter((module) => module.ready);
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">Choose a Module for Your Image Uploader</div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Choose a Module for Your Image Uploader</h2>
 
-      <div className="mt-1">
-        <button
-          type="button"
-          className="selector-btn"
-          onClick={() => setShowingOptions(true)}
-          disabled={busy}
-        >
-          Select Module...
-        </button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowingOptions(true)}
+        disabled={busy}
+      >
+        Select Module...
+      </Button>
 
-      {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {showingOptions ? (
-        <div id="iu-mod-options-list">
+        <div id="iu-mod-options-list" className="space-y-2">
           {ready.length === 0 ? (
-            <p>
+            <p className="text-sm text-muted-foreground">
               No modules are ready for an image uploader. Generate a module with
               a controller, model, show view and delete flow first.
             </p>
           ) : (
-            <ul className="options-selector">
-              {ready.map((module) => (
-                <li key={module.module} onClick={() => onSelect(module.module)}>
-                  {module.label}
-                </li>
-              ))}
-            </ul>
+            ready.map((module) => (
+              <Button
+                key={module.module}
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => onSelect(module.module)}
+              >
+                {module.label}
+              </Button>
+            ))
           )}
         </div>
       ) : null}

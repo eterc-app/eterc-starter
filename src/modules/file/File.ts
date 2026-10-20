@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as v8 from "node:v8";
 import { Trongate } from "@/engine/controller";
-import { uploadedFiles } from "@/engine/post";
+import { uploaded_files } from "@/engine/post";
 import type { TgUploadedFile } from "@/engine/request-context";
 import { segment } from "@/engine/request-context";
 import { PROJECT_ROOT } from "@/engine/paths";
-import { makeRandStr, sanitizeFilename } from "@/engine/string-service";
-import { blockUrl } from "@/modules/utilities/Utilities";
+import { make_rand_str, sanitize_filename } from "@/engine/String_service";
+import { block_url } from "@/modules/utilities/Utilities";
 import { resolveUploadDirectory } from "./upload-paths";
 
 /**
@@ -19,7 +19,7 @@ import { resolveUploadDirectory } from "./upload-paths";
  *
  *   - info() / exists() / read() / write() / delete() / delete_directory() /
  *     list_directory() / copy() / move()  → synchronous helpers;
- *   - upload()      → async (request bodies are read through uploadedFiles());
+ *   - upload()      → async (request bodies are read through uploaded_files());
  *   - download()    → returns a web Response carrying the file (PHP sent
  *                     headers and read the file into the output buffer).
  *
@@ -60,7 +60,7 @@ export default class File extends Trongate {
   constructor(moduleName?: string | null) {
     super(moduleName);
     // Protect this module from unwanted browser access (PHP parity).
-    blockUrl("file");
+    block_url("file");
   }
 
   // -------------------------------------------------------------------------
@@ -71,7 +71,7 @@ export default class File extends Trongate {
    * Handle a file upload with the given configuration.
    *
    * PHP read $_FILES synchronously; the port reads the request's FormData
-   * through uploadedFiles(), hence the async signature.
+   * through uploaded_files(), hence the async signature.
    */
   async upload(config: FileUploadConfig): Promise<UploadedFileInfo> {
     const destination = config?.destination ?? "";
@@ -85,7 +85,7 @@ export default class File extends Trongate {
       target_module
     );
 
-    const files = await uploadedFiles();
+    const files = await uploaded_files();
     const upload: TgUploadedFile | undefined = Object.values(files)[0];
 
     if (upload === undefined) {
@@ -461,10 +461,10 @@ export default class File extends Trongate {
 
     if (make_rand_name === true) {
       const file_info = returnFileInfo(original_name);
-      file_name = makeRandStr(10).toLowerCase();
+      file_name = make_rand_str(10).toLowerCase();
       extension = file_info.file_extension.toLowerCase();
     } else {
-      const sanitized = sanitizeFilename(original_name);
+      const sanitized = sanitize_filename(original_name);
       const file_info = returnFileInfo(sanitized);
       file_name = file_info.file_name;
       extension = file_info.file_extension;

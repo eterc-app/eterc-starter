@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { ETERC_DOCS_URL, ETERC_FORUM_URL } from "@/engine/config";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type Errors = Record<string, string[]>;
 
@@ -13,15 +25,15 @@ interface SetupWizardProps {
 }
 
 /**
- * Setup wizard â€” the port of modules/setup (views: setup, database_config,
+ * Setup wizard - the port of modules/setup (views: setup, database_config,
  * admin_account, update_default_module, setup_complete).
  *
  * The PHP original swapped `.setup-container` over MX requests; here a single
  * client component drives the five steps through the JSON API
- * (`/api/xhr/setup/*`), keeping identical markup and copy.
+ * (`/api/xhr/setup/*`), keeping identical copy and the same server contract.
  */
 export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -38,7 +50,7 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
         const response = await fetch(`/api/xhr/setup/${method}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, csrf_token: csrfToken }),
+          body: JSON.stringify({ ...payload, csrf_token: csrf_token }),
         });
         const json = (await response.json()) as {
           status: string;
@@ -57,7 +69,7 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
         setBusy(false);
       }
     },
-    [csrfToken]
+    [csrf_token],
   );
 
   const initDatabase = async () => {
@@ -99,102 +111,136 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
     }
   };
 
-  if (helpOpen) {
-    return (
-      <div className="setup-container">
-        <HelpMessage onBack={() => setHelpOpen(false)} />
-      </div>
-    );
-  }
-
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/40 to-primary/5 px-4 py-10">
       {step === 4 ? <ConfettiCanvas /> : null}
-      <div className="setup-container">
-        {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
-        {step === 1 && (
-          <DatabaseStep
-            dbFile={dbFile}
-            notice={notice}
-            busy={busy}
-            onNext={initDatabase}
-          />
-        )}
-        {step === 2 && (
-          <AdminStep errors={errors} busy={busy} onSubmit={createAdmin} />
-        )}
-        {step === 3 && (
-          <FinalizeStep
-            dbFile={dbFile}
-            adminUsername={adminUsername}
-            notice={notice}
-            busy={busy}
-            onNext={finalize}
-          />
-        )}
-        {step === 4 && <CompleteStep appPath={appPath} />}
-        <HelpLink onClick={() => setHelpOpen(true)} />
+
+      <div className="mx-auto w-full max-w-3xl">
+        <Card className="shadow-lg">
+          <CardContent className="p-6 sm:p-8">
+            {helpOpen ? (
+              <HelpMessage onBack={() => setHelpOpen(false)} />
+            ) : (
+              <>
+                {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
+                {step === 1 && (
+                  <DatabaseStep
+                    dbFile={dbFile}
+                    notice={notice}
+                    busy={busy}
+                    onNext={initDatabase}
+                  />
+                )}
+                {step === 2 && (
+                  <AdminStep errors={errors} busy={busy} onSubmit={createAdmin} />
+                )}
+                {step === 3 && (
+                  <FinalizeStep
+                    dbFile={dbFile}
+                    adminUsername={adminUsername}
+                    notice={notice}
+                    busy={busy}
+                    onNext={finalize}
+                  />
+                )}
+                {step === 4 && <CompleteStep appPath={appPath} />}
+                <HelpLink onClick={() => setHelpOpen(true)} />
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
       {busy ? (
-        <span className="loading-spinner" aria-hidden="true" />
+        <span
+          className="fixed bottom-6 right-6 size-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+          aria-hidden="true"
+        />
       ) : null}
-    </>
+    </div>
   );
 }
 
-/* â”€â”€ Steps indicator (port of setup/draw_steps_indicator) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Steps indicator (port of setup/draw_steps_indicator) ------------------ */
 
 function StepsIndicator({ current }: { current: number }) {
   return (
-    <div className="steps">
-      {STEP_TITLES.map((title, index) => (
-        <div
-          key={title}
-          className={index <= current ? "step active" : "step"}
-        >
-          <span className="step-number">{index + 1}</span>
-          <span className="step-title">{title}</span>
-        </div>
-      ))}
+    <div className="my-6 grid grid-cols-5 gap-1 sm:gap-2">
+      {STEP_TITLES.map((title, index) => {
+        const active = index <= current;
+        return (
+          <div
+            key={title}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-center transition-colors",
+              active
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "text-muted-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "grid size-6 place-items-center rounded-full text-xs font-bold",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
+              {index + 1}
+            </span>
+            <span className="text-[10px] font-medium leading-tight sm:text-xs">
+              {title}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 function HelpLink({ onClick }: { onClick: () => void }) {
   return (
-    <div className="help-link">
-      <a
-        href="#"
-        onClick={(event) => {
-          event.preventDefault();
-          onClick();
-        }}
-      >
+    <div className="mt-6 text-center">
+      <Button variant="link" onClick={onClick}>
         Need help?
-      </a>
+      </Button>
     </div>
   );
 }
 
-/* â”€â”€ Step 1: Welcome (view: setup.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-
-function WelcomeStep({ onNext }: { onNext: () => void }) {
+function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <h1 className="text-center">Welcome to Your New Eterc Application</h1>
-      <p className="text-center mt-1">
-        This wizard will guide you through the initial setup of your
-        application.
-      </p>
-      <StepsIndicator current={0} />
-      <button type="button" className="btn btn-primary" onClick={onNext}>
-        Get Started
-      </button>
-    </>
+    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+      {children}
+    </div>
   );
 }
 
-/* â”€â”€ Step 2: Database (view: database_config.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Step 1: Welcome (view: setup.php) ------------------------------------ */
+
+function WelcomeStep({ onNext }: { onNext: () => void }) {
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          Welcome to Your New Eterc Application
+        </h1>
+        <p className="text-muted-foreground">
+          This wizard will guide you through the initial setup of your
+          application.
+        </p>
+      </div>
+      <StepsIndicator current={0} />
+      <div className="text-center">
+        <Button type="button" size="lg" onClick={onNext}>
+          Get Started
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* -- Step 2: Database (view: database_config.php) ------------------------- */
 
 function DatabaseStep({
   dbFile,
@@ -208,59 +254,62 @@ function DatabaseStep({
   onNext: () => void;
 }) {
   return (
-    <>
-      <h1 className="text-center">Database Connection Test</h1>
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Database Connection Test
+        </h1>
+        <p className="text-muted-foreground">
+          This port runs on SQLite (managed through Prisma). There are no
+          credentials to enter - the database file is created automatically.
+        </p>
+      </div>
       <StepsIndicator current={1} />
-      <p className="text-center">
-        This port runs on SQLite (managed through Prisma). There are no
-        credentials to enter â€” the database file is created automatically.
-      </p>
-      {notice ? (
-        <div className="alert alert-error">
-          <p>{notice}</p>
+      {notice ? <Notice>{notice}</Notice> : null}
+
+      <div className="space-y-2">
+        <Label htmlFor="database-file">Database file</Label>
+        <Input
+          type="text"
+          id="database-file"
+          value={dbFile}
+          readOnly
+          onClick={(event) => (event.target as HTMLInputElement).select()}
+          className="font-mono text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          The database file is created automatically upon completion of the next
+          step.
+        </p>
+      </div>
+
+      <div className="divide-y rounded-lg border">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Engine</span>
+          <span className="font-medium">SQLite 3 (via better-sqlite3)</span>
         </div>
-      ) : null}
-      <label htmlFor="database-file">Database file</label>
-      <input
-        type="text"
-        id="database-file"
-        value={dbFile}
-        readOnly
-        onClick={(event) => (event.target as HTMLInputElement).select()}
-      />
-      <p className="note mt-1">
-        The database file is created automatically upon completion of the next
-        step.
-      </p>
-      <div className="config-summary">
-        <div className="config-row">
-          <span className="config-key">Engine</span>
-          <span className="config-val">SQLite 3 (via better-sqlite3)</span>
-        </div>
-        <div className="config-row">
-          <span className="config-key">ORM / Migrations</span>
-          <span className="config-val">Prisma</span>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">ORM / Migrations</span>
+          <span className="font-medium">Prisma</span>
         </div>
       </div>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={busy}
-        onClick={onNext}
-      >
-        Test Connection &amp; Continue
-      </button>
-    </>
+
+      <div className="text-center">
+        <Button type="button" disabled={busy} onClick={onNext}>
+          Test Connection &amp; Continue
+        </Button>
+      </div>
+    </div>
   );
 }
 
-/* â”€â”€ Step 3: Admin account (view: admin_account.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Step 3: Admin account (view: admin_account.php) ---------------------- */
 
 function FieldErrors({ field, errors }: { field: string; errors: Errors }) {
   const messages = errors[field];
   if (!messages || messages.length === 0) return null;
   return (
-    <ul className="validation-errors">
+    <ul className="space-y-1 text-sm text-destructive">
       {messages.map((message) => (
         <li key={message}>{message}</li>
       ))}
@@ -278,65 +327,77 @@ function AdminStep({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <>
-      <h1 className="text-center">Create Admin Account</h1>
-      <form className="highlight-errors" onSubmit={onSubmit}>
-        <p className="text-center">Set up your administrator account.</p>
-        <StepsIndicator current={2} />
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Create Admin Account</h1>
+        <p className="text-muted-foreground">Set up your administrator account.</p>
+      </div>
+      <StepsIndicator current={2} />
 
-        <label htmlFor="username">Username</label>
-        <FieldErrors field="username" errors={errors} />
-        <input
-          type="text"
-          id="username"
-          name="username"
-          placeholder="Enter username here"
-          autoComplete="username"
-          required
-        />
+      <form className="space-y-4" onSubmit={onSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="username">Username</Label>
+          <FieldErrors field="username" errors={errors} />
+          <Input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Enter username here"
+            autoComplete="username"
+            required
+          />
+        </div>
 
-        <label htmlFor="email">Email Address</label>
-        <FieldErrors field="email" errors={errors} />
-        <input
-          type="email"
-          id="email"
-          name="email"
-          placeholder="Enter email address here"
-          autoComplete="email"
-          required
-        />
+        <div className="space-y-2">
+          <Label htmlFor="email">Email Address</Label>
+          <FieldErrors field="email" errors={errors} />
+          <Input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="Enter email address here"
+            autoComplete="email"
+            required
+          />
+        </div>
 
-        <label htmlFor="password">Password (min. 8 characters)</label>
-        <FieldErrors field="password" errors={errors} />
-        <input
-          type="password"
-          id="password"
-          name="password"
-          placeholder="Enter password here"
-          autoComplete="new-password"
-          required
-        />
+        <div className="space-y-2">
+          <Label htmlFor="password">Password (min. 8 characters)</Label>
+          <FieldErrors field="password" errors={errors} />
+          <Input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter password here"
+            autoComplete="new-password"
+            required
+          />
+        </div>
 
-        <label htmlFor="confirm_password">Confirm Password</label>
-        <FieldErrors field="confirm_password" errors={errors} />
-        <input
-          type="password"
-          id="confirm_password"
-          name="confirm_password"
-          placeholder="Confirm your password"
-          autoComplete="new-password"
-          required
-        />
+        <div className="space-y-2">
+          <Label htmlFor="confirm_password">Confirm Password</Label>
+          <FieldErrors field="confirm_password" errors={errors} />
+          <Input
+            type="password"
+            id="confirm_password"
+            name="confirm_password"
+            placeholder="Confirm your password"
+            autoComplete="new-password"
+            required
+          />
+        </div>
 
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          Create Admin Account
-        </button>
+        <div className="text-center">
+          <Button type="submit" disabled={busy}>
+            Create Admin Account
+          </Button>
+        </div>
       </form>
-    </>
+    </div>
   );
 }
 
-/* â”€â”€ Step 4: Finalize (view: update_default_module.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Step 4: Finalize (view: update_default_module.php) ------------------- */
 
 function FinalizeStep({
   dbFile,
@@ -352,122 +413,143 @@ function FinalizeStep({
   onNext: () => void;
 }) {
   return (
-    <>
-      <h1 className="text-center">Finalize Setup</h1>
-      <p className="text-center">Please review your configuration.</p>
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Finalize Setup</h1>
+        <p className="text-muted-foreground">Please review your configuration.</p>
+      </div>
       <StepsIndicator current={3} />
-      {notice ? (
-        <div className="alert alert-error">
-          <p>{notice}</p>
+      {notice ? <Notice>{notice}</Notice> : null}
+
+      <div className="overflow-hidden rounded-lg border">
+        <div className="bg-muted/60 px-4 py-2 text-sm font-semibold">
+          Your Configuration
         </div>
-      ) : null}
-      <div className="config-summary">
-        <div className="config-header">Your Configuration</div>
-        <div className="config-row">
-          <span className="config-key">Default module</span>
-          <span className="config-val">
-            setup (this wizard skips itself once installed)
-          </span>
-        </div>
-        <div className="config-row">
-          <span className="config-key">Database</span>
-          <span className="config-val">{dbFile}</span>
-        </div>
-        <div className="config-row">
-          <span className="config-key">Administrator</span>
-          <span className="config-val">{adminUsername}</span>
+        <div className="divide-y">
+          <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Default module</span>
+            <span className="text-right font-medium">
+              setup (this wizard skips itself once installed)
+            </span>
+          </div>
+          <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Database</span>
+            <span className="break-all text-right font-mono text-xs">{dbFile}</span>
+          </div>
+          <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Administrator</span>
+            <span className="font-medium">{adminUsername}</span>
+          </div>
         </div>
       </div>
-      <div className="instructions">
+
+      <div className="space-y-2 rounded-lg bg-muted/50 p-4 text-sm">
         <p>
           <strong>1.</strong> Click the button below to complete the
           installation.
         </p>
-        <p className="mt-2">
-          <strong>2.</strong> After that, you&apos;ll be taken to your
-          homepage.
+        <p>
+          <strong>2.</strong> After that, you&apos;ll be taken to your homepage.
         </p>
       </div>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={busy}
-        onClick={onNext}
-      >
-        Verify &amp; Continue
-      </button>
-    </>
+
+      <div className="text-center">
+        <Button type="button" disabled={busy} onClick={onNext}>
+          Verify &amp; Continue
+        </Button>
+      </div>
+    </div>
   );
 }
 
-/* â”€â”€ Step 5: Complete (view: setup_complete.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Step 5: Complete (view: setup_complete.php) -------------------------- */
 
 function CompleteStep({ appPath }: { appPath: string }) {
   return (
-    <>
-      <h1 className="text-center mb-1">Congratulations!</h1>
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Congratulations!</h1>
+        <p className="text-muted-foreground">You are ready to rock.</p>
+      </div>
       <StepsIndicator current={4} />
-      <p className="text-center mt-1">You are ready to rock.</p>
-      <div className="instructions">
+
+      <div className="space-y-3 rounded-lg bg-muted/50 p-4 text-sm">
         <p>
           <strong>1.</strong> Optionally, delete the{" "}
-          <code style={{ display: "inline" }}>setup</code> module folder.
-          You&apos;ll find it here:
+          <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">
+            setup
+          </code>{" "}
+          module folder. You&apos;ll find it here:
         </p>
-        <div className="long-path">
-          <code>{`${appPath}\\src\\modules\\setup`}</code>
+        <div className="rounded-md border bg-background p-2">
+          <code className="break-all font-mono text-xs">{`${appPath}\\src\\modules\\setup`}</code>
         </div>
-        <p className="mt-2">
+        <p>
           <strong>2.</strong> After that, click the button below to go to your
           homepage.
         </p>
       </div>
-      <div className="text-center mt-2">
-        <a href="/" className="button btn btn-primary">
-          Go to Your Homepage
-        </a>{" "}
-        <a
-          href="/trongate_administrators/manage"
-          className="button btn btn-primary"
-        >
-          Go to Admin Panel
-        </a>
+
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button asChild>
+          <a href="/">Go to Your Homepage</a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href="/trongate_administrators/manage">Go to Admin Panel</a>
+        </Button>
       </div>
-    </>
+    </div>
   );
 }
 
-/* â”€â”€ Help message (view: help_message.php) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Help message (view: help_message.php) -------------------------------- */
 
 export function HelpMessage({ onBack }: { onBack: () => void }) {
   return (
-    <>
-      <h1>A Message From Dave Connelly</h1>
-      <p className="mt-1">
+    <div className="space-y-4">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-2xl">A Message From the Eterc Team</CardTitle>
+        <CardDescription>
+          Nobody should have to abandon a framework because setup got in the way.
+        </CardDescription>
+      </CardHeader>
+
+      <p className="text-sm leading-relaxed text-muted-foreground">
         In the world of PHP frameworks, nothing is more disheartening than when
-        someone begins their journey but fails with the initial setup. When
-        that happens, everyone loses â€” the users walk away disappointed (having
-        wasted their time) and the framework makers miss out on an opportunity
-        to share their work.
+        someone begins their journey but fails at the initial setup. When that
+        happens, everyone loses - the users walk away disappointed (having
+        wasted their time) and the framework makers miss an opportunity to share
+        their work.
       </p>
-      <p>
-        So, here&apos;s the promise this port keeps: nobody should have to
-        abandon the framework because they can&apos;t get past the installation
-        phase. If you&apos;re stuck, don&apos;t worry! Email{" "}
-        <strong>dave@trongate.io</strong> and get help personally.
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        So here is the promise this port keeps: if you are stuck, the Eterc
+        documentation and community forum are one click away.
       </p>
-      <p>You have my word.</p>
-      <p>Dave Connelly (founder)</p>
-      <div className="text-center mt-2">
-        <button type="button" className="button btn btn-primary" onClick={onBack}>
-          &larr; Back to Setup
-        </button>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <a href={ETERC_DOCS_URL} target="_blank" rel="noreferrer">
+            Read the documentation
+          </a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href={ETERC_FORUM_URL} target="_blank" rel="noreferrer">
+            Ask the community
+          </a>
+        </Button>
       </div>
-    </>
+      <p className="text-sm font-medium">You have our word.</p>
+      <p className="text-sm text-muted-foreground">The Eterc Team</p>
+
+      <div className="text-center">
+        <Button type="button" variant="outline" onClick={onBack}>
+          &larr; Back to Setup
+        </Button>
+      </div>
+    </div>
   );
 }
 
-/* â”€â”€ Confetti (port of setup.js startConfetti) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Confetti (port of setup.js startConfetti) ---------------------------- */
 
 function ConfettiCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -539,8 +621,7 @@ function ConfettiCanvas() {
     <canvas
       id="confetti-canvas"
       ref={canvasRef}
-      style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9999 }}
+      className="pointer-events-none fixed inset-0 z-[9999]"
     />
   );
 }
-

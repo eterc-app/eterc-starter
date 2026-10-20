@@ -1,5 +1,5 @@
-import { registerSyncService } from "@/engine/controller";
-import { TrongateSecurityService } from "./TrongateSecurityService";
+import { register_sync_service } from "@/engine/controller";
+import { Trongate_security } from "./Trongate_security";
 
 /**
  * trongate_security module entry.
@@ -12,7 +12,7 @@ import { TrongateSecurityService } from "./TrongateSecurityService";
  * no request context is touched and no connections are opened — the factory
  * only runs lazily on first property access via the controller proxy.
  */
-registerSyncService("trongate_security", () => new TrongateSecurityService());
+register_sync_service("trongate_security", () => new Trongate_security());
 
-export { TrongateSecurityService };
-export type { TrongateUserObj } from "@/engine/tokens";
+export { Trongate_security };
+export type { TrongateUserObj } from "@/engine/Trongate_tokens";

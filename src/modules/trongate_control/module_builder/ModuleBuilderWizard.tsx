@@ -238,7 +238,7 @@ export function ModuleBuilderWizard({ data }: { data: Record<string, unknown> })
     case "choose_order_by":
       return (
         <>
-          {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
+          {error ? <p className="text-destructive">{error}</p> : null}
           <ChooseOrderByStep
             properties={properties}
             onSelect={selectOrderBy}
@@ -261,7 +261,6 @@ export function ModuleBuilderWizard({ data }: { data: Record<string, unknown> })
     case "generate_module":
       return (
         <GenerateModuleStep
-          moduleUrl={moduleUrl}
           onView={viewModule}
           onOkay={() => void reset()}
         />

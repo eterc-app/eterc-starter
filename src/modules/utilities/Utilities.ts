@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
-import { getContext, segment } from "@/engine/request-context";
-import { getView } from "@/engine/views-registry";
+import { get_context, segment } from "@/engine/request-context";
+import { get_view } from "@/engine/views-registry";
 import { TgHttpError } from "@/engine/signals";
 
 /**
@@ -20,7 +20,7 @@ import { TgHttpError } from "@/engine/signals";
  * `http_response_code(403); die(...)`. Internal calls are unaffected because
  * the current route simply is not the blocked one.
  */
-export function blockUrl(block_path = ""): void {
+export function block_url(block_path = ""): void {
   if (block_path === "") {
     return; // Nothing to block.
   }
@@ -50,11 +50,11 @@ export function blockUrl(block_path = ""): void {
 export default class Utilities extends Trongate {
   /**
    * Blocks direct browser access to a module or a module/method combination.
-   * See blockUrl() above — internal PHP calls were harmless, internal TS
+   * See block_url() above — internal PHP calls were harmless, internal TS
    * calls are equally unaffected.
    */
   block_url(block_path = ""): void {
-    blockUrl(block_path);
+    block_url(block_path);
   }
 
   /**
@@ -81,7 +81,7 @@ export default class Utilities extends Trongate {
    * provided by its runtime (x-forwarded-for first, then x-real-ip).
    */
   ip_address(): string {
-    const ctx = getContext();
+    const ctx = get_context();
     const forwarded = ctx.headers.get("x-forwarded-for");
     if (forwarded) return forwarded.split(",")[0].trim();
     return ctx.headers.get("x-real-ip") ?? "";
@@ -107,7 +107,7 @@ export default class Utilities extends Trongate {
 
     const key = `${view_module}/${view_file}`;
 
-    if (getView(key) === undefined) {
+    if (get_view(key) === undefined) {
       return createElement(
         "div",
         {
@@ -193,7 +193,7 @@ export default class Utilities extends Trongate {
    * original only checked that the header was set, whatever its value).
    */
   from_trongate_mx(): boolean {
-    return getContext().headers.get("trongate-mx-request") !== null;
+    return get_context().headers.get("trongate-mx-request") !== null;
   }
 }
 

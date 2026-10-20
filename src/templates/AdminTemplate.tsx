@@ -2,17 +2,46 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   WEBSITE_NAME,
   ENV,
   ETERC_HOME_URL,
   ETERC_DOCS_URL,
+  ETERC_GITHUB_URL,
 } from "@/engine/config";
 import { FlowTrigger } from "@/modules/trongate_control/FlowTrigger";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  BookOpen,
+  Database,
+  ExternalLink,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Settings,
+  ShoppingCart,
+  Users,
+  Wand2,
+  X,
+} from "lucide-react";
+
+const NAV_ITEMS = [
+  { href: "/trongate_control", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/trongate_administrators/manage", label: "Manage Users", icon: Users },
+  { href: "/trongate_control-flo/home", label: "Flo Generator", icon: Wand2 },
+  { href: "/trongate_control-properties_builder", label: "Properties Builder", icon: Settings },
+  { href: "/trongate_control-query_builder", label: "Query Builder", icon: Database },
+];
 
 /**
  * Admin theme — port of modules/templates/views/admin.php
  * (including the interactions provided by templates_module/js/admin.js).
+ *
+ * The shell is authored with Tailwind + shadcn primitives; the page content
+ * rendered by modules keeps the PHP view contract.
  */
 export function AdminTemplate({
   children,
@@ -24,263 +53,247 @@ export function AdminTemplate({
   theme?: string;
 }) {
   const year = new Date().getFullYear();
+  const pathname = usePathname();
   const [slideNavOpen, setSlideNavOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  // Generators and the control panel are development-only, matching the PHP
+  // guards. Keep production navigation to routes that are actually available.
+  const nav_items =
+    ENV === "dev"
+      ? NAV_ITEMS
+      : NAV_ITEMS.filter((item) =>
+          item.href.startsWith("/trongate_administrators"),
+        );
 
   useEffect(() => {
-    document.body.classList.toggle("nav-open", slideNavOpen);
-    return () => document.body.classList.remove("nav-open");
-  }, [slideNavOpen]);
-
-  useEffect(() => {
+    if (!slideNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setSlideNavOpen(false);
-      setSettingsOpen(false);
+      if (event.key === "Escape") setSlideNavOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const toggleMenu = (id: string) =>
-    setOpenMenus((current) => ({ ...current, [id]: !current[id] }));
+  }, [slideNavOpen]);
 
   return (
-    <div className={`theme-${theme}`} onClick={() => setSettingsOpen(false)}>
-      <header>
-        <div className="header-lg">
-          <div>{WEBSITE_NAME}</div>
-          <div className="top-rhs">
-            <div>
-              <nav>
-                <ul className="top-nav">
-                  <li>
-                    <a href="#" className="highlight">
-                      <i className="tg tg-envelope"></i> Messages (1)
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#">
-                      <i className="tg tg-shopping-cart"></i> Orders
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-            <div
-              className="top-rhs-selector"
+    <div
+      data-theme={theme}
+      className="flex min-h-screen flex-col bg-muted/30 text-foreground"
+      onClick={() => setSettingsOpen(false)}
+    >
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-label="Open navigation"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSlideNavOpen(true);
+              }}
+            >
+              <Menu className="size-5" />
+            </Button>
+            <a href="/trongate_control" className="flex items-center gap-2">
+              <span className="grid size-8 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+                E
+              </span>
+              <span className="text-base font-bold tracking-tight">
+                {WEBSITE_NAME}
+              </span>
+              <span className="hidden rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline">
+                Admin
+              </span>
+            </a>
+          </div>
+
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Utility navigation">
+            <Button asChild variant="ghost" size="sm">
+              <a href="#">
+                <Settings className="size-4" /> Messages (1)
+              </a>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <a href="#">
+                <ShoppingCart className="size-4" /> Orders
+              </a>
+            </Button>
+          </nav>
+
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              aria-haspopup="menu"
+              aria-expanded={settingsOpen}
               onClick={(event) => {
                 event.stopPropagation();
                 setSettingsOpen((open) => !open);
               }}
             >
-              <i className="tg tg-user"></i> &#9660;
-            </div>
-          </div>
-        </div>
-        <div className="header-sm">
-          <div
-            id="hamburger"
-            onClick={(event) => {
-              event.preventDefault();
-              setSlideNavOpen(true);
-            }}
-          >
-            &#9776;
-          </div>
-          <div>{WEBSITE_NAME}</div>
-          <div
-            className="top-rhs-selector"
-            onClick={(event) => {
-              event.stopPropagation();
-              setSettingsOpen((open) => !open);
-            }}
-          >
-            <i className="tg tg-user"></i> &#9660;
-          </div>
-        </div>
+              <Users className="size-4" />
+              <span className="hidden sm:inline">Account</span>
+            </Button>
 
-        <div
-          id="admin-settings-dropdown"
-          className={settingsOpen ? "active" : undefined}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <ul>
-            <li>
-              <a href="/trongate_administrators/update_your_details">
-                <i className="tg tg-user"></i> Update Your Details
-              </a>
-            </li>
-            <li className="top-border">
-              <a href="/trongate_administrators/logout">
-                <i className="tg tg-sign-out"></i> Log Out
-              </a>
-            </li>
-          </ul>
+            {settingsOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <a
+                  role="menuitem"
+                  href="/trongate_administrators/update_your_details"
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Users className="size-4" /> Update Your Details
+                </a>
+                <a
+                  role="menuitem"
+                  href="/trongate_administrators/logout"
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                >
+                  <LogOut className="size-4" /> Log Out
+                </a>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      <aside>
-        {ENV === "dev" ? <FlowTrigger /> : null}
-        <nav aria-label="Main navigation">
-          <ul className="side-nav-menu">
-            <li>
-              <a href="#">Dashboard</a>
-            </li>
-            <li className={`nav-dropdown${openMenus.messages ? " open" : ""}`}>
-              <div onClick={() => toggleMenu("messages")}>
-                <span>Messages</span>
-                <span
-                  aria-hidden="true"
-                  className={`arrow-icon${openMenus.messages ? " rotate" : ""}`}
+      <div className="flex flex-1">
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r bg-background md:block">
+          <div className="p-3">
+            {ENV === "dev" ? <FlowTrigger /> : null}
+          </div>
+          <nav aria-label="Main navigation" className="space-y-1 px-3 pb-6">
+            <p className="px-2 pb-2 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Workspace
+            </p>
+            {nav_items.map((item) => {
+              const Icon = item.icon;
+              const active =
+                pathname === item.href ||
+                (item.href !== "/trongate_control" &&
+                  pathname.startsWith(item.href));
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
                 >
-                  &#9660;
-                </span>
-              </div>
-              <ul
-                id="messages-submenu"
-                className="nav-submenu"
-                style={{ maxHeight: openMenus.messages ? "300px" : "0" }}
-              >
-                <li>
-                  <a href="#">Inbox</a>
-                </li>
-                <li>
-                  <a href="#">Important</a>
-                </li>
-                <li>
-                  <a href="#">Junk</a>
-                </li>
-                <li>
-                  <a href="#">Archives</a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              <a href="#">Manage News</a>
-            </li>
-            <li className={`nav-dropdown${openMenus.reports ? " open" : ""}`}>
-              <div onClick={() => toggleMenu("reports")}>
-                <span>Reports</span>
-                <span
-                  aria-hidden="true"
-                  className={`arrow-icon${openMenus.reports ? " rotate" : ""}`}
-                >
-                  &#9660;
-                </span>
-              </div>
-              <ul
-                id="reports-submenu"
-                className="nav-submenu"
-                style={{ maxHeight: openMenus.reports ? "300px" : "0" }}
-              >
-                <li>
-                  <a href="#">Sales Reports</a>
-                </li>
-                <li>
-                  <a href="#">Analytics</a>
-                </li>
-                <li>
-                  <a href="#">Exports</a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              <a href="#">Settings</a>
-            </li>
-            <li>
-              <a href="#">Manage Users</a>
-            </li>
-          </ul>
-        </nav>
-      </aside>
+                  <Icon className="size-4" />
+                  {item.label}
+                </a>
+              );
+            })}
 
-      <main>
-        <div className="center-stage">{children}</div>
-      </main>
+            <p className="px-2 pb-2 pt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Resources
+            </p>
+            <a
+              href={ETERC_DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <BookOpen className="size-4" /> Documentation
+              <ExternalLink className="ml-auto size-3" />
+            </a>
+            <a
+              href={ETERC_GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Package className="size-4" /> Source
+              <ExternalLink className="ml-auto size-3" />
+            </a>
+          </nav>
+        </aside>
 
-      <footer>
-        <div className="footer-lg">
-          <div className="footer-left">
-            <span>
-              &copy; {year} {WEBSITE_NAME}
-            </span>
-            <span className="separator">|</span>
-            <a href={ETERC_HOME_URL} target="_blank" rel="noreferrer">
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+          <div className="mx-auto w-full max-w-6xl">
+            {pageTitle !== "Admin Panel" ? (
+              <h1 className="mb-6 text-2xl font-bold tracking-tight">
+                {pageTitle}
+              </h1>
+            ) : null}
+            {children}
+          </div>
+        </main>
+      </div>
+
+      <footer className="border-t bg-background px-4 py-4 md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
+          <p>
+            &copy; {year} {WEBSITE_NAME}. PHP semantics, Next.js speed.
+          </p>
+          <div className="flex items-center gap-3">
+            <a href={ETERC_HOME_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
               Powered by Eterc
             </a>
-          </div>
-          <div className="footer-right">
-            <a href={ETERC_DOCS_URL} target="_blank" rel="noreferrer">
+            <a href={ETERC_DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
               Documentation
             </a>
-            <a href="https://github.com/trongate/trongate-framework" target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-          </div>
-        </div>
-
-        <div className="footer-sm">
-          <div>
-            &copy; {year} {WEBSITE_NAME}
-          </div>
-          <div className="footer-sm-links">
-            <a href={ETERC_HOME_URL} target="_blank" rel="noreferrer">
-              Powered by Eterc
-            </a>
-            <span className="separator">|</span>
-            <a href={ETERC_DOCS_URL} target="_blank" rel="noreferrer">
-              Documentation
-            </a>
-            <span className="separator">|</span>
-            <a href="https://github.com/trongate/trongate-framework" target="_blank" rel="noreferrer">
+            <a href={ETERC_GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
               GitHub
             </a>
           </div>
         </div>
       </footer>
 
-      <div
-        className={`nav-overlay${slideNavOpen ? " open" : ""}`}
-        id="nav-overlay"
-        onClick={() => setSlideNavOpen(false)}
-      ></div>
-
-      <nav
-        className={`slide-nav${slideNavOpen ? " open" : ""}`}
-        id="slide-nav"
-        aria-label="Navigation menu"
-      >
-        <div className="slide-nav-header">
-          <div className="slide-nav-close" id="close-slide-nav" onClick={() => setSlideNavOpen(false)}>
-            &times;
-          </div>
+      {slideNavOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close navigation"
+            onClick={() => setSlideNavOpen(false)}
+          />
+          <nav
+            className="relative flex h-full w-72 max-w-[85vw] flex-col bg-background shadow-xl"
+            aria-label="Mobile navigation"
+          >
+            <div className="flex h-14 items-center justify-between border-b px-4">
+              <span className="font-bold">{WEBSITE_NAME}</span>
+              <Button variant="ghost" size="icon" onClick={() => setSlideNavOpen(false)}>
+                <X className="size-5" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {ENV === "dev" ? <div className="pb-3"><FlowTrigger /></div> : null}
+              <div className="space-y-1">
+                {nav_items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Icon className="size-4" /> {item.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="border-t p-3">
+              <a
+                href="/trongate_administrators/logout"
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="size-4" /> Log Out
+              </a>
+            </div>
+          </nav>
         </div>
-        <ul className="slide-nav-list">
-          <li>
-            <a href="#">Dashboard</a>
-          </li>
-          <li>
-            <a href="#">Manage Users</a>
-          </li>
-          <li>
-            <a href="#">Products</a>
-          </li>
-          <li>
-            <a href="#">Orders</a>
-          </li>
-          <li>
-            <a href="#">Messages (1)</a>
-          </li>
-          <li>
-            <a href="#">Settings</a>
-          </li>
-          <li>
-            <a href="/trongate_administrators/logout">Log Out</a>
-          </li>
-        </ul>
-      </nav>
+      ) : null}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   extractRuleValue,
   js,
   jsxText,
+  ucwords,
 } from "./helpers";
 
 function formFieldTag(property: PostedProperty): "input" | "textarea" {
@@ -43,19 +44,19 @@ function buildFormFieldAttributes(property: PostedProperty): string {
 
     switch (rule_name) {
       case "required":
-        attributes.push("            required");
+        attributes.push("              required");
         break;
       case "min length": {
         const value = Number(rule_value);
         if (rule_value !== "" && Number.isFinite(value)) {
-          attributes.push(`            minLength={${value}}`);
+          attributes.push(`              minLength={${value}}`);
         }
         break;
       }
       case "max length": {
         const value = Number(rule_value);
         if (rule_value !== "" && Number.isFinite(value)) {
-          attributes.push(`            maxLength={${value}}`);
+          attributes.push(`              maxLength={${value}}`);
         }
         break;
       }
@@ -63,7 +64,7 @@ function buildFormFieldAttributes(property: PostedProperty): string {
         if (rule_value !== "") {
           const numeric = Number(rule_value);
           attributes.push(
-            `            min={${
+            `              min={${
               Number.isFinite(numeric) ? numeric : js(rule_value)
             }}`
           );
@@ -74,7 +75,7 @@ function buildFormFieldAttributes(property: PostedProperty): string {
         if (rule_value !== "") {
           const numeric = Number(rule_value);
           attributes.push(
-            `            max={${
+            `              max={${
               Number.isFinite(numeric) ? numeric : js(rule_value)
             }}`
           );
@@ -82,10 +83,10 @@ function buildFormFieldAttributes(property: PostedProperty): string {
         break;
       }
       case "in the past":
-        attributes.push('            data-date-constraint="past"');
+        attributes.push('              data-date-constraint="past"');
         break;
       case "in the future":
-        attributes.push('            data-date-constraint="future"');
+        attributes.push('              data-date-constraint="future"');
         break;
       default:
         break;
@@ -93,7 +94,7 @@ function buildFormFieldAttributes(property: PostedProperty): string {
   }
 
   if (property.property_type === "decimal") {
-    attributes.push('            step="any"');
+    attributes.push('              step="any"');
   }
 
   return attributes.join("\n");
@@ -101,20 +102,24 @@ function buildFormFieldAttributes(property: PostedProperty): string {
 
 function buildFormFieldRow(property: PostedProperty): string {
   const field = property.form_field_name;
-  const label = property.property_name;
-  const validation = `          <ValidationErrors field=${js(field)} />`;
+  const label = ucwords(property.property_name.replace(/_/g, " "));
+  const validation = `            <ValidationErrors field=${js(field)} />`;
 
   if (property.property_type === "boolean") {
     return [
-      "          <label>",
-      `            <input`,
-      '              type="checkbox"',
-      `              name=${js(field)}`,
-      '              value="1"',
-      `              defaultChecked={Number(data.${field} ?? 0) === 1 || data.${field} === "yes"}`,
-      "            />",
-      `            {" "}${jsxText(label)}`,
-      "          </label>",
+      '          <div className="space-y-2">',
+      "            <label className=\"flex items-center gap-2 text-sm font-medium\">",
+      `              <input`,
+      '                type="checkbox"',
+      `                name=${js(field)}`,
+      '                value="1"',
+      `                defaultChecked={Number(data.${field} ?? 0) === 1 || data.${field} === "yes"}`,
+      '                className="size-4 rounded border-input"',
+      "              />",
+      `              ${jsxText(label)}`,
+      "            </label>",
+      validation,
+      "          </div>",
     ].join("\n");
   }
 
@@ -123,15 +128,18 @@ function buildFormFieldRow(property: PostedProperty): string {
 
   if (tag === "textarea") {
     return [
-      `          <label>${jsxText(label)}</label>`,
+      '          <div className="space-y-2">',
+      `            <Label htmlFor=${js(field)}>${jsxText(label)}</Label>`,
       validation,
-      `          <textarea`,
-      `            name=${js(field)}`,
-      `            defaultValue={String(data.${field} ?? "")}`,
-      `            placeholder=${js(`Enter ${label}`)}`,
-      "            rows={5}",
+      "            <Textarea",
+      `              id=${js(field)}`,
+      `              name=${js(field)}`,
+      `              defaultValue={String(data.${field} ?? "")}`,
+      `              placeholder=${js(`Enter ${label}`)}`,
+      "              rows={5}",
       attributes,
-      "          />",
+      "            />",
+      "          </div>",
     ]
       .filter((line) => line !== "")
       .join("\n");
@@ -139,15 +147,18 @@ function buildFormFieldRow(property: PostedProperty): string {
 
   const input_type = formFieldInputType(property);
   return [
-    `          <label>${jsxText(label)}</label>`,
+    '          <div className="space-y-2">',
+    `            <Label htmlFor=${js(field)}>${jsxText(label)}</Label>`,
     validation,
-    `          <input`,
-    `            type=${js(input_type)}`,
-    `            name=${js(field)}`,
-    `            defaultValue={String(data.${field} ?? "")}`,
-    `            placeholder=${js(`Enter ${label}`)}`,
+    "            <Input",
+    `              id=${js(field)}`,
+    `              type=${js(input_type)}`,
+    `              name=${js(field)}`,
+    `              defaultValue={String(data.${field} ?? "")}`,
+    `              placeholder=${js(`Enter ${label}`)}`,
     attributes,
-    "          />",
+    "            />",
+    "          </div>",
   ]
     .filter((line) => line !== "")
     .join("\n");

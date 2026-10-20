@@ -2,6 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { ControlPanelLink, SqlFileInfo } from "../types";
 
 /**
@@ -58,36 +67,35 @@ function Dashboard({ data }: TgViewProps) {
   const env = String(data.env ?? "");
 
   return (
-    <>
-      <h1>Eterc Control Panel</h1>
-      <p>Development tools and code generators for the Eterc framework.</p>
+    <div className="space-y-6">
+      <div>
+        <p className="mt-2 text-muted-foreground">
+          Development tools and code generators for the Eterc framework.
+        </p>
+      </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: "1em",
-          margin: "2em 0",
-          textAlign: "left",
-        }}
-      >
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {links.map((link) => (
-          <div className="card" key={link.href}>
-            <div className="card-heading">{link.label}</div>
-            <div className="card-body">
-              <p style={{ lineHeight: "1.6" }}>{link.description}</p>
-              <a className="button" href={link.href}>
-                Open
-              </a>
-            </div>
-          </div>
+          <Card key={link.href} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{link.label}</CardTitle>
+              <CardDescription className="leading-relaxed">
+                {link.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto">
+              <Button asChild>
+                <a href={link.href}>Open</a>
+              </Button>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      <p style={{ color: "#666" }}>
+      <p className="text-sm text-muted-foreground">
         Eterc &middot; Node.js {node_version} &middot; {env}
       </p>
-    </>
+    </div>
   );
 }
 
@@ -277,7 +285,7 @@ function ImportWizard({ data }: TgViewProps) {
       case "too_big":
         return "SQL File Is Too Big!";
       case "confirm_delete":
-        return <span className="danger">DELETE FILE</span>;
+        return <span className="text-destructive">DELETE FILE</span>;
       case "confirm_run":
         return "RUN SQL";
       case "please_wait":
@@ -286,7 +294,7 @@ function ImportWizard({ data }: TgViewProps) {
       case "run_delete_required":
         return "Finished";
       case "error":
-        return <span className="danger">{error_title}</span>;
+        return <span className="text-destructive">{error_title}</span>;
     }
   };
 
@@ -301,28 +309,36 @@ function ImportWizard({ data }: TgViewProps) {
                 ? "The following SQL file was found within the module directory:"
                 : "The following SQL files were found within the module directory:"}
             </p>
-            <ul>
+            <ul className="mt-4 space-y-3">
               {files.map((file) => (
-                <li key={file.path}>
-                  * {file.filename} ({file.filesize_kb} KB)
+                <li
+                  key={file.path}
+                  className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2"
+                >
+                  <span className="font-mono text-sm">
+                    {file.filename} ({file.filesize_kb} KB)
+                  </span>
                   {file.too_big ? (
-                    <button
-                      className="danger"
+                    <Button
+                      variant="destructive"
+                      size="sm"
                       onClick={() => explain_too_big(file.filename, file.path)}
                     >
                       TOO BIG!
-                    </button>
+                    </Button>
                   ) : file.safe ? (
-                    <button onClick={() => void view_sql(file.path, false)}>
+                    <Button size="sm" onClick={() => void view_sql(file.path, false)}>
                       VIEW SQL
-                    </button>
+                    </Button>
                   ) : (
-                    <button
-                      className="warning"
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-500 text-amber-700"
                       onClick={() => void view_sql(file.path, true)}
                     >
                       SUSPICIOUS!
-                    </button>
+                    </Button>
                   )}
                 </li>
               ))}
@@ -337,25 +353,21 @@ function ImportWizard({ data }: TgViewProps) {
         return (
           <>
             <p>The contents of the SQL file is displayed below:</p>
-            <p>
-              <a href={current_url}>
-                <button>Go Back</button>
-              </a>
-              <button className="success" onClick={draw_confirm_run}>
-                Run SQL
-              </button>
-              <button className="danger" onClick={draw_confirm_delete}>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <a href={current_url}>Go Back</a>
+              </Button>
+              <Button onClick={draw_confirm_run}>Run SQL</Button>
+              <Button variant="destructive" onClick={draw_confirm_delete}>
                 Delete File
-              </button>
-            </p>
-            <div>
-              <textarea
-                id="sql-preview"
-                style={PREVIEW_STYLE}
-                value={sql_code}
-                onChange={(event) => setSqlCode(event.target.value)}
-              />
+              </Button>
             </div>
+            <textarea
+              id="sql-preview"
+              className="mt-4 block min-h-[50vh] w-full rounded-md border bg-background p-3 font-mono text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              value={sql_code}
+              onChange={(event) => setSqlCode(event.target.value)}
+            />
           </>
         );
 
@@ -367,12 +379,14 @@ function ImportWizard({ data }: TgViewProps) {
               For automatic database setup, Eterc has filesize limit of 1MB
               (1,000kb).
             </p>
-            <button className="danger" onClick={() => void delete_sql_file()}>
-              Delete File
-            </button>
-            <a href={current_url}>
-              <button>Go Back</button>
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="destructive" onClick={() => void delete_sql_file()}>
+                Delete File
+              </Button>
+              <Button asChild variant="outline">
+                <a href={current_url}>Go Back</a>
+              </Button>
+            </div>
           </>
         );
 
@@ -380,14 +394,16 @@ function ImportWizard({ data }: TgViewProps) {
         return (
           <>
             <p>You are about to delete an SQL file.</p>
-            <p>Location: {target_file}</p>
+            <p className="font-mono text-sm">Location: {target_file}</p>
             <p>Are you sure?</p>
-            <button className="danger" onClick={() => void delete_sql_file()}>
-              Delete File
-            </button>{" "}
-            <a href={current_url}>
-              <button>Cancel</button>
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="destructive" onClick={() => void delete_sql_file()}>
+                Delete File
+              </Button>
+              <Button asChild variant="outline">
+                <a href={current_url}>Cancel</a>
+              </Button>
+            </div>
           </>
         );
 
@@ -395,42 +411,39 @@ function ImportWizard({ data }: TgViewProps) {
         return (
           <>
             <p>You are about to run the SQL file.</p>
-            <p>Location: {target_file}</p>
+            <p className="font-mono text-sm">Location: {target_file}</p>
             <p>Are you sure?</p>
-            <button className="success" onClick={() => void run_sql()}>
-              I Understand The Risks - Execute the SQL
-            </button>{" "}
-            <button onClick={preview_sql}>Preview SQL</button>{" "}
-            <a href={current_url}>
-              <button>Cancel</button>
-            </a>
-            <div>
-              <textarea
-                id="sql-preview"
-                disabled
-                style={
-                  preview_visible
-                    ? PREVIEW_STYLE
-                    : { ...PREVIEW_STYLE, display: "none" }
-                }
-                value={sql_code}
-              />
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void run_sql()}>
+                I Understand The Risks - Execute the SQL
+              </Button>
+              <Button variant="outline" onClick={preview_sql}>
+                Preview SQL
+              </Button>
+              <Button asChild variant="outline">
+                <a href={current_url}>Cancel</a>
+              </Button>
             </div>
+            <textarea
+              id="sql-preview"
+              disabled
+              className={cn(
+                "mt-4 block min-h-[50vh] w-full rounded-md border bg-background p-3 font-mono text-sm shadow-xs",
+                !preview_visible && "hidden",
+              )}
+              value={sql_code}
+            />
           </>
         );
 
       case "please_wait":
-        return <p className="blink">{wait_message}</p>;
+        return <p className="animate-pulse font-medium">{wait_message}</p>;
 
       case "finished":
         return (
           <>
             <p>{finished_message}</p>
-            <p>
-              <button className="success" onClick={() => void click_okay()}>
-                Okay
-              </button>
-            </p>
+            <Button onClick={() => void click_okay()}>Okay</Button>
           </>
         );
 
@@ -439,11 +452,7 @@ function ImportWizard({ data }: TgViewProps) {
           <>
             <p>Please delete the file, {error_message}.</p>
             <p>After you have deleted the file, press &apos;Okay&apos;</p>
-            <p>
-              <button className="success" onClick={() => void click_okay()}>
-                Okay
-              </button>
-            </p>
+            <Button onClick={() => void click_okay()}>Okay</Button>
           </>
         );
 
@@ -451,48 +460,33 @@ function ImportWizard({ data }: TgViewProps) {
         return (
           <>
             <p>Oh dear, there appears to be an error.</p>
-            <p>
-              <a href={current_url}>
-                <button>Go Back</button>
-              </a>
-            </p>
+            <Button asChild variant="outline">
+              <a href={current_url}>Go Back</a>
+            </Button>
             <p>The following response was generated:</p>
-            <p>
-              <textarea
-                id="error-msg"
-                readOnly
-                style={ERROR_STYLE}
-                value={error_message}
-              />
-            </p>
+            <textarea
+              id="error-msg"
+              readOnly
+              className="mt-2 block min-h-[30vh] w-full rounded-md border border-destructive/40 bg-destructive/10 p-3 font-mono text-sm"
+              value={error_message}
+            />
           </>
         );
     }
   };
 
   return (
-    <>
-      <h1 id="headline">{renderHeadline()}</h1>
-      <div id="info">{renderInfo()}</div>
-    </>
+    <div className="space-y-6">
+      <h1 id="headline" className="text-2xl font-bold tracking-tight">
+        {renderHeadline()}
+      </h1>
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div id="info" className="space-y-4">
+            {renderInfo()}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
-
-/**
- * transferer.css textarea rules, applied inline because the original
- * standalone stylesheet is a full-page document stylesheet and the port
- * renders inside the admin theme.
- */
-const PREVIEW_STYLE = {
-  width: "80%",
-  height: "50vh",
-  fontSize: ".9em",
-  display: "block",
-  margin: "0 auto",
-} as const;
-
-const ERROR_STYLE = {
-  ...PREVIEW_STYLE,
-  height: "30vh",
-  backgroundColor: "#ffe9e8",
-} as const;

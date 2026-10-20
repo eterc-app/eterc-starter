@@ -68,7 +68,7 @@ const INT_KEYS = [
   "thumbnail_max_height",
 ] as const;
 
-export class ImageUploaderModel extends Model {
+export class Image_uploader_model extends Model {
   /**
    * Read and validate the uploader settings for a given module.
    *
@@ -207,4 +207,4 @@ export class ImageUploaderModel extends Model {
   }
 }
 
-export default ImageUploaderModel;
+export default Image_uploader_model;

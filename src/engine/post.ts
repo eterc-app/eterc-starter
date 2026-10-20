@@ -1,4 +1,4 @@
-import { getContext, type TgRequest, type TgUploadedFile } from "./request-context";
+import { get_context, type TgRequest, type TgUploadedFile } from "./request-context";
 
 /**
  * post() / get_param() — ports of the input helpers.
@@ -88,7 +88,7 @@ function assignPath(
 }
 
 function bodyObject(): Record<string, unknown> {
-  const ctx = getContext();
+  const ctx = get_context();
   const cached = parsedCache.get(ctx);
   if (cached) return cached;
 
@@ -149,7 +149,7 @@ export function post(
   cleanUp = false,
   castNumeric = false
 ): string | number | boolean | string[] | number[] | unknown {
-  const ctx = getContext();
+  const ctx = get_context();
   const source = bodyObject();
   let value = readPath(source, field);
 
@@ -181,21 +181,21 @@ function isNumeric(value: string): boolean {
 }
 
 /** Query-string parameter access. */
-export function getParam(field: string): string {
-  const ctx = getContext();
+export function get_param(field: string): string {
+  const ctx = get_context();
   const value = ctx.query[field];
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }
 
 /** True when the request body contains at least one field. */
-export function hasPost(): boolean {
+export function has_post(): boolean {
   return Object.keys(bodyObject()).length > 0;
 }
 
 /** List uploaded files from the request body (mirrors $_FILES access). */
-export async function uploadedFile(field: string): Promise<TgUploadedFile | null> {
-  const ctx = getContext();
+export async function uploaded_file(field: string): Promise<TgUploadedFile | null> {
+  const ctx = get_context();
   if (!ctx.formData) return null;
 
   const value = ctx.formData.get(field);
@@ -212,8 +212,8 @@ export async function uploadedFile(field: string): Promise<TgUploadedFile | null
 }
 
 /** All uploaded files keyed by field name. */
-export async function uploadedFiles(): Promise<Record<string, TgUploadedFile>> {
-  const ctx = getContext();
+export async function uploaded_files(): Promise<Record<string, TgUploadedFile>> {
+  const ctx = get_context();
   const result: Record<string, TgUploadedFile> = {};
   if (!ctx.formData) return result;
 

@@ -28,7 +28,12 @@ export function PerPageSelector({
   };
 
   return (
-    <select name="per_page" value={selected} onChange={setPerPage}>
+    <select
+      name="per_page"
+      value={selected}
+      onChange={setPerPage}
+      className="h-8 rounded-md border border-input bg-background px-2 py-0 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+    >
       {options.map((option, index) => (
         <option key={index} value={index}>
           {option}

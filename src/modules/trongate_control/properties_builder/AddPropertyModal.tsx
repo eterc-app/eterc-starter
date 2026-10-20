@@ -2,7 +2,12 @@
 
 import type { ReactNode, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { decodeHtmlEntities } from "./properties-logic";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { decode_html_entities } from "./properties-logic";
 
 /**
  * Add-property / add-address modal — port of the `#id01` block in
@@ -46,63 +51,86 @@ export function AddPropertyModal({
   titleInputRef,
 }: AddPropertyModalProps) {
   const showProperty = mode === "property";
-  const showAddress = mode === "address" && addressTypes.length > 0 && !addressLoading;
+  const showAddress =
+    mode === "address" && addressTypes.length > 0 && !addressLoading;
+
+  useEffect(() => {
+    if (mode === "none") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mode, onClose]);
+
+  if (mode === "none") return null;
 
   return (
     <div
       id="id01"
-      className="w3-modal"
-      style={{ display: mode === "none" ? "none" : "block" }}
+      className="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
       <div
-        className="w3-modal-content w3-animate-left w3-card-4"
-        style={{ width: "30em" }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-property-headline"
+        className="relative my-8 w-full max-w-lg rounded-xl border bg-card text-card-foreground shadow-2xl"
       >
-        <header className="w3-container w3-blue-grey">
-          <span
+        <header className="flex items-start justify-between gap-4 rounded-t-xl bg-slate-700 px-4 py-3 text-white">
+          <div>
+            <h2 id="new-property-headline" className="text-base font-semibold text-white">
+              {headline}
+            </h2>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="m-0 -mr-1 text-white hover:bg-white/10 hover:text-white"
             onClick={onClose}
-            className="w3-button w3-display-topright"
-            role="button"
             aria-label="Close"
           >
-            &times;
-          </span>
-          <h2 id="new-property-headline">{headline}</h2>
+            <X className="size-4" />
+          </Button>
         </header>
 
-        <div className="w3-container modal-body">
-          <p id="modal-instructions">{instructions}</p>
+        <div className="space-y-4 p-4">
+          <p id="modal-instructions" className="text-sm text-muted-foreground">
+            {instructions}
+          </p>
 
-          <form
-            className="demo"
-            id="btn-add-address-dd"
-            style={{ display: showAddress ? "block" : "none" }}
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <select
-              className="option3"
-              id="address-type-selector"
-              value={addressType}
-              onChange={(event) => onAddressTypeChange(event.target.value)}
+          {showAddress ? (
+            <div id="btn-add-address-dd" className="space-y-3">
+              <Label htmlFor="address-type-selector">Address type</Label>
+              <select
+                id="address-type-selector"
+                value={addressType}
+                onChange={(event) => onAddressTypeChange(event.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <option>{ADDRESS_PLACEHOLDER}</option>
+                {addressTypes.map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          {showProperty ? (
+            <form
+              id="add-property-form"
+              autoComplete="off"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onAddProperty();
+              }}
+              className="space-y-2"
             >
-              <option>{ADDRESS_PLACEHOLDER}</option>
-              {addressTypes.map((type) => (
-                <option key={type}>{type}</option>
-              ))}
-            </select>
-          </form>
-
-          <form
-            id="add-property-form"
-            autoComplete="off"
-            action="/action_page.php"
-            style={{ display: showProperty ? "block" : "none" }}
-            onSubmit={(event) => {
-              event.preventDefault();
-              onAddProperty();
-            }}
-          >
-            <div className="autocomplete" style={{ width: "100%" }}>
+              <Label htmlFor="new-property-title">Property title</Label>
               <AutocompleteInput
                 value={title}
                 suggestions={suggestions}
@@ -110,35 +138,29 @@ export function AddPropertyModal({
                 inputRef={titleInputRef}
                 enabled={showProperty}
               />
-            </div>
-          </form>
+            </form>
+          ) : null}
 
-          <p
-            id="btn-add-new-property"
-            style={{ display: showProperty ? "block" : "none" }}
-          >
-            <button
+          {showProperty ? (
+            <Button
               type="button"
+              id="btn-add-new-property"
               onClick={onAddProperty}
-              className="w3-button w3-blue"
             >
               Add New Property
-            </button>
-          </p>
+            </Button>
+          ) : null}
 
-          <p
-            id="btn-add-address"
-            style={{ display: showAddress ? "block" : "none" }}
-          >
-            <button
+          {showAddress ? (
+            <Button
               type="button"
+              id="btn-add-address"
               onClick={onAddAddress}
-              style={{ width: "90%" }}
-              className="w3-button w3-blue"
+              className="w-full"
             >
               Add Address
-            </button>
-          </p>
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -172,7 +194,7 @@ function AutocompleteInput({
     const needle = value.toUpperCase();
 
     return suggestions
-      .map((suggestion) => decodeHtmlEntities(suggestion))
+      .map((suggestion) => decode_html_entities(suggestion))
       .filter(
         (suggestion) =>
           suggestion.slice(0, value.length).toUpperCase() === needle
@@ -229,8 +251,8 @@ function AutocompleteInput({
   const showList = enabled && open && value !== "" && matches.length > 0;
 
   return (
-    <div ref={wrapperRef}>
-      <input
+    <div ref={wrapperRef} className="relative">
+      <Input
         ref={inputRef}
         id="new-property-title"
         type="text"
@@ -248,11 +270,19 @@ function AutocompleteInput({
       />
 
       {showList ? (
-        <div id="new-property-titleautocomplete-list" className="autocomplete-items">
+        <div
+          id="new-property-titleautocomplete-list"
+          className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-10 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
+        >
           {matches.map((suggestion, index) => (
             <div
               key={`${suggestion}-${index}`}
-              className={index === active ? "autocomplete-active" : undefined}
+              className={cn(
+                "cursor-pointer rounded-sm px-2 py-1.5 text-sm",
+                index === active
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground"
+              )}
               onClick={() => choose(suggestion)}
             >
               <strong>{suggestion.slice(0, value.length)}</strong>

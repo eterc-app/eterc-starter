@@ -3,9 +3,9 @@ import * as path from "node:path";
 import { Trongate } from "@/engine/controller";
 import { ENV } from "@/engine/config";
 import { MODULES_DIR } from "@/engine/paths";
-import { getContext } from "@/engine/request-context";
+import { get_context } from "@/engine/request-context";
 import { TgHttpError } from "@/engine/signals";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 
 /**
  * Properties — port of
@@ -92,8 +92,8 @@ export default class Properties extends Trongate {
     }
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
@@ -178,7 +178,7 @@ export default class Properties extends Trongate {
 
   /** Read the JSON request body (PHP: php://input + json_decode). */
   private getPostData(): Record<string, unknown> {
-    const json = getContext().json;
+    const json = get_context().json;
 
     if (
       json === null ||

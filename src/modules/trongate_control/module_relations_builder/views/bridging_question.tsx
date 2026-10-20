@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { RelationsWizard } from "../types";
 
 /**
@@ -21,37 +22,38 @@ export function BridgingQuestionStep({
   const [showingOptions, setShowingOptions] = useState(false);
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">
-        Would you like to create a bridging table for this relationship?
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Bridging Table</h2>
+      <p>Would you like to create a bridging table for this relationship?</p>
       {wizard.parent_module ? (
-        <p className="hint-text">
-          {wizard.parent_module} &rarr; {wizard.child_module}
+        <p className="text-sm text-muted-foreground">
+          {wizard.parent_module} → {wizard.child_module}
         </p>
       ) : null}
-      <div className="mt-1">
-        <button
-          type="button"
-          className="selector-btn"
-          onClick={() => setShowingOptions(true)}
-          disabled={busy}
-        >
-          Select Option...
-        </button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowingOptions(true)}
+        disabled={busy}
+      >
+        Select Option...
+      </Button>
 
-      {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {showingOptions ? (
-        <div id="br-options-list">
-          <ul className="options-selector">
-            {["Yes", "No"].map((option) => (
-              <li key={option} onClick={() => onSelect(option)}>
-                {option}
-              </li>
-            ))}
-          </ul>
+        <div id="br-options-list" className="space-y-2">
+          {["Yes", "No"].map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => onSelect(option)}
+            >
+              {option}
+            </Button>
+          ))}
         </div>
       ) : null}
     </div>

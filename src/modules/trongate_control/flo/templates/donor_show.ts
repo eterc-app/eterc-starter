@@ -3,7 +3,14 @@
  */
 export const DONOR_SHOW_TEMPLATE = `import { Flashdata } from "@/engine/ui/Flashdata";
 import type { TgViewProps } from "@/engine/views-registry";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 /**
  * <?= record_name_singular ?> details
@@ -13,29 +20,36 @@ export default function Show({ data }: TgViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">
+        {String(data.headline ?? "")}
+      </h1>
       <Flashdata />
-      <div className="card">
-        <div className="card-heading">
-          <?= record_name_singular ?> Details
-        </div>
-        <div className="card-body">
-          <div className="text-right mb-3">
-            <a className="button alt" href={String(data.back_url ?? "")}>
-              Back
-            </a>
-            <a className="button" href={siteUrl("<?= module_folder_name ?>/create/") + update_id}>
-              Edit
-            </a>
-            <a className="button danger" href={siteUrl("<?= module_folder_name ?>/delete_conf/") + update_id}>
-              Delete
-            </a>
+
+      <Card>
+        <CardHeader>
+          <CardTitle><?= record_name_singular ?> Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button asChild variant="outline">
+              <a href={String(data.back_url ?? "")}>Back</a>
+            </Button>
+            <Button asChild>
+              <a href={site_url("<?= module_folder_name ?>/create/") + update_id}>
+                Edit
+              </a>
+            </Button>
+            <Button asChild variant="destructive">
+              <a href={site_url("<?= module_folder_name ?>/delete_conf/") + update_id}>
+                Delete
+              </a>
+            </Button>
           </div>
 <?= dynamic_details ?>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 `;

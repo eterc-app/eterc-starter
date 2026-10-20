@@ -1,6 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Step 2 — port of module_builder/views/add_nav_label.php.
@@ -17,26 +20,31 @@ export function AddNavLabelStep({
   error?: string;
 }) {
   return (
-    <div className="center-stage">
-      <div className="mt-1">Add Navigation Label</div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>Add Navigation Label</h2>
       <form
         action="#"
         id="enter-nav-label-form"
+        className="space-y-3"
         onSubmit={onSubmit}
       >
-        <div className="mt-1">
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="nav-label-input">Navigation label</Label>
+          <Input
+            id="nav-label-input"
             type="text"
             name="nav_label"
             defaultValue={`Manage ${recordNamePlural}`}
             autoComplete="off"
           />
         </div>
-        {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
-        <div className="mt-1">
-          <button disabled={busy}>Submit</button>
-        </div>
-        <p>Submit empty value if not required</p>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button type="submit" disabled={busy}>
+          Submit
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          Submit an empty value if a navigation label is not required.
+        </p>
       </form>
     </div>
   );

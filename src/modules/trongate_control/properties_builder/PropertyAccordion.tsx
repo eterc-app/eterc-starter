@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { Minus, Plus, Trash2, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type { BuilderProperty, PropertyValidationRule } from "./types";
 import {
-  decodeHtmlEntities,
+  decode_html_entities,
   maxLengthIndicator,
   parseValidationRule,
 } from "./properties-logic";
@@ -12,9 +17,9 @@ import {
  * One property accordion — port of drawProperties() plus
  * buildPropertiesEditorLeft/Center/Right() from properties_builder.js.
  *
- * Markup and Trongate CSS classes are kept identical to the original:
- * `button.accordion`, `.accordion-content`, `.w3-quarter`, `.wrapper`,
- * `.control.control-checkbox`, `.remove-remove-rule`, ...
+ * The original emitted Trongate/W3 CSS class names. This port keeps the same
+ * state and callbacks but renders the panel with shadcn primitives and
+ * Tailwind utilities.
  */
 
 const CHECKBOXES: Array<{ code: string; label: string }> = [
@@ -52,118 +57,140 @@ export function PropertyAccordion({
     (rule) => rule.selected === "no"
   );
 
-  const checkboxHtml = CHECKBOXES.filter((checkbox) =>
+  const checkboxes = CHECKBOXES.filter((checkbox) =>
     Boolean(property[checkbox.code])
-  ).map((checkbox) => {
-    const checked = property[checkbox.code] === "yes";
-
-    return (
-      <label className="control control-checkbox" key={checkbox.code}>
-        {checkbox.label}
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={() => onToggleCheckbox(checkbox.code)}
-        />
-        <div className="control_indicator"></div>
-      </label>
-    );
-  });
+  );
 
   return (
-    <>
+    <div className="overflow-hidden rounded-lg border bg-card">
       <button
         type="button"
         onClick={onToggle}
-        className="accordion w3-blue-grey"
+        className="flex w-full items-center gap-2 bg-slate-700 px-4 py-3 text-left text-sm font-medium text-white transition-colors hover:bg-slate-600"
         id={`upper-${index}`}
+        aria-expanded={expanded}
+        aria-controls={`lower-${index}`}
       >
-        {decodeHtmlEntities(property.propertyName)}
-        <span className="type-def">{property.propertyType}</span>
-        <span className="col-size-def" id={`col-size-${index}`}>
+        <span className="truncate">
+          {decode_html_entities(property.propertyName)}
+        </span>
+        <Badge variant="secondary" className="ml-1 shrink-0">
+          {property.propertyType}
+        </Badge>
+        <span className="shrink-0 text-xs text-white/70" id={`col-size-${index}`}>
           {maxLengthIndicator(property.validationRules)}
         </span>
-        <span className="accordion-top-rhs-icon">
-          {expanded ? "\u2296" : "\u2295"}
+        <span className="ml-auto shrink-0">
+          {expanded ? <Minus className="size-4" /> : <Plus className="size-4" />}
         </span>
       </button>
 
-      <div
-        className="accordion-content w3-light-grey"
-        style={{ maxHeight: expanded ? "999px" : "0px" }}
-        id={`lower-${index}`}
-      >
-        <div className="w3-row" style={{ fontSize: "1.2em" }}>
-          <div className="w3-quarter">
-            <ValidationRuleControls
-              index={index}
-              options={availableOptions}
-              onAdd={onAddRule}
-            />
-            <button
-              type="button"
-              className="w3-btn w3-small w3-red"
-              onClick={onDelete}
+      {expanded ? (
+        <div
+          className="space-y-4 border-t bg-muted/30 p-4"
+          id={`lower-${index}`}
+        >
+          <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_190px]">
+            <div className="space-y-3">
+              <ValidationRuleControls
+                index={index}
+                options={availableOptions}
+                onAdd={onAddRule}
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={onDelete}
+              >
+                <Trash2 className="size-3.5" /> Delete This Property
+              </Button>
+            </div>
+
+            <div
+              className="min-w-0 space-y-2"
+              id={`selected-validation-rules-${index}`}
             >
-              Delete This Property
-            </button>
-          </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Validation rules
+              </p>
+              {property.validationRules.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No validation rules selected.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {property.validationRules.map((rule, ruleIndex) => {
+                    const parsed = parseValidationRule(rule);
+                    const display =
+                      parsed.value === null
+                        ? null
+                        : overrides[ruleIndex] ?? parsed.value;
 
-          <div
-            className="w3-half wrapper"
-            id={`selected-validation-rules-${index}`}
-            style={{ fontSize: "1.05em" }}
-          >
-            {property.validationRules.map((rule, ruleIndex) => {
-              const parsed = parseValidationRule(rule);
-              const display =
-                parsed.value === null
-                  ? null
-                  : overrides[ruleIndex] ?? parsed.value;
-
-              return (
-                <div key={ruleIndex}>
-                  {parsed.value === null ? (
-                    <span>{parsed.label}</span>
-                  ) : (
-                    <>
-                      <span>{parsed.label}[</span>
+                    return (
                       <span
-                        contentEditable
-                        suppressContentEditableWarning
-                        id={`validation-value-${index}-${ruleIndex}`}
-                        onBlur={(event) =>
-                          onCheckValue(
-                            ruleIndex,
-                            event.currentTarget.textContent ?? ""
-                          )
-                        }
+                        key={ruleIndex}
+                        className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs"
                       >
-                        {display}
+                        {parsed.value === null ? (
+                          <span>{parsed.label}</span>
+                        ) : (
+                          <>
+                            <span>{parsed.label}[</span>
+                            <span
+                              contentEditable
+                              suppressContentEditableWarning
+                              id={`validation-value-${index}-${ruleIndex}`}
+                              className="min-w-4 rounded-sm bg-muted px-1 outline-none focus:bg-background focus:ring-1 focus:ring-ring"
+                              onBlur={(event) =>
+                                onCheckValue(
+                                  ruleIndex,
+                                  event.currentTarget.textContent ?? ""
+                                )
+                              }
+                            >
+                              {display}
+                            </span>
+                            <span>]</span>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onRemoveRule(ruleIndex)}
+                          className="rounded-sm p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Remove ${parsed.label}`}
+                        >
+                          <X className="size-3" />
+                        </button>
                       </span>
-                      <span>]</span>
-                    </>
-                  )}{" "}
-                  <span
-                    onClick={() => onRemoveRule(ruleIndex)}
-                    className="remove-remove-rule"
-                  >
-                    {"\u2718"}
-                  </span>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
 
-          <div
-            className="w3-quarter control-group"
-            id={`checkboxes-${index}`}
-          >
-            {checkboxHtml}
+            <div className="space-y-2" id={`checkboxes-${index}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Display
+              </p>
+              {checkboxes.map((checkbox) => (
+                <Label
+                  key={checkbox.code}
+                  className="flex items-start gap-2 text-sm font-normal"
+                >
+                  <Checkbox
+                    checked={property[checkbox.code] === "yes"}
+                    onCheckedChange={() => onToggleCheckbox(checkbox.code)}
+                    className="mt-0.5"
+                  />
+                  {checkbox.label}
+                </Label>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </>
+      ) : null}
+    </div>
   );
 }
 
@@ -200,38 +227,38 @@ function ValidationRuleControls({
   };
 
   return (
-    <>
-      <div id={`validation-rules-dropdown-${index}`}>
-        {options.length === 0 ? (
-          <>{String.fromCharCode(160)}</>
-        ) : (
-          <select
-            className="w3-select w3-border"
-            id={`new-option-dropdown-${index}`}
-            value={selectedValue}
-            onChange={(event) => setSelected(event.target.value)}
-          >
-            <option value="" disabled>
-              Select Validation Rule...
+    <div className="space-y-2" id={`validation-rules-dropdown-${index}`}>
+      {options.length === 0 ? (
+        <p className="text-sm text-muted-foreground">All rules applied.</p>
+      ) : (
+        <select
+          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          id={`new-option-dropdown-${index}`}
+          value={selectedValue}
+          onChange={(event) => setSelected(event.target.value)}
+        >
+          <option value="" disabled>
+            Select Validation Rule...
+          </option>
+          {options.map((rule) => (
+            <option key={rule.rule_name} value={rule.rule_label}>
+              {rule.rule_label}
             </option>
-            {options.map((rule) => (
-              <option key={rule.rule_name} value={rule.rule_label}>
-                {rule.rule_label}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+          ))}
+        </select>
+      )}
       {options.length > 0 ? (
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="secondary"
           id={`add-new-rule-btn-${index}`}
-          className="w3-btn w3-small w3-blue-grey"
           onClick={addRule}
+          disabled={selectedValue === ""}
         >
           Add New Rule
-        </button>
+        </Button>
       ) : null}
-    </>
+    </div>
   );
 }

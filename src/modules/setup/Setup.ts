@@ -1,8 +1,8 @@
 import { Trongate } from "@/engine/controller";
-import { redirect } from "@/engine/url";
+import { redirect } from "@/engine/Url";
 import { post } from "@/engine/post";
 import { DEFAULT_MODULE } from "@/engine/config";
-import { SetupModel } from "./Setup_model";
+import { Setup_model } from "./Setup_model";
 
 /**
  * Setup module — port of modules/setup/Setup.php.
@@ -14,11 +14,11 @@ import { SetupModel } from "./Setup_model";
 export default class Setup extends Trongate {
   constructor(moduleName?: string | null) {
     super(moduleName);
-    this.model = new SetupModel("setup");
+    this.model = new Setup_model("setup");
   }
 
-  private setupModel(): SetupModel {
-    return this.model as SetupModel;
+  private setupModel(): Setup_model {
+    return this.model as Setup_model;
   }
 
   /** Entry point — skips the wizard when the app is already installed. */

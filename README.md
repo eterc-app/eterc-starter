@@ -20,6 +20,7 @@ are TypeScript + React instead of PHP.
 | Passwords | bcryptjs (cost 11, same as PHP)                                 |
 | Images    | sharp                                                           |
 | Email     | nodemailer                                                      |
+| UI        | Tailwind CSS 4 + shadcn/ui (one authored `src/app/globals.css`) |
 
 ## Quick start
 
@@ -63,7 +64,7 @@ TG_SECRET=<64-char hex>     # HMAC key for CSRF tokens
 
 Controllers live in `src/modules/<module>/<Class>.ts` and extend `Trongate`.
 Views are React components registered per module (`views/index.ts` →
-`registerViews`), aggregated in `src/modules/views.ts`. Controllers are loaded
+`register_views`), aggregated in `src/modules/views.ts`. Controllers are loaded
 through `src/engine/registrations.ts`.
 
 ## What is ported
@@ -136,8 +137,8 @@ guards.
   `DESCRIBE`, `ALTER … ADD COLUMN` variants) is ported to SQLite equivalents.
 - Remember-me cookies are `HttpOnly` in the port; PHP sets them without it.
   The feature is disabled by default, as in `config/login.php`.
-- Dev-only JSON endpoints return HTTP 403 rather than Evo's HTML "disabled"
-  page.
+- Dev-only modules and JSON endpoints return HTTP 403 rather than Evo's HTML
+  "disabled" page.
 - The forgot-password entry point falls back to the only configured user level
   when the URL has no level segment. PHP's reset view links to that level-less
   URL, which would otherwise 404 when a `secret_login_word` is configured.
@@ -147,13 +148,21 @@ guards.
 ## Checks
 
 ```bash
-npx tsc --noEmit
+npm run typecheck
+npm run parity
+npm run styles:check
 npm run lint
 # stop the dev server first: a build and `next dev` share .next
 npm run build
 ```
 
-`npm run lint` exits clean. The remaining warnings are non-blocking and mostly
+`npm run parity` compares the public TypeScript surface with the PHP
+class/method/helper inventory in `parity/php-surface.json` and rejects retired
+camelCase spellings. `npm run styles:check` enforces the single-stylesheet
+rule: only `src/app/globals.css` may exist, and views may not add stylesheet
+links or static inline styles.
+
+`npm run lint` exits successfully. The remaining warnings are non-blocking and mostly
 `@next/next/no-img-element` for the deliberately preserved `<img>` markup that
 mirrors the PHP templates. The port disables three Next rules that conflict
 with the PHP conventions on purpose: `no-assign-module-variable` (the framework

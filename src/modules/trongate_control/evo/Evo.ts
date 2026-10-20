@@ -1,19 +1,19 @@
 import { createElement, type ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { ENV, ETERC_API_URL, ETERC_FORUM_URL } from "@/engine/config";
-import { getContext, hasContext, segment } from "@/engine/request-context";
-import { sessionUnset } from "@/engine/session";
+import { get_context, has_context, segment } from "@/engine/request-context";
+import { session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { redirect } from "@/engine/url";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
-import { registerViews } from "@/engine/views-registry";
+import type { TgTemplateData } from "@/engine/Templates";
+import { redirect } from "@/engine/Url";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import { register_views } from "@/engine/views-registry";
 import EvoErrorElement from "./views/error_element";
 import EvoGenerationError from "./views/generation_error";
 import EvoDisabled from "./views/disabled";
 import { views } from "./views";
 
-registerViews(views);
+register_views(views);
 
 /**
  * Evo — port of modules/trongate_control/evo/Evo.php.
@@ -57,13 +57,13 @@ export default class Evo extends Trongate {
     }
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
   private isAjax(): boolean {
-    return getContext().isAjax;
+    return get_context().isAjax;
   }
 
   /**
@@ -74,7 +74,7 @@ export default class Evo extends Trongate {
    * not fire. A direct hit is refused with the port's 403 signal.
    */
   private guardDirectInvocation(method: string): void {
-    if (!hasContext()) return;
+    if (!has_context()) return;
 
     const current = String(segment(2) ?? "").toLowerCase();
     if (current === method.toLowerCase()) {
@@ -119,7 +119,7 @@ export default class Evo extends Trongate {
    */
   async reset(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
-    sessionUnset("evo_wizard");
+    session_unset("evo_wizard");
 
     if (this.isAjax()) {
       return { ok: true, reset: "evo_wizard" };

@@ -1,3 +1,13 @@
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 /**
  * Port-only landing page for the plural_maker child module.
  *
@@ -19,50 +29,54 @@ export function PluralMakerHome({
   const rows = Array.isArray(examples) ? examples : [];
 
   return (
-    <div className="container">
-      <h1>Plural Maker</h1>
-
-      <p>
+    <div className="mx-auto w-full max-w-3xl space-y-5 p-6">
+      <p className="text-sm text-muted-foreground">
         The Plural Maker is an English pluralisation engine used by the module
         generators when naming database tables and labels. It is a service, not
         an interactive tool — the examples below are produced by the same
         methods the generators call.
       </p>
 
-      <h2>Public API</h2>
-      <ul>
-        <li>
-          <code>make_plural(word)</code> — convert a singular word or phrase to
-          its plural form.
-        </li>
-        <li>
-          <code>get_singular(word)</code> — attempt the reverse conversion.
-        </li>
-      </ul>
+      <section className="space-y-2">
+        <h2>Public API</h2>
+        <ul className="list-disc space-y-1 pl-6 text-sm">
+          <li>
+            <code>make_plural(word)</code> — convert a singular word or phrase
+            to its plural form.
+          </li>
+          <li>
+            <code>get_singular(word)</code> — attempt the reverse conversion.
+          </li>
+        </ul>
+      </section>
 
-      <h2>Examples</h2>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Singular</th>
-            <th>Plural</th>
-            <th>Round trip</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((example) => (
-            <tr key={example.singular}>
-              <td>{example.singular}</td>
-              <td>{example.plural}</td>
-              <td>{example.round_trip}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <section className="space-y-2">
+        <h2>Examples</h2>
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="px-3">Singular</TableHead>
+                <TableHead className="px-3">Plural</TableHead>
+                <TableHead className="px-3">Round trip</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((example) => (
+                <TableRow key={example.singular}>
+                  <TableCell className="px-3">{example.singular}</TableCell>
+                  <TableCell className="px-3">{example.plural}</TableCell>
+                  <TableCell className="px-3">{example.round_trip}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
 
-      <p>
-        Return to the <a href="/trongate_control">control panel</a>.
-      </p>
+      <Button asChild variant="outline">
+        <a href="/trongate_control">Return to the control panel</a>
+      </Button>
     </div>
   );
 }

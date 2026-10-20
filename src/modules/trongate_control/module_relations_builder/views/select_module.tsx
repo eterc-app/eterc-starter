@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { RelationModuleChoice } from "../types";
 
 /**
@@ -26,30 +27,32 @@ export function SelectModuleStep({
   const [showingOptions, setShowingOptions] = useState(false);
 
   return (
-    <div className="center-stage">
-      <div className="mt-1">{heading}</div>
-      <div className="mt-1">
-        <button
-          type="button"
-          className="selector-btn"
-          onClick={() => setShowingOptions(true)}
-          disabled={busy}
-        >
-          Select Option...
-        </button>
-      </div>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <h2>{heading}</h2>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowingOptions(true)}
+        disabled={busy}
+      >
+        Select Option...
+      </Button>
 
-      {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {showingOptions ? (
-        <div id="mod-options-list">
-          <ul className="options-selector">
-            {modules.map((choice) => (
-              <li key={choice.module} onClick={() => onSelect(choice.module)}>
-                {choice.label}
-              </li>
-            ))}
-          </ul>
+        <div id="mod-options-list" className="space-y-2">
+          {modules.map((choice) => (
+            <Button
+              key={choice.module}
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => onSelect(choice.module)}
+            >
+              {choice.label}
+            </Button>
+          ))}
         </div>
       ) : null}
     </div>

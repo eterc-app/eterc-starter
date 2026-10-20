@@ -1,0 +1,70 @@
+{
+  "classes": [
+    {
+      "name": "Core",
+      "skip": true,
+      "reason": "PHP front controller replaced by the Next.js App Router catch-all route and engine/dispatch.tsx."
+    },
+    {
+      "name": "Modules",
+      "skip": true,
+      "reason": "PHP module loader replaced by the static module registry and registrations.ts."
+    },
+    {
+      "name": "Form",
+      "skip": true,
+      "reason": "PHP form helper class replaced by the TgForm/TgUiProvider React surface; the form_* helper spellings are tracked below."
+    },
+    {
+      "name": "Trongate_tokens_model",
+      "skip": true,
+      "reason": "Token persistence lives in the Trongate_tokens service plus the sessions/tokens engine modules; no separate model class is needed."
+    },
+    {
+      "name": "Validation_model",
+      "skip": true,
+      "reason": "Validation rules live in the Validation service and the generated module validators; no separate model class is needed."
+    }
+  ],
+  "methods": [],
+  "helpers": [
+    { "name": "display", "reason": "Rendering is owned by the App Router and render_view(); PHP display() has no direct callable equivalent." },
+    { "name": "generate_input_element", "reason": "Replaced by shadcn Input/Textarea and TgUiProvider field rendering." },
+    { "name": "get_attributes_str", "reason": "Replaced by React prop composition in TgForm and the generated form controls." },
+    { "name": "ip_address", "reason": "Request IP access is provided by Next headers through engine/request-context.ts." },
+    { "name": "json", "reason": "Replaced by NextResponse.json() in API routes and dispatch." },
+    { "name": "return_file_info", "reason": "File metadata is returned directly by File.info() and the image uploader service." },
+    { "name": "sort_by_property", "reason": "TS uses Array.prototype.sort with typed comparators; the PHP helper is not exported as a public utility." },
+    { "name": "sort_rows_by_property", "reason": "TS uses Array.prototype.sort with typed comparators; the PHP helper is not exported as a public utility." },
+    { "name": "validation_errors", "reason": "Replaced by the ValidationErrors React component." },
+    { "name": "form_button", "reason": "Replaced by shadcn Button and TgUiProvider form controls." },
+    { "name": "form_checkbox", "reason": "Replaced by shadcn/Tailwind checkbox markup in TgUiProvider." },
+    { "name": "form_close", "reason": "Replaced by TgForm, whose React children own the closing element." },
+    { "name": "form_date", "reason": "Replaced by Input type=date inside TgForm." },
+    { "name": "form_datetime_local", "reason": "Replaced by Input type=datetime-local inside TgForm." },
+    { "name": "form_dropdown", "reason": "Replaced by native select/TgUiProvider dropdown rendering." },
+    { "name": "form_email", "reason": "Replaced by Input type=email inside TgForm." },
+    { "name": "form_file_select", "reason": "Replaced by the image uploader and Input type=file surfaces." },
+    { "name": "form_hidden", "reason": "Replaced by hidden inputs rendered through TgForm/TgUiProvider." },
+    { "name": "form_input", "reason": "Replaced by shadcn Input inside TgForm." },
+    { "name": "form_label", "reason": "Replaced by shadcn Label inside TgForm." },
+    { "name": "form_month", "reason": "Replaced by Input type=month inside TgForm." },
+    { "name": "form_number", "reason": "Replaced by Input type=number inside TgForm." },
+    { "name": "form_open", "reason": "Replaced by TgForm." },
+    { "name": "form_open_upload", "reason": "Replaced by TgForm plus the uploader form surface." },
+    { "name": "form_password", "reason": "Replaced by Input type=password inside TgForm." },
+    { "name": "form_radio", "reason": "Replaced by TgUiProvider radio rendering with Tailwind classes." },
+    { "name": "form_search", "reason": "Replaced by Input type=search inside TgForm." },
+    { "name": "form_submit", "reason": "Replaced by shadcn Button type=submit inside TgForm." },
+    { "name": "form_textarea", "reason": "Replaced by shadcn Textarea inside TgForm." },
+    { "name": "form_time", "reason": "Replaced by Input type=time inside TgForm." },
+    { "name": "form_url", "reason": "Replaced by Input type=url inside TgForm." },
+    { "name": "form_week", "reason": "Replaced by Input type=week inside TgForm." }
+  ],
+  "retired": [
+    {
+      "name": "getContext",
+      "reason": "The retired helper name is gone; the two remaining occurrences are the browser CanvasRenderingContext2D.getContext() DOM method."
+    }
+  ]
+}

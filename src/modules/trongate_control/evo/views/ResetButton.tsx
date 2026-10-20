@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BASE_URL } from "@/engine/config";
+import { Button } from "@/components/ui/button";
 
 const BASE = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
@@ -50,14 +51,15 @@ export function ResetButton({
   };
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       className={className}
       onClick={reset}
       disabled={busy}
     >
       {busy ? "Resetting..." : label}
-    </button>
+    </Button>
   );
 }
 

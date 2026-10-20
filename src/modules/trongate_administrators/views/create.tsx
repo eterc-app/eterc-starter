@@ -1,6 +1,15 @@
 import { TgForm } from "@/engine/ui/TgForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Create/update administrator form — port of
@@ -11,54 +20,70 @@ export default function Create({ data }: TgViewProps) {
   const is_update = data.id !== undefined && data.id !== null;
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <div>
+        <h1>{String(data.headline ?? "")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Set the account username and whether it can sign in.
+        </p>
+      </div>
+
       <ValidationErrors />
-      <div className="card">
-        <div className="card-heading">Record Details</div>
-        <div className="card-body">
+
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Record Details</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
           {is_update ? (
-            <p className="text-right">
-              <a
-                className="button alt mt-0"
-                href={String(data.update_password_url ?? "")}
-              >
-                Update Password
-              </a>
-            </p>
+            <div className="mb-5 flex justify-end">
+              <Button asChild variant="outline" size="sm">
+                <a href={String(data.update_password_url ?? "")}>
+                  Update Password
+                </a>
+              </Button>
+            </div>
           ) : null}
 
-          <TgForm action="trongate_administrators/submit" params={[update_id]}>
-            <label>Username</label>
-            <input
-              type="text"
-              name="username"
-              defaultValue={String(data.username ?? "")}
-              placeholder="Enter Username"
-              autoComplete="off"
-            />
+          <TgForm
+            action="trongate_administrators/submit"
+            params={[update_id]}
+            className="space-y-5"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                name="username"
+                defaultValue={String(data.username ?? "")}
+                placeholder="Enter Username"
+                autoComplete="off"
+              />
+            </div>
 
-            <label>
+            <Label className="flex items-center gap-2 font-normal">
               <input
                 type="checkbox"
                 name="active"
                 value="1"
                 defaultChecked={Number(data.active ?? 0) === 1}
-              />{" "}
+                className="m-0 size-4 rounded border-input"
+              />
               Active
-            </label>
+            </Label>
 
-            <div className="text-center">
-              <a className="button alt" href={String(data.cancel_url ?? "")}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Submit">
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+              <Button type="submit" name="submit" value="Submit">
                 Submit
-              </button>
+              </Button>
+              <Button asChild variant="outline">
+                <a href={String(data.cancel_url ?? "")}>Cancel</a>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

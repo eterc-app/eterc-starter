@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import { tgSubmit } from "@/app/actions";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { Button } from "@/components/ui/button";
 
 /**
  * Picture region — the interactive body of the show-page "Picture" card.
@@ -34,7 +35,7 @@ export function PictureRegion({ data }: PictureRegionProps) {
   const thumbnail_url = String(data.thumbnail_url ?? "");
   const initial_csrf_token = String(data.csrf_token ?? "");
 
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
   const [reply, setReply] = useState<ReactNode | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -46,7 +47,7 @@ export function PictureRegion({ data }: PictureRegionProps) {
     formData.set("module", module);
     formData.set("update_id", String(update_id));
     formData.set("panel_id", panel_id);
-    formData.set("csrf_token", csrfToken || initial_csrf_token);
+    formData.set("csrf_token", csrf_token || initial_csrf_token);
 
     startTransition(async () => {
       const result = await tgSubmit(formData);
@@ -65,43 +66,49 @@ export function PictureRegion({ data }: PictureRegionProps) {
   }
 
   return (
-    <div id={`iu-${panel_id}-body`}>
+    <div id={`iu-${panel_id}-body`} className="space-y-4">
       {file_name === "" ? (
-        <>
-          <p className="picture-panel__empty">No picture has been uploaded yet.</p>
-          <a href={upload_url} className="button">
-            Upload Picture
-          </a>
-        </>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            No picture has been uploaded yet.
+          </p>
+          <Button asChild>
+            <a href={upload_url}>Upload Picture</a>
+          </Button>
+        </div>
       ) : (
-        <>
-          <div className="picture-panel__preview">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={thumbnails ? thumbnail_url : picture_url}
               alt="Picture preview"
-              className="picture-panel__img"
+              className="max-h-48 w-auto rounded-md border bg-muted object-contain"
             />
-            <div className="picture-panel__filename sm">{file_name}</div>
+            <p className="break-all text-sm text-muted-foreground">
+              {file_name}
+            </p>
           </div>
-          <div className="picture-panel__actions">
-            <a href={upload_url} className="button alt">
-              Replace Picture
-            </a>
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={upload_url}>Replace Picture</a>
+            </Button>
+            <Button
               type="button"
-              className="button danger"
+              variant="destructive"
+              size="sm"
               aria-label="Remove picture"
               onClick={handleRemove}
               disabled={isPending}
             >
-              Remove
-            </button>
+              {isPending ? "Removing…" : "Remove"}
+            </Button>
           </div>
-        </>
+        </div>
       )}
 
       {errorMessage ? (
-        <p style={{ color: "red" }} role="alert">
+        <p className="text-sm font-medium text-destructive" role="alert">
           {errorMessage}
         </p>
       ) : null}

@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { cookies, headers } from "next/headers";
-import { runWithContext, type TgRequest } from "./request-context";
+import { run_with_context, type TgRequest } from "./request-context";
 import { dispatch } from "./router";
-import { templatesService } from "./controller";
+import { templates_service } from "./controller";
 import { TgHttpError } from "./signals";
-import { flashMessages } from "./flashdata";
-import { csrfToken } from "./csrf";
+import { flash_messages } from "./Flashdata";
+import { csrf_token } from "./csrf";
 import { ErrorPage } from "@/templates/Error404";
-import type { ValidationErrors } from "./validation";
+import type { ValidationErrors } from "./Validation";
 import "@/modules/views";
 
 /**
@@ -31,11 +31,11 @@ export interface TgRunResult {
   rawReturn: unknown;
   errors: ValidationErrors | null;
   flash: string[];
-  csrfToken: string;
+  csrf_token: string;
   status: number;
 }
 
-export async function buildRequest(options: TgRequestOptions): Promise<TgRequest> {
+export async function build_request(options: TgRequestOptions): Promise<TgRequest> {
   const cookieStore = await cookies();
   const headerStore = await headers();
 
@@ -79,7 +79,7 @@ export async function buildRequest(options: TgRequestOptions): Promise<TgRequest
  * Converts framework errors into rendered nodes (PHP parity). Redirect
  * signals are rethrown for the caller (page/action/api) to handle.
  */
-export async function runInContext(options: TgRequestOptions): Promise<TgRunResult> {
+export async function run_in_context(options: TgRequestOptions): Promise<TgRunResult> {
   let node: ReactNode = null;
   let rawReturn: unknown = null;
   let status = 200;
@@ -95,7 +95,7 @@ export async function runInContext(options: TgRequestOptions): Promise<TgRunResu
       status = error.status;
       node =
         error.status === 404
-          ? await templatesService.error_404()
+          ? await templates_service.error_404()
           : <ErrorPage status={error.status} message={error.message} />;
     } else {
       throw error;
@@ -109,20 +109,20 @@ export async function runInContext(options: TgRequestOptions): Promise<TgRunResu
     node,
     rawReturn,
     errors,
-    flash: flashMessages(),
-    csrfToken: csrfToken(),
+    flash: flash_messages(),
+    csrf_token: csrf_token(),
     status,
   };
 }
 
 /** Build a context, run the request, and return the framework result. */
-export async function runRequest(options: TgRequestOptions): Promise<TgRunResult> {
-  const context = await buildRequest(options);
-  return runWithContext(context, () => runInContext(options));
+export async function run_request(options: TgRequestOptions): Promise<TgRunResult> {
+  const context = await build_request(options);
+  return run_with_context(context, () => run_in_context(options));
 }
 
 /** Apply response cookies collected during the request (actions/route handlers). */
-export async function flushResponseCookies(context: TgRequest): Promise<void> {
+export async function flush_response_cookies(context: TgRequest): Promise<void> {
   if (!context.canSetCookies || context.responseCookies.length === 0) return;
   const jar = await cookies();
   for (const cookie of context.responseCookies) {

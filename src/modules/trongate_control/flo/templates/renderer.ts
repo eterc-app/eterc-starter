@@ -26,7 +26,7 @@ export const PHP_EOL = "\n";
  * str_replace(['&lt;', '&gt;'], ['<', '>'], $content)
  * (PHP: Site_builder_model::prep_file_contents()).
  */
-export function prepFileContents(content: string): string {
+export function prep_file_contents(content: string): string {
   return content.split("&lt;").join("<").split("&gt;").join(">");
 }
 
@@ -108,5 +108,5 @@ export function renderTemplate(template: string, data: TemplateData = {}): strin
     resolveExpression(String(expression), data)
   );
 
-  return prepFileContents(output);
+  return prep_file_contents(output);
 }

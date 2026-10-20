@@ -6,7 +6,6 @@ import {
   type PaginationSettings,
   type PreparedPaginationData,
 } from "./Pagination_model";
-import { DEFAULT_CSS } from "./default_css";
 
 /**
  * Pagination renderer — React port of Pagination::render_pagination() and
@@ -62,7 +61,7 @@ function get_showing_statement(data: PreparedPaginationData): string {
     statement = `Showing ${start} to ${end} of ${total} ${data.record_name_plural}.`;
   }
 
-  return `<p class="tg-showing-statement">${statement}</p>\n`;
+  return `<p class="mb-4 text-sm text-muted-foreground">${statement}</p>\n`;
 }
 
 function build_link(
@@ -88,7 +87,7 @@ function build_link(
     ? ` aria-label="${htmlspecialchars(aria_label)}"`
     : "";
 
-  return `<a href="${htmlspecialchars(url)}"${aria}>${label}</a>`;
+  return `<a class="inline-flex items-center rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted" href="${htmlspecialchars(url)}"${aria}>${label}</a>`;
 }
 
 /** Build the complete markup for already-prepared pagination data. */
@@ -172,10 +171,9 @@ export function buildPaginationMarkup(data: PreparedPaginationData): string {
 
   html += settings.pagination_close + "\n";
 
-  if (data.include_css === true) {
-    html += DEFAULT_CSS;
-  }
-
+  // Pagination styling ships with the app's Tailwind layer. The PHP
+  // include_css flag is intentionally ignored so no runtime style element is
+  // injected; custom `settings` fragments still work as before.
   return html;
 }
 
@@ -183,8 +181,7 @@ export function buildPaginationMarkup(data: PreparedPaginationData): string {
 export function PaginationMarkup({ html }: { html: string }) {
   return (
     <div
-      className="tg-pagination-markup"
-      style={{ display: "contents" }}
+      className="tg-pagination-markup contents"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

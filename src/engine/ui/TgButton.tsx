@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import { tgSubmit } from "@/app/actions";
+import { Button } from "@/components/ui/button";
 
 /**
  * TgButton — port of buttons that trigger a module method (mx-post buttons).
@@ -12,7 +13,7 @@ export function TgButton({
   action,
   params = [],
   children,
-  className = "button",
+  className,
   confirmMessage,
 }: {
   action: string;
@@ -50,11 +51,17 @@ export function TgButton({
 
   return (
     <>
-      <button type="button" className={className} onClick={handleClick} disabled={isPending}>
+      <Button
+        type="button"
+        variant="outline"
+        className={className}
+        onClick={handleClick}
+        disabled={isPending}
+      >
         {children}
-      </button>
+      </Button>
       {errorMessage ? (
-        <p style={{ color: "red" }} role="alert">
+        <p className="text-sm font-medium text-destructive" role="alert">
           {errorMessage}
         </p>
       ) : null}

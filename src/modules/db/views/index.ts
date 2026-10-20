@@ -8,12 +8,12 @@ import TableList from "./table_list";
 
 /**
  * View registration map for the db (admin database tool) module — keys are
- * "{module}/{view_file}" and match the view files DbAdmin addresses via
+ * "{module}/{view_file}" and match the view files Db addresses via
  * `viewFile`.
  *
  * NOTE: the PHP original modules/db/Db.php is the framework ENGINE class and
  * ships no views; these view files were designed from the data contracts of
- * the ported DbAdmin controller (see each view's docblock).
+ * the ported Db controller (see each view's docblock).
  */
 export const views: Record<string, TgViewComponent> = {
   "db/browse": Browse,

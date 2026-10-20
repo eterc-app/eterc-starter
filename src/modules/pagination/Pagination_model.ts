@@ -1,9 +1,9 @@
 import { Model } from "@/engine/model";
 import { BASE_URL } from "@/engine/config";
 import {
-  currentUrl,
-  getLastSegment,
-  removeQueryString,
+  current_url,
+  get_last_segment,
+  remove_query_string,
   segment,
 } from "@/engine/request-context";
 
@@ -52,9 +52,11 @@ export interface PreparedPaginationData {
 
 /** Default markup settings (Pagination_model::$default_settings). */
 export const DEFAULT_SETTINGS: PaginationSettings = {
-  pagination_open: '<div class="pagination">',
-  pagination_close: "</div>",
-  cur_link_open: '<a class="active">',
+  pagination_open:
+    '<nav aria-label="Pagination" class="inline-flex flex-wrap items-center gap-1">',
+  pagination_close: "</nav>",
+  cur_link_open:
+    '<a aria-current="page" class="pointer-events-none inline-flex items-center rounded-md border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">',
   cur_link_close: "</a>",
   num_link_open: "",
   num_link_close: "",
@@ -231,7 +233,7 @@ export class Pagination_model extends Model {
 
   private get_current_page(segmentPosition: number | null): number {
     if (segmentPosition === null) {
-      const last_segment = getLastSegment();
+      const last_segment = get_last_segment();
       if (/^-?\d+(?:\.\d+)?$/.test(last_segment)) {
         return Math.max(1, Number.parseInt(last_segment, 10));
       }
@@ -243,10 +245,10 @@ export class Pagination_model extends Model {
   }
 
   private auto_detect_pagination_root(): string {
-    const current_url = currentUrl();
-    const last_segment = getLastSegment();
+    const page_url = current_url();
+    const last_segment = get_last_segment();
 
-    const base_url = removeQueryString(current_url);
+    const base_url = remove_query_string(page_url);
 
     // Resolve the path component, then strip the configured BASE_URL so the
     // result is a relative pagination root (PHP: str_replace(BASE_URL, ...)).

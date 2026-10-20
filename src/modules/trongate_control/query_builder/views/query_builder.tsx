@@ -1,7 +1,9 @@
 "use client";
 
-import type { ClipboardEvent, DragEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import type { DragEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { TgViewProps } from "@/engine/views-registry";
 import type { QueryBuilderTable } from "../Query_builder";
 
@@ -831,43 +833,58 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
   };
 
   const closeWindow = () => {
+    if (window.parent === window) {
+      window.location.href = "/trongate_control";
+      return;
+    }
     window.parent.postMessage("close_query_builder", "*");
   };
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
 
-  const base = "/trongate_control-query_builder_module";
-
   if (!ready) {
     return (
-      <>
-        <PageAssets base={base} />
-        <div id="loading-msg">
-          <div>Loading tables...</div>
-          <div className="spinner"></div>
-        </div>
-      </>
+      <div className="mx-auto flex min-h-[60vh] w-full max-w-6xl flex-col items-center justify-center gap-3 p-4 text-sm text-muted-foreground sm:p-6">
+        <div className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        <p>Loading tables...</p>
+      </div>
     );
   }
 
   return (
-    <>
-      <PageAssets base={base} />
-
-      <div id="buttons">
-        <button onClick={restart}>restart</button>
-        <button onClick={clearJoins}>clear joins</button>
-        {!showSql ? <button id="show-sql-btn" onClick={showSQL}>show SQL</button> : null}
-        {showSql ? (
-          <button id="hide-sql-btn" onClick={hideSQL}>
-            hide SQL
-          </button>
-        ) : null}
-        <button onClick={closeWindow}>close window</button>
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={restart}>
+          Restart
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={clearJoins}>
+          Clear Joins
+        </Button>
+        {!showSql ? (
+          <Button type="button" size="sm" onClick={showSQL}>
+            Show SQL
+          </Button>
+        ) : (
+          <Button type="button" variant="secondary" size="sm" onClick={hideSQL}>
+            Hide SQL
+          </Button>
+        )}
+        <Button type="button" variant="ghost" size="sm" onClick={closeWindow}>
+          Close Window
+        </Button>
       </div>
 
-      <div id="main">
-        <div id="table-stack" ref={tableStackRef} onDragOver={allowDrop} onDrop={handleStackDrop}>
+      <div className="flex min-h-[65vh] overflow-hidden rounded-xl border bg-card">
+        <div
+          id="table-stack"
+          ref={tableStackRef}
+          onDragOver={allowDrop}
+          onDrop={handleStackDrop}
+          className="w-56 shrink-0 space-y-2 overflow-y-auto border-r bg-muted/30 p-3"
+        >
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Tables
+          </p>
           {tables
             .filter((table) => !droppedTables.includes(table.id))
             .map((table) => (
@@ -889,13 +906,26 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
             ))}
         </div>
 
-        <div id="center-stage" ref={centerStageRef} onDragOver={allowDrop} onDrop={handleCanvasDrop}>
+        <div
+          id="center-stage"
+          ref={centerStageRef}
+          onDragOver={allowDrop}
+          onDrop={handleCanvasDrop}
+          className="relative min-h-[65vh] min-w-0 flex-1 overflow-auto bg-slate-50"
+        >
           <canvas
             id="myCanvas"
             ref={canvasRef}
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleCanvasMouseMove}
+            className="absolute inset-0 z-0 h-full w-full"
           />
+
+          {droppedTables.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              Drag a table from the left to start building a query.
+            </div>
+          ) : null}
 
           {tables
             .filter((table) => droppedTables.includes(table.id))
@@ -904,8 +934,8 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
               return (
                 <div
                   key={table.id}
-                  className="qb-dropped-table"
-                  style={{ position: "absolute", left: position.x, top: position.y, zIndex: 5 }}
+                  className="absolute z-10"
+                  style={{ left: position.x, top: position.y }}
                 >
                   <BuilderTable
                     table={table}
@@ -927,22 +957,30 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
         </div>
       </div>
 
-      <JoinSelector
-        visible={showingJoinSelector}
-        onSelect={selectJoin}
-      />
+      {showSql ? (
+        <div className="rounded-xl border bg-slate-950 p-3 text-slate-100">
+          <div className="mb-2 flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={copySQL}
+            >
+              {copyBtnLabel}
+            </Button>
+          </div>
+          <textarea
+            id="sql"
+            value={sqlText}
+            disabled
+            readOnly
+            className="min-h-40 w-full resize-y rounded-md border border-slate-700 bg-slate-900 p-3 font-mono text-xs leading-relaxed text-slate-100 outline-none"
+          />
+        </div>
+      ) : null}
 
-      <div id="sql-code" style={{ display: showSql ? "block" : "none" }}>
-        <div>
-          <button id="copy-btn" onClick={copySQL}>
-            {copyBtnLabel}
-          </button>
-        </div>
-        <div>
-          <textarea id="sql" value={sqlText} disabled readOnly />
-        </div>
-      </div>
-    </>
+      {showingJoinSelector ? <JoinSelector onSelect={selectJoin} /> : null}
+    </div>
   );
 
   function allowDrop(event: DragEvent<HTMLElement>) {
@@ -952,54 +990,28 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
 
 /* ─── Page assets (original: <head> links + hidden image preloads) ──────── */
 
-function PageAssets({ base }: { base: string }) {
-  return (
-    <>
-      <link rel="stylesheet" href={`${base}/css/table-joins.css`} />
-      <link rel="stylesheet" href={`${base}/css/query_builder.css`} />
-      <link rel="stylesheet" href={`${base}/css/query_builder_page.css`} />
-      {/* Preload join images. */}
-      <div style={{ display: "none" }}>
-        {joinTypes.map((_joinType, index) => (
-          <span key={index}>
-            {/*
-              Keyed images — the same files the join-type menu uses as
-              backgrounds (active + dark variants).
-            */}
-            <img src={`${base}/images/joins/active/join${index + 1}.png`} alt="" />
-            <img src={`${base}/images/joins/dark/join${index + 1}.png`} alt="" />
-          </span>
-        ))}
-      </div>
-    </>
-  );
-}
-
-/* ─── Table rendering (original: populateTableStack) ────────────────────── */
-
 function BuilderTable({
   table,
   hideCells,
+  onDragStart,
+  tableEls,
   selectable,
-  interactive,
   involvedCellKeys,
   checkedAll,
   checkedColumns,
-  onDragStart,
-  tableEls,
   onSelectAll,
   onToggleColumn,
   onCellClick,
+  interactive,
 }: {
   table: QueryBuilderTable;
   hideCells: boolean;
+  onDragStart: (tableId: string, event: DragEvent<HTMLTableElement>) => void;
+  tableEls: { current: Map<string, HTMLTableElement | null> };
   selectable: boolean;
-  interactive: boolean;
   involvedCellKeys: string[];
   checkedAll: boolean;
   checkedColumns: string[];
-  onDragStart: (tableId: string, event: DragEvent<HTMLTableElement>) => void;
-  tableEls: { current: Map<string, HTMLTableElement | null> };
   onSelectAll: (tableId: string, checked: boolean) => void;
   onToggleColumn: (tableId: string, columnName: string, checked: boolean) => void;
   onCellClick: (
@@ -1007,23 +1019,16 @@ function BuilderTable({
     columnName: string,
     event: ReactMouseEvent<HTMLTableCellElement>
   ) => void;
+  interactive: boolean;
 }) {
-  const tableClassName = [hideCells ? "hide-cells" : "", selectable ? "selectable" : ""]
-    .filter(Boolean)
-    .join(" ");
-
-  const cellClassName = (columnName: string) =>
-    [
-      "selectable",
-      involvedCellKeys.includes(`${table.id}~${columnName}`) ? "involved" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
   return (
     <table
       id={table.id}
-      className={tableClassName}
+      className={cn(
+        "w-full select-none border-collapse overflow-hidden rounded-md bg-white text-left text-xs shadow-sm",
+        hideCells ? "cursor-grab" : "cursor-default",
+        selectable && "ring-2 ring-primary/40"
+      )}
       draggable
       onDragStart={(event) => onDragStart(table.id, event)}
       ref={(element) => {
@@ -1032,82 +1037,100 @@ function BuilderTable({
     >
       <thead>
         <tr>
-          <th title={table.id}>
-            <span>{table.id}</span>
+          <th
+            title={table.id}
+            className="bg-slate-700 px-3 py-2 text-left font-semibold text-white"
+          >
+            <span className="truncate">{table.id}</span>
           </th>
         </tr>
       </thead>
 
-      {/* A row for 'select *'. */}
-      <tbody>
-        <tr>
-          <td>
-            <input
-              type="checkbox"
-              id={`${SELECT_ALL_PREFIX}${table.id}`}
-              className="select-all-checkbox"
-              value={1}
-              checked={checkedAll}
-              disabled={!interactive}
-              onChange={(event) => onSelectAll(table.id, event.target.checked)}
-            />
-            *
-          </td>
-        </tr>
-
-        {table.columns.map((columnName) => (
-          <tr key={columnName}>
-            <td
-              className={cellClassName(columnName)}
-              onClick={(event) => {
-                if (interactive) onCellClick(table.id, columnName, event);
-              }}
-            >
+      {hideCells ? null : (
+        <tbody>
+          <tr>
+            <td className="border-t px-2 py-1">
               <input
                 type="checkbox"
-                id={`${table.id}~${columnName}`}
+                id={`${SELECT_ALL_PREFIX}${table.id}`}
+                className="mr-1.5 size-3.5 align-middle accent-primary"
                 value={1}
-                checked={checkedColumns.includes(`${table.id}~${columnName}`)}
+                checked={checkedAll}
                 disabled={!interactive}
-                onClick={(event) => {
-                  if (interactive) {
-                    onToggleColumn(table.id, columnName, event.currentTarget.checked);
-                  }
-                }}
-                readOnly
+                onChange={(event) => onSelectAll(table.id, event.target.checked)}
               />
-              {columnName}
+              *
             </td>
           </tr>
-        ))}
-      </tbody>
+
+          {table.columns.map((columnName) => (
+            <tr key={columnName}>
+              <td
+                className={cn(
+                  "border-t px-2 py-1 whitespace-nowrap",
+                  interactive && "cursor-crosshair hover:bg-primary/10",
+                  involvedCellKeys.includes(`${table.id}~${columnName}`) &&
+                    "bg-emerald-100 text-emerald-900"
+                )}
+                onClick={(event) => {
+                  if (interactive) onCellClick(table.id, columnName, event);
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id={`${table.id}~${columnName}`}
+                  value={1}
+                  className="mr-1.5 size-3.5 align-middle accent-primary"
+                  checked={checkedColumns.includes(`${table.id}~${columnName}`)}
+                  disabled={!interactive}
+                  onClick={(event) => {
+                    if (interactive) {
+                      onToggleColumn(
+                        table.id,
+                        columnName,
+                        event.currentTarget.checked
+                      );
+                    }
+                  }}
+                  readOnly
+                />
+                {columnName}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      )}
     </table>
   );
 }
 
-/* ─── Join-type menu (original: buildJoinSelector) ──────────────────────── */
-
 function JoinSelector({
-  visible,
   onSelect,
 }: {
-  visible: boolean;
   onSelect: (joinIndex: number) => void;
 }) {
   return (
-    <div id="join-selector" style={{ display: visible ? "block" : "none" }}>
-      <h2>Select Join Types</h2>
-      <div id="joins-menu">
-        {joinMenuOptions.map((option, index) => (
-          <div
-            key={option}
-            id={`join-option-${index + 1}`}
-            className="join-option"
-            onClick={() => onSelect(index)}
-          >
-            {option}
-          </div>
-        ))}
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-xl border bg-card p-5 text-card-foreground shadow-2xl">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Select Join Type
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose how the two selected columns should be joined.
+        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {joinMenuOptions.map((option, index) => (
+            <Button
+              key={option}
+              type="button"
+              variant="outline"
+              className="justify-start"
+              onClick={() => onSelect(index)}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   );

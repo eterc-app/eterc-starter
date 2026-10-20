@@ -9,8 +9,11 @@ export function PublicTemplate({
   pageTitle?: string;
 }) {
   return (
-    <div className="container">
-      <div className="text-center">{children}</div>
-    </div>
+    <main className="min-h-screen bg-gradient-to-b from-background to-muted/40 px-4 py-14 sm:py-20">
+      <div className="text-center">
+        {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
+        {children}
+      </div>
+    </main>
   );
 }

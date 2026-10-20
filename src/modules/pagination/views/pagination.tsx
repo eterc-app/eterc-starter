@@ -4,11 +4,8 @@ import { format_number } from "../format";
 /**
  * pagination view — port of modules/pagination/views/pagination.php.
  *
- * This is the standalone list-style pagination view shipped alongside the
- * module (nav/ul markup). The canonical display() renderer used by other
- * modules lives in ../PaginationRenderer.tsx and matches Pagination.php's
- * own markup. Both views are registered so a caller addressing
- * "pagination/pagination" gets the same output as the PHP view.
+ * The standalone list-style pagination view. The canonical renderer used by
+ * other modules lives in ../PaginationRenderer.tsx.
  */
 type PaginationLink = {
   type?: string;
@@ -32,31 +29,35 @@ export default function PaginationView({ data }: TgViewProps) {
   return (
     <>
       {include_showing_statement && total_rows > 0 ? (
-        <p className="showing-statement">
+        <p className="mb-4 text-sm text-muted-foreground">
           Showing {record_name_plural} {format_number(showing_start)} to{" "}
           {format_number(showing_end)} of {format_number(total_rows)}.
         </p>
       ) : null}
 
       {total_pages > 1 ? (
-        <nav className="pagination">
-          <ul className="pagination-list">
+        <nav className="my-8" aria-label="Pagination">
+          <ul className="flex list-none flex-wrap gap-1 p-0">
             {pagination_links.map((link, index) => {
               if (link.type === "ellipsis") {
                 return (
-                  <li key={index} className="pagination-ellipsis">
-                    <span>{link.label}</span>
+                  <li key={index}>
+                    <span className="block px-3 py-2 text-muted-foreground">
+                      {link.label}
+                    </span>
                   </li>
                 );
               }
 
               if (link.type === "prev" || link.type === "next") {
                 return (
-                  <li
-                    key={index}
-                    className={`pagination-${link.type}`}
-                  >
-                    <a href={link.url}>{link.label}</a>
+                  <li key={index}>
+                    <a
+                      href={link.url}
+                      className="block rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                    >
+                      {link.label}
+                    </a>
                   </li>
                 );
               }
@@ -65,10 +66,11 @@ export default function PaginationView({ data }: TgViewProps) {
                 <li key={index}>
                   <a
                     href={link.url}
+                    aria-current={link.is_current ? "page" : undefined}
                     className={
                       link.is_current
-                        ? "pagination-link active"
-                        : "pagination-link"
+                        ? "pointer-events-none block rounded-md border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground"
+                        : "block rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted"
                     }
                   >
                     {link.label}
@@ -79,61 +81,6 @@ export default function PaginationView({ data }: TgViewProps) {
           </ul>
         </nav>
       ) : null}
-
-      <style>{`
-.showing-statement {
-    margin-bottom: 1em;
-    color: #666;
-}
-
-.pagination {
-    margin: 2em 0;
-}
-
-.pagination-list {
-    display: flex;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    gap: 0.25em;
-}
-
-.pagination-list li {
-    display: inline-block;
-}
-
-.pagination-link,
-.pagination-prev a,
-.pagination-next a {
-    display: block;
-    padding: 0.5em 0.75em;
-    border: 1px solid #ddd;
-    background-color: #fff;
-    color: #333;
-    text-decoration: none;
-    transition: all 0.2s;
-}
-
-.pagination-link:hover,
-.pagination-prev a:hover,
-.pagination-next a:hover {
-    background-color: #f5f5f5;
-    border-color: #999;
-}
-
-.pagination-link.active {
-    background-color: var(--primary, #007bff);
-    color: #fff;
-    border-color: var(--primary, #007bff);
-    pointer-events: none;
-}
-
-.pagination-ellipsis span {
-    display: block;
-    padding: 0.5em 0.75em;
-    color: #999;
-}
-      `}</style>
     </>
   );
 }

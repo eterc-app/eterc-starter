@@ -1,13 +1,20 @@
 /**
  * Generated manage view — port of site_builder/views/donor_manage.php.
+ *
+ * Output uses the Eterc canonical helper names plus the shared shadcn/Tailwind
+ * surface, so generated modules start from the same design system as the host.
  */
 export const DONOR_MANAGE_TEMPLATE = `import { Flashdata } from "@/engine/ui/Flashdata";
 <?php if (has_searchable): ?>
 import { TgForm } from "@/engine/ui/TgForm";
 <?php endif; ?>
 import type { TgViewProps } from "@/engine/views-registry";
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { PerPageSelect } from "./PerPageSelect";
 
 /**
@@ -26,29 +33,35 @@ export default function Manage({ data }: TgViewProps) {
 <?php endif; ?>
 
   return (
-    <>
-      <h1>Manage <?= record_name_plural ?></h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Manage <?= record_name_plural ?></h1>
+        <Button asChild>
+          <a href={site_url("<?= module_folder_name ?>/create")}>
+            Create New <?= record_name_singular ?> Record
+          </a>
+        </Button>
+      </div>
+
       <Flashdata />
 <?php if (has_searchable): ?>
       {search_active ? (
-        <p>
-          Showing results for <strong>{search_query}</strong>
+        <p className="text-sm text-muted-foreground">
+          Showing results for <strong className="text-foreground">{search_query}</strong>
         </p>
       ) : null}
 <?php endif; ?>
-      <p className="flex-row justify-between">
-        <a className="button alt" href={siteUrl("<?= module_folder_name ?>/create")}>
-          Create New <?= record_name_singular ?> Record
-        </a>
-      </p>
 <?php if (has_searchable): ?>
       {rows.length > 9 || search_active ? (
-        <details style={{ marginBottom: "1rem" }}>
-          <summary className="button alt">Search <?= record_name_plural ?></summary>
-          <TgForm action="<?= module_folder_name ?>/submit_search" id="search-form">
-            <div className="form-group">
-              <label>Search Query</label>
-              <input
+        <details className="rounded-lg border bg-card p-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium text-primary">
+            Search <?= record_name_plural ?>
+          </summary>
+          <TgForm action="<?= module_folder_name ?>/submit_search" id="search-form" className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="search_query">Search Query</Label>
+              <Input
+                id="search_query"
                 type="text"
                 name="search_query"
                 placeholder="Enter search term..."
@@ -56,24 +69,32 @@ export default function Manage({ data }: TgViewProps) {
                 autoComplete="off"
               />
             </div>
-            <div className="form-group">
-              <label>Search In</label>
-              <select name="search_column" defaultValue={search_column}>
+            <div className="space-y-2">
+              <Label htmlFor="search_column">Search In</Label>
+              <select
+                id="search_column"
+                name="search_column"
+                defaultValue={search_column}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
                 <option value="">All searchable fields</option>
 <?= searchable_options ?>
               </select>
             </div>
-            <button type="submit">Search</button>
+            <Button type="submit">Search</Button>
           </TgForm>
         </details>
       ) : null}
 <?php endif; ?>
+
       {rows.length === 0 ? (
-        <p>There are currently no records to display.</p>
+        <p className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+          There are currently no records to display.
+        </p>
       ) : (
-        <>
+        <div className="space-y-4">
           <Pagination data={pagination_data} />
-          <div className="table-container">
+          <div className="overflow-x-auto rounded-lg border bg-card">
 <?= dynamic_table ?>
           </div>
           {rows.length > 9 ? (
@@ -81,9 +102,9 @@ export default function Manage({ data }: TgViewProps) {
               data={{ ...pagination_data, include_showing_statement: false }}
             />
           ) : null}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 `;

@@ -43,7 +43,7 @@ export function buildGeneratedIndex(modules: GeneratedModuleManifest[]): string 
   lines.push(" */");
   lines.push("");
   lines.push('import type { ControllerCtor } from "@/engine/controller";');
-  lines.push('import { registerViews } from "@/engine/views-registry";');
+  lines.push('import { register_views } from "@/engine/views-registry";');
 
   for (const manifest of sorted) {
     if (
@@ -67,7 +67,7 @@ export function buildGeneratedIndex(modules: GeneratedModuleManifest[]): string 
     ) {
       continue;
     }
-    lines.push(`registerViews(${manifest.class_name}Views);`);
+    lines.push(`register_views(${manifest.class_name}Views);`);
   }
   if (sorted.length === 0) {
     lines.push("// No generated modules yet.");

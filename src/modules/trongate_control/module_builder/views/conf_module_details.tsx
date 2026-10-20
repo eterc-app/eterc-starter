@@ -3,6 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Editable module details — port of
@@ -27,43 +32,11 @@ interface DetailsWizard {
 
 type Errors = Record<string, string[]>;
 
-const PAGE_CSS = `
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.form-column {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-column label {
-    margin-bottom: 5px;
-}
-
-.form-column input,
-.form-column select,
-.form-column textarea {
-    width: 100%;
-}
-
-.form-buttons {
-    margin-top: 2em;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-}
-
-.form-buttons button {
-    margin-left: 1em;
-}
-`;
+const selectClass =
+  "h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
 
 export default function ConfModuleDetails({ data }: TgViewProps) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
 
   const wizard = (data.wizard ?? {}) as DetailsWizard;
   const urlColumnOptions = (data.url_column_options ?? {
@@ -112,7 +85,7 @@ export default function ConfModuleDetails({ data }: TgViewProps) {
       properties: String(form.get("properties") ?? ""),
       urlColumn: String(form.get("urlColumn") ?? ""),
       orderBy: String(form.get("orderBy") ?? ""),
-      csrf_token: csrfToken,
+      csrf_token: csrf_token,
     };
 
     try {
@@ -166,7 +139,7 @@ export default function ConfModuleDetails({ data }: TgViewProps) {
     const messages = errors[field];
     if (!messages || messages.length === 0) return null;
     return (
-      <ul className="validation-errors">
+      <ul className="space-y-1 text-sm text-destructive">
         {messages.map((message, index) => (
           <li key={index}>{message}</li>
         ))}
@@ -175,122 +148,140 @@ export default function ConfModuleDetails({ data }: TgViewProps) {
   };
 
   return (
-    <div className="container">
-      <h1>Module Details</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+      <div>
+        <h1>Module Details</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Adjust the generated module&apos;s names, route settings and
+          properties before generating it.
+        </p>
+      </div>
 
-      <form
-        action="#"
-        className="highlight-errors sm"
-        onSubmit={handleSubmit}
-      >
-        <div className="form-row">
-          <div className="form-column">
-            <label htmlFor="moduleDir-input">Module Directory</label>
-            {fieldErrors("moduleDir")}
-            <input
-              type="text"
-              name="moduleDir"
-              id="moduleDir-input"
-              autoComplete="off"
-              defaultValue={wizard.module_folder_name ?? ""}
-            />
-          </div>
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Configuration</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <form action="#" className="space-y-5" onSubmit={handleSubmit}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="moduleDir-input">Module Directory</Label>
+                {fieldErrors("moduleDir")}
+                <Input
+                  type="text"
+                  name="moduleDir"
+                  id="moduleDir-input"
+                  autoComplete="off"
+                  defaultValue={wizard.module_folder_name ?? ""}
+                />
+              </div>
 
-          <div className="form-column">
-            <label htmlFor="recordNameSingular-input">Record Name Singular</label>
-            {fieldErrors("recordNameSingular")}
-            <input
-              type="text"
-              name="recordNameSingular"
-              id="recordNameSingular-input"
-              autoComplete="off"
-              defaultValue={wizard.record_name_singular ?? ""}
-            />
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="recordNameSingular-input">
+                  Record Name Singular
+                </Label>
+                {fieldErrors("recordNameSingular")}
+                <Input
+                  type="text"
+                  name="recordNameSingular"
+                  id="recordNameSingular-input"
+                  autoComplete="off"
+                  defaultValue={wizard.record_name_singular ?? ""}
+                />
+              </div>
+            </div>
 
-        <div className="form-row">
-          <div className="form-column">
-            <label htmlFor="recordNamePlural-input">Record Name Plural</label>
-            {fieldErrors("recordNamePlural")}
-            <input
-              type="text"
-              name="recordNamePlural"
-              id="recordNamePlural-input"
-              autoComplete="off"
-              defaultValue={wizard.record_name_plural ?? ""}
-            />
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="recordNamePlural-input">
+                  Record Name Plural
+                </Label>
+                {fieldErrors("recordNamePlural")}
+                <Input
+                  type="text"
+                  name="recordNamePlural"
+                  id="recordNamePlural-input"
+                  autoComplete="off"
+                  defaultValue={wizard.record_name_plural ?? ""}
+                />
+              </div>
 
-          <div className="form-column">
-            <label htmlFor="navLabel-input">Nav Label</label>
-            {fieldErrors("navLabel")}
-            <input
-              type="text"
-              name="navLabel"
-              id="navLabel-input"
-              autoComplete="off"
-              defaultValue={wizard.nav_label ?? ""}
-            />
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="navLabel-input">Nav Label</Label>
+                {fieldErrors("navLabel")}
+                <Input
+                  type="text"
+                  name="navLabel"
+                  id="navLabel-input"
+                  autoComplete="off"
+                  defaultValue={wizard.nav_label ?? ""}
+                />
+              </div>
+            </div>
 
-        <label htmlFor="properties-input">Properties</label>
-        {fieldErrors("properties")}
-        <textarea
-          name="properties"
-          id="properties-input"
-          rows={12}
-          defaultValue={JSON.stringify(wizard.properties ?? [])}
-        />
+            <div className="space-y-2">
+              <Label htmlFor="properties-input">Properties</Label>
+              {fieldErrors("properties")}
+              <Textarea
+                name="properties"
+                id="properties-input"
+                rows={12}
+                className="min-h-48 font-mono text-sm"
+                defaultValue={JSON.stringify(wizard.properties ?? [], null, 2)}
+              />
+            </div>
 
-        <div className="form-row">
-          <div className="form-column">
-            <label htmlFor="urlColumn-input">URL Column</label>
-            {fieldErrors("urlColumn")}
-            <select
-              name="urlColumn"
-              id="urlColumn-input"
-              defaultValue={wizard.url_column ?? ""}
-            >
-              {Object.entries(urlColumnOptions).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="urlColumn-input">URL Column</Label>
+                {fieldErrors("urlColumn")}
+                <select
+                  name="urlColumn"
+                  id="urlColumn-input"
+                  className={selectClass}
+                  defaultValue={wizard.url_column ?? ""}
+                >
+                  {Object.entries(urlColumnOptions).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="form-column">
-            <label htmlFor="orderBy-input">Order By</label>
-            {fieldErrors("orderBy")}
-            <select
-              name="orderBy"
-              id="orderBy-input"
-              defaultValue={wizard.order_by || "id"}
-            >
-              {Object.entries(orderByOptions).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="orderBy-input">Order By</Label>
+                {fieldErrors("orderBy")}
+                <select
+                  name="orderBy"
+                  id="orderBy-input"
+                  className={selectClass}
+                  defaultValue={wizard.order_by || "id"}
+                >
+                  {Object.entries(orderByOptions).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        {notice ? <p style={{ color: "#b00020" }}>{notice}</p> : null}
+            {notice ? (
+              <p className="text-sm font-medium text-destructive">{notice}</p>
+            ) : null}
 
-        <div className="text-center form-buttons">
-          <button type="button" className="close-btn alt" onClick={closeWindow}>
-            Close Window
-          </button>
-          <button type="submit" className="submit-btn" disabled={busy}>
-            Update Details
-          </button>
-        </div>
-      </form>
-
-      <style>{PAGE_CSS}</style>
+            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+              <Button type="button" variant="outline" onClick={closeWindow}>
+                Close Window
+              </Button>
+              <Button type="submit" disabled={busy}>
+                Update Details
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

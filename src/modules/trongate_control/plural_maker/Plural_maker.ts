@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
-import type { TgTemplateData } from "@/engine/templates";
+import type { TgTemplateData } from "@/engine/Templates";
 
 /**
  * Plural Maker — port of

@@ -1,15 +1,15 @@
 import { Model } from "@/engine/model";
 import type { Row } from "@/engine/db";
-import { getContext } from "@/engine/request-context";
-import { makeRandStr } from "@/engine/string-service";
-import { TrongateTokensService } from "@/engine/tokens";
+import { get_context } from "@/engine/request-context";
+import { make_rand_str } from "@/engine/String_service";
+import { Trongate_tokens } from "@/engine/Trongate_tokens";
 import {
   LOGIN_CONFIG,
   type LoginConfig,
   type LoginUserLevel,
 } from "@/engine/config";
 import { compareSync, hashSync } from "bcryptjs";
-import { sendEmail } from "@/modules/trongate_email";
+import { send_email } from "@/modules/trongate_email";
 
 /**
  * Login model — port of modules/login/Login_model.php.
@@ -29,7 +29,7 @@ export interface PasswordResetRow extends Row {
   created_at: number;
 }
 
-export class LoginModel extends Model {
+export class Login_model extends Model {
   // -----------------------------------------------------------------
   // Configuration
   // -----------------------------------------------------------------
@@ -319,7 +319,7 @@ export class LoginModel extends Model {
       return false;
     }
 
-    const tokens = new TrongateTokensService();
+    const tokens = new Trongate_tokens();
     let token: string;
 
     if (remember === 1 && config.allow_remember === 1) {
@@ -426,7 +426,7 @@ export class LoginModel extends Model {
 
     const config = this.get_level_config(user_level_id);
     const lifespan = Number(LOGIN_CONFIG.reset_token_lifespan ?? 3600);
-    const token = makeRandStr(64);
+    const token = make_rand_str(64);
 
     this.db.insert(
       {
@@ -517,7 +517,7 @@ export class LoginModel extends Model {
         const trongate_user_id = this.get_user_ref_id(user, level_config);
 
         if (trongate_user_id > 0) {
-          new TrongateTokensService().delete_old_tokens(trongate_user_id);
+          new Trongate_tokens().delete_old_tokens(trongate_user_id);
         }
       }
     }
@@ -542,7 +542,7 @@ export class LoginModel extends Model {
     // PHP: nl2br().
     const html_body = body.replace(/\n/g, "<br />\n");
 
-    return sendEmail(to_email, "Password Reset Request", `<p>${html_body}</p>`);
+    return send_email(to_email, "Password Reset Request", `<p>${html_body}</p>`);
   }
 
   // -----------------------------------------------------------------
@@ -595,7 +595,7 @@ export class LoginModel extends Model {
 
   /** Best-effort client IP address for rate-limit tracking. */
   private ip_address(): string {
-    const ctx = getContext();
+    const ctx = get_context();
 
     const forwarded = ctx.headers.get("x-forwarded-for");
     if (forwarded) {
@@ -652,4 +652,4 @@ function date_ymd_his(): string {
   );
 }
 
-export default LoginModel;
+export default Login_model;

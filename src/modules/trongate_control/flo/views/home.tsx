@@ -2,6 +2,17 @@
 
 import { useState, type FormEvent } from "react";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Flo home / quick generator — port of flo/views/flo.php.
@@ -31,50 +42,6 @@ interface GenerationOutcome {
   module_url?: string;
   files?: string[];
 }
-
-const PAGE_CSS = `
-.flo-page h1 { margin-top: 0; }
-.flo-intro { max-width: 760px; }
-.flo-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-.flo-grid .full { grid-column: 1 / -1; }
-.flo-page label { display: block; font-weight: bold; margin-bottom: 4px; }
-.flo-page input[type="text"],
-.flo-page input[type="number"],
-.flo-page textarea,
-.flo-page select {
-    width: 100%;
-    box-sizing: border-box;
-}
-.flo-page textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.flo-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    margin-top: 20px;
-}
-.flo-result { margin-top: 20px; padding: 14px 18px; border-radius: 8px; }
-.flo-result.success { background: #e7f7ec; border: 1px solid #8fd2a4; }
-.flo-result.error { background: #fdecea; border: 1px solid #e39a92; }
-.flo-result h2 { margin-top: 0; }
-.flo-modules { margin-top: 28px; }
-.flo-module-list { list-style: none; padding-left: 0; }
-.flo-module-list li {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    background: #fff;
-}
-.flo-module-list code { margin-right: 8px; }
-@media (max-width: 700px) {
-    .flo-grid { grid-template-columns: 1fr; }
-}
-`;
 
 export default function FloHome({ data }: TgViewProps) {
   const apiBase = String(data.api_base ?? "/api/xhr/trongate_control-flo");
@@ -160,124 +127,146 @@ export default function FloHome({ data }: TgViewProps) {
   };
 
   return (
-    <div className="flo-page">
-      <h1>Flo — Code Generator</h1>
-
-      <p className="flo-intro">
+    <div className="space-y-6">
+      <p className="text-muted-foreground">
         Flo builds a complete Next.js CRUD module: a controller extending the
-        port&apos;s <code>Trongate</code> base class, a model, TSX views and a
-        generated view map. Artifacts are written to{" "}
-        <code>src/modules/generated/&lt;module&gt;/</code>. Prefer the{" "}
-        <a href={moduleBuilderUrl}>Module Builder</a> when you want the guided
-        wizard; this form is the fast path.
+        port&apos;s <code className="rounded bg-muted px-1 py-0.5 text-xs">Trongate</code> base
+        class, a model, TSX views and a generated view map. Artifacts are written
+        to <code className="rounded bg-muted px-1 py-0.5 text-xs">src/modules/generated/&lt;module&gt;/</code>.
+        Prefer the <a className="font-medium text-primary underline-offset-4 hover:underline" href={moduleBuilderUrl}>Module Builder</a>{" "}
+        when you want the guided wizard; this form is the fast path.
       </p>
 
-      <form onSubmit={handleSubmit}>
-        <div className="flo-grid">
-          <div>
-            <label htmlFor="flo-module-name">Module folder name</label>
-            <input
-              id="flo-module-name"
-              type="text"
-              name="module_folder_name"
-              placeholder="tasks"
-              required
-              pattern="[a-z][a-z0-9_]*"
-              title="Lowercase letters, numbers and underscores; must start with a letter."
-            />
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Module details</CardTitle>
+          <CardDescription>
+            Describe the module and the properties that should appear in its
+            forms and summary table.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="flo-module-name">Module folder name</Label>
+                <Input
+                  id="flo-module-name"
+                  type="text"
+                  name="module_folder_name"
+                  placeholder="tasks"
+                  required
+                  pattern="[a-z][a-z0-9_]*"
+                  title="Lowercase letters, numbers and underscores; must start with a letter."
+                />
+              </div>
 
-          <div>
-            <label htmlFor="flo-nav-label">Navigation label</label>
-            <input
-              id="flo-nav-label"
-              type="text"
-              name="nav_label"
-              placeholder="Tasks"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="flo-nav-label">Navigation label</Label>
+                <Input
+                  id="flo-nav-label"
+                  type="text"
+                  name="nav_label"
+                  placeholder="Tasks"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="flo-singular">Record name (singular)</label>
-            <input
-              id="flo-singular"
-              type="text"
-              name="record_name_singular"
-              placeholder="Task"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="flo-singular">Record name (singular)</Label>
+                <Input
+                  id="flo-singular"
+                  type="text"
+                  name="record_name_singular"
+                  placeholder="Task"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="flo-plural">Record name (plural)</label>
-            <input
-              id="flo-plural"
-              type="text"
-              name="record_name_plural"
-              placeholder="Tasks"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="flo-plural">Record name (plural)</Label>
+                <Input
+                  id="flo-plural"
+                  type="text"
+                  name="record_name_plural"
+                  placeholder="Tasks"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="flo-url-column">URL column</label>
-            <input
-              id="flo-url-column"
-              type="text"
-              name="urlColumn"
-              placeholder="Optional"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="flo-url-column">URL column</Label>
+                <Input
+                  id="flo-url-column"
+                  type="text"
+                  name="urlColumn"
+                  placeholder="Optional"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="flo-order-by">Default order by</label>
-            <input
-              id="flo-order-by"
-              type="text"
-              name="orderBy"
-              defaultValue="id"
-              placeholder="id or column DESC"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="flo-order-by">Default order by</Label>
+                <Input
+                  id="flo-order-by"
+                  type="text"
+                  name="orderBy"
+                  defaultValue="id"
+                  placeholder="id or column DESC"
+                />
+              </div>
+            </div>
 
-          <div className="full">
-            <label htmlFor="flo-properties">Properties (JSON array)</label>
-            <textarea
-              id="flo-properties"
-              name="properties"
-              rows={14}
-              defaultValue={JSON.stringify(propertiesExample, null, 2)}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="flo-properties">Properties (JSON array)</Label>
+              <Textarea
+                id="flo-properties"
+                name="properties"
+                rows={14}
+                className="font-mono text-xs leading-relaxed"
+                defaultValue={JSON.stringify(propertiesExample, null, 2)}
+              />
+            </div>
 
-          <div className="full">
-            <label>
-              <input type="checkbox" name="run_sql" defaultChecked /> Create the
-              SQLite table after writing the files
-            </label>
-          </div>
-        </div>
+            <Label className="flex items-start gap-2 font-normal">
+              <input
+                type="checkbox"
+                name="run_sql"
+                defaultChecked
+                className="m-0 mt-0.5 size-4 rounded border-input"
+              />
+              Create the SQLite table after writing the files
+            </Label>
 
-        <div className="flo-actions">
-          <button type="submit" disabled={busy}>
-            {busy ? "Generating..." : "Generate Module"}
-          </button>
-          {busy ? <span>Writing controller, model and views…</span> : null}
-        </div>
-      </form>
+            <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+              <Button type="submit" disabled={busy}>
+                {busy ? "Generating..." : "Generate Module"}
+              </Button>
+              {busy ? (
+                <span className="text-sm text-muted-foreground">
+                  Writing controller, model and views...
+                </span>
+              ) : null}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {error ? (
-        <div className="flo-result error" role="alert">
-          <p>{error}</p>
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
         </div>
       ) : null}
 
       {result ? (
         <div
           className={
-            result.status === "success" ? "flo-result success" : "flo-result error"
+            result.status === "success"
+              ? "space-y-2 rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+              : "space-y-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
           }
           role="status"
         >
-          {result.headline ? <h2>{result.headline}</h2> : null}
+          {result.headline ? <h2 className="text-base font-semibold">{result.headline}</h2> : null}
           <p>{result.message}</p>
           {result.files && result.files.length > 0 ? (
             <p>
@@ -287,15 +276,15 @@ export default function FloHome({ data }: TgViewProps) {
           ) : null}
           {result.more_info_url ? (
             <p>
-              <a href={result.more_info_url}>Learn more about this error</a>
+              <a className="font-medium underline underline-offset-4" href={result.more_info_url}>
+                Learn more about this error
+              </a>
             </p>
           ) : null}
           {moduleUrl ? (
-            <p>
-              <a className="button alt" href={moduleUrl}>
-                View your module
-              </a>
-            </p>
+            <Button asChild variant="outline" size="sm">
+              <a href={moduleUrl}>View your module</a>
+            </Button>
           ) : null}
           {result.status === "success" ? (
             <p>
@@ -306,30 +295,41 @@ export default function FloHome({ data }: TgViewProps) {
         </div>
       ) : null}
 
-      <section className="flo-modules">
-        <h2>Generated modules</h2>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Generated modules</h2>
+          <p className="text-sm text-muted-foreground">
+            Modules written by Flo into the local generated-module registry.
+          </p>
+        </div>
         {generatedModules.length === 0 ? (
-          <p>No modules have been generated yet.</p>
+          <p className="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground">
+            No modules have been generated yet.
+          </p>
         ) : (
-          <ul className="flo-module-list">
+          <ul className="divide-y rounded-lg border bg-card">
             {generatedModules.map((module) => (
-              <li key={module.module_name}>
-                <code>{module.module_name}</code>
-                <strong>{module.label}</strong>
-                {module.has_searchable ? " · searchable" : ""}
+              <li
+                key={module.module_name}
+                className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm"
+              >
+                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                  {module.module_name}
+                </code>
+                <span className="font-medium">{module.label}</span>
+                {module.has_searchable ? (
+                  <span className="text-muted-foreground">Searchable</span>
+                ) : null}
                 {module.href ? (
-                  <>
-                    {" · "}
+                  <Button asChild variant="outline" size="sm" className="ml-auto">
                     <a href={module.href}>Manage</a>
-                  </>
+                  </Button>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      <style>{PAGE_CSS}</style>
     </div>
   );
 }

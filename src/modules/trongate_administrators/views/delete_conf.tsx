@@ -1,5 +1,12 @@
 import { TgForm } from "@/engine/ui/TgForm";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 /**
  * Delete confirmation — port of
@@ -12,29 +19,40 @@ export default function DeleteConf({ data }: TgViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
-      <div className="card">
-        <div className="card-heading">Confirmation Required</div>
-        <div className="card-body">
-          <p>Are you sure?</p>
-          <p>
-            You are about to delete a record. This cannot be undone. Do you really
-            want to do this?
+    <div className="space-y-6">
+      <div>
+        <h1>{String(data.headline ?? "")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This action permanently removes the administrator account.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Confirmation Required</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <p className="font-medium">Are you sure?</p>
+          <p className="text-sm text-muted-foreground">
+            You are about to delete a record. This cannot be undone. Do you
+            really want to do this?
           </p>
 
-          <TgForm action="trongate_administrators/submit_delete" params={[update_id]}>
-            <div className="text-center">
-              <a className="button alt" href={String(data.cancel_url ?? "")}>
-                Cancel
-              </a>
-              <button type="submit" name="submit" value="Yes - Delete Now" className="danger">
+          <TgForm
+            action="trongate_administrators/submit_delete"
+            params={[update_id]}
+          >
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" variant="destructive">
                 Yes - Delete Now
-              </button>
+              </Button>
+              <Button asChild variant="outline">
+                <a href={String(data.cancel_url ?? "")}>Cancel</a>
+              </Button>
             </div>
           </TgForm>
-        </div>
-      </div>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

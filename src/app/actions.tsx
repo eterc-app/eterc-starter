@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { buildRequest, runInContext, flushResponseCookies } from "@/engine/dispatch";
-import { runWithContext } from "@/engine/request-context";
+import { build_request, run_in_context, flush_response_cookies } from "@/engine/dispatch";
+import { run_with_context } from "@/engine/request-context";
 import { TgHttpError, TgRedirectSignal } from "@/engine/signals";
 import type { TgActionReply } from "@/engine/action-types";
 import { TgUiProvider } from "@/engine/ui/TgUiProvider";
@@ -53,29 +53,29 @@ export async function tgSubmit(formData: FormData): Promise<TgActionReply> {
     canSetCookies: true,
     method: "POST",
   };
-  const context = await buildRequest(options);
+  const context = await build_request(options);
 
   try {
-    const result = await runWithContext(context, () => runInContext(options));
-    await flushResponseCookies(context);
+    const result = await run_with_context(context, () => run_in_context(options));
+    await flush_response_cookies(context);
     return {
       kind: "node",
       node: (
         <TgUiProvider
           errors={result.errors}
           flash={result.flash}
-          csrfToken={result.csrfToken}
+          csrf_token={result.csrf_token}
         >
           {result.node}
         </TgUiProvider>
       ),
       errors: result.errors,
       flash: result.flash,
-      csrfToken: result.csrfToken,
+      csrf_token: result.csrf_token,
       status: result.status,
     };
   } catch (error) {
-    await flushResponseCookies(context);
+    await flush_response_cookies(context);
 
     if (error instanceof TgRedirectSignal) {
       redirect(error.url);

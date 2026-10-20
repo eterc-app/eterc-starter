@@ -1,5 +1,5 @@
 /**
- * Trongate (Next.js port) — framework configuration.
+ * Eterc - framework configuration.
  *
  * Mirrors: config/config.php, config/site_owner.php and parts of
  * config/login.php + config/trongate_email.php from the PHP original.
@@ -52,6 +52,7 @@ export const ETERC_HOME_URL = "https://www.eterc.app";
 export const ETERC_DOCS_URL = "https://eterc-docs.eterc.app";
 export const ETERC_FORUM_URL = "https://eterc-forum.eterc.app";
 export const ETERC_API_URL = "https://eterc-api.eterc.app/";
+export const ETERC_GITHUB_URL = "https://github.com/etercjs/eterc";
 
 // ---------------------------------------------------------------------------
 // Flashdata rendering wrappers (config/config.php: FLASHDATA_OPEN/CLOSE)
@@ -130,7 +131,7 @@ export const EMAIL_CONFIG = {
   smtp_user: process.env.TG_SMTP_USER ?? "",
   smtp_pass: process.env.TG_SMTP_PASS ?? "",
   smtp_secure: (process.env.TG_SMTP_SECURE ?? "ssl") as "ssl" | "tls" | "",
-  smtp_from_name: process.env.TG_SMTP_FROM_NAME ?? "Trongate Support",
+  smtp_from_name: process.env.TG_SMTP_FROM_NAME ?? "Eterc Support",
 };
 
 // ---------------------------------------------------------------------------

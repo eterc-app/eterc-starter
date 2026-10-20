@@ -1,17 +1,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ReactNode } from "react";
-import { Trongate, prepareController } from "@/engine/controller";
+import { Trongate, prepare_controller } from "@/engine/controller";
 import { ENV, MODULE_ASSETS_TRIGGER } from "@/engine/config";
 import { post } from "@/engine/post";
 import { GENERATED_MODULES_DIR, MODULES_DIR } from "@/engine/paths";
-import { getContext } from "@/engine/request-context";
-import { sessionGet, sessionSet, sessionUnset } from "@/engine/session";
+import { get_context } from "@/engine/request-context";
+import { session_get, session_set, session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import { urlTitle } from "@/engine/string-service";
-import type { TgTemplateData } from "@/engine/templates";
-import { segment, siteUrl } from "@/engine/url";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import { url_title } from "@/engine/String_service";
+import type { TgTemplateData } from "@/engine/Templates";
+import { segment, site_url } from "@/engine/Url";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 import Plural_maker from "../plural_maker/Plural_maker";
 import type Site_builder from "../site_builder/Site_builder";
 import type { GenerateModuleResult } from "../site_builder/types";
@@ -109,22 +109,22 @@ export default class Module_builder extends Trongate {
   // Shared helpers
   // ============================================
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
   private isAjax(): boolean {
-    return getContext().isAjax;
+    return get_context().isAjax;
   }
 
   private getWizard(): EvoWizard {
-    const wizard = sessionGet<EvoWizard>(WIZARD_SESSION_KEY);
+    const wizard = session_get<EvoWizard>(WIZARD_SESSION_KEY);
     return wizard && typeof wizard === "object" ? wizard : {};
   }
 
   private saveWizard(wizard: EvoWizard): void {
-    sessionSet(WIZARD_SESSION_KEY, wizard);
+    session_set(WIZARD_SESSION_KEY, wizard);
   }
 
   /** Merge a partial update into the session wizard (PHP: $_SESSION[...] = ...). */
@@ -142,7 +142,7 @@ export default class Module_builder extends Trongate {
       // The sibling may not be registered yet; instantiate it directly so the
       // wizard still works when the orchestrator has not wired it.
       const instance = new Plural_maker("trongate_control-plural_maker");
-      return prepareController(instance, "trongate_control-plural_maker") as unknown as Plural_maker;
+      return prepare_controller(instance, "trongate_control-plural_maker") as unknown as Plural_maker;
     }
   }
 
@@ -153,7 +153,7 @@ export default class Module_builder extends Trongate {
     } catch {
       const { default: SiteBuilderCtor } = await import("../site_builder/Site_builder");
       const instance = new SiteBuilderCtor("trongate_control-site_builder");
-      return prepareController(
+      return prepare_controller(
         instance,
         "trongate_control-site_builder"
       ) as unknown as Site_builder;
@@ -172,7 +172,7 @@ export default class Module_builder extends Trongate {
 
   /** Read the JSON body (or posted fields) as a plain record. */
   private getPostedItems(): Record<string, unknown> {
-    const json = getContext().json;
+    const json = get_context().json;
     if (json && typeof json === "object" && !Array.isArray(json)) {
       const copy: Record<string, unknown> = { ...(json as Record<string, unknown>) };
       delete copy.csrf_token;
@@ -211,7 +211,7 @@ export default class Module_builder extends Trongate {
 
   async enter_mod_name(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
-    sessionUnset(WIZARD_SESSION_KEY);
+    session_unset(WIZARD_SESSION_KEY);
 
     if (this.isAjax()) {
       return { ok: true };
@@ -256,7 +256,7 @@ export default class Module_builder extends Trongate {
 
     const pluralMaker = await this.pluralMaker();
     const plural = ucwords(pluralMaker.make_plural(mod_name));
-    const module_folder_name = urlTitle(plural).replace(/-/g, "_");
+    const module_folder_name = url_title(plural).replace(/-/g, "_");
 
     if (moduleFolderExists(module_folder_name)) {
       return fail(`A module named '${module_folder_name}' already exists.`);
@@ -290,7 +290,7 @@ export default class Module_builder extends Trongate {
     this.securityService().make_sure_allowed();
 
     // Redirect back to start if no wizard session exists (PHP parity).
-    if (sessionGet(WIZARD_SESSION_KEY) === undefined) {
+    if (session_get(WIZARD_SESSION_KEY) === undefined) {
       return this.renderStep("enter_mod_name");
     }
 
@@ -348,7 +348,7 @@ export default class Module_builder extends Trongate {
   async store_properties(): Promise<Record<string, unknown>> {
     this.securityService().make_sure_allowed();
 
-    const json = getContext().json;
+    const json = get_context().json;
     let properties: unknown = json;
 
     // Support form-encoded posts in addition to the JSON body.
@@ -512,7 +512,7 @@ export default class Module_builder extends Trongate {
     const result: GenerateModuleResult = await site_builder.submit_generate_mod(data);
 
     if (result.status === "success") {
-      const module_url = siteUrl(`${module_name}/manage`);
+      const module_url = site_url(`${module_name}/manage`);
 
       if (this.isAjax()) {
         return {
@@ -577,7 +577,7 @@ export default class Module_builder extends Trongate {
       }
     }
 
-    const after_close_url = siteUrl(
+    const after_close_url = site_url(
       "trongate_control-module_builder/conf_generate_mod?template=c64"
     );
 
@@ -779,7 +779,7 @@ export default class Module_builder extends Trongate {
 
       // Accept both the raw property name (legacy) and the column name.
       validValues.push(name, `${name} DESC`);
-      const columnName = urlTitle(name).replace(/-/g, "_");
+      const columnName = url_title(name).replace(/-/g, "_");
       validValues.push(columnName, `${columnName} DESC`);
     }
 

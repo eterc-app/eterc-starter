@@ -4,13 +4,13 @@ import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { BASE_URL, ENV } from "@/engine/config";
 import { GENERATED_MODULES_DIR, MODULES_DIR } from "@/engine/paths";
-import { currentUrl, getContext, hasContext } from "@/engine/request-context";
-import { sessionGet, sessionUnset } from "@/engine/session";
+import { current_url, get_context, has_context } from "@/engine/request-context";
+import { session_get, session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { redirect, segment, siteUrl } from "@/engine/url";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
-import { TrongateControlModel } from "./Trongate_control_model";
+import type { TgTemplateData } from "@/engine/Templates";
+import { redirect, segment, site_url } from "@/engine/Url";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import { Trongate_control_model } from "./Trongate_control_model";
 import type { ControlPanelLink, SqlFileInfo } from "./types";
 
 /** Maximum allowed SQL file size in kilobytes (PHP: MAX_SQL_FILE_SIZE_KB). */
@@ -46,11 +46,11 @@ export default class Trongate_control extends Trongate {
   constructor(moduleName?: string | null) {
     super(moduleName);
 
-    this.model = new TrongateControlModel(this.module_name || "trongate_control");
+    this.model = new Trongate_control_model(this.module_name || "trongate_control");
 
     // PHP: the manifests() method is accessible in any environment; every
     // other method only runs when ENV is 'dev'.
-    if (hasContext()) {
+    if (has_context()) {
       const current_method = String(segment(2) ?? "").toLowerCase();
       if (ENV.toLowerCase() !== "dev" && current_method !== "manifests") {
         throw new TgHttpError(
@@ -66,16 +66,16 @@ export default class Trongate_control extends Trongate {
   // -------------------------------------------------------------------------
 
   /** The module model (PHP: $this->model). */
-  private controlModel(): TrongateControlModel {
-    return this.model as TrongateControlModel;
+  private controlModel(): Trongate_control_model {
+    return this.model as Trongate_control_model;
   }
 
   /**
    * The synchronously-registered security service
    * (PHP: $this->trongate_security).
    */
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
@@ -172,7 +172,7 @@ export default class Trongate_control extends Trongate {
       links: this.getControlPanelLinks(),
       api_url: this.getApiUrl(),
       base_url: BASE_URL,
-      current_url: currentUrl(),
+      current_url: current_url(),
       node_version: process.version,
       env: ENV,
     };
@@ -187,53 +187,53 @@ export default class Trongate_control extends Trongate {
   private getControlPanelLinks(): ControlPanelLink[] {
     return [
       {
-        href: siteUrl("trongate_control-flo"),
+        href: site_url("trongate_control-flo"),
         label: "Flo",
         description:
           "AI-powered code generator that builds Eterc modules and features.",
       },
       {
-        href: siteUrl("trongate_control-evo"),
+        href: site_url("trongate_control-evo"),
         label: "Evo",
         description:
           "The Flo shell - module manager menus and shared code-generation utilities.",
       },
       {
-        href: siteUrl("trongate_control-module_builder"),
+        href: site_url("trongate_control-module_builder"),
         label: "Module Builder",
         description: "Interactive wizard for creating a brand new module.",
       },
       {
-        href: siteUrl("trongate_control-query_builder"),
+        href: site_url("trongate_control-query_builder"),
         label: "Query Builder",
         description:
           "Visual SQL query builder for constructing SELECT queries with joins.",
       },
       {
-        href: siteUrl("trongate_control-site_builder"),
+        href: site_url("trongate_control-site_builder"),
         label: "Site Builder",
         description:
           "Code-generation engine that writes new modules and site sections.",
       },
       {
-        href: siteUrl("trongate_control-module_relations_builder"),
+        href: site_url("trongate_control-module_relations_builder"),
         label: "Module Relations Builder",
         description:
           "Wizard for generating one-to-one, one-to-many and many-to-many relations.",
       },
       {
-        href: siteUrl("trongate_control-image_uploader_builder"),
+        href: site_url("trongate_control-image_uploader_builder"),
         label: "Image Uploader Builder",
         description: "Installs a single-image uploader into an existing module.",
       },
       {
-        href: siteUrl("trongate_control-properties_builder"),
+        href: site_url("trongate_control-properties_builder"),
         label: "Properties Builder",
         description:
           "Editor for a module's property set (fields, validation rules and SQL columns).",
       },
       {
-        href: siteUrl("trongate_control-plural_maker"),
+        href: site_url("trongate_control-plural_maker"),
         label: "Plural Maker",
         description:
           "English pluralisation engine used when naming database tables.",
@@ -253,7 +253,7 @@ export default class Trongate_control extends Trongate {
 
   /** The module whose import is pending (session tg_target_module). */
   private getTargetModule(): string {
-    const value = sessionGet<string>("tg_target_module");
+    const value = session_get<string>("tg_target_module");
     return typeof value === "string" ? value : "";
   }
 
@@ -342,7 +342,7 @@ export default class Trongate_control extends Trongate {
    * json_decode()).
    */
   private getPostData(): Record<string, unknown> {
-    const json = getContext().json;
+    const json = get_context().json;
 
     if (
       json === null ||
@@ -469,7 +469,7 @@ export default class Trongate_control extends Trongate {
 
   /** The URL to return to after processing (session tg_return_url). */
   private getReturnUrl(): string {
-    const value = sessionGet<string>("tg_return_url");
+    const value = session_get<string>("tg_return_url");
     return typeof value === "string" ? value : "";
   }
 
@@ -488,7 +488,7 @@ export default class Trongate_control extends Trongate {
   private finishAndRedirect(): never {
     const finish_url = this.getFinishUrl();
 
-    sessionUnset("tg_return_url");
+    session_unset("tg_return_url");
 
     redirect(finish_url);
   }

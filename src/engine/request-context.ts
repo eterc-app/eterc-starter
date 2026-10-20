@@ -48,11 +48,11 @@ export interface TgRequest {
 
 const store = new AsyncLocalStorage<TgRequest>();
 
-export function runWithContext<T>(request: TgRequest, fn: () => T): T {
+export function run_with_context<T>(request: TgRequest, fn: () => T): T {
   return store.run(request, fn);
 }
 
-export function getContext(): TgRequest {
+export function get_context(): TgRequest {
   const ctx = store.getStore();
   if (!ctx) {
     throw new Error(
@@ -62,13 +62,13 @@ export function getContext(): TgRequest {
   return ctx;
 }
 
-export function hasContext(): boolean {
+export function has_context(): boolean {
   return store.getStore() !== undefined;
 }
 
 /** segment(n) — 1-based URL segment with optional type cast. */
 export function segment(n: number, varType?: string): string | number | boolean | null {
-  const ctx = getContext();
+  const ctx = get_context();
   let value: string | undefined = ctx.segments[n - 1];
 
   // Strip query strings that may have been glued onto a segment.
@@ -103,31 +103,31 @@ export function segment(n: number, varType?: string): string | number | boolean 
   }
 }
 
-export function currentUrl(): string {
-  return getContext().url;
+export function current_url(): string {
+  return get_context().url;
 }
 
-export function previousUrl(): string {
-  return getContext().headers.get("referer") ?? "";
+export function previous_url(): string {
+  return get_context().headers.get("referer") ?? "";
 }
 
-export function removeQueryString(url: string): string {
+export function remove_query_string(url: string): string {
   return url.split("?")[0];
 }
 
-export function getNumSegments(): number {
-  return getContext().segments.length;
+export function get_num_segments(): number {
+  return get_context().segments.length;
 }
 
-export function getLastSegment(): string {
-  const ctx = getContext();
+export function get_last_segment(): string {
+  const ctx = get_context();
   if (ctx.segments.length === 0) return "";
   return ctx.segments[ctx.segments.length - 1].split("?")[0];
 }
 
 /** True when the request was made by fetch()/XHR rather than navigation. */
-export function fromTrongateMx(): boolean {
-  const ctx = getContext();
+export function from_trongate_mx(): boolean {
+  const ctx = get_context();
   return (
     ctx.isAjax ||
     ctx.headers.get("Trongate-MX-Request") === "true"

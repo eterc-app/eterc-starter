@@ -1,6 +1,6 @@
 import { Trongate } from "@/engine/controller";
-import { getContext } from "@/engine/request-context";
-import { sessionGet, sessionSet, sessionUnset } from "@/engine/session";
+import { get_context } from "@/engine/request-context";
+import { session_get, session_set, session_unset } from "@/engine/session";
 import { Language_model, type LanguagePhrases } from "./Language_model";
 
 /**
@@ -44,9 +44,9 @@ export default class Language extends Trongate {
    * (PHP: Language::set_language()).
    */
   set_language(lang: string): void {
-    sessionSet("app_lang", lang);
+    session_set("app_lang", lang);
 
-    const ctx = getContext();
+    const ctx = get_context();
     if (ctx.canSetCookies) {
       ctx.responseCookies.push({
         name: this.cookie_name,
@@ -62,12 +62,12 @@ export default class Language extends Trongate {
    * (PHP: Language::get_language()).
    */
   get_language(): string {
-    const from_session = sessionGet<string>("app_lang");
+    const from_session = session_get<string>("app_lang");
     if (typeof from_session === "string") {
       return from_session;
     }
 
-    const ctx = getContext();
+    const ctx = get_context();
     const from_cookie = ctx.cookies[this.cookie_name];
     if (typeof from_cookie === "string") {
       return from_cookie;
@@ -86,9 +86,9 @@ export default class Language extends Trongate {
    * (PHP: Language::reset_language()).
    */
   reset_language(): void {
-    sessionUnset("app_lang");
+    session_unset("app_lang");
 
-    const ctx = getContext();
+    const ctx = get_context();
     if (ctx.cookies[this.cookie_name] !== undefined) {
       if (ctx.canSetCookies) {
         ctx.responseCookies.push({

@@ -59,13 +59,13 @@ function buildCallbackMethod(
   );
   lines.push("   */");
   lines.push(`  ${method_name}(${parameter_name}: string): string | true {`);
-  lines.push("    if (!fromTrongateMx()) {");
+  lines.push("    if (!from_trongate_mx()) {");
   lines.push(
     '      throw new TgHttpError(403, "403 Forbidden - Direct URL access not permitted");'
   );
   lines.push("    }");
   lines.push(
-    `    return this.moduleModel().validate_${model_method_suffix}_in_${direction}(${parameter_name});`
+    `    return this.module_model().validate_${model_method_suffix}_in_${direction}(${parameter_name});`
   );
   lines.push("  }");
   return lines.join("\n");

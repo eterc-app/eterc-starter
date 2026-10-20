@@ -4,13 +4,23 @@ import { useState } from "react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /**
  * Database tables — the `db` module's landing view.
  *
- * Rendered by DbAdmin::index(). The PHP-era admin tool was never shipped with
+ * Rendered by Db::index(). The PHP-era admin tool was never shipped with
  * views (the original `modules/db` is the engine class), so this view is
- * designed directly from the data contract DbAdmin::index() supplies:
+ * designed directly from the data contract Db::index() supplies:
  *
  *   headline, subheading, tables (TableSummary[]),
  *   browse_url_root, forger_url_root, sql_console_url
@@ -35,7 +45,7 @@ interface XhrReply<T> {
 }
 
 export default function TableList({ data }: TgViewProps) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
 
   const tables = (data.tables ?? []) as TableSummary[];
   const browse_url_root = String(data.browse_url_root ?? "");
@@ -61,7 +71,7 @@ export default function TableList({ data }: TgViewProps) {
       const response = await fetch(`/api/xhr/db/${method}/${table}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csrf_token: csrfToken }),
+        body: JSON.stringify({ csrf_token: csrf_token }),
       });
       const json = (await response.json()) as XhrReply<{
         ok: boolean;
@@ -88,96 +98,116 @@ export default function TableList({ data }: TgViewProps) {
   };
 
   return (
-    <>
-      <h1>{String(data.headline ?? "")}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {data.subheading ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {String(data.subheading)}
+            </p>
+          ) : null}
+        </div>
+        <Button asChild variant="outline">
+          <a href={sql_console_url}>SQL Console</a>
+        </Button>
+      </div>
+
       <Flashdata />
 
-      {data.subheading ? <p>{String(data.subheading)}</p> : null}
-
-      <p>
-        <a className="button alt" href={sql_console_url}>
-          SQL Console
-        </a>
-      </p>
-
-      {notice ? <p style={{ color: "green" }}>{notice}</p> : null}
+      {notice ? (
+        <p className="rounded-md border border-emerald-600/30 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+          {notice}
+        </p>
+      ) : null}
       {error ? (
-        <p style={{ color: "red" }} role="alert">
+        <p
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
 
       {tables.length === 0 ? (
-        <p>There are currently no tables in the database.</p>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            There are currently no tables in the database.
+          </CardContent>
+        </Card>
       ) : (
-        <table className="records-table">
-          <thead>
-            <tr>
-              <th>Table</th>
-              <th>Rows</th>
-              <th>Columns</th>
-              <th>Primary Key</th>
-              <th style={{ width: "20px" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tables.map((table) => (
-              <tr key={table.name}>
-                <td>{table.name}</td>
-                <td>{table.num_rows.toLocaleString("en-US")}</td>
-                <td>{table.num_columns}</td>
-                <td>{table.primary_key || "—"}</td>
-                <td>
-                  <div className="actions">
-                    <a
-                      className="button alt"
-                      href={`${browse_url_root}/${table.name}`}
-                    >
-                      Browse
-                    </a>
-                    <a
-                      className="button alt"
-                      href={`${forger_url_root}/${table.name}`}
-                    >
-                      Forge
-                    </a>
-                    <button
-                      type="button"
-                      className="button alt"
-                      disabled={busy !== ""}
-                      onClick={() =>
-                        void call(
-                          "resequence",
-                          table.name,
-                          `Resequence the 'id' column of '${table.name}' from 1? ` +
-                            "This rewrites primary key values and cannot be undone."
-                        )
-                      }
-                    >
-                      Resequence
-                    </button>
-                    <button
-                      type="button"
-                      className="button danger"
-                      disabled={busy !== ""}
-                      onClick={() =>
-                        void call(
-                          "truncate",
-                          table.name,
-                          `Truncate '${table.name}'? Every row in the table will be ` +
-                            "deleted. This cannot be undone."
-                        )
-                      }
-                    >
-                      Truncate
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Card className="overflow-hidden p-0">
+          <CardHeader className="border-b px-4 py-3">
+            <CardTitle>Tables</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="px-4">Table</TableHead>
+                  <TableHead>Rows</TableHead>
+                  <TableHead>Columns</TableHead>
+                  <TableHead>Primary Key</TableHead>
+                  <TableHead className="px-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tables.map((table) => (
+                  <TableRow key={table.name}>
+                    <TableCell className="px-4 font-medium">
+                      {table.name}
+                    </TableCell>
+                    <TableCell>{table.num_rows.toLocaleString("en-US")}</TableCell>
+                    <TableCell>{table.num_columns}</TableCell>
+                    <TableCell>{table.primary_key || "—"}</TableCell>
+                    <TableCell className="px-4">
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <Button asChild variant="outline" size="sm">
+                          <a href={`${browse_url_root}/${table.name}`}>Browse</a>
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                          <a href={`${forger_url_root}/${table.name}`}>Forge</a>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy !== ""}
+                          onClick={() =>
+                            void call(
+                              "resequence",
+                              table.name,
+                              `Resequence the 'id' column of '${table.name}' from 1? ` +
+                                "This rewrites primary key values and cannot be undone."
+                            )
+                          }
+                        >
+                          Resequence
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          disabled={busy !== ""}
+                          onClick={() =>
+                            void call(
+                              "truncate",
+                              table.name,
+                              `Truncate '${table.name}'? Every row in the table will be ` +
+                                "deleted. This cannot be undone."
+                            )
+                          }
+                        >
+                          Truncate
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
-    </>
+    </div>
   );
 }

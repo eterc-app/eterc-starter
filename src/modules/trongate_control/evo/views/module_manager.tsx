@@ -1,5 +1,6 @@
-import { siteUrl } from "@/engine/url";
+import { site_url } from "@/engine/Url";
 import type { TgViewProps } from "@/engine/views-registry";
+import { Button } from "@/components/ui/button";
 
 /**
  * Evo module manager — port of evo/views/module_manager.php.
@@ -9,27 +10,24 @@ import type { TgViewProps } from "@/engine/views-registry";
  */
 export default function EvoModuleManager(_props: TgViewProps) {
   return (
-    <div className="container">
-      <h1>Module Manager</h1>
-      <ul className="evo-menu">
-        <li>
-          <a
-            href={siteUrl("trongate_control-module_builder/enter_mod_name")}
-          >
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-6">
+      <div className="flex flex-col items-start gap-2">
+        <Button asChild variant="outline">
+          <a href={site_url("trongate_control-module_builder/enter_mod_name")}>
             Create Module
           </a>
-        </li>
-        <li>
-          <a href={siteUrl("trongate_control-module_relations_builder")}>
+        </Button>
+        <Button asChild variant="outline">
+          <a href={site_url("trongate_control-module_relations_builder")}>
             Create Module Relation
           </a>
-        </li>
-        <li>
-          <a href={siteUrl("trongate_control-image_uploader_builder")}>
+        </Button>
+        <Button asChild variant="outline">
+          <a href={site_url("trongate_control-image_uploader_builder")}>
             Add Image Uploader
           </a>
-        </li>
-      </ul>
+        </Button>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Model } from "@/engine/model";
  * used file_exists()/is_writable()/unlink(); the port uses the Node fs module
  * with the same outcomes.
  */
-export class TrongateControlModel extends Model {
+export class Trongate_control_model extends Model {
   constructor(moduleName: string | null = "trongate_control") {
     super(moduleName);
   }

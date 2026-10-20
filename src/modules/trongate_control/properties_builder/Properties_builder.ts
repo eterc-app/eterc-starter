@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { Trongate } from "@/engine/controller";
 import { BASE_URL, ENV } from "@/engine/config";
 import { TgHttpError } from "@/engine/signals";
-import { redirect } from "@/engine/url";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import { redirect } from "@/engine/Url";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 
 /**
  * Properties_builder — port of
@@ -48,8 +48,8 @@ export default class Properties_builder extends Trongate {
     }
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 

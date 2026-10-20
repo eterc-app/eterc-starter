@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { BASE_URL } from "@/engine/config";
 import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { Button } from "@/components/ui/button";
 import type { PanelBodyData } from "./types";
 
 /**
@@ -25,13 +27,13 @@ interface XhrReply {
 }
 
 export function PanelBody({ data }: { data: PanelBodyData }) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
   const [panel, setPanel] = useState<PanelBodyData>(data);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const token = panel.csrf_token !== "" ? panel.csrf_token : csrfToken;
+  const token = panel.csrf_token !== "" ? panel.csrf_token : csrf_token;
 
   const call = async (
     method: "submit_association" | "remove_association",
@@ -85,12 +87,12 @@ export function PanelBody({ data }: { data: PanelBodyData }) {
   const relation_name = panel.relation_name || panel.panel_id;
 
   return (
-    <div aria-busy={busy}>
-      <div id={`rel-${panel.panel_id}-associate-form`}>
+    <div aria-busy={busy} className="space-y-4">
+      <div id={`rel-${panel.panel_id}-associate-form`} className="space-y-3">
         {panel.form_visible ? (
           <form
             action="#"
-            className="associate-form"
+            className="space-y-2"
             onSubmit={(event) => {
               event.preventDefault();
               if (value === "") return;
@@ -99,16 +101,16 @@ export function PanelBody({ data }: { data: PanelBodyData }) {
           >
             <label
               htmlFor={`${relation_name}-dropdown`}
-              className="associate-form__label"
+              className="text-sm font-medium"
             >
               Associate with{" "}
               {ucwords(panel.associated_singular.replace(/_/g, " "))}
             </label>
-            <div className="associate-form__controls">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <select
                 id={`${relation_name}-dropdown`}
                 name="value"
-                className="associate-form__select"
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 disabled={busy}
@@ -120,32 +122,28 @@ export function PanelBody({ data }: { data: PanelBodyData }) {
                   </option>
                 ))}
               </select>
-              <button
-                type="submit"
-                className="associate-form__submit"
-                disabled={busy || value === ""}
-              >
+              <Button type="submit" disabled={busy || value === ""}>
                 Add
-              </button>
+              </Button>
             </div>
           </form>
         ) : panel.available_options.length === 0 &&
           panel.associated_rows.length === 0 ? (
           panel.associated_singular !== "" && panel.calling_singular !== "" ? (
-            <p className="associated-items__empty">
+            <p className="text-sm text-muted-foreground">
               There are currently no{" "}
               {panel.associated_singular.replace(/_/g, " ")} records available to
               assign to this {panel.calling_singular.replace(/_/g, " ")}.
             </p>
           ) : (
-            <p className="associated-items__empty">
+            <p className="text-sm text-muted-foreground">
               No records are currently available for assignment.
             </p>
           )
         ) : null}
 
         {error ? (
-          <p className="associated-items__empty" style={{ color: "red" }} role="alert">
+          <p className="text-sm font-medium text-destructive" role="alert">
             {error}
           </p>
         ) : null}
@@ -153,24 +151,28 @@ export function PanelBody({ data }: { data: PanelBodyData }) {
 
       <div id={`rel-${panel.panel_id}-associated-items`}>
         {panel.associated_rows.length > 0 ? (
-          <ul className="associated-items">
+          <ul className="divide-y rounded-md border">
             {panel.associated_rows.map((row) => (
-              <li className="associated-items__item" key={row.id}>
+              <li
+                className="flex items-center justify-between gap-2 px-3 py-2"
+                key={row.id}
+              >
                 <a
                   href={`${base}${panel.alt_module}/show/${row.foreign_key}`}
-                  className="associated-items__link"
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
                   {row.value}
                 </a>
-                <button
+                <Button
                   type="button"
-                  className="associated-items__remove"
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label={`Remove ${row.value}`}
                   disabled={busy}
                   onClick={() => void call("remove_association", row.id)}
                 >
-                  ×
-                </button>
+                  <X />
+                </Button>
               </li>
             ))}
           </ul>

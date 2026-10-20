@@ -43,7 +43,7 @@ export function TgForm({
   autoComplete?: string;
   acceptCharset?: string;
 }) {
-  const { csrfToken } = useTgUi();
+  const { csrf_token } = useTgUi();
   const [reply, setReply] = useState<ReactNode | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -86,12 +86,12 @@ export function TgForm({
       aria-busy={isPending}
       data-pending={isPending ? "true" : undefined}
     >
-      <input type="hidden" name="csrf_token" value={csrfToken} />
+      <input type="hidden" name="csrf_token" value={csrf_token} />
       {Object.entries(hidden).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={String(value)} />
       ))}
       {errorMessage ? (
-        <p style={{ color: "red" }} role="alert">
+        <p className="text-sm font-medium text-destructive" role="alert">
           {errorMessage}
         </p>
       ) : null}

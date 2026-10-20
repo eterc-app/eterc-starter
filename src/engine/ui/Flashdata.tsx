@@ -13,7 +13,7 @@ export function Flashdata() {
   return (
     <>
       {flash.map((message, index) => (
-        <p key={index} style={{ color: "green" }}>
+        <p key={index} className="font-medium text-green-600">
           {message}
         </p>
       ))}

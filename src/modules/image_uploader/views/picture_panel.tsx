@@ -1,4 +1,5 @@
 import type { TgViewProps } from "@/engine/views-registry";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PictureRegion } from "./picture_region";
 
 /**
@@ -12,11 +13,13 @@ import { PictureRegion } from "./picture_region";
  */
 export default function PicturePanel({ data }: TgViewProps) {
   return (
-    <div className="card">
-      <div className="card-heading">Picture</div>
-      <div className="card-body">
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle>Picture</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
         <PictureRegion data={data} />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

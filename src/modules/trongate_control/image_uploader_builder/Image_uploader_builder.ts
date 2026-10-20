@@ -5,13 +5,13 @@ import ts from "typescript";
 import { Trongate } from "@/engine/controller";
 import { ENV } from "@/engine/config";
 import { post } from "@/engine/post";
-import { getContext } from "@/engine/request-context";
-import { sessionGet, sessionSet, sessionUnset } from "@/engine/session";
+import { get_context } from "@/engine/request-context";
+import { session_get, session_set, session_unset } from "@/engine/session";
 import { TgHttpError } from "@/engine/signals";
-import type { TgTemplateData } from "@/engine/templates";
-import { segment, siteUrl } from "@/engine/url";
-import { registerViews } from "@/engine/views-registry";
-import type { TrongateSecurityService } from "@/modules/trongate_security/TrongateSecurityService";
+import type { TgTemplateData } from "@/engine/Templates";
+import { segment, site_url } from "@/engine/Url";
+import { register_views } from "@/engine/views-registry";
+import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
 import {
   deleteCaptureBlock,
   deleteHookBlock,
@@ -33,7 +33,7 @@ import {
 } from "./types";
 import { views } from "./views";
 
-registerViews(views);
+register_views(views);
 
 /**
  * Image_uploader_builder - the "Add Image Uploader" wizard.
@@ -98,22 +98,22 @@ export default class Image_uploader_builder extends Trongate {
     return this.model as Image_uploader_builder_model;
   }
 
-  private securityService(): TrongateSecurityService {
-    return (this as unknown as { trongate_security: TrongateSecurityService })
+  private securityService(): Trongate_security {
+    return (this as unknown as { trongate_security: Trongate_security })
       .trongate_security;
   }
 
   private isAjax(): boolean {
-    return getContext().isAjax;
+    return get_context().isAjax;
   }
 
   private getWizard(): UploaderWizard {
-    const wizard = sessionGet<UploaderWizard>(WIZARD_SESSION_KEY);
+    const wizard = session_get<UploaderWizard>(WIZARD_SESSION_KEY);
     return wizard && typeof wizard === "object" ? wizard : {};
   }
 
   private saveWizard(wizard: UploaderWizard): void {
-    sessionSet(WIZARD_SESSION_KEY, wizard);
+    session_set(WIZARD_SESSION_KEY, wizard);
   }
 
   private renderStep(
@@ -162,7 +162,7 @@ export default class Image_uploader_builder extends Trongate {
   /** Step 1: choose a module; clears stale wizard state. */
   async choose_mod(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
-    sessionUnset(WIZARD_SESSION_KEY);
+    session_unset(WIZARD_SESSION_KEY);
 
     const data = this.chooseData();
 
@@ -231,7 +231,7 @@ export default class Image_uploader_builder extends Trongate {
     return {
       wizard,
       module_label: this.moduleLabel(module_name),
-      uploader_details_url: siteUrl(
+      uploader_details_url: site_url(
         "trongate_control-image_uploader_builder/uploader_details/web"
       ),
     };
@@ -267,7 +267,7 @@ export default class Image_uploader_builder extends Trongate {
     const wizard = this.getWizard();
     const module_name = String(wizard.module ?? "");
 
-    const after_close_url = siteUrl(
+    const after_close_url = site_url(
       "trongate_control-image_uploader_builder/conf_generate_uploader"
     );
 
@@ -352,7 +352,7 @@ export default class Image_uploader_builder extends Trongate {
       alter_message,
       settings_path: this.uploaderModel().relative_path(settings_path),
       module_label: this.moduleLabel(module_name),
-      module_url: siteUrl(`${module_name}/manage`),
+      module_url: site_url(`${module_name}/manage`),
     };
 
     if (this.isAjax()) return data;
