@@ -635,8 +635,8 @@ display_errors, get_js_injection
 ## Appendix B — Audit commands
 
 ```bash
-# PHP class/method inventory
-rg -n "^\s*(class|function)\s+" C:\PROJECT\ui-builder\eterc-framework\modules
+# PHP class/method inventory (run against a checkout of the upstream framework)
+rg -n "^\s*(class|function)\s+" <path-to-upstream-framework>\modules
 
 # TS class/method inventory
 rg -n "^\s{2}[A-Za-z_]+\s*\(" C:\PROJECT\ui-builder\eterc-starter\src
