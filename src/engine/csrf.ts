@@ -24,7 +24,7 @@ function secret(): Buffer {
   // (A TG_SECRET should always be configured in production.)
   const g = globalThis as unknown as { __tgCsrfSecret?: Buffer };
   if (!g.__tgCsrfSecret) {
-    g.__tgCsrfSecret = crypto.createHash("sha256").update("trongate-next-dev-secret").digest();
+    g.__tgCsrfSecret = crypto.createHash("sha256").update("eterc-dev-secret").digest();
   }
   return g.__tgCsrfSecret;
 }

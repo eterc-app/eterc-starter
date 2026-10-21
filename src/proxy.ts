@@ -33,7 +33,7 @@ async function csrfSecretBytes(): Promise<Uint8Array> {
     return new TextEncoder().encode(envSecret);
   }
   // Must match the fallback in src/engine/csrf.ts
-  return sha256Bytes("trongate-next-dev-secret");
+  return sha256Bytes("eterc-dev-secret");
 }
 
 function randomHex(byteCount: number): string {

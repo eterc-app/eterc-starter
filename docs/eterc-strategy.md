@@ -1,7 +1,7 @@
 # Eterc — Rebrand, PHP Naming Parity, and Tailwind/shadcn Strategy
 
 Status: proposal · 2026-10-20
-Scope: `C:\PROJECT\ui-builder\trongate-next` (the Next.js port of Trongate 2.2026.0927)
+Scope: `C:\PROJECT\ui-builder\eterc-starter` (the Next.js port of Trongate 2.2026.0927)
 
 ---
 
@@ -636,10 +636,10 @@ display_errors, get_js_injection
 
 ```bash
 # PHP class/method inventory
-rg -n "^\s*(class|function)\s+" C:\PROJECT\ui-builder\trongate-framework\modules
+rg -n "^\s*(class|function)\s+" C:\PROJECT\ui-builder\eterc-framework\modules
 
 # TS class/method inventory
-rg -n "^\s{2}[A-Za-z_]+\s*\(" C:\PROJECT\ui-builder\trongate-next\src
+rg -n "^\s{2}[A-Za-z_]+\s*\(" C:\PROJECT\ui-builder\eterc-starter\src
 
 # Naming drift (the script used for §2.3)
 node scripts/php-ts-parity.js
@@ -652,4 +652,4 @@ rg -n "style=\{\{" src -g "*.tsx" | wc -l
 
 ---
 
-*Prepared for the `trongate-next` port. The next irreversible step is `git init`; the next code step is Phase 1 (helper renames).*
+*Prepared for the `eterc-starter` port. The next irreversible step is `git init`; the next code step is Phase 1 (helper renames).*
