@@ -3,6 +3,7 @@ import { Trongate, prepare_controller, type ControllerCtor } from "./controller"
 import { controllerLoaders } from "./registrations";
 import { DEFAULT_METHOD, DEFAULT_MODULE, CUSTOM_ROUTES } from "./config";
 import { TgHttpError } from "./signals";
+import { resolve_public_route } from "./url-aliases";
 import type { Validation } from "./Validation";
 
 /**
@@ -28,7 +29,7 @@ const VALID_SEGMENT = /^[a-z0-9_-]+$/i;
 
 /** Apply custom routes and split {module}/{method}/{params}. */
 export function resolve_route(segments: string[]): RouteTarget {
-  let working = [...segments];
+  let working = resolve_public_route(segments);
 
   if (working.length > 0 && CUSTOM_ROUTES[working[0]]) {
     const mapped = CUSTOM_ROUTES[working[0]].split("/").filter(Boolean);

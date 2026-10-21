@@ -46,7 +46,7 @@ export default function ConfRelationDetails({ data }: TgViewProps) {
   const wizard = (data.wizard ?? {}) as RelationsWizard;
   const afterCloseUrl = String(
     data.after_close_url ??
-      "/trongate_control-module_relations_builder/conf_generate_relation?template=c64"
+      "/control/module-relations-builder/conf_generate_relation?template=c64"
   );
   const afterCloseWidth = String(data.after_close_width ?? 800);
   const afterCloseHeight = String(data.after_close_height ?? 600);

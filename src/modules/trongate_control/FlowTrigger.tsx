@@ -13,7 +13,7 @@ export function FlowTrigger() {
   return (
     <div id="flow-trigger-wrap">
       <a
-        href={`${base}trongate_control-flo/home`}
+        href={`${base}control/flo/home`}
         id="flow-trigger"
         title="Flo — code generator"
       >

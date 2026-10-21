@@ -1,6 +1,7 @@
 import { BASE_URL } from "./config";
 import { get_context, previous_url as ctxPreviousUrl, current_url as ctxCurrentUrl } from "./request-context";
 import { TgRedirectSignal } from "./signals";
+import { to_public_path } from "./url-aliases";
 
 /**
  * URL helpers — port of engine/tg_helpers/url_helper.php + modules/url.
@@ -15,7 +16,8 @@ export { segment, current_url, previous_url, remove_query_string, get_num_segmen
 export function site_url(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
   const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-  return base.replace(/\/$/, "") + "/" + path.replace(/^\//, "");
+  const publicPath = to_public_path(path);
+  return base.replace(/\/$/, "") + "/" + publicPath.replace(/^\//, "");
 }
 
 /**

@@ -104,7 +104,7 @@ export function LetsAddPropertiesConfStep({
           className="fixed inset-0 z-[1000] bg-black/60"
         >
           <iframe
-            src="/trongate_control-properties_builder/web"
+            src="/control/properties-builder/web"
             title="Properties Builder"
             className="h-full w-full border-0 bg-white"
           />

@@ -52,7 +52,7 @@ export function ImageUploaderBuilderWizard({
   const [uploaderDetailsUrl, setUploaderDetailsUrl] = useState(
     String(
       data.uploader_details_url ??
-        "/trongate_control-image_uploader_builder/uploader_details/web"
+        "/control/image-uploader-builder/uploader_details/web"
     )
   );
   const [generationHeadline, setGenerationHeadline] = useState(

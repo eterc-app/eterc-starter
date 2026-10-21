@@ -83,7 +83,7 @@ export function ModuleRelationsBuilderWizard({
   const [relationDetailsUrl, setRelationDetailsUrl] = useState(
     String(
       data.relation_details_url ??
-        "/trongate_control-module_relations_builder/relation_details/web"
+        "/control/module-relations-builder/relation_details/web"
     )
   );
   const [generationHeadline, setGenerationHeadline] = useState(

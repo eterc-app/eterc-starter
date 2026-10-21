@@ -834,7 +834,7 @@ export default function QueryBuilder({ data }: TgViewProps): ReactNode {
 
   const closeWindow = () => {
     if (window.parent === window) {
-      window.location.href = "/trongate_control";
+      window.location.href = "/control";
       return;
     }
     window.parent.postMessage("close_query_builder", "*");

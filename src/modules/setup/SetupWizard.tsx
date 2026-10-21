@@ -495,7 +495,7 @@ function CompleteStep({ appPath }: { appPath: string }) {
           <a href="/">Go to Your Homepage</a>
         </Button>
         <Button asChild variant="outline">
-          <a href="/trongate_administrators/manage">Go to Admin Panel</a>
+          <a href="/administrators/manage">Go to Admin Panel</a>
         </Button>
       </div>
     </div>

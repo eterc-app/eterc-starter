@@ -6,6 +6,7 @@ import { templates_service } from "./controller";
 import { TgHttpError } from "./signals";
 import { flash_messages } from "./Flashdata";
 import { csrf_token } from "./csrf";
+import { resolve_public_route } from "./url-aliases";
 import { ErrorPage } from "@/templates/Error404";
 import type { ValidationErrors } from "./Validation";
 import "@/modules/views";
@@ -18,6 +19,8 @@ import "@/modules/views";
 
 export interface TgRequestOptions {
   segments: string[];
+  /** Original URL segments, when they differ from the resolved module path. */
+  publicSegments?: string[];
   query?: Record<string, string | string[]>;
   formData?: FormData;
   json?: unknown;
@@ -46,7 +49,8 @@ export async function build_request(options: TgRequestOptions): Promise<TgReques
 
   const host = headerStore.get("host") ?? "localhost";
   const proto = headerStore.get("x-forwarded-proto") ?? "http";
-  const pathname = "/" + options.segments.map(encodeURIComponent).join("/");
+  const publicSegments = options.publicSegments ?? options.segments;
+  const pathname = "/" + publicSegments.map(encodeURIComponent).join("/");
 
   const query = options.query ?? {};
   const queryString = new URLSearchParams(
@@ -117,8 +121,14 @@ export async function run_in_context(options: TgRequestOptions): Promise<TgRunRe
 
 /** Build a context, run the request, and return the framework result. */
 export async function run_request(options: TgRequestOptions): Promise<TgRunResult> {
-  const context = await build_request(options);
-  return run_with_context(context, () => run_in_context(options));
+  const publicSegments = options.segments;
+  const requestOptions: TgRequestOptions = {
+    ...options,
+    segments: resolve_public_route(publicSegments),
+    publicSegments,
+  };
+  const context = await build_request(requestOptions);
+  return run_with_context(context, () => run_in_context(requestOptions));
 }
 
 /** Apply response cookies collected during the request (actions/route handlers). */

@@ -21,7 +21,7 @@ const BASE = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 export function ResetButton({
   label = "Okay",
   className,
-  afterHref = `${BASE}trongate_control-evo/home`,
+  afterHref = `${BASE}control/evo/home`,
 }: {
   label?: string;
   className?: string;

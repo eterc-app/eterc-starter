@@ -46,7 +46,7 @@ interface GenerationOutcome {
 export default function FloHome({ data }: TgViewProps) {
   const apiBase = String(data.api_base ?? "/api/xhr/trongate_control-flo");
   const moduleBuilderUrl = String(
-    data.module_builder_url ?? "/trongate_control-module_builder"
+    data.module_builder_url ?? "/control/module-builder"
   );
   const propertiesExample = data.properties_example ?? [
     {

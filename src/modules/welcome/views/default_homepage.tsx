@@ -22,7 +22,7 @@ export default function DefaultHomepage() {
       <div className="mt-3 flex flex-col justify-center gap-2 sm:flex-row">
         {ENV === "dev" ? (
           <Button asChild>
-            <a href="/trongate_administrators/manage">Admin Panel</a>
+            <a href="/administrators/manage">Admin Panel</a>
           </Button>
         ) : (
           <Button asChild>

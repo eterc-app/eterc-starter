@@ -49,7 +49,7 @@ export default function ConfModuleDetails({ data }: TgViewProps) {
 
   const afterCloseUrl = String(
     data.after_close_url ??
-      "/trongate_control-module_builder/conf_generate_mod?template=c64"
+      "/control/module-builder/conf_generate_mod?template=c64"
   );
   const afterCloseWidth = String(data.after_close_width ?? 800);
   const afterCloseHeight = String(data.after_close_height ?? 600);

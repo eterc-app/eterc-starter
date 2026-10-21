@@ -19,7 +19,7 @@ export function SiteBuilderStatus({
       <p className="text-sm text-muted-foreground">
         The Site Builder generates a complete CRUD module from a module name,
         labels and a list of properties. It is normally driven by the{" "}
-        <a href="/trongate_control-module-builder">Module Builder</a> wizard.
+        <a href="/control/module-builder">Module Builder</a> wizard.
       </p>
 
       <section className="space-y-2">
@@ -103,7 +103,7 @@ export function SiteBuilderStatus({
       </section>
 
       <Button asChild variant="outline">
-        <a href="/trongate_control">Return to the control panel</a>
+        <a href="/control">Return to the control panel</a>
       </Button>
     </div>
   );

@@ -62,6 +62,11 @@ TG_SECRET=<64-char hex>     # HMAC key for CSRF tokens
 | CSRF (`csrf_token`)                          | signed `tg_csrf` cookie + `x-tg-csrf` header     |
 | `segment()`, `post()`, `get_param()`, …      | same helpers, ported in `src/engine`             |
 
+Public URLs use clean aliases while the canonical module names stay internal:
+`/control` resolves to `trongate_control`, `/administrators` to
+`trongate_administrators`, and `/control/flo` to `trongate_control-flo`. Every
+`trongate_*` URL continues to work for compatibility.
+
 Controllers live in `src/modules/<module>/<Class>.ts` and extend `Trongate`.
 Views are React components registered per module (`views/index.ts` →
 `register_views`), aggregated in `src/modules/views.ts`. Controllers are loaded

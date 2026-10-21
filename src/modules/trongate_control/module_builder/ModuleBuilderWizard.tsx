@@ -190,7 +190,7 @@ export function ModuleBuilderWizard({ data }: { data: Record<string, unknown> })
   };
 
   const viewModuleDetails = () => {
-    const url = "/trongate_control-module_builder/module_details/web";
+    const url = "/control/module-builder/module_details/web";
     window.parent.postMessage(`reload_iframe:${url}|1000|800`, "*");
     if (typeof window !== "undefined" && window.parent === window) {
       window.location.href = url;

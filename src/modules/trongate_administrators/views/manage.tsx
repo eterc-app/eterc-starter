@@ -47,7 +47,7 @@ export default function Manage({ data }: TgViewProps) {
           </p>
         </div>
         <Button asChild>
-          <a href={`${base}trongate_administrators/create`}>Create New Record</a>
+          <a href={`${base}administrators/create`}>Create New Record</a>
         </Button>
       </div>
 
@@ -96,7 +96,7 @@ export default function Manage({ data }: TgViewProps) {
                       <TableCell className="px-4 text-right">
                         <Button asChild variant="outline" size="sm">
                           <a
-                            href={`${base}trongate_administrators/show/${row.id}`}
+                            href={`${base}administrators/show/${row.id}`}
                           >
                             View
                           </a>

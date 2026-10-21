@@ -21,7 +21,7 @@ export function PerPageSelect({
   const base = BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`;
 
   const setPerPage = (event: ChangeEvent<HTMLSelectElement>) => {
-    window.location.href = `${base}trongate_administrators/set_per_page/${event.target.value}`;
+    window.location.href = `${base}administrators/set_per_page/${event.target.value}`;
   };
 
   return (

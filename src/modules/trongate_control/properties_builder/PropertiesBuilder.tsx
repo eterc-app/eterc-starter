@@ -783,7 +783,7 @@ export function PropertiesBuilder({
       } else if (window.parent === window) {
         // Port-only fallback: the dashboard links directly to this page, so
         // return there when the builder is not running inside the iframe.
-        router.replace("/trongate_control");
+        router.replace("/control");
       }
     }, 1200);
   };

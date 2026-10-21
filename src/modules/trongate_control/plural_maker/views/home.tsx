@@ -75,7 +75,7 @@ export function PluralMakerHome({
       </section>
 
       <Button asChild variant="outline">
-        <a href="/trongate_control">Return to the control panel</a>
+        <a href="/control">Return to the control panel</a>
       </Button>
     </div>
   );

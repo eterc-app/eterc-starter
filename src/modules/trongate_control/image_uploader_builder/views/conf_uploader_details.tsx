@@ -28,7 +28,7 @@ export default function ConfUploaderDetails({ data }: TgViewProps) {
 
   const afterCloseUrl = String(
     data.after_close_url ??
-      "/trongate_control-image_uploader_builder/conf_generate_uploader"
+      "/control/image-uploader-builder/conf_generate_uploader"
   );
   const afterCloseWidth = String(data.after_close_width ?? 800);
   const afterCloseHeight = String(data.after_close_height ?? 600);

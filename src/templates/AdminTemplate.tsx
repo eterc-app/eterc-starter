@@ -29,11 +29,11 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/trongate_control", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/trongate_administrators/manage", label: "Manage Users", icon: Users },
-  { href: "/trongate_control-flo/home", label: "Flo Generator", icon: Wand2 },
-  { href: "/trongate_control-properties_builder", label: "Properties Builder", icon: Settings },
-  { href: "/trongate_control-query_builder", label: "Query Builder", icon: Database },
+  { href: "/control", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/administrators/manage", label: "Manage Users", icon: Users },
+  { href: "/control/flo/home", label: "Flo Generator", icon: Wand2 },
+  { href: "/control/properties-builder", label: "Properties Builder", icon: Settings },
+  { href: "/control/query-builder", label: "Query Builder", icon: Database },
 ];
 
 /**
@@ -61,9 +61,7 @@ export function AdminTemplate({
   const nav_items =
     ENV === "dev"
       ? NAV_ITEMS
-      : NAV_ITEMS.filter((item) =>
-          item.href.startsWith("/trongate_administrators"),
-        );
+      : NAV_ITEMS.filter((item) => item.href.startsWith("/administrators"));
 
   useEffect(() => {
     if (!slideNavOpen) return;
@@ -95,7 +93,7 @@ export function AdminTemplate({
             >
               <Menu className="size-5" />
             </Button>
-            <a href="/trongate_control" className="flex items-center gap-2">
+            <a href="/control" className="flex items-center gap-2">
               <span className="grid size-8 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
                 E
               </span>
@@ -144,14 +142,14 @@ export function AdminTemplate({
               >
                 <a
                   role="menuitem"
-                  href="/trongate_administrators/update_your_details"
+                  href="/administrators/update_your_details"
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                 >
                   <Users className="size-4" /> Update Your Details
                 </a>
                 <a
                   role="menuitem"
-                  href="/trongate_administrators/logout"
+                  href="/administrators/logout"
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="size-4" /> Log Out
@@ -175,7 +173,7 @@ export function AdminTemplate({
               const Icon = item.icon;
               const active =
                 pathname === item.href ||
-                (item.href !== "/trongate_control" &&
+                (item.href !== "/control" &&
                   pathname.startsWith(item.href));
               return (
                 <a
@@ -285,7 +283,7 @@ export function AdminTemplate({
             </div>
             <div className="border-t p-3">
               <a
-                href="/trongate_administrators/logout"
+                href="/administrators/logout"
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="size-4" /> Log Out

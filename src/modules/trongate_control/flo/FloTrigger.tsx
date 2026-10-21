@@ -18,9 +18,9 @@ import { Wand2, X } from "lucide-react";
 /** Respect BASE_URL without importing the server-only request context. */
 const BASE = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
-const FLO_HOME = `${BASE}trongate_control-flo/home`;
-const QUERY_BUILDER_HOME = `${BASE}trongate_control-query_builder/home`;
-const PROPERTIES_BUILDER_HOME = `${BASE}trongate_control-properties_builder/web`;
+const FLO_HOME = `${BASE}control/flo/home`;
+const QUERY_BUILDER_HOME = `${BASE}control/query-builder/home`;
+const PROPERTIES_BUILDER_HOME = `${BASE}control/properties-builder/web`;
 const STORE_PROPERTIES_URL = `${BASE}api/xhr/trongate_control-module_builder/store_properties`;
 
 interface OverlayState {
