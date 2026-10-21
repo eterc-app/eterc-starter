@@ -26,7 +26,7 @@ function draw_show_sql_page(sql, file, has_warning) {
     target_file = file;
     
     if (has_warning === true) {
-        alert("Trongate detected some potentially dangerous code embedded within this SQL file. Be extra careful!");
+        alert("Eterc detected some potentially dangerous code embedded within this SQL file. Be extra careful!");
     }
     
     let html = '<p>The contents of the SQL file is displayed below:</p>';
@@ -48,7 +48,7 @@ function explain_too_big(filename, filepath) {
     target_file = filepath;
     
     let html = 'The file, ' + filename + ', is too big. ';
-    html += '<p>For automatic database setup, Trongate has filesize limit of 1MB (1,000kb).</p>';
+    html += '<p>For automatic database setup, Eterc has a filesize limit of 1MB (1,000kb).</p>';
     html += '<button class="danger" onclick="delete_sql_file()">Delete File</button>';
     html += '<a href="' + current_url + '"><button>Go Back</button></a>';
     html += '</p>';

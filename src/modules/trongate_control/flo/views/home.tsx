@@ -130,8 +130,8 @@ export default function FloHome({ data }: TgViewProps) {
     <div className="space-y-6">
       <p className="text-muted-foreground">
         Flo builds a complete Next.js CRUD module: a controller extending the
-        port&apos;s <code className="rounded bg-muted px-1 py-0.5 text-xs">Trongate</code> base
-        class, a model, TSX views and a generated view map. Artifacts are written
+        port&apos;s base controller class, a model, TSX views and a generated view map.
+        Artifacts are written
         to <code className="rounded bg-muted px-1 py-0.5 text-xs">src/modules/generated/&lt;module&gt;/</code>.
         Prefer the <a className="font-medium text-primary underline-offset-4 hover:underline" href={moduleBuilderUrl}>Module Builder</a>{" "}
         when you want the guided wizard; this form is the fast path.

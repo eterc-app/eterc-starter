@@ -64,7 +64,7 @@ export default function Show({ data }: TgViewProps) {
               </dd>
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
-              <dt className="text-sm text-muted-foreground">Trongate User ID</dt>
+              <dt className="text-sm text-muted-foreground">User ID</dt>
               <dd className="text-right font-medium">
                 {String(data.trongate_user_id ?? "")}
               </dd>

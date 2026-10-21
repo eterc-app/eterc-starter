@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Eterc",
   description:
-    "Eterc is a PHP-faithful TypeScript framework for Next.js with Trongate-compatible routing and modules.",
+    "Eterc is a PHP-faithful TypeScript framework for Next.js with PHP-compatible routing and modules.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,7 +1,7 @@
 # Eterc
 
-A full port of the Trongate PHP framework (v2) and its
-`trongate_control` code generators to **Next.js App Router**. The PHP routing
+A PHP-faithful TypeScript port of an established PHP framework (v2) and its
+control-panel code generators to **Next.js App Router**. The PHP routing
 model, module/controller/model structure, validation, sessions, tokens,
 flashdata and control-panel workflows are preserved. Views and generated code
 are TypeScript + React instead of PHP.
@@ -171,3 +171,9 @@ force the PHP-style full-page request cycle). The query builder's one-shot DOM
 measurement carries two targeted `react-hooks/set-state-in-effect` disables, and
 the control panel redirect helper uses `location.assign` instead of assigning
 `location.href`.
+
+## Attribution
+
+Eterc is a TypeScript port of an upstream PHP framework. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the original project,
+copyright, and license.

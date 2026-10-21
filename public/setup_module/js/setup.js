@@ -157,7 +157,7 @@ function fireConfetti(origin) {
 function setupEmailDisplay() {
     var placeholder = document.getElementById('email-placeholder');
     if (placeholder) {
-        placeholder.textContent = 'dave' + '@' + 'trongate' + '.' + 'io';
+        placeholder.textContent = 'dave' + '@' + 'example' + '.' + 'com';
     }
 }
 

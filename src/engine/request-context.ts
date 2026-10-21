@@ -56,7 +56,7 @@ export function get_context(): TgRequest {
   const ctx = store.getStore();
   if (!ctx) {
     throw new Error(
-      "Trongate request context is not available. This helper can only be used while handling a request (controllers, models, actions)."
+      "Eterc request context is not available. This helper can only be used while handling a request (controllers, models, actions)."
     );
   }
   return ctx;

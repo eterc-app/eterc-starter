@@ -1,7 +1,7 @@
 {
   "name": "eterc",
   "version": "0.1.0",
-  "description": "Eterc - a PHP-faithful TypeScript port of the Trongate framework for Next.js",
+  "description": "Eterc - a PHP-faithful TypeScript framework for Next.js",
   "license": "MIT",
   "private": true,
   "allowScripts": {

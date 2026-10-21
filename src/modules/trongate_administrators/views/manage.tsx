@@ -41,7 +41,7 @@ export default function Manage({ data }: TgViewProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Manage Trongate Administrators</h1>
+          <h1>Manage Administrators</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Accounts that can sign in to the Eterc control panel.
           </p>
@@ -80,7 +80,7 @@ export default function Manage({ data }: TgViewProps) {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="px-4">Username</TableHead>
-                    <TableHead>Trongate User ID</TableHead>
+                    <TableHead>User ID</TableHead>
                     <TableHead>Active</TableHead>
                     <TableHead className="w-24 px-4 text-right">Action</TableHead>
                   </TableRow>
