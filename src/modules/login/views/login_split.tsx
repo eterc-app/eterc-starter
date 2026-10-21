@@ -19,11 +19,11 @@ export function LoginSplit({ data }: TgViewProps) {
     typeof data.forgot_password_url === "string" ? data.forgot_password_url : null;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="grid w-full max-w-4xl gap-0 overflow-hidden p-0 md:grid-cols-2">
         <div className="hidden min-h-[32rem] bg-[url('/login_module/images/surfgirl.webp')] bg-cover bg-center md:block" />
         <div className="p-8 sm:p-10">
-          <h1 className="mb-6 text-center text-xl font-semibold uppercase tracking-wide text-foreground">
+          <h1 className="mb-6 text-center text-lg font-semibold tracking-[-0.01em] text-foreground">
             Account Login
           </h1>
 

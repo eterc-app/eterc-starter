@@ -2178,7 +2178,7 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("  return (");
     lines.push('    <div className="space-y-6">');
-    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('      <h1 className="text-lg font-semibold tracking-[-0.01em]">');
     lines.push('        {String(data.headline ?? "")}');
     lines.push("      </h1>");
     lines.push("      <ValidationErrors />");
@@ -2265,7 +2265,7 @@ export class Site_builder_model extends Model {
     lines.push("  return (");
     lines.push('    <div className="space-y-6">');
     lines.push('      <div className="flex flex-wrap items-center justify-between gap-3">');
-    lines.push(`        <h1 className="text-2xl font-bold tracking-tight">Manage ${ucwords(data.record_name_plural)}</h1>`);
+    lines.push(`        <h1 className="text-lg font-semibold tracking-[-0.01em]">Manage ${ucwords(data.record_name_plural)}</h1>`);
     lines.push("        <Button asChild>");
     lines.push(
       `          <a href={site_url(${js(
@@ -2362,7 +2362,7 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("  return (");
     lines.push('    <div className="space-y-6">');
-    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('      <h1 className="text-lg font-semibold tracking-[-0.01em]">');
     lines.push('        {String(data.headline ?? "")}');
     lines.push("      </h1>");
     lines.push("      <Flashdata />");
@@ -2419,7 +2419,7 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("  return (");
     lines.push('    <div className="space-y-6">');
-    lines.push('      <h1 className="text-2xl font-bold tracking-tight">');
+    lines.push('      <h1 className="text-lg font-semibold tracking-[-0.01em]">');
     lines.push('        {String(data.headline ?? "")}');
     lines.push("      </h1>");
     lines.push('      <Card className="border-destructive/40">');
@@ -2465,7 +2465,7 @@ export class Site_builder_model extends Model {
       "export default function NotFound({ data }: TgViewProps) {",
       "  return (",
       '    <div className="space-y-6">',
-      '      <h1 className="text-2xl font-bold tracking-tight">',
+      '      <h1 className="text-lg font-semibold tracking-[-0.01em]">',
       '        {String(data.headline ?? "")}',
       "      </h1>",
       "      <Card>",

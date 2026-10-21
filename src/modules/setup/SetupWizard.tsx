@@ -112,11 +112,11 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/40 to-primary/5 px-4 py-10">
+    <div className="min-h-screen bg-muted/30 px-4 py-10">
       {step === 4 ? <ConfettiCanvas /> : null}
 
       <div className="mx-auto w-full max-w-3xl">
-        <Card className="shadow-lg">
+        <Card className="shadow-none border-border/70">
           <CardContent className="p-6 sm:p-8">
             {helpOpen ? (
               <HelpMessage onBack={() => setHelpOpen(false)} />
@@ -222,7 +222,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+        <h1 className="text-lg font-semibold tracking-[-0.01em] sm:text-xl">
           Welcome to Your New Eterc Application
         </h1>
         <p className="text-muted-foreground">
@@ -256,7 +256,7 @@ function DatabaseStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="text-lg font-semibold tracking-[-0.01em]">
           Database Connection Test
         </h1>
         <p className="text-muted-foreground">
@@ -329,7 +329,7 @@ function AdminStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Create Admin Account</h1>
+        <h1 className="text-lg font-semibold tracking-[-0.01em]">Create Admin Account</h1>
         <p className="text-muted-foreground">Set up your administrator account.</p>
       </div>
       <StepsIndicator current={2} />
@@ -415,7 +415,7 @@ function FinalizeStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Finalize Setup</h1>
+        <h1 className="text-lg font-semibold tracking-[-0.01em]">Finalize Setup</h1>
         <p className="text-muted-foreground">Please review your configuration.</p>
       </div>
       <StepsIndicator current={3} />
@@ -468,7 +468,7 @@ function CompleteStep({ appPath }: { appPath: string }) {
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Congratulations!</h1>
+        <h1 className="text-lg font-semibold tracking-[-0.01em]">Congratulations!</h1>
         <p className="text-muted-foreground">You are ready to rock.</p>
       </div>
       <StepsIndicator current={4} />
@@ -508,7 +508,7 @@ export function HelpMessage({ onBack }: { onBack: () => void }) {
   return (
     <div className="space-y-4">
       <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-2xl">A Message From the Eterc Team</CardTitle>
+        <CardTitle className="text-base">A Message From the Eterc Team</CardTitle>
         <CardDescription>
           Nobody should have to abandon a framework because setup got in the way.
         </CardDescription>

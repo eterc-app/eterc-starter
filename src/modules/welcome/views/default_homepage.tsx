@@ -11,7 +11,7 @@ export default function DefaultHomepage() {
         Eterc
       </span>
       <h1 className="mt-2">Enjoy Eterc!</h1>
-      <h2 className="text-xl font-semibold tracking-tight">
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
         The Next.js Framework
       </h2>
       <p className="max-w-xl text-muted-foreground">

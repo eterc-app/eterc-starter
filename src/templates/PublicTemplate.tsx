@@ -9,7 +9,7 @@ export function PublicTemplate({
   pageTitle?: string;
 }) {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/40 px-4 py-14 sm:py-20">
+    <main className="min-h-screen bg-background px-4 py-12">
       <div className="text-center">
         {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
         {children}

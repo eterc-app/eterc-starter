@@ -854,7 +854,7 @@ export function PropertiesBuilder({
 
         <section className="min-w-0 space-y-4 text-center">
           <div className="space-y-1 text-center">
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
               Properties Builder
             </h2>
             <p className="text-sm text-muted-foreground">

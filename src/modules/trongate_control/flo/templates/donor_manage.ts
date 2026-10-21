@@ -35,7 +35,7 @@ export default function Manage({ data }: TgViewProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Manage <?= record_name_plural ?></h1>
+        <h1 className="text-lg font-semibold tracking-[-0.01em]">Manage <?= record_name_plural ?></h1>
         <Button asChild>
           <a href={site_url("<?= module_folder_name ?>/create")}>
             Create New <?= record_name_singular ?> Record

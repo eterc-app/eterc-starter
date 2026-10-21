@@ -21,7 +21,7 @@ export default function Show({ data }: TgViewProps) {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">
+      <h1 className="text-lg font-semibold tracking-[-0.01em]">
         {String(data.headline ?? "")}
       </h1>
       <Flashdata />

@@ -23,8 +23,8 @@ function SetupIndex({ data }: TgViewProps) {
 
 function SetupHelpMessage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-background via-muted/40 to-primary/5 px-4 py-10">
-      <div className="mx-auto w-full max-w-3xl rounded-lg border bg-card p-6 shadow-lg sm:p-8">
+    <main className="min-h-screen bg-muted/30 px-4 py-10">
+      <div className="mx-auto w-full max-w-3xl rounded-lg border border-border/70 bg-card p-6 shadow-none sm:p-8">
         <HelpMessage onBack={() => undefined} />
       </div>
     </main>

@@ -1,47 +1,117 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
-  WEBSITE_NAME,
-  ENV,
-  ETERC_HOME_URL,
   ETERC_DOCS_URL,
   ETERC_GITHUB_URL,
+  ENV,
+  WEBSITE_NAME,
 } from "@/engine/config";
-import { FlowTrigger } from "@/modules/trongate_control/FlowTrigger";
-import { Button } from "@/components/ui/button";
+import { to_public_path } from "@/engine/url-aliases";
 import { cn } from "@/lib/utils";
 import {
+  ArrowUpRight,
+  Blocks,
   BookOpen,
-  Database,
-  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
-  Settings,
-  ShoppingCart,
+  PanelLeft,
+  UserRound,
   Users,
-  Wand2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const WORKSPACE_NAV: NavItem[] = [
   { href: "/control", label: "Dashboard", icon: LayoutDashboard },
   { href: "/administrators/manage", label: "Manage Users", icon: Users },
-  { href: "/control/flo/home", label: "Flo Generator", icon: Wand2 },
-  { href: "/control/properties-builder", label: "Properties Builder", icon: Settings },
-  { href: "/control/query-builder", label: "Query Builder", icon: Database },
 ];
 
+const BUILDER_NAV = [
+  { href: "/control/flo/home", label: "Flo" },
+  { href: "/control/module-builder", label: "Module Builder" },
+  { href: "/control/site-builder", label: "Site Builder" },
+  { href: "/control/properties-builder", label: "Properties Builder" },
+  { href: "/control/query-builder", label: "Query Builder" },
+  { href: "/control/module-relations-builder", label: "Module Relations" },
+  { href: "/control/image-uploader-builder", label: "Image Uploader" },
+  { href: "/control/plural-maker", label: "Plural Maker" },
+  { href: "/control/evo", label: "Evo" },
+];
+
+const RESOURCE_NAV = [
+  {
+    href: ETERC_DOCS_URL,
+    label: "Documentation",
+    icon: BookOpen,
+    external: true,
+  },
+  {
+    href: ETERC_GITHUB_URL,
+    label: "Source",
+    icon: Package,
+    external: true,
+  },
+];
+
+function is_active(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function builder_active(pathname: string, href: string): boolean {
+  if (is_active(pathname, href)) return true;
+  const base = href.replace(/\/home$/, "");
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+function breadcrumb_items(
+  pathname: string,
+  pageTitle: string,
+): [string, string] {
+  if (pathname === "/control") {
+    const current =
+      pageTitle && pageTitle !== "Admin Panel" && pageTitle !== "Eterc Control Panel"
+        ? pageTitle.replace(/^Eterc\s+/, "")
+        : "Overview";
+    return ["Workspace", current];
+  }
+
+  if (is_active(pathname, "/administrators")) {
+    return ["Workspace", "Administrators"];
+  }
+
+  const builder = BUILDER_NAV.find((item) =>
+    builder_active(pathname, item.href),
+  );
+  if (builder) {
+    return ["Builders", builder.label];
+  }
+
+  return [
+    "Workspace",
+    pageTitle && pageTitle !== "Admin Panel"
+      ? pageTitle.replace(/^Eterc\s+/, "")
+      : "Overview",
+  ];
+}
+
 /**
- * Admin theme — port of modules/templates/views/admin.php
- * (including the interactions provided by templates_module/js/admin.js).
+ * Admin shell — the port of modules/templates/views/admin.php.
  *
- * The shell is authored with Tailwind + shadcn primitives; the page content
- * rendered by modules keeps the PHP view contract.
+ * The shell is deliberately quiet: a compact sidebar, a single breadcrumb row
+ * and flat content surfaces. Module views keep the PHP view contract.
  */
 export function AdminTemplate({
   children,
@@ -52,244 +122,317 @@ export function AdminTemplate({
   pageTitle?: string;
   theme?: string;
 }) {
-  const year = new Date().getFullYear();
   const pathname = usePathname();
-  const [slideNavOpen, setSlideNavOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  // Generators and the control panel are development-only, matching the PHP
-  // guards. Keep production navigation to routes that are actually available.
+  const current_path = to_public_path(pathname);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [buildersOpen, setBuildersOpen] = useState(true);
+  const [accountOpen, setAccountOpen] = useState(false);
+
   const nav_items =
     ENV === "dev"
-      ? NAV_ITEMS
-      : NAV_ITEMS.filter((item) => item.href.startsWith("/administrators"));
+      ? WORKSPACE_NAV
+      : WORKSPACE_NAV.filter((item) =>
+          item.href.startsWith("/administrators"),
+        );
+  const buildersActive = BUILDER_NAV.some((item) =>
+    builder_active(current_path, item.href),
+  );
+  const [section, current] = breadcrumb_items(current_path, pageTitle);
 
   useEffect(() => {
-    if (!slideNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSlideNavOpen(false);
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        setAccountOpen(false);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [slideNavOpen]);
+  }, []);
 
-  return (
-    <div
-      data-theme={theme}
-      className="flex min-h-screen flex-col bg-muted/30 text-foreground"
-      onClick={() => setSettingsOpen(false)}
-    >
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              aria-label="Open navigation"
-              onClick={(event) => {
-                event.stopPropagation();
-                setSlideNavOpen(true);
-              }}
-            >
-              <Menu className="size-5" />
-            </Button>
-            <a href="/control" className="flex items-center gap-2">
-              <span className="grid size-8 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-                E
-              </span>
-              <span className="text-base font-bold tracking-tight">
-                {WEBSITE_NAME}
-              </span>
-              <span className="hidden rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline">
-                Admin
-              </span>
-            </a>
-          </div>
+  const close_mobile = () => setMobileOpen(false);
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Utility navigation">
-            <Button asChild variant="ghost" size="sm">
-              <a href="#">
-                <Settings className="size-4" /> Messages (1)
-              </a>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <a href="#">
-                <ShoppingCart className="size-4" /> Orders
-              </a>
-            </Button>
-          </nav>
-
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              aria-haspopup="menu"
-              aria-expanded={settingsOpen}
-              onClick={(event) => {
-                event.stopPropagation();
-                setSettingsOpen((open) => !open);
-              }}
-            >
-              <Users className="size-4" />
-              <span className="hidden sm:inline">Account</span>
-            </Button>
-
-            {settingsOpen ? (
-              <div
-                role="menu"
-                className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <a
-                  role="menuitem"
-                  href="/administrators/update_your_details"
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Users className="size-4" /> Update Your Details
-                </a>
-                <a
-                  role="menuitem"
-                  href="/administrators/logout"
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
-                >
-                  <LogOut className="size-4" /> Log Out
-                </a>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      <div className="flex flex-1">
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r bg-background md:block">
-          <div className="p-3">
-            {ENV === "dev" ? <FlowTrigger /> : null}
-          </div>
-          <nav aria-label="Main navigation" className="space-y-1 px-3 pb-6">
-            <p className="px-2 pb-2 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Workspace
-            </p>
-            {nav_items.map((item) => {
-              const Icon = item.icon;
-              const active =
-                pathname === item.href ||
-                (item.href !== "/control" &&
-                  pathname.startsWith(item.href));
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Icon className="size-4" />
-                  {item.label}
-                </a>
-              );
-            })}
-
-            <p className="px-2 pb-2 pt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Resources
-            </p>
-            <a
-              href={ETERC_DOCS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <BookOpen className="size-4" /> Documentation
-              <ExternalLink className="ml-auto size-3" />
-            </a>
-            <a
-              href={ETERC_GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <Package className="size-4" /> Source
-              <ExternalLink className="ml-auto size-3" />
-            </a>
-          </nav>
-        </aside>
-
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
-          <div className="mx-auto w-full max-w-6xl">
-            {pageTitle !== "Admin Panel" ? (
-              <h1 className="mb-6 text-2xl font-bold tracking-tight">
-                {pageTitle}
-              </h1>
-            ) : null}
-            {children}
-          </div>
-        </main>
+  const render_sidebar = (mobile: boolean) => (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2.5 px-3 py-3.5">
+        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background">
+          E
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold leading-4">
+            {WEBSITE_NAME}
+          </span>
+          <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+            Workspace
+          </span>
+        </span>
+        {mobile ? (
+          <button
+            type="button"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-label="Close navigation"
+            onClick={close_mobile}
+          >
+            <X className="size-4" strokeWidth={1.75} />
+          </button>
+        ) : (
+          <ChevronsUpDown
+            className="size-3.5 text-muted-foreground"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
-      <footer className="border-t bg-background px-4 py-4 md:px-6">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
-          <p>
-            &copy; {year} {WEBSITE_NAME}. PHP semantics, Next.js speed.
-          </p>
-          <div className="flex items-center gap-3">
-            <a href={ETERC_HOME_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              Powered by Eterc
-            </a>
-            <a href={ETERC_DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              Documentation
-            </a>
-            <a href={ETERC_GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              GitHub
-            </a>
-          </div>
+      <nav
+        className="flex-1 overflow-y-auto px-2 pb-4"
+        aria-label={mobile ? "Mobile navigation" : "Main navigation"}
+      >
+        <p className="px-2 pb-1.5 pt-2 text-[11px] font-medium text-muted-foreground">
+          Platform
+        </p>
+        <div className="space-y-0.5">
+          {nav_items.map((item) => {
+            const Icon = item.icon;
+            const active =
+              item.href === "/control"
+                ? current_path === "/control"
+                : is_active(current_path, item.href);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={mobile ? close_mobile : undefined}
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                  active
+                    ? "bg-muted/70 font-medium text-foreground"
+                    : "text-foreground/80 hover:bg-muted/50 hover:text-foreground",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "size-4 shrink-0",
+                    active ? "text-foreground" : "text-muted-foreground",
+                  )}
+                  strokeWidth={1.75}
+                />
+                <span className="truncate">{item.label}</span>
+              </a>
+            );
+          })}
         </div>
-      </footer>
 
-      {slideNavOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <button
-            className="absolute inset-0 bg-black/50"
-            aria-label="Close navigation"
-            onClick={() => setSlideNavOpen(false)}
-          />
-          <nav
-            className="relative flex h-full w-72 max-w-[85vw] flex-col bg-background shadow-xl"
-            aria-label="Mobile navigation"
-          >
-            <div className="flex h-14 items-center justify-between border-b px-4">
-              <span className="font-bold">{WEBSITE_NAME}</span>
-              <Button variant="ghost" size="icon" onClick={() => setSlideNavOpen(false)}>
-                <X className="size-5" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              {ENV === "dev" ? <div className="pb-3"><FlowTrigger /></div> : null}
-              <div className="space-y-1">
-                {nav_items.map((item) => {
-                  const Icon = item.icon;
+        {ENV === "dev" ? (
+          <div className="mt-2">
+            <button
+              type="button"
+              aria-expanded={buildersOpen}
+              onClick={() => setBuildersOpen((open) => !open)}
+              className={cn(
+                "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                buildersActive
+                  ? "text-foreground"
+                  : "text-foreground/80 hover:text-foreground",
+              )}
+            >
+              <Blocks
+                className="size-4 shrink-0 text-muted-foreground"
+                strokeWidth={1.75}
+              />
+              <span className="flex-1 truncate">Builders</span>
+              <ChevronDown
+                className={cn(
+                  "size-3.5 text-muted-foreground transition-transform",
+                  !buildersOpen && "-rotate-90",
+                )}
+                strokeWidth={1.75}
+              />
+            </button>
+
+            {buildersOpen ? (
+              <div className="mt-0.5 space-y-0.5">
+                {BUILDER_NAV.map((item) => {
+                  const active = builder_active(current_path, item.href);
                   return (
                     <a
                       key={item.href}
                       href={item.href}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      onClick={mobile ? close_mobile : undefined}
+                      className={cn(
+                        "flex h-7 items-center rounded-md pl-8 pr-2 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                        active
+                          ? "bg-muted/60 font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                      )}
                     >
-                      <Icon className="size-4" /> {item.label}
+                      <span className="truncate">{item.label}</span>
                     </a>
                   );
                 })}
               </div>
-            </div>
-            <div className="border-t p-3">
+            ) : null}
+          </div>
+        ) : null}
+
+        <p className="px-2 pb-1.5 pt-5 text-[11px] font-medium text-muted-foreground">
+          Resources
+        </p>
+        <div className="space-y-0.5">
+          {RESOURCE_NAV.map((item) => {
+            const Icon = item.icon;
+            return (
               <a
-                href="/administrators/logout"
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
+                key={item.href}
+                href={item.href}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noreferrer" : undefined}
+                onClick={mobile ? close_mobile : undefined}
+                className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px] text-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
-                <LogOut className="size-4" /> Log Out
+                <Icon
+                  className="size-4 shrink-0 text-muted-foreground"
+                  strokeWidth={1.75}
+                />
+                <span className="flex-1 truncate">{item.label}</span>
+                <ArrowUpRight
+                  className="size-3.5 text-muted-foreground/50"
+                  strokeWidth={1.75}
+                />
+              </a>
+            );
+          })}
+        </div>
+      </nav>
+
+      <div className="border-t border-border/70 p-2">
+        <div className="relative">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              setAccountOpen((open) => !open);
+            }}
+            className="flex w-full items-center gap-2 rounded-md p-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border/70 bg-muted/40 text-muted-foreground">
+              <UserRound className="size-3.5" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12.5px] font-medium leading-4">
+                Administrator
+              </span>
+              <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                Eterc account
+              </span>
+            </span>
+            <ChevronsUpDown
+              className="size-3.5 shrink-0 text-muted-foreground"
+              strokeWidth={1.75}
+            />
+          </button>
+
+          {accountOpen ? (
+            <div
+              role="menu"
+              className="absolute bottom-[calc(100%+0.25rem)] left-0 right-0 z-50 overflow-hidden rounded-md border border-border/70 bg-popover p-1 text-popover-foreground shadow-sm"
+            >
+              <a
+                role="menuitem"
+                href="/administrators/update_your_details"
+                onClick={mobile ? close_mobile : undefined}
+                className="flex h-8 items-center gap-2 rounded px-2 text-[12.5px] hover:bg-muted/60"
+              >
+                <UserRound className="size-3.5" strokeWidth={1.75} />
+                Update details
+              </a>
+              <a
+                role="menuitem"
+                href="/administrators/logout"
+                onClick={mobile ? close_mobile : undefined}
+                className="flex h-8 items-center gap-2 rounded px-2 text-[12.5px] text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="size-3.5" strokeWidth={1.75} />
+                Log out
               </a>
             </div>
-          </nav>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      data-theme={theme}
+      className="min-h-screen bg-muted/30 text-foreground"
+      onClick={() => setAccountOpen(false)}
+    >
+      <div className="flex min-h-screen">
+        {!sidebarCollapsed ? (
+          <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 border-r border-border/70 bg-background md:flex">
+            {render_sidebar(false)}
+          </aside>
+        ) : null}
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-3 px-4 sm:px-6">
+            <button
+              type="button"
+              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 md:hidden"
+              aria-label="Open navigation"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="size-4" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              className="hidden size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 md:grid"
+              aria-label={
+                sidebarCollapsed ? "Show navigation" : "Hide navigation"
+              }
+              aria-expanded={!sidebarCollapsed}
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              <PanelLeft className="size-4" strokeWidth={1.75} />
+            </button>
+            <span className="hidden h-4 w-px bg-border md:block" />
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 items-center gap-1.5 text-[12px]"
+            >
+              <span className="truncate text-muted-foreground">{section}</span>
+              <ChevronRight
+                className="size-3.5 shrink-0 text-muted-foreground/60"
+                strokeWidth={1.75}
+              />
+              <span className="truncate font-medium text-foreground">
+                {current}
+              </span>
+            </nav>
+          </header>
+
+          <main className="flex-1 px-4 pb-8 sm:px-6">
+            <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+          </main>
+        </div>
+      </div>
+
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          onClick={close_mobile}
+        >
+          <div className="absolute inset-0 bg-black/20" />
+          <aside
+            className="relative flex h-full w-[232px] flex-col border-r border-border/70 bg-background shadow-sm"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {render_sidebar(true)}
+          </aside>
         </div>
       ) : null}
     </div>
