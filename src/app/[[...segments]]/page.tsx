@@ -13,16 +13,15 @@ export const instant = false;
  * The router entry point — every GET is addressed as
  * `{module}/{method}/{params...}` exactly like engine/Core.php.
  */
-export default async function TrongatePage({
+export default async function EtercPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ tg?: string[] }>;
+  params: Promise<{ segments?: string[] }>;
   searchParams: Promise<Record<string, string | string[]>>;
 }) {
-  const { tg } = await params;
+  const { segments = [] } = await params;
   const query = await searchParams;
-  const segments = tg ?? [];
 
   // Ensure request-time rendering before any framework code runs.
   await connection();
