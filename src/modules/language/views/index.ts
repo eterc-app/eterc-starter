@@ -1,4 +1,4 @@
-import type { TgViewComponent } from "@/engine/views-registry";
+import type { EtViewComponent } from "@/engine/views-registry";
 
 /**
  * The language module has no views in the PHP original — it is a service
@@ -6,4 +6,4 @@ import type { TgViewComponent } from "@/engine/views-registry";
  * map keeps the "{module}/views" convention so the central registry can
  * import every module uniformly.
  */
-export const views: Record<string, TgViewComponent> = {};
+export const views: Record<string, EtViewComponent> = {};

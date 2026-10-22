@@ -1,5 +1,5 @@
-import type { TgViewProps } from "@/engine/views-registry";
-import { TgForm } from "@/engine/ui/TgForm";
+import type { EtViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { AuthShell } from "./AuthShell";
  * Login form (default) — port of modules/login/views/login_default.php.
  * Markup uses the Eterc shadcn/Tailwind auth surface.
  */
-export function LoginDefault({ data }: TgViewProps) {
+export function LoginDefault({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(
     (data.fields as { password?: { label?: string } } | undefined)?.password?.label ??
@@ -29,7 +29,7 @@ export function LoginDefault({ data }: TgViewProps) {
     >
       <ValidationErrors />
 
-      <TgForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
+      <EtForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="identifier">{identifierLabel}</Label>
           <Input
@@ -69,7 +69,7 @@ export function LoginDefault({ data }: TgViewProps) {
             <a href={site_url("")}>Cancel</a>
           </Button>
         </div>
-      </TgForm>
+      </EtForm>
 
       {forgotUrl !== null ? (
         <p className="mt-4 text-center text-sm">

@@ -1,4 +1,4 @@
-// Trongate (Next.js port) database schema — mirrors modules/setup/sql/setup.sql
+// Eterc (Next.js port) database schema — mirrors modules/setup/sql/setup.sql
 // SQLite via Prisma; the framework Db layer also speaks to the same file.
 
 generator client {
@@ -10,37 +10,37 @@ datasource db {
   provider = "sqlite"
 }
 
-model TrongateUserLevel {
+model EtercUserLevel {
   id          Int     @id @default(autoincrement())
   level_title String? @default("")
 
-  @@map("trongate_user_levels")
+  @@map("eterc_user_levels")
 }
 
-model TrongateUser {
+model EtercUser {
   id            Int     @id @default(autoincrement())
   code          String?
   user_level_id Int     @default(0)
 
-  @@map("trongate_users")
+  @@map("eterc_users")
 }
 
-model TrongateAdministrator {
+model EtercAdministrator {
   id                   Int     @id @default(autoincrement())
   username             String?
   email                String?
   password             String?
-  trongate_user_id     Int?
+  eterc_user_id     Int?
   active               Int     @default(0)
   failed_login_attempts Int    @default(0)
   last_failed_attempt  Int     @default(0)
   login_blocked_until  Int     @default(0)
   failed_login_ip      String  @default("")
 
-  @@map("trongate_administrators")
+  @@map("eterc_administrators")
 }
 
-model TrongateToken {
+model EtercToken {
   id          Int    @id @default(autoincrement())
   token       String?
   user_id     Int    @default(0)
@@ -48,7 +48,7 @@ model TrongateToken {
   code        String? @default("0")
 
   @@index([token])
-  @@map("trongate_tokens")
+  @@map("eterc_tokens")
 }
 
 model LoginAttempt {

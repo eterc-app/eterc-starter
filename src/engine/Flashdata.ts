@@ -4,13 +4,13 @@ import { FLASHDATA_CLOSE, FLASHDATA_OPEN } from "./config";
 /**
  * Flashdata — one-time messages, port of the flashdata module.
  *
- * set_flashdata() stores a JSON payload in the `tg_flash` cookie; middleware
- * forwards it as the `x-tg-flash` request header on GET renders and clears the
+ * set_flashdata() stores a JSON payload in the `et_flash` cookie; middleware
+ * forwards it as the `x-et-flash` request header on GET renders and clears the
  * cookie afterwards, which reproduces PHP's "read once" session semantics.
  */
 
-export const FLASH_COOKIE = "tg_flash";
-export const FLASH_HEADER = "x-tg-flash";
+export const FLASH_COOKIE = "et_flash";
+export const FLASH_HEADER = "x-et-flash";
 
 interface FlashPayload {
   messages: string[];

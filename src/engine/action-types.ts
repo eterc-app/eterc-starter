@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import type { ValidationErrors } from "./Validation";
 
 /**
- * Reply contract between client components and the tgSubmit server action.
+ * Reply contract between client components and the etSubmit server action.
  * (Kept outside the 'use server' module so both tiers can import the type.)
  */
 
-export type TgActionReply =
+export type EtActionReply =
   | {
       kind: "node";
       node: ReactNode;

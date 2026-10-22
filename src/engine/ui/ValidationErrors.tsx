@@ -1,6 +1,6 @@
 "use client";
 
-import { useTgUi } from "./TgUiProvider";
+import { useEtUi } from "./EtUiProvider";
 
 /**
  * Validation errors — port of validation's display_errors() rendering:
@@ -18,7 +18,7 @@ export function ValidationErrors({
   opening?: string;
   closing?: string;
 }) {
-  const { errors } = useTgUi();
+  const { errors } = useEtUi();
   if (!errors) return null;
 
   if (field !== undefined) {

@@ -3,15 +3,15 @@
 /**
  * Middleware â€” framework-level request duties:
  *  1. Ensure the signed CSRF cookie exists and expose it to server code via
- *     the `x-tg-csrf` request header (forms embed it; validation compares it).
- *  2. Flashdata one-shot semantics: forward `tg_flash` as a request header and
+ *     the `x-et-csrf` request header (forms embed it; validation compares it).
+ *  2. Flashdata one-shot semantics: forward `et_flash` as a request header and
  *     delete the cookie on the response (PHP session "read once" behaviour).
  */
 
-const CSRF_COOKIE = "tg_csrf";
-const CSRF_HEADER = "x-tg-csrf";
-const FLASH_COOKIE = "tg_flash";
-const FLASH_HEADER = "x-tg-flash";
+const CSRF_COOKIE = "et_csrf";
+const CSRF_HEADER = "x-et-csrf";
+const FLASH_COOKIE = "et_flash";
+const FLASH_HEADER = "x-et-flash";
 
 function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
@@ -28,7 +28,7 @@ async function sha256Bytes(value: string): Promise<Uint8Array> {
 }
 
 async function csrfSecretBytes(): Promise<Uint8Array> {
-  const envSecret = process.env.TG_SECRET;
+  const envSecret = process.env.ET_SECRET;
   if (envSecret && envSecret.length >= 16) {
     return new TextEncoder().encode(envSecret);
   }
@@ -104,7 +104,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next|favicon.ico|css/|js/|trongate-icons/|[a-z0-9_]+_module/|uploads/).*)",
+    "/((?!_next|favicon.ico|css/|js/|eterc-icons/|[a-z0-9_]+_module/|uploads/).*)",
   ],
 };
 

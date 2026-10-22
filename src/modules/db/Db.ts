@@ -1,10 +1,10 @@
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { set_flashdata } from "@/engine/Flashdata";
 import { post } from "@/engine/post";
 import { session_get, session_set } from "@/engine/session";
-import type { TgTemplateData } from "@/engine/Templates";
+import type { EtTemplateData } from "@/engine/Templates";
 import { redirect, segment, site_url } from "@/engine/Url";
-import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 import {
   Db_model,
   type ColumnInfo,
@@ -20,7 +20,7 @@ import {
  * as src/engine/db.ts); it also called `block_url('db')` so the module could
  * never be addressed from a URL. This module keeps the engine unreachable as a
  * plain route while exposing an explicitly admin-guarded tool over it: every
- * public method starts with `trongate_security->make_sure_allowed()`.
+ * public method starts with `eterc_security->make_sure_allowed()`.
  *
  * Routes (URL segments mirror the PHP module addressing):
  *   db                          table list
@@ -35,7 +35,7 @@ import {
  *   db/sql_console              SQL console view
  *   db/run_sql                  XHR — POST /api/xhr/db/run_sql
  */
-export default class Db extends Trongate {
+export default class Db extends Eterc {
   private admin_theme = "";
   private default_limit = 20;
   private per_page_options = [10, 20, 50, 100];
@@ -56,10 +56,10 @@ export default class Db extends Trongate {
   /** Table list with record counts and the per-table actions. */
   async index() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
-    const data: TgTemplateData = {
+    const data: EtTemplateData = {
       theme: this.admin_theme,
       pageTitle: "Database Tables",
       headline: "Database Tables",
@@ -83,8 +83,8 @@ export default class Db extends Trongate {
   /** Paginated browser for one table: db/browse/{table}/{page}. */
   async browse() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     const table = this.resolve_table(3);
     if (table === false) {
@@ -103,7 +103,7 @@ export default class Db extends Trongate {
     const rows = this.dbModel().get_page_rows(table, order_by, "ASC", limit, offset);
     const primary_key = columns.find((column) => column.is_primary_key)?.name ?? "";
 
-    const data: TgTemplateData = {
+    const data: EtTemplateData = {
       theme: this.admin_theme,
       pageTitle: `Browse ${table}`,
       headline: `Browse Table: ${table}`,
@@ -137,8 +137,8 @@ export default class Db extends Trongate {
   /** "Records Per Page" selector: db/set_per_page/{index}/{table}. */
   async set_per_page() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     let selected_index = Number(segment(3, "int"));
 
@@ -162,8 +162,8 @@ export default class Db extends Trongate {
   /** Forge a new record or edit an existing one: db/forger/{table}/{id}. */
   async forger() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     const table = this.resolve_table(3);
     if (table === false) {
@@ -191,8 +191,8 @@ export default class Db extends Trongate {
   /** Handle the forger form submission (insert or update). */
   async submit_forge() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     const table = this.resolve_table(3);
     if (table === false) {
@@ -229,7 +229,7 @@ export default class Db extends Trongate {
     }
 
     if ((await this.validation.run()) !== true) {
-      // PHP re-renders forger(); the port re-renders the bare view so <TgForm>
+      // PHP re-renders forger(); the port re-renders the bare view so <EtForm>
       // can swap its own subtree while showing the errors.
       const record: Row | false =
         update_id > 0 ? this.dbModel().get_record(table, update_id) : this.dbModel().posted_record(columns);
@@ -269,8 +269,8 @@ export default class Db extends Trongate {
   /** Confirmation page before deleting a record. */
   async delete_conf() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     const table = this.resolve_table(3);
     if (table === false) {
@@ -296,7 +296,7 @@ export default class Db extends Trongate {
       value: record[column.name] === null ? "NULL" : input_preview(record[column.name]),
     }));
 
-    const data: TgTemplateData = {
+    const data: EtTemplateData = {
       theme: this.admin_theme,
       pageTitle: `Delete Record: ${table} #${update_id}`,
       headline: "Delete Record",
@@ -314,8 +314,8 @@ export default class Db extends Trongate {
   /** Delete the record after confirmation. */
   async submit_delete() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     const table = this.resolve_table(3);
     if (table === false) {
@@ -349,8 +349,8 @@ export default class Db extends Trongate {
   /** POST /api/xhr/db/truncate — empty a table. */
   async truncate() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     if ((await this.validation.run()) !== true) {
       return { ok: false, message: "CSRF token validation failed." };
@@ -374,8 +374,8 @@ export default class Db extends Trongate {
   /** POST /api/xhr/db/resequence — renumber the id column from 1. */
   async resequence() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     if ((await this.validation.run()) !== true) {
       return { ok: false, message: "CSRF token validation failed." };
@@ -401,10 +401,10 @@ export default class Db extends Trongate {
   /** The SQL console view. */
   async sql_console() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
-    const data: TgTemplateData = {
+    const data: EtTemplateData = {
       theme: this.admin_theme,
       pageTitle: "SQL Console",
       headline: "SQL Console",
@@ -422,8 +422,8 @@ export default class Db extends Trongate {
   /** POST /api/xhr/db/run_sql — execute one SQL statement. */
   async run_sql() {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
     if ((await this.validation.run()) !== true) {
       return {
@@ -448,10 +448,10 @@ export default class Db extends Trongate {
     message = "The requested database resource could not be found."
   ) {
     (
-      this as unknown as { trongate_security: Trongate_security }
-    ).trongate_security.make_sure_allowed();
+      this as unknown as { eterc_security: Eterc_security }
+    ).eterc_security.make_sure_allowed();
 
-    const data: TgTemplateData = {
+    const data: EtTemplateData = {
       theme: this.admin_theme,
       pageTitle: "Not Found",
       headline: "Not Found",
@@ -485,7 +485,7 @@ export default class Db extends Trongate {
     update_id: number,
     columns: ColumnInfo[],
     record: Row | false
-  ): TgTemplateData {
+  ): EtTemplateData {
     const fields: FormField[] = this.dbModel().build_form_fields(columns, record);
 
     return {

@@ -6,7 +6,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * from this context; it is established once per request by the dispatcher.
  */
 
-export interface TgUploadedFile {
+export interface EtUploadedFile {
   fieldName: string;
   originalName: string;
   mimeType: string;
@@ -15,7 +15,7 @@ export interface TgUploadedFile {
   bytes: Buffer | null;
 }
 
-export interface TgRequest {
+export interface EtRequest {
   /** URL segments. segment(1) === segments[0] (module), segment(2) === segments[1] (method). */
   segments: string[];
   httpMethod: "GET" | "POST" | string;
@@ -46,13 +46,13 @@ export interface TgRequest {
   flashBuffer: string[];
 }
 
-const store = new AsyncLocalStorage<TgRequest>();
+const store = new AsyncLocalStorage<EtRequest>();
 
-export function run_with_context<T>(request: TgRequest, fn: () => T): T {
+export function run_with_context<T>(request: EtRequest, fn: () => T): T {
   return store.run(request, fn);
 }
 
-export function get_context(): TgRequest {
+export function get_context(): EtRequest {
   const ctx = store.getStore();
   if (!ctx) {
     throw new Error(
@@ -126,10 +126,10 @@ export function get_last_segment(): string {
 }
 
 /** True when the request was made by fetch()/XHR rather than navigation. */
-export function from_trongate_mx(): boolean {
+export function from_eterc_mx(): boolean {
   const ctx = get_context();
   return (
     ctx.isAjax ||
-    ctx.headers.get("Trongate-MX-Request") === "true"
+    ctx.headers.get("Eterc-MX-Request") === "true"
   );
 }

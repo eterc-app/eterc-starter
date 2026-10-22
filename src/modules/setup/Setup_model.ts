@@ -12,24 +12,24 @@ import * as path from "node:path";
  * speak to the same file. All statements are idempotent.
  */
 const SETUP_SQL = `
-CREATE TABLE IF NOT EXISTS "trongate_user_levels" (
+CREATE TABLE IF NOT EXISTS "eterc_user_levels" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "level_title" TEXT DEFAULT ''
 );
-INSERT OR IGNORE INTO "trongate_user_levels" ("id", "level_title") VALUES (1, 'admin');
+INSERT OR IGNORE INTO "eterc_user_levels" ("id", "level_title") VALUES (1, 'admin');
 
-CREATE TABLE IF NOT EXISTS "trongate_users" (
+CREATE TABLE IF NOT EXISTS "eterc_users" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "code" TEXT,
   "user_level_id" INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS "trongate_administrators" (
+CREATE TABLE IF NOT EXISTS "eterc_administrators" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "username" TEXT,
   "email" TEXT,
   "password" TEXT,
-  "trongate_user_id" INTEGER,
+  "eterc_user_id" INTEGER,
   "active" INTEGER NOT NULL DEFAULT 0,
   "failed_login_attempts" INTEGER NOT NULL DEFAULT 0,
   "last_failed_attempt" INTEGER NOT NULL DEFAULT 0,
@@ -37,14 +37,14 @@ CREATE TABLE IF NOT EXISTS "trongate_administrators" (
   "failed_login_ip" TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS "trongate_tokens" (
+CREATE TABLE IF NOT EXISTS "eterc_tokens" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "token" TEXT,
   "user_id" INTEGER NOT NULL DEFAULT 0,
   "expiry_date" INTEGER,
   "code" TEXT DEFAULT '0'
 );
-CREATE INDEX IF NOT EXISTS "trongate_tokens_token_idx" ON "trongate_tokens"("token");
+CREATE INDEX IF NOT EXISTS "eterc_tokens_token_idx" ON "eterc_tokens"("token");
 
 CREATE TABLE IF NOT EXISTS "login_attempts" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +79,7 @@ export class Setup_model extends Model {
   /** True when an administrator account exists. */
   is_installed(): boolean {
     try {
-      return this.db.count("trongate_administrators") > 0;
+      return this.db.count("eterc_administrators") > 0;
     } catch {
       return false;
     }
@@ -110,22 +110,22 @@ export class Setup_model extends Model {
     const username = data.username.trim();
     const email = data.email.trim();
 
-    if (this.db.get_one_where("username", username, "trongate_administrators")) {
+    if (this.db.get_one_where("username", username, "eterc_administrators")) {
       return { ok: false, errors: { username: ["That username is already taken."] } };
     }
-    if (this.db.get_one_where("email", email, "trongate_administrators")) {
+    if (this.db.get_one_where("email", email, "eterc_administrators")) {
       return { ok: false, errors: { email: ["That email address is already registered."] } };
     }
 
     // Ensure the 'admin' user level exists (level 1).
-    if (!this.db.get_where(1, "trongate_user_levels")) {
-      this.db.insert({ id: 1, level_title: "admin" }, "trongate_user_levels");
+    if (!this.db.get_where(1, "eterc_user_levels")) {
+      this.db.insert({ id: 1, level_title: "admin" }, "eterc_user_levels");
     }
 
     const userCode = make_rand_str(32);
     const userId = this.db.insert(
       { code: userCode, user_level_id: 1 },
-      "trongate_users"
+      "eterc_users"
     );
 
     const passwordHash = hashSync(data.password, 11);
@@ -134,10 +134,10 @@ export class Setup_model extends Model {
         username,
         email,
         password: passwordHash,
-        trongate_user_id: userId,
+        eterc_user_id: userId,
         active: 1,
       },
-      "trongate_administrators"
+      "eterc_administrators"
     );
 
     return { ok: true };

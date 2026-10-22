@@ -36,8 +36,10 @@ function walk(dir) {
   });
 }
 
-const sourceFiles = walk(path.join(root, "src")).filter((file) =>
-  /\.(ts|tsx)$/.test(file),
+const sourceFiles = walk(path.join(root, "src")).filter(
+  (file) =>
+    /\.(ts|tsx)$/.test(file) &&
+    !file.replace(/\\/g, "/").includes("/src/generated/"),
 );
 const source = sourceFiles
   .map((file) => `\n/* ${path.relative(root, file)} */\n${fs.readFileSync(file, "utf8")}`)

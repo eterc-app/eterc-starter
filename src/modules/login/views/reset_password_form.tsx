@@ -1,5 +1,5 @@
-import type { TgViewProps } from "@/engine/views-registry";
-import { TgForm } from "@/engine/ui/TgForm";
+import type { EtViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { AuthShell } from "./AuthShell";
  * Reset password form — port of
  * modules/login/forgot_password/views/reset_password_form.php.
  */
-export function ResetPasswordForm({ data }: TgViewProps) {
+export function ResetPasswordForm({ data }: EtViewProps) {
   const errorMessage =
     typeof data.error_message === "string" && data.error_message !== ""
       ? data.error_message
@@ -49,7 +49,7 @@ export function ResetPasswordForm({ data }: TgViewProps) {
         </div>
       ) : null}
 
-      <TgForm
+      <EtForm
         action="login/submit_reset_password"
         hidden={{ token }}
         className="space-y-4"
@@ -81,7 +81,7 @@ export function ResetPasswordForm({ data }: TgViewProps) {
         <Button type="submit" className="w-full">
           Reset Password
         </Button>
-      </TgForm>
+      </EtForm>
     </AuthShell>
   );
 }

@@ -6,21 +6,21 @@ import * as crypto from "node:crypto";
 /**
  * Session store — the port's replacement for PHP's $_SESSION.
  *
- * A signed, opaque session id lives in the `tg_session` cookie; the payload is
- * a JSON object persisted in the `tg_sessions` table. Values must be
+ * A signed, opaque session id lives in the `et_session` cookie; the payload is
+ * a JSON object persisted in the `et_sessions` table. Values must be
  * JSON-serializable.
  */
 
-const g = globalThis as unknown as { __tgTransientSessions?: Map<string, Record<string, unknown>> };
+const g = globalThis as unknown as { __etTransientSessions?: Map<string, Record<string, unknown>> };
 
 function transientSessions(): Map<string, Record<string, unknown>> {
-  if (!g.__tgTransientSessions) g.__tgTransientSessions = new Map();
-  return g.__tgTransientSessions;
+  if (!g.__etTransientSessions) g.__etTransientSessions = new Map();
+  return g.__etTransientSessions;
 }
 
 function ensureTable(): void {
   sqlite().exec(
-    `CREATE TABLE IF NOT EXISTS tg_sessions (
+    `CREATE TABLE IF NOT EXISTS et_sessions (
        id TEXT PRIMARY KEY,
        data TEXT NOT NULL DEFAULT '{}',
        expires INTEGER NOT NULL
@@ -31,11 +31,11 @@ function ensureTable(): void {
 function readSessionRow(id: string): Record<string, unknown> | null {
   ensureTable();
   const row = sqlite()
-    .prepare("SELECT data, expires FROM tg_sessions WHERE id = ?")
+    .prepare("SELECT data, expires FROM et_sessions WHERE id = ?")
     .get(id) as { data: string; expires: number } | undefined;
   if (!row) return null;
   if (row.expires < Math.floor(Date.now() / 1000)) {
-    sqlite().prepare("DELETE FROM tg_sessions WHERE id = ?").run(id);
+    sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(id);
     return null;
   }
   try {
@@ -50,7 +50,7 @@ function writeSessionRow(id: string, data: Record<string, unknown>): void {
   const expires = Math.floor(Date.now() / 1000) + SESSION_TTL;
   sqlite()
     .prepare(
-      `INSERT INTO tg_sessions (id, data, expires) VALUES (?, ?, ?)
+      `INSERT INTO et_sessions (id, data, expires) VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET data = excluded.data, expires = excluded.expires`
     )
     .run(id, JSON.stringify(data), expires);
@@ -136,7 +136,7 @@ export function session_unset(key: string): void {
 
 export function session_clear(): void {
   const { id } = loadSession();
-  sqlite().prepare("DELETE FROM tg_sessions WHERE id = ?").run(id);
+  sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(id);
   transientSessions().delete(id);
 }
 
@@ -144,6 +144,6 @@ export function session_clear(): void {
 export function purge_expired_sessions(): void {
   ensureTable();
   sqlite()
-    .prepare("DELETE FROM tg_sessions WHERE expires < ?")
+    .prepare("DELETE FROM et_sessions WHERE expires < ?")
     .run(Math.floor(Date.now() / 1000));
 }

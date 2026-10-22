@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { csrf_token } from "@/engine/csrf";
 import { get_param, post } from "@/engine/post";
-import { get_context, type TgRequest } from "@/engine/request-context";
-import { TgHttpError } from "@/engine/signals";
+import { get_context, type EtRequest } from "@/engine/request-context";
+import { EtHttpError } from "@/engine/signals";
 import { make_rand_str } from "@/engine/String_service";
 import { segment } from "@/engine/Url";
-import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 import {
   Module_relations_model,
   type AssociatedRow,
@@ -67,7 +67,7 @@ export interface PanelData {
   [key: string]: unknown;
 }
 
-export default class Module_relations extends Trongate {
+export default class Module_relations extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
     this.model = new Module_relations_model(
@@ -79,9 +79,9 @@ export default class Module_relations extends Trongate {
     return this.model as Module_relations_model;
   }
 
-  private securityService(): Trongate_security {
-    return (this as unknown as { trongate_security: Trongate_security })
-      .trongate_security;
+  private securityService(): Eterc_security {
+    return (this as unknown as { eterc_security: Eterc_security })
+      .eterc_security;
   }
 
   // ============================================
@@ -178,17 +178,17 @@ export default class Module_relations extends Trongate {
       update_id === 0 ||
       !valid_panel_id(panel_id)
     ) {
-      throw new TgHttpError(400, "");
+      throw new EtHttpError(400, "");
     }
 
     const settings = this.relationsModel().get_relation_settings(
       calling_module,
       alt_module
     );
-    if (settings === null) throw new TgHttpError(400, "");
+    if (settings === null) throw new EtHttpError(400, "");
 
     const data = this.panelData(settings, calling_module, update_id, panel_id);
-    if (data === null) throw new TgHttpError(400, "");
+    if (data === null) throw new EtHttpError(400, "");
 
     if (this.wantsJson()) return { ok: true, panel: data };
     return this.view("module_relations/panel_body", data);
@@ -504,7 +504,7 @@ export default class Module_relations extends Trongate {
     status: number
   ): { ok: false; message: string } {
     if (this.wantsJson()) return { ok: false, message: message };
-    throw new TgHttpError(status, message);
+    throw new EtHttpError(status, message);
   }
 
   /** Whether the caller asked for the JSON representation of the panel. */
@@ -516,7 +516,7 @@ export default class Module_relations extends Trongate {
 
   /** A panel context value: custom header first, JSON body fallback. */
   private contextValue(
-    ctx: TgRequest,
+    ctx: EtRequest,
     header: string,
     field: string
   ): string {
@@ -529,7 +529,7 @@ export default class Module_relations extends Trongate {
   }
 
   /** A numeric panel context value (header first, JSON body fallback). */
-  private contextInt(ctx: TgRequest, header: string, field: string): number {
+  private contextInt(ctx: EtRequest, header: string, field: string): number {
     const raw = this.contextValue(ctx, header, field);
     const parsed = parseInt(raw, 10);
     return Number.isNaN(parsed) ? 0 : parsed;
@@ -548,7 +548,7 @@ export default class Module_relations extends Trongate {
       module_segment === this.module_name.toLowerCase() &&
       method_segment === method.toLowerCase()
     ) {
-      throw new TgHttpError(403, "403 Forbidden - Direct URL access not permitted");
+      throw new EtHttpError(403, "403 Forbidden - Direct URL access not permitted");
     }
   }
 }

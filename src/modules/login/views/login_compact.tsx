@@ -1,5 +1,5 @@
-import type { TgViewProps } from "@/engine/views-registry";
-import { TgForm } from "@/engine/ui/TgForm";
+import type { EtViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { AuthShell } from "./AuthShell";
 
 /** Login form (compact) — port of modules/login/views/login_compact.php. */
-export function LoginCompact({ data }: TgViewProps) {
+export function LoginCompact({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(
     (data.fields as { password?: { label?: string } } | undefined)?.password?.label ??
@@ -22,7 +22,7 @@ export function LoginCompact({ data }: TgViewProps) {
     <AuthShell title="Log In">
       <ValidationErrors />
 
-      <TgForm
+      <EtForm
         action="login/submit_login"
         params={[loginUrl]}
         className="space-y-4"
@@ -66,7 +66,7 @@ export function LoginCompact({ data }: TgViewProps) {
             </a>
           </p>
         ) : null}
-      </TgForm>
+      </EtForm>
     </AuthShell>
   );
 }

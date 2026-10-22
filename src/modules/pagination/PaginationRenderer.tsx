@@ -181,7 +181,7 @@ export function buildPaginationMarkup(data: PreparedPaginationData): string {
 export function PaginationMarkup({ html }: { html: string }) {
   return (
     <div
-      className="tg-pagination-markup contents"
+      className="et-pagination-markup contents"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

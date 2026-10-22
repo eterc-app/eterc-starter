@@ -104,8 +104,8 @@
         }
       ]
     },
-    "Trongate": {
-      "file": "engine/Trongate.php",
+    "Eterc": {
+      "file": "engine/Eterc.php",
       "methods": [
         {
           "name": "__construct",
@@ -1344,8 +1344,8 @@
         }
       ]
     },
-    "Trongate_administrators": {
-      "file": "modules/trongate_administrators/Trongate_administrators.php",
+    "Eterc_administrators": {
+      "file": "modules/eterc_administrators/Eterc_administrators.php",
       "methods": [
         {
           "name": "__construct",
@@ -1429,8 +1429,8 @@
         }
       ]
     },
-    "Trongate_administrators_model": {
-      "file": "modules/trongate_administrators/Trongate_administrators_model.php",
+    "Eterc_administrators_model": {
+      "file": "modules/eterc_administrators/Eterc_administrators_model.php",
       "methods": [
         {
           "name": "find_one",
@@ -1507,7 +1507,7 @@
       ]
     },
     "Evo": {
-      "file": "modules/trongate_control/evo/Evo.php",
+      "file": "modules/eterc_control/evo/Evo.php",
       "methods": [
         {
           "name": "__construct",
@@ -1548,7 +1548,7 @@
       ]
     },
     "Flo": {
-      "file": "modules/trongate_control/flo/Flo.php",
+      "file": "modules/eterc_control/flo/Flo.php",
       "methods": [
         {
           "name": "__construct",
@@ -1569,7 +1569,7 @@
       ]
     },
     "Image_uploader_builder": {
-      "file": "modules/trongate_control/image_uploader_builder/Image_uploader_builder.php",
+      "file": "modules/eterc_control/image_uploader_builder/Image_uploader_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -1630,7 +1630,7 @@
       ]
     },
     "Image_uploader_builder_model": {
-      "file": "modules/trongate_control/image_uploader_builder/Image_uploader_builder_model.php",
+      "file": "modules/eterc_control/image_uploader_builder/Image_uploader_builder_model.php",
       "methods": [
         {
           "name": "prep_file_contents",
@@ -1707,7 +1707,7 @@
       ]
     },
     "Module_builder": {
-      "file": "modules/trongate_control/module_builder/Module_builder.php",
+      "file": "modules/eterc_control/module_builder/Module_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -1792,7 +1792,7 @@
       ]
     },
     "Module_relations_builder": {
-      "file": "modules/trongate_control/module_relations_builder/Module_relations_builder.php",
+      "file": "modules/eterc_control/module_relations_builder/Module_relations_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -1909,7 +1909,7 @@
       ]
     },
     "Module_relations_builder_model": {
-      "file": "modules/trongate_control/module_relations_builder/Module_relations_builder_model.php",
+      "file": "modules/eterc_control/module_relations_builder/Module_relations_builder_model.php",
       "methods": [
         {
           "name": "get_runtime_route",
@@ -2014,7 +2014,7 @@
       ]
     },
     "Plural_maker": {
-      "file": "modules/trongate_control/plural_maker/Plural_maker.php",
+      "file": "modules/eterc_control/plural_maker/Plural_maker.php",
       "methods": [
         {
           "name": "make_plural",
@@ -2039,7 +2039,7 @@
       ]
     },
     "Properties": {
-      "file": "modules/trongate_control/properties/Properties.php",
+      "file": "modules/eterc_control/properties/Properties.php",
       "methods": [
         {
           "name": "__construct",
@@ -2060,7 +2060,7 @@
       ]
     },
     "Properties_builder": {
-      "file": "modules/trongate_control/properties_builder/Properties_builder.php",
+      "file": "modules/eterc_control/properties_builder/Properties_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -2073,7 +2073,7 @@
       ]
     },
     "Query_builder": {
-      "file": "modules/trongate_control/query_builder/Query_builder.php",
+      "file": "modules/eterc_control/query_builder/Query_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -2090,7 +2090,7 @@
       ]
     },
     "Site_builder": {
-      "file": "modules/trongate_control/site_builder/Site_builder.php",
+      "file": "modules/eterc_control/site_builder/Site_builder.php",
       "methods": [
         {
           "name": "__construct",
@@ -2143,7 +2143,7 @@
       ]
     },
     "Site_builder_model": {
-      "file": "modules/trongate_control/site_builder/Site_builder_model.php",
+      "file": "modules/eterc_control/site_builder/Site_builder_model.php",
       "methods": [
         {
           "name": "check_write_permissions",
@@ -2223,8 +2223,8 @@
         }
       ]
     },
-    "Trongate_control": {
-      "file": "modules/trongate_control/Trongate_control.php",
+    "Eterc_control": {
+      "file": "modules/eterc_control/Eterc_control.php",
       "methods": [
         {
           "name": "__construct",
@@ -2300,8 +2300,8 @@
         }
       ]
     },
-    "Trongate_control_model": {
-      "file": "modules/trongate_control/Trongate_control_model.php",
+    "Eterc_control_model": {
+      "file": "modules/eterc_control/Eterc_control_model.php",
       "methods": [
         {
           "name": "check_sql_safety",
@@ -2317,8 +2317,8 @@
         }
       ]
     },
-    "Trongate_email": {
-      "file": "modules/trongate_email/Trongate_email.php",
+    "Eterc_email": {
+      "file": "modules/eterc_email/Eterc_email.php",
       "methods": [
         {
           "name": "__construct",
@@ -2398,8 +2398,8 @@
         }
       ]
     },
-    "Trongate_security": {
-      "file": "modules/trongate_security/Trongate_security.php",
+    "Eterc_security": {
+      "file": "modules/eterc_security/Eterc_security.php",
       "methods": [
         {
           "name": "__construct",
@@ -2411,8 +2411,8 @@
         }
       ]
     },
-    "Trongate_tokens": {
-      "file": "modules/trongate_tokens/Trongate_tokens.php",
+    "Eterc_tokens": {
+      "file": "modules/eterc_tokens/Eterc_tokens.php",
       "methods": [
         {
           "name": "__construct",
@@ -2452,8 +2452,8 @@
         }
       ]
     },
-    "Trongate_tokens_model": {
-      "file": "modules/trongate_tokens/Trongate_tokens_model.php",
+    "Eterc_tokens_model": {
+      "file": "modules/eterc_tokens/Eterc_tokens_model.php",
       "methods": [
         {
           "name": "gather_user_tokens",
@@ -2574,7 +2574,7 @@
           "visibility": "public"
         },
         {
-          "name": "from_trongate_mx",
+          "name": "from_eterc_mx",
           "visibility": "public"
         }
       ]
@@ -2804,7 +2804,7 @@
     "form_time",
     "form_url",
     "form_week",
-    "from_trongate_mx",
+    "from_eterc_mx",
     "generate_input_element",
     "get_attributes_str",
     "get_last_part",

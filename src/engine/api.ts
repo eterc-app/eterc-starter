@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { MODULES_DIR } from "./paths";
-import { TgHttpError } from "./signals";
+import { EtHttpError } from "./signals";
 import {
-  Trongate_tokens,
-  type TrongateUserObj,
-} from "./Trongate_tokens";
+  Eterc_tokens,
+  type EtercUserObj,
+} from "./Eterc_tokens";
 
 /**
  * Helpers for the public JSON API.
@@ -23,7 +23,7 @@ import {
  * HTTP status/headers. The API route recognizes this class and writes the
  * response directly instead of applying the default 200 status.
  */
-export class TgApiResponse {
+export class EtApiResponse {
   body: unknown;
   status: number;
   headers?: HeadersInit;
@@ -36,20 +36,20 @@ export class TgApiResponse {
 }
 
 /** Require a valid administrator token/session and return its user object. */
-export function require_api_user(level = 1): TrongateUserObj {
-  const tokens = new Trongate_tokens();
+export function require_api_user(level = 1): EtercUserObj {
+  const tokens = new Eterc_tokens();
   const token = tokens.attempt_get_valid_token(level);
 
   if (!token) {
-    throw new TgHttpError(
+    throw new EtHttpError(
       401,
-      "A valid administrator token is required. Sign in to the control panel or send a Trongatetoken header."
+      "A valid administrator token is required. Sign in to the control panel or send an EtercToken header."
     );
   }
 
   const user = tokens.get_user_obj(token);
   if (!user) {
-    throw new TgHttpError(401, "The supplied administrator token is not valid.");
+    throw new EtHttpError(401, "The supplied administrator token is not valid.");
   }
 
   return user;
@@ -60,8 +60,8 @@ export function api_response(
   body: unknown,
   status = 200,
   headers?: HeadersInit
-): TgApiResponse {
-  return new TgApiResponse(body, status, headers);
+): EtApiResponse {
+  return new EtApiResponse(body, status, headers);
 }
 
 export interface OpenApiDocument {
@@ -91,7 +91,7 @@ const BASE_DOCUMENT: OpenApiDocument = {
     title: "Eterc API",
     version: process.env.npm_package_version ?? "0.1.0",
     description:
-      "JSON API for the current Eterc project. The documentation below is generated from src/modules/*/assets/api.json and is served by Scalar. Requests sent from the signed-in desktop control panel use its session automatically; external clients can send a Trongatetoken header.",
+      "JSON API for the current Eterc project. The documentation below is generated from src/modules/*/assets/api.json and is served by Scalar. Requests sent from the signed-in desktop control panel use its session automatically; external clients can send an EtercToken header.",
   },
   servers: [
     {
@@ -106,7 +106,7 @@ const BASE_DOCUMENT: OpenApiDocument = {
       adminToken: {
         type: "apiKey",
         in: "header",
-        name: "Trongatetoken",
+        name: "EtercToken",
         description:
           "Administrator token. The control-panel session is accepted too, so requests sent from Scalar inside the signed-in desktop app work without pasting a token.",
       },

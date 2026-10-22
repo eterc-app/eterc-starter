@@ -8,7 +8,7 @@ import { DB_FILE } from "./paths";
  * The API deliberately mirrors the PHP class so ported module code reads
  * almost identically:
  *
- *   const rows  = db.get("id", "trongate_user_levels");          // ordered rows
+ *   const rows  = db.get("id", "eterc_user_levels");          // ordered rows
  *   const row   = db.get_where(15, "users");                     // row by id | false
  *   const one   = db.get_one_where("email", "a@b.c", "users");   // row by column | false
  *   const id    = db.insert({ name: "Demo" }, "demo_table");     // last insert id
@@ -30,11 +30,11 @@ function openSqlite(): Database.Database {
 
 /** Raw shared SQLite connection (framework internals). */
 export function sqlite(): Database.Database {
-  const g = globalThis as unknown as { __tgSqlite?: Database.Database };
-  if (!g.__tgSqlite) {
-    g.__tgSqlite = openSqlite();
+  const g = globalThis as unknown as { __etSqlite?: Database.Database };
+  if (!g.__etSqlite) {
+    g.__etSqlite = openSqlite();
   }
-  _sqlite = g.__tgSqlite;
+  _sqlite = g.__etSqlite;
   return _sqlite;
 }
 

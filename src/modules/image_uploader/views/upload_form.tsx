@@ -1,7 +1,7 @@
 import { Flashdata } from "@/engine/ui/Flashdata";
-import { TgForm } from "@/engine/ui/TgForm";
+import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -12,14 +12,14 @@ import { Label } from "@/components/ui/label";
  *
  * A full page for one record so a large upload is an ordinary multipart
  * form submission. The PHP original posted a plain multipart form to
- * submit_upload(); the port uses <TgForm> with encType="multipart/form-data"
+ * submit_upload(); the port uses <EtForm> with encType="multipart/form-data"
  * (a server action that carries the same FormData), which is the port's
  * equivalent for real file transfers.
  *
  * Expects: headline, module, update_id, current_file_name,
  *          current_picture_url, cancel_url.
  */
-export default function UploadForm({ data }: TgViewProps) {
+export default function UploadForm({ data }: EtViewProps) {
   const module = String(data.module ?? "");
   const update_id = Number(data.update_id ?? 0);
   const current_file_name = String(data.current_file_name ?? "");
@@ -54,7 +54,7 @@ export default function UploadForm({ data }: TgViewProps) {
             </div>
           ) : null}
 
-          <TgForm
+          <EtForm
             action="image_uploader/submit_upload"
             hidden={{ module: module, update_id: update_id }}
             encType="multipart/form-data"
@@ -80,7 +80,7 @@ export default function UploadForm({ data }: TgViewProps) {
                 Upload Picture
               </Button>
             </div>
-          </TgForm>
+          </EtForm>
         </CardContent>
       </Card>
     </div>

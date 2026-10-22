@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Flashdata } from "@/engine/ui/Flashdata";
-import { useTgUi } from "@/engine/ui/TgUiProvider";
-import type { TgViewProps } from "@/engine/views-registry";
+import { useEtUi } from "@/engine/ui/EtUiProvider";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -44,8 +44,8 @@ interface XhrReply<T> {
   message?: string;
 }
 
-export default function TableList({ data }: TgViewProps) {
-  const { csrf_token } = useTgUi();
+export default function TableList({ data }: EtViewProps) {
+  const { csrf_token } = useEtUi();
 
   const tables = (data.tables ?? []) as TableSummary[];
   const browse_url_root = String(data.browse_url_root ?? "");

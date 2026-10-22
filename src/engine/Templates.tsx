@@ -11,7 +11,7 @@ import { Error404 } from "@/templates/Error404";
  * composition of the theme component with the addressed view component.
  */
 
-export interface TgTemplateData extends Record<string, unknown> {
+export interface EtTemplateData extends Record<string, unknown> {
   viewModule?: string;
   viewFile?: string;
   pageTitle?: string;
@@ -20,7 +20,7 @@ export interface TgTemplateData extends Record<string, unknown> {
   additional_includes_btm?: string | string[];
 }
 
-function viewNode(data: TgTemplateData): ReactNode {
+function viewNode(data: EtTemplateData): ReactNode {
   const moduleName = String(data.viewModule ?? "");
   const file = String(data.viewFile ?? "");
   return render_view(`${moduleName}/${file}`, data);
@@ -33,7 +33,7 @@ export class Templates {
   }
 
   /** Public theme. */
-  async public(data: TgTemplateData): Promise<ReactNode> {
+  async public(data: EtTemplateData): Promise<ReactNode> {
     return (
       <PublicTemplate pageTitle={data.pageTitle ? String(data.pageTitle) : undefined}>
         {viewNode(data)}
@@ -42,7 +42,7 @@ export class Templates {
   }
 
   /** Admin theme. */
-  async admin(data: TgTemplateData): Promise<ReactNode> {
+  async admin(data: EtTemplateData): Promise<ReactNode> {
     return (
       <AdminTemplate
         pageTitle={data.pageTitle ? String(data.pageTitle) : "Admin Panel"}
@@ -54,7 +54,7 @@ export class Templates {
   }
 
   /** Full-page module details template (Flo overlay iframe). */
-  async module_details(data: TgTemplateData): Promise<ReactNode> {
+  async module_details(data: EtTemplateData): Promise<ReactNode> {
     return (
       <ModuleDetailsTemplate
         afterCloseUrl={String(data.after_close_url ?? "")}

@@ -1,4 +1,4 @@
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * not_found view using the db controller's data contract
  * { headline, message, back_url, back_label }.
  */
-export default function NotFound({ data }: TgViewProps) {
+export default function NotFound({ data }: EtViewProps) {
   const headline = String(data.headline ?? "Not Found");
 
   return (

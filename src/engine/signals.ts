@@ -4,7 +4,7 @@
  * Next.js redirects).
  */
 
-export class TgHttpError extends Error {
+export class EtHttpError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
@@ -13,7 +13,7 @@ export class TgHttpError extends Error {
 }
 
 /** Thrown by redirect(); the dispatcher converts it into a real redirect. */
-export class TgRedirectSignal {
+export class EtRedirectSignal {
   url: string;
   constructor(url: string) {
     this.url = url;

@@ -1,5 +1,5 @@
-import type { TgViewProps } from "@/engine/views-registry";
-import { TgForm } from "@/engine/ui/TgForm";
+import type { EtViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { AuthShell } from "./AuthShell";
  * Forgot password form — port of
  * modules/login/forgot_password/views/forgot_password_form.php.
  */
-export function ForgotPasswordForm({ data }: TgViewProps) {
+export function ForgotPasswordForm({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const loginUrl = String(data.login_url ?? "");
   const lowerLabel = identifierLabel.toLowerCase();
@@ -23,7 +23,7 @@ export function ForgotPasswordForm({ data }: TgViewProps) {
     <AuthShell title="Forgot your password?" description={instruction}>
       <Flashdata />
 
-      <TgForm
+      <EtForm
         action="login/submit_forgot_password"
         params={[loginUrl]}
         className="space-y-4"
@@ -43,7 +43,7 @@ export function ForgotPasswordForm({ data }: TgViewProps) {
         <Button type="submit" className="w-full">
           Send Reset Link
         </Button>
-      </TgForm>
+      </EtForm>
 
       <p className="mt-5 border-t pt-4 text-center text-sm">
         <a

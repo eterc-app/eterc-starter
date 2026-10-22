@@ -1,4 +1,4 @@
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { SetupWizard, HelpMessage } from "../SetupWizard";
 
 /**
@@ -10,7 +10,7 @@ import { SetupWizard, HelpMessage } from "../SetupWizard";
  * this module keeps the {module}/{view_file} addressing intact.
  */
 
-function SetupIndex({ data }: TgViewProps) {
+function SetupIndex({ data }: EtViewProps) {
   return (
     <main>
       <SetupWizard

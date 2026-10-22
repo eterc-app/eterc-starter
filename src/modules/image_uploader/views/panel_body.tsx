@@ -1,4 +1,4 @@
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { PictureRegion } from "./picture_region";
 
 /**
@@ -10,6 +10,6 @@ import { PictureRegion } from "./picture_region";
  * The single panel-scoped region (#iu-{panel_id}-body) is rendered by the
  * client component, keeping the markup identical in both cases.
  */
-export default function PanelBody({ data }: TgViewProps) {
+export default function PanelBody({ data }: EtViewProps) {
   return <PictureRegion data={data} />;
 }

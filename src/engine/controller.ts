@@ -1,21 +1,21 @@
 import { Db } from "./db";
 import { Model } from "./model";
 import { Validation } from "./Validation";
-import { Trongate_tokens } from "./Trongate_tokens";
+import { Eterc_tokens } from "./Eterc_tokens";
 import { Templates } from "./Templates";
 
 /**
- * Trongate base controller — port of engine/Trongate.php.
+ * Eterc base controller — port of engine/Eterc.php.
  *
  * Controllers extend this class and lazily reach framework modules/properties
  * exactly like the PHP original (`this.db`, `this.validation`, `this.model`,
- * `this.templates`, `this.trongate_tokens`, ...).
+ * `this.templates`, `this.eterc_tokens`, ...).
  *
  * Unknown properties resolve through the synchronously-registered service
  * factories (see register_sync_service) with a lazy per-request cache.
  */
 
-type SyncFactory = (controller: Trongate) => unknown;
+type SyncFactory = (controller: Eterc) => unknown;
 
 const syncFactories = new Map<string, SyncFactory>();
 
@@ -25,9 +25,9 @@ export function register_sync_service(name: string, factory: SyncFactory): void 
 }
 
 /** Constructor shape of a ported module controller. */
-export type ControllerCtor = new (moduleName?: string | null) => Trongate;
+export type ControllerCtor = new (moduleName?: string | null) => Eterc;
 
-export class Trongate {
+export class Eterc {
   /** PHP-style dynamic property access (module instances, services, ...). */
   [key: string]: unknown;
 
@@ -51,7 +51,7 @@ export class Trongate {
    * Load another module's controller asynchronously:
    *   const login = await this.module("login");
    */
-  async module<T = Trongate>(name: string): Promise<T> {
+  async module<T = Eterc>(name: string): Promise<T> {
     const key = name.toLowerCase();
     if (this.instances[key]) return this.instances[key] as T;
 
@@ -74,7 +74,7 @@ export class Trongate {
    * Resolve properties not declared on the subclass through the sync service
    * registry — the equivalent of PHP's __get() auto-loading.
    */
-  static create_proxy<T extends Trongate>(controller: T): T {
+  static create_proxy<T extends Eterc>(controller: T): T {
     return new Proxy(controller, {
       get(target, prop, receiver) {
         if (typeof prop === "symbol") {
@@ -96,8 +96,8 @@ export class Trongate {
         }
 
         // Well-known framework singleton.
-        if (prop === "trongate_tokens") {
-          const service = new Trongate_tokens();
+        if (prop === "eterc_tokens") {
+          const service = new Eterc_tokens();
           if (cached) cached[prop] = service;
           return service;
         }
@@ -109,7 +109,7 @@ export class Trongate {
 }
 
 /** Wire the standard framework services onto a freshly created controller. */
-export function prepare_controller(controller: Trongate, moduleName: string): Trongate {
+export function prepare_controller(controller: Eterc, moduleName: string): Eterc {
   controller.db = new Db(moduleName);
   const validation = new Validation();
   validation.set_caller(controller);
@@ -118,7 +118,7 @@ export function prepare_controller(controller: Trongate, moduleName: string): Tr
   if (!controller.model) {
     controller.model = new Model(moduleName);
   }
-  return Trongate.create_proxy(controller);
+  return Eterc.create_proxy(controller);
 }
 
 export const templates_service = new Templates();

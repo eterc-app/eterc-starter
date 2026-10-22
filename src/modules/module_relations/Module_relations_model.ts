@@ -34,7 +34,7 @@ import { DATA_DIR, MODULES_DIR, PROJECT_ROOT } from "@/engine/paths";
  *
  * Settings file lookup: the PHP original reads
  * APPPATH . 'modules/module_relations/settings'. The port searches (in order):
- *   TG_MODULE_RELATIONS_SETTINGS_DIR (env override), <root>/modules/…/settings
+ *   ET_MODULE_RELATIONS_SETTINGS_DIR (env override), <root>/modules/…/settings
  *   (PHP-compatible), src/modules/module_relations/settings,
  *   data/module_relations/settings, data/settings/module_relations.
  */
@@ -281,7 +281,7 @@ export class Module_relations_model extends Model {
   private settings_dirs(): string[] {
     const dirs: string[] = [];
 
-    const env = process.env.TG_MODULE_RELATIONS_SETTINGS_DIR;
+    const env = process.env.ET_MODULE_RELATIONS_SETTINGS_DIR;
     if (env !== undefined && env.trim() !== "") dirs.push(env.trim());
 
     dirs.push(nodePath.join(PROJECT_ROOT, "modules", "module_relations", "settings"));

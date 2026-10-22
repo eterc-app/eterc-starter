@@ -1,12 +1,12 @@
 import { post } from "./post";
-import { get_context, type TgRequest } from "./request-context";
+import { get_context, type EtRequest } from "./request-context";
 import { csrf_check, csrf_field_name } from "./csrf";
 import { db } from "./db";
 import { BASE_URL } from "./config";
 import { session_set } from "./session";
-import { TgHttpError, TgRedirectSignal } from "./signals";
+import { EtHttpError, EtRedirectSignal } from "./signals";
 
-export { TgHttpError, TgRedirectSignal } from "./signals";
+export { EtHttpError, EtRedirectSignal } from "./signals";
 
 /**
  * Validation — port of modules/validation (Validation.php + rules).
@@ -97,9 +97,9 @@ export class Validation {
     const posted = post(csrf_field_name);
     if (typeof posted !== "string" || posted === "" || !csrf_check(posted)) {
       if (this.isAjax()) {
-        throw new TgHttpError(403, "CSRF token validation failed");
+        throw new EtHttpError(403, "CSRF token validation failed");
       }
-      throw new TgRedirectSignal(BASE_URL);
+      throw new EtRedirectSignal(BASE_URL);
     }
   }
 
@@ -135,7 +135,7 @@ export class Validation {
   private async executeRule(
     method: string,
     param: string | null,
-    info: { key: string; label: string; file: File | null; ctx: TgRequest }
+    info: { key: string; label: string; file: File | null; ctx: EtRequest }
   ): Promise<boolean> {
     const { key, label, file, ctx } = info;
 
@@ -251,7 +251,7 @@ export class Validation {
     key: string,
     label: string,
     file: File,
-    ctx: TgRequest
+    ctx: EtRequest
   ): Promise<boolean> {
     const extension = file.name.includes(".")
       ? file.name.split(".").pop()!.toLowerCase()

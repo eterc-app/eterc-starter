@@ -8,25 +8,25 @@ import type { ReactNode, ComponentType } from "react";
  * panel's generators append new entries when creating modules.
  */
 
-export type TgViewProps = {
+export type EtViewProps = {
   data: Record<string, unknown>;
 } & Record<string, unknown>;
 
-export type TgViewComponent = ComponentType<TgViewProps>;
+export type EtViewComponent = ComponentType<EtViewProps>;
 
-const views = new Map<string, TgViewComponent>();
+const views = new Map<string, EtViewComponent>();
 
-export function register_view(key: string, component: TgViewComponent): void {
+export function register_view(key: string, component: EtViewComponent): void {
   views.set(key, component);
 }
 
-export function register_views(map: Record<string, TgViewComponent>): void {
+export function register_views(map: Record<string, EtViewComponent>): void {
   for (const [key, component] of Object.entries(map)) {
     register_view(key, component);
   }
 }
 
-export function get_view(key: string): TgViewComponent | undefined {
+export function get_view(key: string): EtViewComponent | undefined {
   return views.get(key);
 }
 

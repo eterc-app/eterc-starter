@@ -1,5 +1,5 @@
-import type { TgViewProps } from "@/engine/views-registry";
-import { TgForm } from "@/engine/ui/TgForm";
+import type { EtViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /** Login form (split) — port of modules/login/views/login_split.php. */
-export function LoginSplit({ data }: TgViewProps) {
+export function LoginSplit({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(
     (data.fields as { password?: { label?: string } } | undefined)?.password?.label ??
@@ -29,7 +29,7 @@ export function LoginSplit({ data }: TgViewProps) {
 
           <ValidationErrors />
 
-          <TgForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
+          <EtForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="identifier">{identifierLabel}</Label>
               <Input
@@ -68,7 +68,7 @@ export function LoginSplit({ data }: TgViewProps) {
                 </a>
               </p>
             ) : null}
-          </TgForm>
+          </EtForm>
         </div>
       </Card>
     </main>

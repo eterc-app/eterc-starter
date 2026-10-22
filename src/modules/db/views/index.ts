@@ -1,4 +1,4 @@
-import type { TgViewComponent } from "@/engine/views-registry";
+import type { EtViewComponent } from "@/engine/views-registry";
 import Browse from "./browse";
 import DeleteConf from "./delete_conf";
 import Forger from "./forger";
@@ -15,7 +15,7 @@ import TableList from "./table_list";
  * ships no views; these view files were designed from the data contracts of
  * the ported Db controller (see each view's docblock).
  */
-export const views: Record<string, TgViewComponent> = {
+export const views: Record<string, EtViewComponent> = {
   "db/browse": Browse,
   "db/delete_conf": DeleteConf,
   "db/forger": Forger,

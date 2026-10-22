@@ -1,4 +1,4 @@
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import {
   Pagination_model,
   type PaginationData,
@@ -23,7 +23,7 @@ import type { ReactNode } from "react";
  * Views can use the canonical <Pagination data={...} /> component from
  * ./PaginationRenderer directly (the administrators manage view does).
  */
-export default class Pagination extends Trongate {
+export default class Pagination extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
     this.model = new Pagination_model("pagination");

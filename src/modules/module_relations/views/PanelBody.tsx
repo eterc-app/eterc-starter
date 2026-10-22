@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { BASE_URL } from "@/engine/config";
-import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { Button } from "@/components/ui/button";
 import type { PanelBodyData } from "./types";
 
@@ -27,7 +27,7 @@ interface XhrReply {
 }
 
 export function PanelBody({ data }: { data: PanelBodyData }) {
-  const { csrf_token } = useTgUi();
+  const { csrf_token } = useEtUi();
   const [panel, setPanel] = useState<PanelBodyData>(data);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);

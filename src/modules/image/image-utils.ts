@@ -89,7 +89,7 @@ export function detectSupportedFormat(bytes: Buffer): ImageFormat | null {
 }
 
 /**
- * Guess the MIME type of a valid image in a format Trongate does not
+ * Guess the MIME type of a valid image in a format Eterc does not
  * accept (used to raise the 415 UNSUPPORTED_FORMAT error).
  */
 export function guessUnsupportedImageMime(bytes: Buffer): string | null {

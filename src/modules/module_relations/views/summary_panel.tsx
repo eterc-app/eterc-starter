@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelBody } from "./PanelBody";
 import type { PanelBodyData } from "./types";
@@ -24,7 +24,7 @@ interface XhrReply {
   message?: string;
 }
 
-export default function SummaryPanel({ data }: TgViewProps) {
+export default function SummaryPanel({ data }: EtViewProps) {
   const summary_panel_id = String(data.summary_panel_id ?? "");
   const calling_module = String(data.calling_module ?? "");
   const alt_module = String(data.alt_module ?? "");

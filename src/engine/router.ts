@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { Trongate, prepare_controller, type ControllerCtor } from "./controller";
+import { Eterc, prepare_controller, type ControllerCtor } from "./controller";
 import { controllerLoaders } from "./registrations";
 import { DEFAULT_METHOD, DEFAULT_MODULE, CUSTOM_ROUTES } from "./config";
-import { TgHttpError } from "./signals";
+import { EtHttpError } from "./signals";
 import { resolve_public_route } from "./url-aliases";
 import type { Validation } from "./Validation";
 
@@ -21,7 +21,7 @@ export interface RouteTarget {
 export interface DispatchResult {
   node: ReactNode;
   rawReturn: unknown;
-  controller?: Trongate;
+  controller?: Eterc;
   validation?: Validation;
 }
 
@@ -41,17 +41,17 @@ export function resolve_route(segments: string[]): RouteTarget {
   const params = working.slice(2);
 
   if (!VALID_SEGMENT.test(module) || !VALID_SEGMENT.test(method)) {
-    throw new TgHttpError(404, "Invalid route");
+    throw new EtHttpError(404, "Invalid route");
   }
 
   return { module, method, params };
 }
 
 /** Instantiate a module controller (with framework services prepared). */
-export async function load_controller(moduleName: string): Promise<Trongate> {
+export async function load_controller(moduleName: string): Promise<Eterc> {
   const loader = controllerLoaders[moduleName];
   if (!loader) {
-    throw new TgHttpError(404, `Module '${moduleName}' not found`);
+    throw new EtHttpError(404, `Module '${moduleName}' not found`);
   }
   const moduleExports = await loader();
   const Ctor = moduleExports.default;
@@ -70,7 +70,7 @@ export async function dispatch(segments: string[]): Promise<DispatchResult> {
     method === "constructor" ||
     typeof handler !== "function"
   ) {
-    throw new TgHttpError(404, `Method '${method}' not found in module '${module}'`);
+    throw new EtHttpError(404, `Method '${method}' not found in module '${module}'`);
   }
 
   const rawReturn = await (handler as () => unknown).call(controller);

@@ -1,4 +1,4 @@
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { get_context } from "@/engine/request-context";
 import { session_get, session_set, session_unset } from "@/engine/session";
 import { Language_model, type LanguagePhrases } from "./Language_model";
@@ -11,7 +11,7 @@ import { Language_model, type LanguagePhrases } from "./Language_model";
  * phrase files. Public method names and semantics mirror the PHP original.
  *
  * Port notes:
- *  - the APP_LANG constant becomes the TG_APP_LANG environment variable (the
+ *  - the APP_LANG constant becomes the ET_APP_LANG environment variable (the
  *    port keeps configuration in src/engine/config.ts, which is not modified
  *    by this module);
  *  - cookies are pushed through the request context and only actually set on
@@ -20,7 +20,7 @@ import { Language_model, type LanguagePhrases } from "./Language_model";
  *  - load() delegates to Language_model because the PHP original `require`s a
  *    PHP file — the port reads equivalent JSON files instead.
  */
-export default class Language extends Trongate {
+export default class Language extends Eterc {
   /** Default language fallback (PHP: private $default_language). */
   private default_language = "en";
 
@@ -73,7 +73,7 @@ export default class Language extends Trongate {
       return from_cookie;
     }
 
-    const app_lang = process.env.TG_APP_LANG ?? "";
+    const app_lang = process.env.ET_APP_LANG ?? "";
     if (app_lang !== "") {
       return app_lang;
     }

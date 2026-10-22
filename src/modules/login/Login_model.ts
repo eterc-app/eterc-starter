@@ -2,14 +2,14 @@ import { Model } from "@/engine/model";
 import type { Row } from "@/engine/db";
 import { get_context } from "@/engine/request-context";
 import { make_rand_str } from "@/engine/String_service";
-import { Trongate_tokens } from "@/engine/Trongate_tokens";
+import { Eterc_tokens } from "@/engine/Eterc_tokens";
 import {
   LOGIN_CONFIG,
   type LoginConfig,
   type LoginUserLevel,
 } from "@/engine/config";
 import { compareSync, hashSync } from "bcryptjs";
-import { send_email } from "@/modules/trongate_email";
+import { send_email } from "@/modules/eterc_email";
 
 /**
  * Login model — port of modules/login/Login_model.php.
@@ -313,26 +313,26 @@ export class Login_model extends Model {
       return false;
     }
 
-    const trongate_user_id = this.get_user_ref_id(user, config);
+    const eterc_user_id = this.get_user_ref_id(user, config);
 
-    if (trongate_user_id <= 0) {
+    if (eterc_user_id <= 0) {
       return false;
     }
 
-    const tokens = new Trongate_tokens();
+    const tokens = new Eterc_tokens();
     let token: string;
 
     if (remember === 1 && config.allow_remember === 1) {
       const expiry_date = now_seconds() + 86400 * config.remember_days;
       token = tokens.generate_token({
-        user_id: trongate_user_id,
+        user_id: eterc_user_id,
         expiry_date,
         set_cookie: true,
       });
     } else {
       // generate_token() stores the token in the session when not persisting
-      // a cookie — parity with $_SESSION['trongatetoken'] = $token.
-      token = tokens.generate_token({ user_id: trongate_user_id });
+      // a cookie — parity with $_SESSION['eterctoken'] = $token.
+      token = tokens.generate_token({ user_id: eterc_user_id });
     }
 
     this.update_login_stats(config, user);
@@ -514,10 +514,10 @@ export class Login_model extends Model {
       const user = this.find_user(reset.identifier, level_id);
 
       if (user !== false) {
-        const trongate_user_id = this.get_user_ref_id(user, level_config);
+        const eterc_user_id = this.get_user_ref_id(user, level_config);
 
-        if (trongate_user_id > 0) {
-          new Trongate_tokens().delete_old_tokens(trongate_user_id);
+        if (eterc_user_id > 0) {
+          new Eterc_tokens().delete_old_tokens(eterc_user_id);
         }
       }
     }
@@ -529,7 +529,7 @@ export class Login_model extends Model {
    * Send a password reset email.
    *
    * Builds the same plain-text message as the PHP original and delegates
-   * delivery to the ported trongate_email module.
+   * delivery to the ported eterc_email module.
    */
   async send_reset_email(to_email: string, reset_link: string): Promise<boolean> {
     let body = "Hello,\n\n";
@@ -579,7 +579,7 @@ export class Login_model extends Model {
     return hashSync(password, cost);
   }
 
-  /** The user's trongate_users.id, honouring the configured reference column. */
+  /** The user's eterc_users.id, honouring the configured reference column. */
   private get_user_ref_id(user: Row, config: LoginUserLevel): number {
     const configured = user[config.user_ref_field];
 

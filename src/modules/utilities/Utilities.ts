@@ -1,8 +1,8 @@
 import { createElement, type ReactNode } from "react";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { get_context, segment } from "@/engine/request-context";
 import { get_view } from "@/engine/views-registry";
-import { TgHttpError } from "@/engine/signals";
+import { EtHttpError } from "@/engine/signals";
 
 /**
  * Utilities module — port of modules/utilities/Utilities.php.
@@ -33,7 +33,7 @@ export function block_url(block_path = ""): void {
 
   if (target_method === "") {
     if (current_module === target_module.toLowerCase()) {
-      throw new TgHttpError(403, "403 Forbidden - Direct URL access not permitted");
+      throw new EtHttpError(403, "403 Forbidden - Direct URL access not permitted");
     }
     return;
   }
@@ -43,11 +43,11 @@ export function block_url(block_path = ""): void {
     current_module === target_module.toLowerCase() &&
     current_method === target_method.toLowerCase()
   ) {
-    throw new TgHttpError(403, "403 Forbidden - Direct URL access not permitted");
+    throw new EtHttpError(403, "403 Forbidden - Direct URL access not permitted");
   }
 }
 
-export default class Utilities extends Trongate {
+export default class Utilities extends Eterc {
   /**
    * Blocks direct browser access to a module or a module/method combination.
    * See block_url() above — internal PHP calls were harmless, internal TS
@@ -189,11 +189,11 @@ export default class Utilities extends Trongate {
   }
 
   /**
-   * True when the request carries the Trongate-MX-Request header (the PHP
+   * True when the request carries the Eterc-MX-Request header (the PHP
    * original only checked that the header was set, whatever its value).
    */
-  from_trongate_mx(): boolean {
-    return get_context().headers.get("trongate-mx-request") !== null;
+  from_eterc_mx(): boolean {
+    return get_context().headers.get("eterc-mx-request") !== null;
   }
 }
 

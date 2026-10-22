@@ -6,8 +6,8 @@ import {
 import { controllerLoaders } from "@/engine/registrations";
 import { run_with_context } from "@/engine/request-context";
 import { dispatch } from "@/engine/router";
-import { TgApiResponse } from "@/engine/api";
-import { TgHttpError, TgRedirectSignal } from "@/engine/signals";
+import { EtApiResponse } from "@/engine/api";
+import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
 import type { ControllerCtor } from "@/engine/controller";
 
 const RESOURCE_PATTERN = /^[a-z][a-z0-9_-]*$/i;
@@ -44,7 +44,7 @@ async function read_body(
     try {
       return { json: await request.json() };
     } catch {
-      throw new TgHttpError(400, "The request body is not valid JSON.");
+      throw new EtHttpError(400, "The request body is not valid JSON.");
     }
   }
 
@@ -157,7 +157,7 @@ async function handle(
     }
 
     const payload = result.rawReturn;
-    if (payload instanceof TgApiResponse) {
+    if (payload instanceof EtApiResponse) {
       return NextResponse.json(payload.body ?? null, {
         status: payload.status,
         headers: payload.headers,
@@ -168,10 +168,10 @@ async function handle(
 
     return NextResponse.json(payload ?? null, { status: 200 });
   } catch (error) {
-    if (error instanceof TgHttpError) {
+    if (error instanceof EtHttpError) {
       return error_response(error, error.status);
     }
-    if (error instanceof TgRedirectSignal) {
+    if (error instanceof EtRedirectSignal) {
       return error_response(
         new Error("A valid administrator session or token is required."),
         401

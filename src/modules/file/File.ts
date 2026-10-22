@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as v8 from "node:v8";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { uploaded_files } from "@/engine/post";
-import type { TgUploadedFile } from "@/engine/request-context";
+import type { EtUploadedFile } from "@/engine/request-context";
 import { segment } from "@/engine/request-context";
 import { PROJECT_ROOT } from "@/engine/paths";
 import { make_rand_str, sanitize_filename } from "@/engine/String_service";
@@ -56,7 +56,7 @@ const UPLOAD_ERRORS: Record<number, string> = {
   8: "A PHP extension stopped the file upload",
 };
 
-export default class File extends Trongate {
+export default class File extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
     // Protect this module from unwanted browser access (PHP parity).
@@ -86,7 +86,7 @@ export default class File extends Trongate {
     );
 
     const files = await uploaded_files();
-    const upload: TgUploadedFile | undefined = Object.values(files)[0];
+    const upload: EtUploadedFile | undefined = Object.values(files)[0];
 
     if (upload === undefined) {
       throw new Error("No file was uploaded");
@@ -533,7 +533,7 @@ export default class File extends Trongate {
    * Validate an uploaded file: existence, memory requirements and MIME type.
    * (PHP: validate_file(); the tmp file is already in memory here.)
    */
-  private validate_file(upload: TgUploadedFile): void {
+  private validate_file(upload: EtUploadedFile): void {
     const bytes = upload.bytes ?? Buffer.alloc(0);
 
     if (bytes.length === 0 && upload.size === 0) {

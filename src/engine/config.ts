@@ -2,11 +2,11 @@
  * Eterc - framework configuration.
  *
  * Mirrors: config/config.php, config/site_owner.php and parts of
- * config/login.php + config/trongate_email.php from the PHP original.
+ * config/login.php + config/eterc_email.php from the PHP original.
  */
 
 /** Base URL prefix. On Next.js the app is served from the site root. */
-export const BASE_URL = process.env.TG_BASE_URL ?? "/";
+export const BASE_URL = process.env.ET_BASE_URL ?? "/";
 
 /** Environment: 'dev' or 'production'. Mirrors config.php ENV. */
 export const ENV = process.env.NODE_ENV === "production" ? "production" : "dev";
@@ -17,7 +17,7 @@ export const DEFAULT_MODULE = "setup";
 /** Default method when no method segment is present. */
 export const DEFAULT_METHOD = "index";
 
-/** Legacy asset trigger for module assets (kept for URL compatibility). */
+/** Asset trigger for module assets (`<module>_module`). */
 export const MODULE_ASSETS_TRIGGER = "_module";
 
 /** 404 handler in "module/method" form. */
@@ -37,14 +37,6 @@ export const OUR_EMAIL_ADDRESS = "";
 // Public Eterc URLs
 // ---------------------------------------------------------------------------
 //
-// The original Trongate app linked to https://trongate.io. Eterc keeps the
-// same information architecture but uses the eterc.app domain:
-//
-//   https://trongate.io                    -> https://www.eterc.app
-//   https://trongate.io/documentation      -> https://eterc-docs.eterc.app
-//   https://trongate.io/forums...          -> https://eterc-forum.eterc.app
-//   https://trongate.io/ (API base)        -> https://eterc-api.eterc.app/
-//
 // Keep every outbound project link in one place so a future domain change is
 // a one-file edit.
 
@@ -52,7 +44,7 @@ export const ETERC_HOME_URL = "https://www.eterc.app";
 export const ETERC_DOCS_URL = "https://eterc-docs.eterc.app";
 export const ETERC_FORUM_URL = "https://eterc-forum.eterc.app";
 export const ETERC_API_URL = "https://eterc-api.eterc.app/";
-export const ETERC_GITHUB_URL = "https://github.com/etercjs/eterc";
+export const ETERC_GITHUB_URL = "https://github.com/eterc-app/eterc-starter";
 
 // ---------------------------------------------------------------------------
 // Flashdata rendering wrappers (config/config.php: FLASHDATA_OPEN/CLOSE)
@@ -102,10 +94,10 @@ export const LOGIN_CONFIG: LoginConfig = {
   reset_token_lifespan: 3600,
   user_levels: {
     1: {
-      target_table: "trongate_administrators",
-      user_ref_field: "trongate_user_id",
-      secret_login_word: "tg-admin",
-      redirect_on_success: "trongate_administrators/manage",
+      target_table: "eterc_administrators",
+      user_ref_field: "eterc_user_id",
+      secret_login_word: "et-admin",
+      redirect_on_success: "eterc_administrators/manage",
       allow_remember: 0,
       remember_days: 0,
       enable_forgot_password: false,
@@ -122,16 +114,16 @@ export const LOGIN_CONFIG: LoginConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// Email configuration (config/trongate_email.php) — env driven in the port.
+// Email configuration (config/eterc_email.php) — env driven in the port.
 // ---------------------------------------------------------------------------
 
 export const EMAIL_CONFIG = {
-  smtp_host: process.env.TG_SMTP_HOST ?? "",
-  smtp_port: Number(process.env.TG_SMTP_PORT ?? 465),
-  smtp_user: process.env.TG_SMTP_USER ?? "",
-  smtp_pass: process.env.TG_SMTP_PASS ?? "",
-  smtp_secure: (process.env.TG_SMTP_SECURE ?? "ssl") as "ssl" | "tls" | "",
-  smtp_from_name: process.env.TG_SMTP_FROM_NAME ?? "Eterc Support",
+  smtp_host: process.env.ET_SMTP_HOST ?? "",
+  smtp_port: Number(process.env.ET_SMTP_PORT ?? 465),
+  smtp_user: process.env.ET_SMTP_USER ?? "",
+  smtp_pass: process.env.ET_SMTP_PASS ?? "",
+  smtp_secure: (process.env.ET_SMTP_SECURE ?? "ssl") as "ssl" | "tls" | "",
+  smtp_from_name: process.env.ET_SMTP_FROM_NAME ?? "Eterc Support",
 };
 
 // ---------------------------------------------------------------------------
@@ -148,11 +140,11 @@ export const INTERCEPTORS: Interceptors = {};
 // Cookies / session
 // ---------------------------------------------------------------------------
 
-export const SESSION_COOKIE = "tg_session";
-export const CSRF_COOKIE = "tg_csrf";
-export const CSRF_HEADER = "x-tg-csrf";
+export const SESSION_COOKIE = "et_session";
+export const CSRF_COOKIE = "et_csrf";
+export const CSRF_HEADER = "x-et-csrf";
 export const CSRF_FIELD = "csrf_token";
-export const FLASH_COOKIE = "tg_flash";
-export const FLASH_HEADER = "x-tg-flash";
-export const AUTH_TOKEN_COOKIE = "trongatetoken";
+export const FLASH_COOKIE = "et_flash";
+export const FLASH_HEADER = "x-et-flash";
+export const AUTH_TOKEN_COOKIE = "eterctoken";
 export const SESSION_TTL = 60 * 60 * 24 * 7; // 7 days

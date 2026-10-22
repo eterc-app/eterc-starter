@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { api_response, require_api_user } from "@/engine/api";
 import { ENV, WEBSITE_NAME } from "@/engine/config";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { GENERATED_MODULES_DIR, MODULES_DIR } from "@/engine/paths";
 import { get_context } from "@/engine/request-context";
 
@@ -23,7 +23,7 @@ interface ModuleEntry {
  * registering it in src/engine/registrations.ts. The public URL becomes
  * `/api/v1/<resource>/<method>`.
  */
-export default class System_api extends Trongate {
+export default class System_api extends Eterc {
   health() {
     return api_response({
       status: "ok",
@@ -48,8 +48,8 @@ export default class System_api extends Trongate {
     const user = require_api_user();
     return {
       user: {
-        id: user.trongate_user_id,
-        code: user.trongate_user_code,
+        id: user.eterc_user_id,
+        code: user.eterc_user_code,
         level_id: user.user_level_id,
         level: user.user_level,
         token_expires: user.expiry_date,

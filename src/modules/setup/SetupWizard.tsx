@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { ETERC_DOCS_URL, ETERC_FORUM_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +33,7 @@ interface SetupWizardProps {
  * (`/api/xhr/setup/*`), keeping identical copy and the same server contract.
  */
 export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
-  const { csrf_token } = useTgUi();
+  const { csrf_token } = useEtUi();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");

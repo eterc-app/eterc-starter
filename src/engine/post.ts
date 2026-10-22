@@ -1,4 +1,4 @@
-import { get_context, type TgRequest, type TgUploadedFile } from "./request-context";
+import { get_context, type EtRequest, type EtUploadedFile } from "./request-context";
 
 /**
  * post() / get_param() — ports of the input helpers.
@@ -8,7 +8,7 @@ import { get_context, type TgRequest, type TgUploadedFile } from "./request-cont
  * Missing fields return '' exactly like the PHP helper.
  */
 
-const parsedCache = new WeakMap<TgRequest, Record<string, unknown>>();
+const parsedCache = new WeakMap<EtRequest, Record<string, unknown>>();
 
 function formDataToObject(formData: FormData): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -194,7 +194,7 @@ export function has_post(): boolean {
 }
 
 /** List uploaded files from the request body (mirrors $_FILES access). */
-export async function uploaded_file(field: string): Promise<TgUploadedFile | null> {
+export async function uploaded_file(field: string): Promise<EtUploadedFile | null> {
   const ctx = get_context();
   if (!ctx.formData) return null;
 
@@ -212,9 +212,9 @@ export async function uploaded_file(field: string): Promise<TgUploadedFile | nul
 }
 
 /** All uploaded files keyed by field name. */
-export async function uploaded_files(): Promise<Record<string, TgUploadedFile>> {
+export async function uploaded_files(): Promise<Record<string, EtUploadedFile>> {
   const ctx = get_context();
-  const result: Record<string, TgUploadedFile> = {};
+  const result: Record<string, EtUploadedFile> = {};
   if (!ctx.formData) return result;
 
   for (const [key, value] of ctx.formData.entries()) {

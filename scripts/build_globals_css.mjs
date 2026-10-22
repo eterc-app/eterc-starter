@@ -84,11 +84,11 @@ function stripLegacySpacingUtilities(css) {
   return rootNode.toString();
 }
 
-const iconUrls = [["url('../trongate-icons/", "url('/trongate-icons/"]];
+const iconUrls = [["url('../eterc-icons/", "url('/eterc-icons/"]];
 
 const globalCss = [
-  stripLegacySpacingUtilities(read("public/css/trongate.css")),
-  rewriteUrls(read("public/css/trongate-icons.css"), iconUrls),
+  stripLegacySpacingUtilities(read("public/css/eterc.css")),
+  rewriteUrls(read("public/css/eterc-icons.css"), iconUrls),
   read("public/templates_module/css/admin.css"),
   read("public/image_uploader_module/css/image_uploader.css"),
 ].join("\n\n");
@@ -104,31 +104,31 @@ const setupCss = scopeCss(
 );
 
 const propertiesCss = [
-  scopeCss(read("public/trongate_control-properties_builder_module/css/w3.css"), ".properties-builder-app"),
+  scopeCss(read("public/eterc_control-properties_builder_module/css/w3.css"), ".properties-builder-app"),
   scopeCss(
-    read("public/trongate_control-properties_builder_module/css/properties_builder.css"),
+    read("public/eterc_control-properties_builder_module/css/properties_builder.css"),
     ".properties-builder-app",
     [
-      ["url('../fonts/", "url('/trongate_control-properties_builder_module/fonts/"],
-      ["url('../images/", "url('/trongate_control-properties_builder_module/images/"],
+      ["url('../fonts/", "url('/eterc_control-properties_builder_module/fonts/"],
+      ["url('../images/", "url('/eterc_control-properties_builder_module/images/"],
     ],
   ),
 ].join("\n\n");
 
 const queryCss = [
   scopeCss(
-    read("public/trongate_control-query_builder_module/css/table-joins.css"),
+    read("public/eterc_control-query_builder_module/css/table-joins.css"),
     ".query-builder-page",
-    [["url('../images/", "url('/trongate_control-query_builder_module/images/"]],
+    [["url('../images/", "url('/eterc_control-query_builder_module/images/"]],
   ),
   scopeCss(
-    read("public/trongate_control-query_builder_module/css/query_builder.css"),
+    read("public/eterc_control-query_builder_module/css/query_builder.css"),
     ".query-builder-page",
   ),
   scopeCss(
-    read("public/trongate_control-query_builder_module/css/query_builder_page.css"),
+    read("public/eterc_control-query_builder_module/css/query_builder_page.css"),
     ".query-builder-page",
-    [["url('../fonts/", "url('/trongate_control-query_builder_module/fonts/"]],
+    [["url('../fonts/", "url('/eterc_control-query_builder_module/fonts/"]],
   ),
 ].join("\n\n");
 

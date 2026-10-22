@@ -1,4 +1,4 @@
-const TG_ADMIN = {
+const ET_ADMIN = {
   init() {
     this.hamburger = document.getElementById('hamburger');
     this.slideNav  = document.getElementById('slide-nav');
@@ -123,4 +123,4 @@ const TG_ADMIN = {
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => TG_ADMIN.init());
+document.addEventListener('DOMContentLoaded', () => ET_ADMIN.init());

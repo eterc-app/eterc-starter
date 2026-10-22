@@ -368,7 +368,7 @@ export default class Image {
       const unsupported_mime = guessUnsupportedImageMime(bytes);
 
       if (unsupported_mime !== null && unsupported_mime.startsWith("image/")) {
-        // A valid image, in a format that Trongate does not accept.
+        // A valid image, in a format that Eterc does not accept.
         throw withCode(
           `Unsupported image type: ${unsupported_mime}`,
           Image.UNSUPPORTED_FORMAT

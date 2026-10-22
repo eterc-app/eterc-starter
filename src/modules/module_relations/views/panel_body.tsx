@@ -1,4 +1,4 @@
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { PanelBody } from "./PanelBody";
 import type { PanelBodyData } from "./types";
 
@@ -10,6 +10,6 @@ import type { PanelBodyData } from "./types";
  * PHP view produced. Interactive callers use the JSON representation and the
  * PanelBody component directly.
  */
-export default function PanelBodyView({ data }: TgViewProps) {
+export default function PanelBodyView({ data }: EtViewProps) {
   return <PanelBody data={data as unknown as PanelBodyData} />;
 }

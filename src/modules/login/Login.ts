@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { BASE_URL, ENV } from "@/engine/config";
 import { post } from "@/engine/post";
 import { get_last_segment, redirect, segment, site_url } from "@/engine/Url";
-import { TgHttpError } from "@/engine/signals";
-import type { Trongate_tokens } from "@/engine/Trongate_tokens";
+import { EtHttpError } from "@/engine/signals";
+import type { Eterc_tokens } from "@/engine/Eterc_tokens";
 import { Login_model } from "./Login_model";
 import Forgot_password from "./forgot_password/Forgot_password";
 
@@ -25,7 +25,7 @@ import Forgot_password from "./forgot_password/Forgot_password";
  *   /login/reset_password/{token}
  *   POST /login/submit_reset_password
  */
-export default class Login extends Trongate {
+export default class Login extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
     this.model = new Login_model("login");
@@ -35,8 +35,8 @@ export default class Login extends Trongate {
     return this.model as Login_model;
   }
 
-  private tokens(): Trongate_tokens {
-    return this.trongate_tokens as Trongate_tokens;
+  private tokens(): Eterc_tokens {
+    return this.eterc_tokens as Eterc_tokens;
   }
 
   /**
@@ -188,7 +188,7 @@ export default class Login extends Trongate {
       if (token === false) {
         let msg = "Authentication succeeded but token generation failed. ";
         msg += `Ensure the target table has a valid ${config.user_ref_field}.`;
-        throw new TgHttpError(500, ENV === "dev" ? msg : "An internal error occurred.");
+        throw new EtHttpError(500, ENV === "dev" ? msg : "An internal error occurred.");
       }
 
       this.loginModel().clear_failed_attempts(identifier, user_level_id);
@@ -228,7 +228,7 @@ export default class Login extends Trongate {
   /** Unlock all rate-limited users (dev mode only). */
   async unlock(): Promise<string> {
     if (ENV !== "dev") {
-      throw new TgHttpError(403, "This endpoint is only available in development mode.");
+      throw new EtHttpError(403, "This endpoint is only available in development mode.");
     }
 
     this.loginModel().unlock_all();
@@ -295,7 +295,7 @@ export default class Login extends Trongate {
    */
   hash_password(password: string): string {
     if (typeof password !== "string" || password === "") {
-      throw new TgHttpError(403, "This method cannot be called directly.");
+      throw new EtHttpError(403, "This method cannot be called directly.");
     }
 
     return this.loginModel().hash_password(password);
@@ -388,7 +388,7 @@ export default class Login extends Trongate {
    */
   credentials_valid(identifier: string): string | true {
     if (typeof identifier !== "string" || identifier === "") {
-      throw new TgHttpError(403, "This method cannot be called directly.");
+      throw new EtHttpError(403, "This method cannot be called directly.");
     }
 
     const user_level_id = this.resolve_level();
@@ -409,10 +409,10 @@ export default class Login extends Trongate {
 
   /**
    * Stop processing with the 404 page (PHP: templates->error_404() + die()).
-   * The dispatcher renders the ported 404 template for TgHttpError(404).
+   * The dispatcher renders the ported 404 template for EtHttpError(404).
    */
   show_404(): never {
-    throw new TgHttpError(404, "Page not found");
+    throw new EtHttpError(404, "Page not found");
   }
 }
 

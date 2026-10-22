@@ -39,7 +39,7 @@
         "tags": ["System"],
         "operationId": "systemMe",
         "summary": "Get the current API user",
-        "description": "Returns the administrator associated with the current control-panel session or Trongatetoken header.",
+        "description": "Returns the administrator associated with the current control-panel session or EtercToken header.",
         "security": [{ "adminToken": [] }],
         "responses": {
           "200": {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { build_request, run_in_context, flush_response_cookies } from "@/engine/dispatch";
 import { run_with_context } from "@/engine/request-context";
-import { TgHttpError, TgRedirectSignal } from "@/engine/signals";
+import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
 
 /**
  * JSON API — POST /api/xhr/{module}/{method}/{params...}
@@ -43,10 +43,10 @@ export async function POST(
   } catch (error) {
     await flush_response_cookies(ctx);
 
-    if (error instanceof TgRedirectSignal) {
+    if (error instanceof EtRedirectSignal) {
       return NextResponse.json({ status: "redirect", redirect: error.url });
     }
-    if (error instanceof TgHttpError) {
+    if (error instanceof EtHttpError) {
       return NextResponse.json(
         { status: "error", message: error.message },
         { status: error.status }

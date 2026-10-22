@@ -3,23 +3,23 @@
 import { redirect } from "next/navigation";
 import { build_request, run_in_context, flush_response_cookies } from "@/engine/dispatch";
 import { run_with_context } from "@/engine/request-context";
-import { TgHttpError, TgRedirectSignal } from "@/engine/signals";
-import type { TgActionReply } from "@/engine/action-types";
-import { TgUiProvider } from "@/engine/ui/TgUiProvider";
+import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
+import type { EtActionReply } from "@/engine/action-types";
+import { EtUiProvider } from "@/engine/ui/EtUiProvider";
 
 /**
- * tgSubmit — the server action behind <TgForm> and <TgButton>.
+ * etSubmit — the server action behind <EtForm> and <EtButton>.
  *
- * Mirrors a Trongate POST to `{module}/{method}`: the controller runs inside a
+ * Mirrors a Eterc POST to `{module}/{method}`: the controller runs inside a
  * full framework context and its reply replaces the calling component's
  * subtree. `redirect()` inside controller code performs real navigation.
  */
-export async function tgSubmit(formData: FormData): Promise<TgActionReply> {
-  const actionValue = String(formData.get("_tg_action") ?? "").trim();
+export async function etSubmit(formData: FormData): Promise<EtActionReply> {
+  const actionValue = String(formData.get("_et_action") ?? "").trim();
 
   let params: Array<string | number> = [];
   try {
-    const parsed: unknown = JSON.parse(String(formData.get("_tg_params") ?? "[]"));
+    const parsed: unknown = JSON.parse(String(formData.get("_et_params") ?? "[]"));
     if (Array.isArray(parsed)) params = parsed;
   } catch {
     /* keep defaults */
@@ -27,7 +27,7 @@ export async function tgSubmit(formData: FormData): Promise<TgActionReply> {
 
   let query: Record<string, string> = {};
   try {
-    const parsed: unknown = JSON.parse(String(formData.get("_tg_query") ?? "{}"));
+    const parsed: unknown = JSON.parse(String(formData.get("_et_query") ?? "{}"));
     if (parsed && typeof parsed === "object") {
       query = Object.fromEntries(
         Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
@@ -61,13 +61,13 @@ export async function tgSubmit(formData: FormData): Promise<TgActionReply> {
     return {
       kind: "node",
       node: (
-        <TgUiProvider
+        <EtUiProvider
           errors={result.errors}
           flash={result.flash}
           csrf_token={result.csrf_token}
         >
           {result.node}
-        </TgUiProvider>
+        </EtUiProvider>
       ),
       errors: result.errors,
       flash: result.flash,
@@ -77,10 +77,10 @@ export async function tgSubmit(formData: FormData): Promise<TgActionReply> {
   } catch (error) {
     await flush_response_cookies(context);
 
-    if (error instanceof TgRedirectSignal) {
+    if (error instanceof EtRedirectSignal) {
       redirect(error.url);
     }
-    if (error instanceof TgHttpError) {
+    if (error instanceof EtHttpError) {
       return { kind: "error", status: error.status, message: error.message };
     }
     throw error;

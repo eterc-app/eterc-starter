@@ -2,16 +2,16 @@
  * Public URL aliases.
  *
  * Clean paths are the canonical public URLs for the control panel and the
- * administrator module. The legacy PHP paths stay valid for compatibility:
+ * administrator module. Inbound requests are resolved to the internal module
+ * names before controller dispatch:
  *
- *   /control                         -> /trongate_control
- *   /control/flo/home                -> /trongate_control-flo/home
- *   /control/module-builder          -> /trongate_control-module_builder
- *   /administrators/manage           -> /trongate_administrators/manage
+ *   /control                         -> /eterc_control
+ *   /control/flo/home                -> /eterc_control-flo/home
+ *   /control/module-builder          -> /eterc_control-module_builder
+ *   /administrators/manage           -> /eterc_administrators/manage
  *
- * Inbound requests are resolved to the legacy module names before controller
- * dispatch, while the browser URL and `current_url()` keep the clean path.
- * Outbound `site_url()` calls emit the clean path.
+ * The browser URL and `current_url()` keep the clean path. Outbound
+ * `site_url()` calls emit the clean path.
  */
 
 const CONTROL_CHILD_ALIASES: Record<string, string> = {
@@ -31,18 +31,18 @@ const CONTROL_CHILD_ALIASES: Record<string, string> = {
 
 /** Longest legacy prefixes first so child modules win over the parent. */
 const PUBLIC_PREFIXES: ReadonlyArray<readonly [string, string]> = [
-  ["trongate_control-module_relations_builder", "control/module-relations-builder"],
-  ["trongate_control-image_uploader_builder", "control/image-uploader-builder"],
-  ["trongate_control-properties_builder", "control/properties-builder"],
-  ["trongate_control-module_builder", "control/module-builder"],
-  ["trongate_control-query_builder", "control/query-builder"],
-  ["trongate_control-site_builder", "control/site-builder"],
-  ["trongate_control-plural_maker", "control/plural-maker"],
-  ["trongate_control-properties", "control/properties"],
-  ["trongate_control-flo", "control/flo"],
-  ["trongate_control-evo", "control/evo"],
-  ["trongate_control", "control"],
-  ["trongate_administrators", "administrators"],
+  ["eterc_control-module_relations_builder", "control/module-relations-builder"],
+  ["eterc_control-image_uploader_builder", "control/image-uploader-builder"],
+  ["eterc_control-properties_builder", "control/properties-builder"],
+  ["eterc_control-module_builder", "control/module-builder"],
+  ["eterc_control-query_builder", "control/query-builder"],
+  ["eterc_control-site_builder", "control/site-builder"],
+  ["eterc_control-plural_maker", "control/plural-maker"],
+  ["eterc_control-properties", "control/properties"],
+  ["eterc_control-flo", "control/flo"],
+  ["eterc_control-evo", "control/evo"],
+  ["eterc_control", "control"],
+  ["eterc_administrators", "administrators"],
 ];
 
 /**
@@ -54,18 +54,18 @@ export function resolve_public_route(segments: string[]): string[] {
 
   if (first === "administrators") {
     if (segments.length === 1) {
-      return ["trongate_administrators", "manage"];
+      return ["eterc_administrators", "manage"];
     }
-    return ["trongate_administrators", ...segments.slice(1)];
+    return ["eterc_administrators", ...segments.slice(1)];
   }
 
   if (first === "control") {
     const second = segments[1]?.toLowerCase();
     const child = second ? CONTROL_CHILD_ALIASES[second] : undefined;
     if (child) {
-      return [`trongate_control-${child}`, ...segments.slice(2)];
+      return [`eterc_control-${child}`, ...segments.slice(2)];
     }
-    return ["trongate_control", ...segments.slice(1)];
+    return ["eterc_control", ...segments.slice(1)];
   }
 
   return segments;

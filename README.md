@@ -36,7 +36,7 @@ Open <http://localhost:3000>.
 - This workspace's development database is already installed with:
   - username `admin`
   - password `test12345`
-  - admin login URL: `/login/login/tg-admin`
+  - admin login URL: `/login/login/et-admin`
 - To start over: stop the server, delete `prisma/dev.db*`, restart, and revisit
   `/`.
 
@@ -44,8 +44,8 @@ Open <http://localhost:3000>.
 
 ```dotenv
 DATABASE_URL="file:./prisma/dev.db"
-TG_SECRET=<64-char hex>     # HMAC key for CSRF tokens
-# TG_BASE_URL="/"           # only when served under a sub-path
+ET_SECRET=<64-char hex>     # HMAC key for CSRF tokens
+# ET_BASE_URL="/"           # only when served under a sub-path
 ```
 
 ## Routing model
@@ -54,20 +54,19 @@ TG_SECRET=<64-char hex>     # HMAC key for CSRF tokens
 | -------------------------------------------- | ------------------------------------------------ |
 | `/{module}/{method}/{params}`                | same URL shape                                   |
 | `/{parent}-{child}/{method}` (child module)  | same URL shape                                   |
-| `POST /{module}/{method}` form posts         | React server action `tgSubmit`                   |
+| `POST /{module}/{method}` form posts         | React server action `etSubmit`                   |
 | `MX` JSON requests                           | `POST /api/xhr/{module}/{method}/{params}`       |
-| `redirect('module/method')`                  | real navigation (`TgRedirectSignal`)             |
-| PHP session                                  | `tg_sessions` table + `tg_session` cookie        |
-| flashdata                                    | one-shot `tg_flash` cookie (`x-tg-flash` header) |
-| CSRF (`csrf_token`)                          | signed `tg_csrf` cookie + `x-tg-csrf` header     |
+| `redirect('module/method')`                  | real navigation (`EtRedirectSignal`)             |
+| PHP session                                  | `et_sessions` table + `et_session` cookie        |
+| flashdata                                    | one-shot `et_flash` cookie (`x-et-flash` header) |
+| CSRF (`csrf_token`)                          | signed `et_csrf` cookie + `x-et-csrf` header     |
 | `segment()`, `post()`, `get_param()`, …      | same helpers, ported in `src/engine`             |
 
-Public URLs use clean aliases while the canonical module names stay internal:
-`/control` resolves to `trongate_control`, `/administrators` to
-`trongate_administrators`, and `/control/flo` to `trongate_control-flo`. Every
-`trongate_*` URL continues to work for compatibility.
+Public URLs use clean aliases while the internal module names stay
+addressable: `/control` resolves to `eterc_control`, `/administrators` to
+`eterc_administrators`, and `/control/flo` to `eterc_control-flo`.
 
-Controllers live in `src/modules/<module>/<Class>.ts` and extend `Trongate`.
+Controllers live in `src/modules/<module>/<Class>.ts` and extend `Eterc`.
 Views are React components registered per module (`views/index.ts` →
 `register_views`), aggregated in `src/modules/views.ts`. Controllers are loaded
 through `src/engine/registrations.ts`.
@@ -88,7 +87,7 @@ The starter includes an opt-in JSON API and an interactive
   `src/modules/<module>/assets/api.json` fragments.
 - `/api-reference` renders that document with Scalar. Test requests use the
   current same-origin session, so signing in to the control panel is enough to
-  call protected endpoints. External clients can send a `Trongatetoken`
+  call protected endpoints. External clients can send an `EtercToken`
   header instead.
 - Scalar cannot read the HttpOnly session cookie, so protected operations may
   show "Authentication Required" in its test panel. Sending the request still
@@ -109,9 +108,9 @@ Add a resource with a normal module plus a controller class ending in `_api`:
 ```ts
 // src/modules/blog_api/Blog_api.ts
 import { api_response, require_api_user } from "@/engine/api";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 
-export default class Blog_api extends Trongate {
+export default class Blog_api extends Eterc {
   list() {
     return api_response({ posts: [] });
   }
@@ -150,27 +149,27 @@ The document is read when `/api-reference` and `/api/openapi` are requested, so
 new or edited fragments appear on the next request. Use
 `api_response(body, status, headers)` to set a non-200 status. The
 `system_api` controller is built in, and the desktop app copies the API
-reference files into older projects when it opens them.
+reference files into older projects that use the current starter layout.
 
 ## What is ported
 
 **Engine** (`src/engine/`): config, request context, router/dispatch, `Db`,
 session, CSRF, flashdata, input helpers, string service, validation, tokens,
 model, controller, templates, URL helpers, views registry and UI primitives
-(`TgForm`, `TgButton`, validation errors, flashdata).
+(`EtForm`, `EtButton`, validation errors, flashdata).
 
 **Framework modules**:
 
-`welcome`, `setup`, `login` (+ `forgot_password`), `trongate_security`,
-`trongate_email`, `trongate_administrators`, `pagination`, `image_uploader`,
+`welcome`, `setup`, `login` (+ `forgot_password`), `eterc_security`,
+`eterc_email`, `eterc_administrators`, `pagination`, `image_uploader`,
 `db`, `module_relations`, `language`, `utilities`, `file`, `image`,
-`trongate_control`.
+`eterc_control`.
 
 The PHP service modules (`flashdata`, `form`, `string_service`, `templates`,
-`trongate_tokens`, `url`, `validation`) are implemented inside `src/engine`
+`eterc_tokens`, `url`, `validation`) are implemented inside `src/engine`
 rather than as separate modules.
 
-**Control panel** (`trongate_control`): dashboard plus every child module —
+**Control panel** (`eterc_control`): dashboard plus every child module —
 
 - `flo` — Flo generator front-end
 - `evo` — Evo shell (home, module manager, error/disabled helpers)
@@ -227,7 +226,7 @@ guards.
 - The forgot-password entry point falls back to the only configured user level
   when the URL has no level segment. PHP's reset view links to that level-less
   URL, which would otherwise 404 when a `secret_login_word` is configured.
-- `trongate_control` child modules get small port-only `index()` aliases where
+- `eterc_control` child modules get small port-only `index()` aliases where
   PHP only exposed specific entry methods, so every dashboard link resolves.
 
 ## Checks

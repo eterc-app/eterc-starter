@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { cookies, headers } from "next/headers";
-import { run_with_context, type TgRequest } from "./request-context";
+import { run_with_context, type EtRequest } from "./request-context";
 import { dispatch } from "./router";
 import { templates_service } from "./controller";
-import { TgHttpError } from "./signals";
+import { EtHttpError } from "./signals";
 import { flash_messages } from "./Flashdata";
 import { csrf_token } from "./csrf";
 import { resolve_public_route } from "./url-aliases";
@@ -17,7 +17,7 @@ import "@/modules/views";
  * the JSON API.
  */
 
-export interface TgRequestOptions {
+export interface EtRequestOptions {
   segments: string[];
   /** Original URL segments, when they differ from the resolved module path. */
   publicSegments?: string[];
@@ -29,7 +29,7 @@ export interface TgRequestOptions {
   method?: string;
 }
 
-export interface TgRunResult {
+export interface EtRunResult {
   node: ReactNode;
   rawReturn: unknown;
   errors: ValidationErrors | null;
@@ -38,7 +38,7 @@ export interface TgRunResult {
   status: number;
 }
 
-export async function build_request(options: TgRequestOptions): Promise<TgRequest> {
+export async function build_request(options: EtRequestOptions): Promise<EtRequest> {
   const cookieStore = await cookies();
   const headerStore = await headers();
 
@@ -83,7 +83,7 @@ export async function build_request(options: TgRequestOptions): Promise<TgReques
  * Converts framework errors into rendered nodes (PHP parity). Redirect
  * signals are rethrown for the caller (page/action/api) to handle.
  */
-export async function run_in_context(options: TgRequestOptions): Promise<TgRunResult> {
+export async function run_in_context(options: EtRequestOptions): Promise<EtRunResult> {
   let node: ReactNode = null;
   let rawReturn: unknown = null;
   let status = 200;
@@ -95,7 +95,7 @@ export async function run_in_context(options: TgRequestOptions): Promise<TgRunRe
     rawReturn = result.rawReturn;
     validation = result.validation;
   } catch (error) {
-    if (error instanceof TgHttpError) {
+    if (error instanceof EtHttpError) {
       status = error.status;
       node =
         error.status === 404
@@ -120,9 +120,9 @@ export async function run_in_context(options: TgRequestOptions): Promise<TgRunRe
 }
 
 /** Build a context, run the request, and return the framework result. */
-export async function run_request(options: TgRequestOptions): Promise<TgRunResult> {
+export async function run_request(options: EtRequestOptions): Promise<EtRunResult> {
   const publicSegments = options.segments;
-  const requestOptions: TgRequestOptions = {
+  const requestOptions: EtRequestOptions = {
     ...options,
     segments: resolve_public_route(publicSegments),
     publicSegments,
@@ -132,7 +132,7 @@ export async function run_request(options: TgRequestOptions): Promise<TgRunResul
 }
 
 /** Apply response cookies collected during the request (actions/route handlers). */
-export async function flush_response_cookies(context: TgRequest): Promise<void> {
+export async function flush_response_cookies(context: EtRequest): Promise<void> {
   if (!context.canSetCookies || context.responseCookies.length === 0) return;
   const jar = await cookies();
   for (const cookie of context.responseCookies) {

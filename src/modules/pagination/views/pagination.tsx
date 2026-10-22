@@ -1,4 +1,4 @@
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { format_number } from "../format";
 
 /**
@@ -14,7 +14,7 @@ type PaginationLink = {
   is_current?: boolean;
 };
 
-export default function PaginationView({ data }: TgViewProps) {
+export default function PaginationView({ data }: EtViewProps) {
   const include_showing_statement = Boolean(data.include_showing_statement);
   const total_rows = Number(data.total_rows ?? 0);
   const current_page = Number(data.current_page ?? 1);

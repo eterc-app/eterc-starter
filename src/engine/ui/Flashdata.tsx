@@ -1,13 +1,13 @@
 "use client";
 
-import { useTgUi } from "./TgUiProvider";
+import { useEtUi } from "./EtUiProvider";
 
 /**
  * Flashdata — port of the flashdata module's rendering.
  * Default wrapper: <p style="color: green;">…</p>
  */
 export function Flashdata() {
-  const { flash } = useTgUi();
+  const { flash } = useEtUi();
   if (!flash || flash.length === 0) return null;
 
   return (

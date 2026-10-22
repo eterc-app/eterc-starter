@@ -1,5 +1,5 @@
-import { TgForm } from "@/engine/ui/TgForm";
-import type { TgViewProps } from "@/engine/views-registry";
+import { EtForm } from "@/engine/ui/EtForm";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -17,7 +17,7 @@ interface PreviewItem {
   value: string;
 }
 
-export default function DeleteConf({ data }: TgViewProps) {
+export default function DeleteConf({ data }: EtViewProps) {
   const table = String(data.table ?? "");
   const update_id = Number(data.update_id ?? 0);
   const preview = (data.preview ?? []) as PreviewItem[];
@@ -51,7 +51,7 @@ export default function DeleteConf({ data }: TgViewProps) {
             </dl>
           ) : null}
 
-          <TgForm
+          <EtForm
             action="db/submit_delete"
             params={[table, update_id]}
             className="flex flex-col gap-2 border-t pt-4 sm:flex-row"
@@ -62,7 +62,7 @@ export default function DeleteConf({ data }: TgViewProps) {
             <Button type="submit" name="submit" value="Yes - Delete Now">
               Yes - Delete Now
             </Button>
-          </TgForm>
+          </EtForm>
         </CardContent>
       </Card>
     </div>

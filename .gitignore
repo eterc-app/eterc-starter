@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# generated Prisma client (recreated by `npm install` / `prisma generate`)
+/src/generated/
+
 # local SQLite runtime artifacts
 /prisma/dev.db-shm
 /prisma/dev.db-wal

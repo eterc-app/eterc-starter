@@ -140,10 +140,10 @@
 }
 
 @layer components {
-/* Trongate Icons - v0.1.0 (Beta) */
+/* Eterc Icons - v0.1.0 (Beta) */
 
 /* Base icon class */
-.tg {
+.et {
     display: inline-block;
     width: 1em;
     height: 1em;
@@ -162,128 +162,128 @@
 }
 
 /* Individual icon styles */
-.tg-envelope {
-    -webkit-mask-image: url('/trongate-icons/envelope.svg');
-    mask-image: url('/trongate-icons/envelope.svg');
+.et-envelope {
+    -webkit-mask-image: url('/eterc-icons/envelope.svg');
+    mask-image: url('/eterc-icons/envelope.svg');
     transform: translateY(0.12em);
 }
 
-.tg-envelope-open {
-    -webkit-mask-image: url('/trongate-icons/envelope-open.svg');
-    mask-image: url('/trongate-icons/envelope-open.svg');
+.et-envelope-open {
+    -webkit-mask-image: url('/eterc-icons/envelope-open.svg');
+    mask-image: url('/eterc-icons/envelope-open.svg');
     transform: translateY(0.06em);
 }
 
-.tg-home {
-    -webkit-mask-image: url('/trongate-icons/home.svg');
-    mask-image: url('/trongate-icons/home.svg');
+.et-home {
+    -webkit-mask-image: url('/eterc-icons/home.svg');
+    mask-image: url('/eterc-icons/home.svg');
     transform: translateY(0.03em) scale(1.2);
 }
 
-.tg-list {
-    -webkit-mask-image: url('/trongate-icons/list.svg');
-    mask-image: url('/trongate-icons/list.svg');
+.et-list {
+    -webkit-mask-image: url('/eterc-icons/list.svg');
+    mask-image: url('/eterc-icons/list.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.1em;
     margin-right: -0.1em;
 }
 
-.tg-padlock {
-    -webkit-mask-image: url('/trongate-icons/padlock.svg');
-    mask-image: url('/trongate-icons/padlock.svg');
+.et-padlock {
+    -webkit-mask-image: url('/eterc-icons/padlock.svg');
+    mask-image: url('/eterc-icons/padlock.svg');
     margin-left: 0.1em;
     margin-right: -0.1em;
 }
 
-.tg-shopping-basket {
-    -webkit-mask-image: url('/trongate-icons/shopping-basket.svg');
-    mask-image: url('/trongate-icons/shopping-basket.svg');
+.et-shopping-basket {
+    -webkit-mask-image: url('/eterc-icons/shopping-basket.svg');
+    mask-image: url('/eterc-icons/shopping-basket.svg');
     transform: translateY(0.10em) scale(1.2);
 }
 
-.tg-shopping-cart {
-    -webkit-mask-image: url('/trongate-icons/shopping-cart.svg');
-    mask-image: url('/trongate-icons/shopping-cart.svg');
+.et-shopping-cart {
+    -webkit-mask-image: url('/eterc-icons/shopping-cart.svg');
+    mask-image: url('/eterc-icons/shopping-cart.svg');
     transform: translateY(0.133em) scale(1.2);
 }
 
-.tg-sign-in {
-    -webkit-mask-image: url('/trongate-icons/sign-in.svg');
-    mask-image: url('/trongate-icons/sign-in.svg');
+.et-sign-in {
+    -webkit-mask-image: url('/eterc-icons/sign-in.svg');
+    mask-image: url('/eterc-icons/sign-in.svg');
     transform: translateY(0.10em) scale(1.2);
 }
 
-.tg-sign-out {
-    -webkit-mask-image: url('/trongate-icons/sign-out.svg');
-    mask-image: url('/trongate-icons/sign-out.svg');
+.et-sign-out {
+    -webkit-mask-image: url('/eterc-icons/sign-out.svg');
+    mask-image: url('/eterc-icons/sign-out.svg');
     transform: translateY(-0.03em) scale(1.2);
     margin-left: 0.25em;
     margin-right: -0.25em;
 }
 
-.tg-star {
-    -webkit-mask-image: url('/trongate-icons/star.svg');
-    mask-image: url('/trongate-icons/star.svg');
+.et-star {
+    -webkit-mask-image: url('/eterc-icons/star.svg');
+    mask-image: url('/eterc-icons/star.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.25em;
     margin-right: -0.25em;
 }
 
-.tg-star-half {
-    -webkit-mask-image: url('/trongate-icons/star-half.svg');
-    mask-image: url('/trongate-icons/star-half.svg');
+.et-star-half {
+    -webkit-mask-image: url('/eterc-icons/star-half.svg');
+    mask-image: url('/eterc-icons/star-half.svg');
     margin-left: 0.25em;
     margin-right: -0.25em;
 }
 
-.tg-user {
-    -webkit-mask-image: url('/trongate-icons/user.svg');
-    mask-image: url('/trongate-icons/user.svg');
+.et-user {
+    -webkit-mask-image: url('/eterc-icons/user.svg');
+    mask-image: url('/eterc-icons/user.svg');
 }
 
-.tg-trash {
-    -webkit-mask-image: url('/trongate-icons/trash.svg');
-    mask-image: url('/trongate-icons/trash.svg');
+.et-trash {
+    -webkit-mask-image: url('/eterc-icons/trash.svg');
+    mask-image: url('/eterc-icons/trash.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
 }
 
-.tg-user-circle {
-    -webkit-mask-image: url('/trongate-icons/user-circle.svg');
-    mask-image: url('/trongate-icons/user-circle.svg');
+.et-user-circle {
+    -webkit-mask-image: url('/eterc-icons/user-circle.svg');
+    mask-image: url('/eterc-icons/user-circle.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
 }
 
-.tg-users {
-    -webkit-mask-image: url('/trongate-icons/users.svg');
-    mask-image: url('/trongate-icons/users.svg');
+.et-users {
+    -webkit-mask-image: url('/eterc-icons/users.svg');
+    mask-image: url('/eterc-icons/users.svg');
     transform: translateY(0.06em) scale(1.33);
     margin-left: 0.15em;
     margin-right: -0.15em;
 }
 
-.tg-pencil {
-    -webkit-mask-image: url('/trongate-icons/pencil.svg');
-    mask-image: url('/trongate-icons/pencil.svg');
+.et-pencil {
+    -webkit-mask-image: url('/eterc-icons/pencil.svg');
+    mask-image: url('/eterc-icons/pencil.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
 }
 
-.tg-eye {
-    -webkit-mask-image: url('/trongate-icons/eye.svg');
-    mask-image: url('/trongate-icons/eye.svg');
+.et-eye {
+    -webkit-mask-image: url('/eterc-icons/eye.svg');
+    mask-image: url('/eterc-icons/eye.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
 }
 
-.tg-search {
-    -webkit-mask-image: url('/trongate-icons/search.svg');
-    mask-image: url('/trongate-icons/search.svg');
+.et-search {
+    -webkit-mask-image: url('/eterc-icons/search.svg');
+    mask-image: url('/eterc-icons/search.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;

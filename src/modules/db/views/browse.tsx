@@ -1,6 +1,6 @@
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { site_url } from "@/engine/Url";
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,7 @@ interface ColumnInfo {
   is_primary_key: boolean;
 }
 
-export default function Browse({ data }: TgViewProps) {
+export default function Browse({ data }: EtViewProps) {
   const table = String(data.table ?? "");
   const module = String(data.viewModule ?? "db");
   const columns = (data.columns ?? []) as ColumnInfo[];

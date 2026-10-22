@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { run_request, type TgRunResult } from "@/engine/dispatch";
-import { TgRedirectSignal } from "@/engine/signals";
-import { TgUiProvider } from "@/engine/ui/TgUiProvider";
+import { run_request, type EtRunResult } from "@/engine/dispatch";
+import { EtRedirectSignal } from "@/engine/signals";
+import { EtUiProvider } from "@/engine/ui/EtUiProvider";
 
 // This is a classic server-side router: every request must run on the server
 // (it reads cookies/headers and dispatches dynamically), so opt the segment
@@ -26,12 +26,12 @@ export default async function EtercPage({
   // Ensure request-time rendering before any framework code runs.
   await connection();
 
-  let result: TgRunResult;
+  let result: EtRunResult;
 
   try {
     result = await run_request({ segments, query, canSetCookies: false });
   } catch (error) {
-    if (error instanceof TgRedirectSignal) {
+    if (error instanceof EtRedirectSignal) {
       redirect(error.url);
     }
     throw error;
@@ -42,12 +42,12 @@ export default async function EtercPage({
   }
 
   return (
-    <TgUiProvider
+    <EtUiProvider
       errors={result.errors}
       flash={result.flash}
       csrf_token={result.csrf_token}
     >
       {result.node}
-    </TgUiProvider>
+    </EtUiProvider>
   );
 }

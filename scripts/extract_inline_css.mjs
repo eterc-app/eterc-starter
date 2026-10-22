@@ -12,28 +12,28 @@ const globalsPath = path.join(root, "src", "app", "globals.css");
 
 const targets = [
   {
-    file: "src/modules/trongate_control/flo/views/home.tsx",
+    file: "src/modules/eterc_control/flo/views/home.tsx",
     constant: "PAGE_CSS",
     styleTag: "<style>{PAGE_CSS}</style>",
   },
   {
-    file: "src/modules/trongate_control/flo/FloTrigger.tsx",
+    file: "src/modules/eterc_control/flo/FloTrigger.tsx",
     constant: "FLO_CSS",
     styleTag: "<style>{FLO_CSS}</style>",
   },
   {
-    file: "src/modules/trongate_control/image_uploader_builder/views/conf_uploader_details.tsx",
+    file: "src/modules/eterc_control/image_uploader_builder/views/conf_uploader_details.tsx",
     constant: "PAGE_CSS",
     styleTag: "<style>{PAGE_CSS}</style>",
     stripBodyTable: true,
   },
   {
-    file: "src/modules/trongate_control/module_builder/views/conf_module_details.tsx",
+    file: "src/modules/eterc_control/module_builder/views/conf_module_details.tsx",
     constant: "PAGE_CSS",
     styleTag: "<style>{PAGE_CSS}</style>",
   },
   {
-    file: "src/modules/trongate_control/module_relations_builder/views/conf_relation_details.tsx",
+    file: "src/modules/eterc_control/module_relations_builder/views/conf_relation_details.tsx",
     constant: "PAGE_CSS",
     styleTag: "<style>{PAGE_CSS}</style>",
   },

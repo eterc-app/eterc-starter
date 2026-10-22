@@ -2,16 +2,16 @@
 
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
-import { tgSubmit } from "@/app/actions";
-import { useTgUi } from "@/engine/ui/TgUiProvider";
+import { etSubmit } from "@/app/actions";
+import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { Button } from "@/components/ui/button";
 
 /**
  * Picture region — the interactive body of the show-page "Picture" card.
  *
  * Client component because removing a picture is a stateful action in the
- * port: PHP used a Trongate MX POST with an out-of-band swap, while the port
- * posts through the tgSubmit server action and replaces this component's
+ * port: PHP used a Eterc MX POST with an out-of-band swap, while the port
+ * posts through the etSubmit server action and replaces this component's
  * subtree with the re-rendered region. Upload/Replace stay plain links to
  * the dedicated multipart upload page.
  *
@@ -35,22 +35,22 @@ export function PictureRegion({ data }: PictureRegionProps) {
   const thumbnail_url = String(data.thumbnail_url ?? "");
   const initial_csrf_token = String(data.csrf_token ?? "");
 
-  const { csrf_token } = useTgUi();
+  const { csrf_token } = useEtUi();
   const [reply, setReply] = useState<ReactNode | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleRemove = () => {
     const formData = new FormData();
-    formData.set("_tg_action", "image_uploader/remove_picture");
-    formData.set("_tg_params", "[]");
+    formData.set("_et_action", "image_uploader/remove_picture");
+    formData.set("_et_params", "[]");
     formData.set("module", module);
     formData.set("update_id", String(update_id));
     formData.set("panel_id", panel_id);
     formData.set("csrf_token", csrf_token || initial_csrf_token);
 
     startTransition(async () => {
-      const result = await tgSubmit(formData);
+      const result = await etSubmit(formData);
 
       if (result.kind === "node") {
         setErrorMessage(null);

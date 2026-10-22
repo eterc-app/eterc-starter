@@ -1,6 +1,6 @@
-import { TgForm } from "@/engine/ui/TgForm";
+import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
-import type { TgViewProps } from "@/engine/views-registry";
+import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
  *
  * Non-submittable fields (the primary key) render read-only; everything else
  * is a text, number or textarea input. Submitting posts to db/submit_forge
- * through <TgForm>, so validation failures re-render this same view inside the
+ * through <EtForm>, so validation failures re-render this same view inside the
  * form subtree while showing the errors.
  */
 
@@ -32,7 +32,7 @@ interface FormField {
   submit: boolean;
 }
 
-export default function Forger({ data }: TgViewProps) {
+export default function Forger({ data }: EtViewProps) {
   const table = String(data.table ?? "");
   const update_id = Number(data.update_id ?? 0);
   const fields = (data.fields ?? []) as FormField[];
@@ -54,7 +54,7 @@ export default function Forger({ data }: TgViewProps) {
           <CardTitle>Record Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <TgForm
+          <EtForm
             action="db/submit_forge"
             params={[table, update_id]}
             className="space-y-5"
@@ -105,7 +105,7 @@ export default function Forger({ data }: TgViewProps) {
                 <a href={String(data.cancel_url ?? "")}>Cancel</a>
               </Button>
             </div>
-          </TgForm>
+          </EtForm>
         </CardContent>
       </Card>
     </div>

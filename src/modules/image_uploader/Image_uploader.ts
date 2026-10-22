@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ReactNode } from "react";
-import { Trongate } from "@/engine/controller";
+import { Eterc } from "@/engine/controller";
 import { BASE_URL } from "@/engine/config";
 import { csrf_token } from "@/engine/csrf";
 import { set_flashdata } from "@/engine/Flashdata";
@@ -9,7 +9,7 @@ import { post } from "@/engine/post";
 import { PROJECT_ROOT } from "@/engine/paths";
 import { get_context, segment } from "@/engine/request-context";
 import { make_rand_str } from "@/engine/String_service";
-import { TgHttpError } from "@/engine/signals";
+import { EtHttpError } from "@/engine/signals";
 import { redirect } from "@/engine/Url";
 import { block_url } from "@/modules/utilities/Utilities";
 import { moduleAssetsDir } from "@/modules/file/upload-paths";
@@ -18,7 +18,7 @@ import {
   Image_uploader_model,
   type UploaderSettings,
 } from "./Image_uploader_model";
-import type { Trongate_security } from "@/modules/trongate_security/Trongate_security";
+import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 
 /**
  * Image_uploader controller — runtime for generated single-image features.
@@ -36,10 +36,10 @@ import type { Trongate_security } from "@/modules/trongate_security/Trongate_sec
  *   - the PHP MX live fetch of the panel body does not exist in the port;
  *     draw_panel renders the full card server-side, and remove_picture
  *     re-renders the same region for the client component that posts it;
- *   - `http_response_code(400/422) + echo` becomes TgHttpError, which the
+ *   - `http_response_code(400/422) + echo` becomes EtHttpError, which the
  *     dispatcher renders with the equivalent status (the 422 JSON bodies
- *     become the standard error reply of the tgSubmit server action);
- *   - the upload POST is submitted through <TgForm> (multipart server
+ *     become the standard error reply of the etSubmit server action);
+ *   - the upload POST is submitted through <EtForm> (multipart server
  *     action), the port's equivalent of the dedicated multipart page.
  */
 
@@ -52,23 +52,23 @@ const IMAGE_EXTENSIONS: Record<string, string[]> = {
   "image/webp": ["webp"],
 };
 
-export default class Image_uploader extends Trongate {
+export default class Image_uploader extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
     this.model = new Image_uploader_model(this.module_name || "image_uploader");
   }
 
   // -------------------------------------------------------------------------
-  // Service accessors (PHP: $this->model, $this->trongate_security)
+  // Service accessors (PHP: $this->model, $this->eterc_security)
   // -------------------------------------------------------------------------
 
   private uploaderModel(): Image_uploader_model {
     return this.model as Image_uploader_model;
   }
 
-  private securityService(): Trongate_security {
-    return (this as unknown as { trongate_security: Trongate_security })
-      .trongate_security;
+  private securityService(): Eterc_security {
+    return (this as unknown as { eterc_security: Eterc_security })
+      .eterc_security;
   }
 
   // =========================================================================
@@ -123,19 +123,19 @@ export default class Image_uploader extends Trongate {
     const panel_id = String(headers.get("x-panel-id") ?? "");
 
     if (module === "" || update_id === 0 || !this.valid_panel_id(panel_id)) {
-      throw new TgHttpError(400, "Invalid panel request.");
+      throw new EtHttpError(400, "Invalid panel request.");
     }
 
     const settings = this.uploaderModel().get_uploader_settings(module);
 
     if (settings === null) {
-      throw new TgHttpError(400, "Invalid panel request.");
+      throw new EtHttpError(400, "Invalid panel request.");
     }
 
     const data = this.panel_data(settings, module, update_id, panel_id);
 
     if (data === null) {
-      throw new TgHttpError(400, "Invalid panel request.");
+      throw new EtHttpError(400, "Invalid panel request.");
     }
 
     return this.view("image_uploader/panel_body", data);
@@ -191,7 +191,7 @@ export default class Image_uploader extends Trongate {
 
     if ((await this.validation.run()) !== true) {
       // PHP re-rendered the full upload page; the port re-renders the bare
-      // view so <TgForm> can swap its own subtree while showing the errors.
+      // view so <EtForm> can swap its own subtree while showing the errors.
       return this.render_upload_form(module, update_id, false);
     }
 
@@ -274,7 +274,7 @@ export default class Image_uploader extends Trongate {
    * column is cleared to ''. The response is the re-rendered panel region,
    * which the client component swaps in without a page reload.
    *
-   * Business-rule failures raise TgHttpError(422) — the PHP original
+   * Business-rule failures raise EtHttpError(422) — the PHP original
    * responded with a 422 JSON {ok, message} body; the port's server action
    * surfaces the same status and message to the client.
    */
@@ -287,13 +287,13 @@ export default class Image_uploader extends Trongate {
     const panel_id = String(post("panel_id") ?? "");
 
     if (!this.valid_panel_id(panel_id)) {
-      throw new TgHttpError(422, "Invalid panel identifier.");
+      throw new EtHttpError(422, "Invalid panel identifier.");
     }
 
     const settings = this.uploaderModel().get_uploader_settings(module);
 
     if (settings === null || update_id === 0) {
-      throw new TgHttpError(422, "Invalid removal parameters.");
+      throw new EtHttpError(422, "Invalid removal parameters.");
     }
 
     const file_name = this.uploaderModel().get_picture_file_name(
@@ -303,7 +303,7 @@ export default class Image_uploader extends Trongate {
     );
 
     if (file_name === null) {
-      throw new TgHttpError(422, "The record could not be found.");
+      throw new EtHttpError(422, "The record could not be found.");
     }
 
     if (file_name !== "") {
@@ -314,7 +314,7 @@ export default class Image_uploader extends Trongate {
     const data = this.panel_data(settings, module, update_id, panel_id);
 
     if (data === null) {
-      throw new TgHttpError(422, "The panel could not be rendered.");
+      throw new EtHttpError(422, "The panel could not be rendered.");
     }
 
     return this.view("image_uploader/panel_body", data);
@@ -408,7 +408,7 @@ export default class Image_uploader extends Trongate {
    * Render the dedicated upload page for one record.
    *
    * @param full_page true for the admin-templated page (GET endpoint);
-   *                  false for the bare view (TgForm subtree replacement on
+   *                  false for the bare view (EtForm subtree replacement on
    *                  a validation failure).
    */
   private async render_upload_form(
@@ -766,6 +766,6 @@ export default class Image_uploader extends Trongate {
 
   /** A request for a module with no configured uploader answers 404. */
   private not_configured(): never {
-    throw new TgHttpError(404, "No image uploader is configured for that module.");
+    throw new EtHttpError(404, "No image uploader is configured for that module.");
   }
 }

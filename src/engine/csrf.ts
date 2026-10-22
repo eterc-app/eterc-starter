@@ -4,13 +4,13 @@ import { sqlite } from "./db";
 import * as crypto from "node:crypto";
 
 /**
- * CSRF protection — port of Trongate's `csrf_token` flow.
+ * CSRF protection — port of Eterc's `csrf_token` flow.
  *
  * The PHP original stores the token in the session and renders it as a hidden
  * field via form_close(); validation.run() compares the posted value.
  *
  * The port uses a signed double-submit cookie: middleware guarantees a
- * `tg_csrf` cookie exists (nonce + HMAC), forms embed the same value, and
+ * `et_csrf` cookie exists (nonce + HMAC), forms embed the same value, and
  * validation compares the posted value against the cookie with hash_equals-
  * style constant-time comparison.
  */
@@ -18,15 +18,15 @@ import * as crypto from "node:crypto";
 export const csrf_field_name = CSRF_FIELD;
 
 function secret(): Buffer {
-  const env = process.env.TG_SECRET;
+  const env = process.env.ET_SECRET;
   if (env && env.length >= 16) return Buffer.from(env, "utf8");
   // Fallback: derive a stable secret for dev so tokens survive restarts.
-  // (A TG_SECRET should always be configured in production.)
-  const g = globalThis as unknown as { __tgCsrfSecret?: Buffer };
-  if (!g.__tgCsrfSecret) {
-    g.__tgCsrfSecret = crypto.createHash("sha256").update("eterc-dev-secret").digest();
+  // (ET_SECRET should always be configured in production.)
+  const g = globalThis as unknown as { __etCsrfSecret?: Buffer };
+  if (!g.__etCsrfSecret) {
+    g.__etCsrfSecret = crypto.createHash("sha256").update("eterc-dev-secret").digest();
   }
-  return g.__tgCsrfSecret;
+  return g.__etCsrfSecret;
 }
 
 /** Create a fresh signed token (nonce.signature). */
