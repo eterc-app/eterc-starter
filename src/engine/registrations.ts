@@ -23,6 +23,7 @@ export const controllerLoaders: Record<
   welcome: () => import("@/modules/welcome/Welcome"),
   setup: () => import("@/modules/setup/Setup"),
   login: () => import("@/modules/login/Login"),
+  system_api: () => import("@/modules/system_api/System_api"),
   pagination: () => import("@/modules/pagination/Pagination"),
   image_uploader: () => import("@/modules/image_uploader/Image_uploader"),
   db: () => import("@/modules/db/Db"),

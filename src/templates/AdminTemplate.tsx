@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Blocks,
   BookOpen,
+  Braces,
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
@@ -52,6 +53,12 @@ const BUILDER_NAV = [
 ];
 
 const RESOURCE_NAV = [
+  {
+    href: "/api-reference",
+    label: "API Reference",
+    icon: Braces,
+    external: false,
+  },
   {
     href: ETERC_DOCS_URL,
     label: "Documentation",
@@ -282,6 +289,7 @@ export function AdminTemplate({
         <div className="space-y-0.5">
           {RESOURCE_NAV.map((item) => {
             const Icon = item.icon;
+            const active = !item.external && is_active(current_path, item.href);
             return (
               <a
                 key={item.href}
@@ -289,17 +297,27 @@ export function AdminTemplate({
                 target={item.external ? "_blank" : undefined}
                 rel={item.external ? "noreferrer" : undefined}
                 onClick={mobile ? close_mobile : undefined}
-                className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px] text-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                  active
+                    ? "bg-muted/70 font-medium text-foreground"
+                    : "text-foreground/80 hover:bg-muted/50 hover:text-foreground",
+                )}
               >
                 <Icon
-                  className="size-4 shrink-0 text-muted-foreground"
+                  className={cn(
+                    "size-4 shrink-0",
+                    active ? "text-foreground" : "text-muted-foreground",
+                  )}
                   strokeWidth={1.75}
                 />
                 <span className="flex-1 truncate">{item.label}</span>
-                <ArrowUpRight
-                  className="size-3.5 text-muted-foreground/50"
-                  strokeWidth={1.75}
-                />
+                {item.external ? (
+                  <ArrowUpRight
+                    className="size-3.5 text-muted-foreground/50"
+                    strokeWidth={1.75}
+                  />
+                ) : null}
               </a>
             );
           })}

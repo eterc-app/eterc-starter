@@ -1,0 +1,183 @@
+{
+  "tags": [
+    {
+      "name": "System",
+      "description": "Health, identity, module discovery and request inspection endpoints."
+    }
+  ],
+  "paths": {
+    "/api/v1/system/health": {
+      "get": {
+        "tags": ["System"],
+        "operationId": "systemHealth",
+        "summary": "Check API health",
+        "description": "Public endpoint. Confirms that the project server is running and can serve API requests.",
+        "responses": {
+          "200": {
+            "description": "The API is available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "name", "environment", "version", "timestamp"],
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "name": { "type": "string", "example": "Eterc" },
+                    "environment": { "type": "string", "example": "dev" },
+                    "version": { "type": "string", "example": "0.1.0" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/me": {
+      "get": {
+        "tags": ["System"],
+        "operationId": "systemMe",
+        "summary": "Get the current API user",
+        "description": "Returns the administrator associated with the current control-panel session or Trongatetoken header.",
+        "security": [{ "adminToken": [] }],
+        "responses": {
+          "200": {
+            "description": "The authenticated administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer" },
+                        "code": { "type": ["string", "null"] },
+                        "level_id": { "type": "integer" },
+                        "level": { "type": ["string", "null"] },
+                        "token_expires": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid administrator session or token was supplied.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/modules": {
+      "get": {
+        "tags": ["System"],
+        "operationId": "systemModules",
+        "summary": "List project modules",
+        "description": "Lists the core and generated module folders in the current project. Administrator access is required.",
+        "security": [{ "adminToken": [] }],
+        "responses": {
+          "200": {
+            "description": "Module folders in the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "modules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "generated": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid administrator session or token was supplied.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/echo": {
+      "post": {
+        "tags": ["System"],
+        "operationId": "systemEcho",
+        "summary": "Echo a JSON request",
+        "description": "Useful for checking request bodies, query parameters and the active HTTP method from Scalar.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "message": "Hello from Eterc"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request details echoed back.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "method": { "type": "string" },
+                    "path": { "type": "string" },
+                    "query": { "type": "object", "additionalProperties": true },
+                    "body": { "type": ["object", "null"], "additionalProperties": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body was not valid JSON.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string" },
+          "errors": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

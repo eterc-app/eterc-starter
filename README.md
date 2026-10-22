@@ -72,6 +72,86 @@ Views are React components registered per module (`views/index.ts` →
 `register_views`), aggregated in `src/modules/views.ts`. Controllers are loaded
 through `src/engine/registrations.ts`.
 
+## JSON API and Scalar
+
+The starter includes an opt-in JSON API and an interactive
+[Scalar](https://scalar.com/) reference at `/api-reference`.
+
+- Public API routes use `/api/v1/{resource}/{method}` and map to the
+  `{resource}_api` controller. For example,
+  `/api/v1/system/health` calls `System_api.health()`.
+- Only controllers registered under a module name ending in `_api` are
+  exposed. Ordinary page controllers are never made public by accident.
+  Methods whose names start with `_` are private and cannot be called through
+  the API; use that prefix for controller helpers.
+- `/api/openapi` serves an OpenAPI 3.1 document assembled from
+  `src/modules/<module>/assets/api.json` fragments.
+- `/api-reference` renders that document with Scalar. Test requests use the
+  current same-origin session, so signing in to the control panel is enough to
+  call protected endpoints. External clients can send a `Trongatetoken`
+  header instead.
+- Scalar cannot read the HttpOnly session cookie, so protected operations may
+  show "Authentication Required" in its test panel. Sending the request still
+  uses the signed-in session. To test as an external client, choose Auth Type
+  → API Key and paste a token.
+
+Built-in endpoints:
+
+| Method | URL                      | Purpose                                   |
+| ------ | ------------------------ | ----------------------------------------- |
+| GET    | `/api/v1/system/health`  | Public health check                       |
+| GET    | `/api/v1/system/me`      | Current administrator (token required)    |
+| GET    | `/api/v1/system/modules` | Project modules (token required)          |
+| POST   | `/api/v1/system/echo`    | Echo a JSON body, query and method        |
+
+Add a resource with a normal module plus a controller class ending in `_api`:
+
+```ts
+// src/modules/blog_api/Blog_api.ts
+import { api_response, require_api_user } from "@/engine/api";
+import { Trongate } from "@/engine/controller";
+
+export default class Blog_api extends Trongate {
+  list() {
+    return api_response({ posts: [] });
+  }
+
+  create() {
+    require_api_user();
+    return api_response({ created: true }, 201);
+  }
+}
+```
+
+Register the loader in `src/engine/registrations.ts`:
+
+```ts
+blog_api: () => import("@/modules/blog_api/Blog_api"),
+```
+
+Then add the matching `src/modules/blog_api/assets/api.json` fragment so the
+endpoint is documented in Scalar:
+
+```json
+{
+  "paths": {
+    "/api/v1/blog/list": {
+      "get": {
+        "tags": ["Blog"],
+        "summary": "List posts",
+        "responses": { "200": { "description": "Post list" } }
+      }
+    }
+  }
+}
+```
+
+The document is read when `/api-reference` and `/api/openapi` are requested, so
+new or edited fragments appear on the next request. Use
+`api_response(body, status, headers)` to set a non-200 status. The
+`system_api` controller is built in, and the desktop app copies the API
+reference files into older projects when it opens them.
+
 ## What is ported
 
 **Engine** (`src/engine/`): config, request context, router/dispatch, `Db`,
