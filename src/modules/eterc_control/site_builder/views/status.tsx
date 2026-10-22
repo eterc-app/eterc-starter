@@ -2,14 +2,29 @@ import { Button } from "@/components/ui/button";
 export function SiteBuilderStatus({
   generatedModulesDir,
   navLinksPath,
+  studioUrl,
 }: {
   generatedModulesDir?: string;
   navLinksPath?: string;
+  studioUrl?: string;
 }) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="max-w-xl text-sm text-muted-foreground">
+          This page documents the module generator. For the visual page
+          builder, open the{" "}
+          <a href={studioUrl ?? "/control/site-builder"}>Site Builder studio</a>.
+        </p>
+        <Button asChild size="sm" variant="outline">
+          <a href={studioUrl ?? "/control/site-builder"}>
+            Open visual builder
+          </a>
+        </Button>
+      </div>
+
       <p className="text-sm text-muted-foreground">
-        The Site Builder generates a complete CRUD module from a module name,
+        The module generator creates a complete CRUD module from a module name,
         labels and a list of properties. It is normally driven by the{" "}
         <a href="/control/module-builder">Module Builder</a> wizard.
       </p>

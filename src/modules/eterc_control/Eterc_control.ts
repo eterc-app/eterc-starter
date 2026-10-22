@@ -127,7 +127,7 @@ export default class Eterc_control extends Eterc {
         href: site_url("eterc_control-site_builder"),
         label: "Site Builder",
         description:
-          "Code-generation engine that writes new modules and site sections.",
+          "Visual block editor for composing and publishing Next.js pages.",
       },
       {
         href: site_url("eterc_control-module_relations_builder"),
@@ -138,7 +138,8 @@ export default class Eterc_control extends Eterc {
       {
         href: site_url("eterc_control-image_uploader_builder"),
         label: "Image Uploader Builder",
-        description: "Installs a single-image uploader into an existing module.",
+        description:
+          "Standalone media library plus an optional uploader installer for generated modules.",
       },
       {
         href: site_url("eterc_control-properties_builder"),
@@ -150,7 +151,7 @@ export default class Eterc_control extends Eterc {
         href: site_url("eterc_control-plural_maker"),
         label: "Plural Maker",
         description:
-          "English pluralisation engine used when naming database tables.",
+          "Pluralizer and phrasebook for localizing generated labels and validation messages.",
       },
     ];
   }

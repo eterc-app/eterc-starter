@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { ReactNode } from "react";
 import { Eterc } from "@/engine/controller";
 import { ENV } from "@/engine/config";
+import { csrf_check, csrf_token } from "@/engine/csrf";
 import { post } from "@/engine/post";
 import {
   DATA_DIR,
@@ -16,11 +17,20 @@ import type { EtTemplateData } from "@/engine/Templates";
 import { site_url } from "@/engine/Url";
 import { Site_builder_model } from "./Site_builder_model";
 import { FloGenerator } from "../flo/FloGenerator";
+import {
+  deletePage,
+  duplicatePage,
+  ensureStarterPage,
+  getPage,
+  listPages,
+  savePage,
+} from "./page-store";
 import type {
   GenerateModuleInput,
   GenerateModuleResult,
   GeneratorContext,
 } from "./types";
+import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 
 const POSTED_FIELDS = [
   "module_folder_name",
@@ -53,10 +63,29 @@ export default class Site_builder extends Eterc {
     return this.model as Site_builder_model;
   }
   async index(): Promise<ReactNode> {
+    this.securityService().make_sure_allowed();
+
+    const all_pages = ensureStarterPage();
+    const initial_page =
+      [...all_pages].sort(
+        (left, right) =>
+          Date.parse(right.updated_at) - Date.parse(left.updated_at)
+      )[0] ?? all_pages[0];
+
     const data: EtTemplateData = {
       viewModule: "site_builder",
-      viewFile: "status",
+      viewFile: "studio",
       pageTitle: "Site Builder",
+      pages: listPages(),
+      page: initial_page,
+      csrf_token: csrf_token(),
+      api_root: "/api/xhr/eterc_control-site_builder",
+      public_base: "/pages",
+      media_api_root: "/api/xhr/eterc_control-image_uploader_builder",
+      media_library_url: site_url("eterc_control-image_uploader_builder"),
+      module_generator_url: site_url(
+        "eterc_control-site_builder/module_generator"
+      ),
       generated_modules_dir: GENERATED_MODULES_DIR,
       nav_links_path: path.join(
         DATA_DIR,
@@ -67,6 +96,117 @@ export default class Site_builder extends Eterc {
     };
     return this.templates.admin(data);
   }
+
+  /** The original module-generator status page, kept as a secondary view. */
+  async module_generator(): Promise<ReactNode> {
+    this.securityService().make_sure_allowed();
+
+    const data: EtTemplateData = {
+      viewModule: "site_builder",
+      viewFile: "status",
+      pageTitle: "Module Generator",
+      generated_modules_dir: GENERATED_MODULES_DIR,
+      nav_links_path: path.join(
+        DATA_DIR,
+        "settings",
+        "site_builder",
+        "nav_links.json"
+      ),
+      studio_url: site_url("eterc_control-site_builder"),
+    };
+    return this.templates.admin(data);
+  }
+
+  // =========================================================================
+  // Visual page builder API
+  // =========================================================================
+
+  async pages(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    const all_pages = ensureStarterPage();
+    return {
+      ok: true,
+      pages: listPages(),
+      page: all_pages[0] ?? null,
+    };
+  }
+
+  async load_page(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+
+    const id = String(post("id") ?? "");
+    const page = id === "" ? null : getPage(id);
+    if (page === null) {
+      throw new EtHttpError(404, "That page could not be found.");
+    }
+
+    return { ok: true, page };
+  }
+
+  async save_page(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const input = post("page");
+    if (input === null || typeof input !== "object" || Array.isArray(input)) {
+      throw new EtHttpError(400, "The page is not valid.");
+    }
+
+    let saved;
+    try {
+      saved = savePage(input);
+    } catch (error) {
+      throw new EtHttpError(
+        400,
+        error instanceof Error ? error.message : "The page could not be saved."
+      );
+    }
+
+    return { ok: true, page: saved, pages: listPages() };
+  }
+
+  async duplicate_page(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const id = String(post("id") ?? "");
+    const copy = id === "" ? null : duplicatePage(id);
+    if (copy === null) {
+      throw new EtHttpError(404, "That page could not be found.");
+    }
+
+    return { ok: true, page: copy, pages: listPages() };
+  }
+
+  async delete_page(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const id = String(post("id") ?? "");
+    if (id === "" || !deletePage(id)) {
+      throw new EtHttpError(404, "That page could not be found.");
+    }
+
+    const remaining = ensureStarterPage();
+    return {
+      ok: true,
+      pages: listPages(),
+      page: remaining[0] ?? null,
+    };
+  }
+
+  private assertCsrf(): void {
+    const token = String(post("csrf_token") ?? "");
+    if (!csrf_check(token)) {
+      throw new EtHttpError(403, "CSRF token validation failed");
+    }
+  }
+
+  private securityService(): Eterc_security {
+    return (this as unknown as { eterc_security: Eterc_security })
+      .eterc_security;
+  }
+
   async submit_generate_mod(
     posted_values: GenerateModuleInput | null = null
   ): Promise<GenerateModuleResult> {
@@ -173,7 +313,7 @@ export default class Site_builder extends Eterc {
     try {
       ensure_dir(target_module_path);
       written_files = this.write_files(target_module_path, files);
-    } catch (error) {
+    } catch {
       this.remove_directory(target_module_path);
 
       return this.error(
@@ -330,7 +470,7 @@ export default class Site_builder extends Eterc {
 
     if (topic !== undefined) {
       result.more_info_url = `${site_url(
-        "eterc_control-site_builder"
+        "eterc_control-site_builder/module_generator"
       )}#troubleshooting-${topic}`;
     }
 

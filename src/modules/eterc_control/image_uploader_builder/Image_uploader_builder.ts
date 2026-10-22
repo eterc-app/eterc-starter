@@ -4,14 +4,31 @@ import type { ReactNode } from "react";
 import ts from "typescript";
 import { Eterc } from "@/engine/controller";
 import { ENV } from "@/engine/config";
-import { post } from "@/engine/post";
+import { csrf_check, csrf_token } from "@/engine/csrf";
+import { PROJECT_ROOT } from "@/engine/paths";
+import { post, uploaded_files } from "@/engine/post";
 import { get_context } from "@/engine/request-context";
 import { session_get, session_set, session_unset } from "@/engine/session";
 import { EtHttpError } from "@/engine/signals";
 import type { EtTemplateData } from "@/engine/Templates";
 import { segment, site_url } from "@/engine/Url";
 import { register_views } from "@/engine/views-registry";
+import Image from "@/modules/image/Image";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
+import {
+  MAX_MEDIA_BYTES,
+  deleteMedia,
+  getMedia,
+  listMedia,
+  mediaFolderSnapshot,
+  mediaStats,
+  mediaUrl,
+  rollbackMedia,
+  titleFromName,
+  updateMedia,
+  upsertMedia,
+  type MediaItem,
+} from "./media-store";
 import {
   deleteCaptureBlock,
   deleteHookBlock,
@@ -134,7 +151,168 @@ export default class Image_uploader_builder extends Eterc {
 
   /** Convenience route: `/eterc_control-image_uploader_builder`. */
   async index(): Promise<ReactNode | Record<string, unknown>> {
-    return this.choose_mod();
+    this.securityService().make_sure_allowed();
+    return this.renderStep("media_library", this.mediaLibraryData());
+  }
+
+  // ============================================
+  // Standalone media library
+  // ============================================
+
+  private mediaLibraryData(): Record<string, unknown> {
+    const media = listMedia();
+
+    return {
+      media,
+      stats: mediaStats(media),
+      modules: this.uploaderModel().get_crud_modules(),
+      csrf_token: csrf_token(),
+      upload_url: "/api/media/upload",
+      api_root: "/api/xhr/eterc_control-image_uploader_builder",
+      uploader_details_url: site_url(
+        "eterc_control-image_uploader_builder/uploader_details/web"
+      ),
+    };
+  }
+
+  /** List media for the library's client-side refresh. */
+  async list_media(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    const media = listMedia();
+    return { ok: true, media, stats: mediaStats(media) };
+  }
+
+  /**
+   * Upload one image into the standalone library. This is intentionally
+   * independent of any CRUD module: it bootstraps the reusable media store
+   * that generated modules and the visual site builder can both use.
+   */
+  async upload_media(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const files = await uploaded_files();
+    const uploaded = Object.values(files)[0];
+
+    if (uploaded === undefined) {
+      throw new EtHttpError(400, "Choose an image to upload.");
+    }
+
+    if (uploaded.size > MAX_MEDIA_BYTES) {
+      throw new EtHttpError(
+        400,
+        `The image is too large. The limit is ${Math.round(
+          MAX_MEDIA_BYTES / (1024 * 1024)
+        )} MB.`
+      );
+    }
+
+    const snapshot = mediaFolderSnapshot();
+
+    try {
+      const image = new Image();
+      const info = await image.upload({
+        destination: "uploads/media",
+        upload_to_module: false,
+        max_width: 2400,
+        max_height: 2400,
+        thumbnail_dir: "uploads/media/thumbs",
+        thumbnail_max_width: 480,
+        thumbnail_max_height: 480,
+        make_rand_name: true,
+      });
+
+      const file_path = info.file_path;
+      const stat = fs.statSync(file_path);
+      const created_at = new Date().toISOString();
+
+      const item: MediaItem = {
+        file: info.file_name,
+        original_name: uploaded.originalName,
+        title: titleFromName(uploaded.originalName),
+        alt: "",
+        mime: info.file_type,
+        size: stat.size,
+        width: 0,
+        height: 0,
+        created_at,
+        url: mediaUrl(info.file_name),
+        thumbnail_url: info.thumbnail_path
+          ? mediaUrl(info.file_name, true)
+          : mediaUrl(info.file_name),
+        has_thumbnail: Boolean(info.thumbnail_path),
+      };
+
+      upsertMedia(item);
+      const saved = getMedia(info.file_name) ?? item;
+
+      return {
+        ok: true,
+        media: saved,
+        stats: mediaStats(),
+      };
+    } catch (error) {
+      rollbackMedia(snapshot);
+      throw new EtHttpError(400, this.mediaError(error));
+    }
+  }
+
+  /** Delete a library image and its thumbnail. */
+  async delete_media(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const file = String(post("file") ?? "");
+    if (file === "") {
+      throw new EtHttpError(400, "No image was specified.");
+    }
+
+    if (!deleteMedia(file)) {
+      throw new EtHttpError(404, "That image no longer exists.");
+    }
+
+    return { ok: true, stats: mediaStats() };
+  }
+
+  /** Edit display metadata (title and alternative text). */
+  async update_media(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const file = String(post("file") ?? "");
+    if (file === "") {
+      throw new EtHttpError(400, "No image was specified.");
+    }
+
+    const item = updateMedia(file, {
+      title: String(post("title") ?? ""),
+      alt: String(post("alt") ?? ""),
+    });
+
+    if (item === null) {
+      throw new EtHttpError(404, "That image no longer exists.");
+    }
+
+    return { ok: true, media: item };
+  }
+
+  private assertCsrf(): void {
+    const token = String(post("csrf_token") ?? "");
+    if (!csrf_check(token)) {
+      throw new EtHttpError(403, "CSRF token validation failed");
+    }
+  }
+
+  private mediaError(error: unknown): string {
+    let message = error instanceof Error ? error.message : String(error);
+    message = message.split(PROJECT_ROOT).join("");
+    message = message.replace(/\s+/g, " ").trim();
+
+    if (message.length > 240) {
+      message = `${message.slice(0, 237)}...`;
+    }
+
+    return message === "" ? "The image could not be uploaded." : message;
   }
 
   /** Step 1: choose a module; clears stale wizard state. */

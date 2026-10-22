@@ -1,6 +1,19 @@
 import type { ReactNode } from "react";
 import { Eterc } from "@/engine/controller";
+import { csrf_check, csrf_token } from "@/engine/csrf";
+import { post } from "@/engine/post";
+import { EtHttpError } from "@/engine/signals";
 import type { EtTemplateData } from "@/engine/Templates";
+import {
+  Language_model,
+  type LanguagePhrases,
+} from "@/modules/language/Language_model";
+import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
+
+const MAX_WORD_LENGTH = 120;
+const MAX_BATCH_WORDS = 500;
+const SHIPPED_LOCALES = ["en", "es", "fr"] as const;
+
 export default class Plural_maker extends Eterc {
 
   /** Unchanging / uncountable nouns (singular === plural). */
@@ -179,6 +192,14 @@ export default class Plural_maker extends Eterc {
     super(moduleName);
   }
   async index(): Promise<ReactNode> {
+    this.securityService().make_sure_allowed();
+
+    const model = this.languageModel();
+    const locale = "en";
+    const builtin = model.get_builtin_catalog(locale);
+    const overrides = model.read_overrides(locale);
+    const catalog: LanguagePhrases = { ...builtin, ...overrides };
+
     const example_words = [
       "tooth",
       "child",
@@ -192,8 +213,8 @@ export default class Plural_maker extends Eterc {
 
     const data: EtTemplateData = {
       viewModule: "plural_maker",
-      viewFile: "home",
-      pageTitle: "Plural Maker",
+      viewFile: "localization",
+      pageTitle: "Localization Studio",
       examples: example_words.map((word) => {
         const plural = this.make_plural(word);
         return {
@@ -202,9 +223,201 @@ export default class Plural_maker extends Eterc {
           round_trip: this.get_singular(plural),
         };
       }),
+      locale,
+      locales: this.localeList(model),
+      builtin,
+      catalog,
+      overrides,
+      csrf_token: csrf_token(),
+      api_root: "/api/xhr/eterc_control-plural_maker",
     };
 
     return this.templates.admin(data);
+  }
+
+  // ============================================
+  // Interactive pluralizer + phrasebook API
+  // ============================================
+
+  /** Convert one word or phrase in either direction. */
+  async convert(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+
+    const input = String(post("word") ?? "").trim();
+    const direction = String(post("direction") ?? "plural").toLowerCase();
+
+    if (input === "") {
+      throw new EtHttpError(400, "Enter a word to convert.");
+    }
+    if (input.length > MAX_WORD_LENGTH) {
+      throw new EtHttpError(
+        400,
+        `Words and phrases must be ${MAX_WORD_LENGTH} characters or fewer.`
+      );
+    }
+
+    const to_singular = direction === "singular";
+    const output = to_singular
+      ? this.get_singular(input)
+      : this.make_plural(input);
+    const round_trip = to_singular
+      ? this.make_plural(output)
+      : this.get_singular(output);
+
+    return {
+      ok: true,
+      input,
+      output,
+      round_trip,
+      direction: to_singular ? "singular" : "plural",
+    };
+  }
+
+  /** Convert a pasted list of words, one per line. */
+  async batch(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+
+    const raw = post("words");
+    const direction = String(post("direction") ?? "plural").toLowerCase();
+    const to_singular = direction === "singular";
+
+    let words: string[] = [];
+    if (Array.isArray(raw)) {
+      words = raw.map((value) => String(value));
+    } else {
+      words = String(raw ?? "").split(/\r?\n|,/);
+    }
+
+    words = words
+      .map((word) => word.trim())
+      .filter((word) => word !== "")
+      .slice(0, MAX_BATCH_WORDS);
+
+    if (words.length === 0) {
+      throw new EtHttpError(400, "Paste at least one word.");
+    }
+
+    const results = words.map((word) => {
+      const input = word.slice(0, MAX_WORD_LENGTH);
+      const output = to_singular
+        ? this.get_singular(input)
+        : this.make_plural(input);
+      return { input, output };
+    });
+
+    return {
+      ok: true,
+      direction: to_singular ? "singular" : "plural",
+      count: results.length,
+      results,
+    };
+  }
+
+  /** Load the shipped catalog and overrides for one locale. */
+  async load_catalog(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+
+    const locale = this.validLocale(String(post("locale") ?? "en"));
+    const model = this.languageModel();
+    const builtin = model.get_builtin_catalog(locale);
+    const overrides = model.read_overrides(locale);
+
+    return {
+      ok: true,
+      locale,
+      builtin,
+      overrides,
+      catalog: { ...builtin, ...overrides },
+      locales: this.localeList(model),
+    };
+  }
+
+  /** Persist phrase overrides for one locale. */
+  async save_catalog(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const locale = this.validLocale(String(post("locale") ?? "en"));
+    const raw = post("phrases");
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new EtHttpError(400, "The phrase list is not valid.");
+    }
+
+    const phrases: LanguagePhrases = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      phrases[key] = String(value ?? "");
+    }
+
+    const model = this.languageModel();
+    let saved: LanguagePhrases;
+    try {
+      saved = model.write_overrides(locale, phrases);
+    } catch (error) {
+      throw new EtHttpError(
+        400,
+        error instanceof Error ? error.message : "The phrases could not be saved."
+      );
+    }
+
+    const builtin = model.get_builtin_catalog(locale);
+    return {
+      ok: true,
+      locale,
+      overrides: saved,
+      builtin,
+      catalog: { ...builtin, ...saved },
+      locales: this.localeList(model),
+    };
+  }
+
+  /** Remove all overrides for one locale. */
+  async reset_catalog(): Promise<Record<string, unknown>> {
+    this.securityService().make_sure_allowed();
+    this.assertCsrf();
+
+    const locale = this.validLocale(String(post("locale") ?? "en"));
+    const model = this.languageModel();
+    model.delete_overrides(locale);
+    const builtin = model.get_builtin_catalog(locale);
+
+    return {
+      ok: true,
+      locale,
+      overrides: {},
+      builtin,
+      catalog: builtin,
+      locales: this.localeList(model),
+    };
+  }
+
+  private languageModel(): Language_model {
+    return new Language_model("language");
+  }
+
+  private localeList(model: Language_model): string[] {
+    return Array.from(
+      new Set([...SHIPPED_LOCALES, ...model.list_override_locales()])
+    ).sort();
+  }
+
+  private validLocale(value: string): string {
+    const locale = value.trim().toLowerCase();
+    if (!/^[a-z]{2}(?:-[a-z0-9]{2,8})?$/.test(locale)) {
+      throw new EtHttpError(400, "Choose a valid locale such as en, es, or fr.");
+    }
+    return locale;
+  }
+
+  private assertCsrf(): void {
+    const token = String(post("csrf_token") ?? "");
+    if (!csrf_check(token)) {
+      throw new EtHttpError(403, "CSRF token validation failed");
+    }
+  }
+
+  private securityService(): Eterc_security {
+    return (this as unknown as { eterc_security: Eterc_security })
+      .eterc_security;
   }
 
   /**

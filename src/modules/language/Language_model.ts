@@ -1,9 +1,19 @@
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import { Model } from "@/engine/model";
-import { MODULES_DIR, PROJECT_ROOT } from "@/engine/paths";
+import {
+  DATA_DIR,
+  MODULES_DIR,
+  PROJECT_ROOT,
+  ensure_dir,
+} from "@/engine/paths";
 
 export type LanguagePhrases = Record<string, string>;
+
+const LOCALE_PATTERN = /^[a-z]{2}(?:-[A-Za-z0-9]{2,8})?$/;
+const PHRASE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/;
+const MAX_PHRASES = 2000;
+const MAX_PHRASE_LENGTH = 5000;
 
 /** Built-in validation-error catalogs for the supported languages. */
 export const VALIDATION_CATALOGS: Record<"en" | "es" | "fr", LanguagePhrases> = {
@@ -240,14 +250,149 @@ export class Language_model extends Model {
 
   /**
    * Built-in validation-error catalog for a language. Unknown languages fall
-   * back to English.
+   * back to English. Project overrides are merged on top so edits made in the
+   * Localization Studio take effect immediately.
    */
   get_validation_errors(lang: string): LanguagePhrases {
+    const key = lang.toLowerCase();
+    const builtin =
+      key === "en" || key === "es" || key === "fr"
+        ? VALIDATION_CATALOGS[key]
+        : VALIDATION_CATALOGS.en;
+
+    return { ...builtin, ...this.read_overrides(key) };
+  }
+
+  /** The shipped catalog for a locale, without project overrides. */
+  get_builtin_catalog(lang: string): LanguagePhrases {
     const key = lang.toLowerCase();
     if (key === "en" || key === "es" || key === "fr") {
       return { ...VALIDATION_CATALOGS[key] };
     }
     return { ...VALIDATION_CATALOGS.en };
+  }
+
+  /** Locales that have a project override file. */
+  list_override_locales(): string[] {
+    const dir = this.overrides_dir();
+    if (!fs.existsSync(dir)) return [];
+
+    try {
+      return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            entry.name.endsWith(".json") &&
+            LOCALE_PATTERN.test(entry.name.slice(0, -5))
+        )
+        .map((entry) => entry.name.slice(0, -5))
+        .sort();
+    } catch {
+      return [];
+    }
+  }
+
+  /** Read the project override file for a locale (empty when absent). */
+  read_overrides(lang: string): LanguagePhrases {
+    const key = lang.toLowerCase();
+    if (!LOCALE_PATTERN.test(key)) return {};
+
+    const file_path = this.override_path(key);
+    if (file_path === null || !fs.existsSync(file_path)) return {};
+
+    try {
+      const parsed: unknown = JSON.parse(fs.readFileSync(file_path, "utf8"));
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+
+      const phrases: LanguagePhrases = {};
+      for (const [phrase_key, value] of Object.entries(
+        parsed as Record<string, unknown>
+      )) {
+        if (PHRASE_KEY_PATTERN.test(phrase_key) && typeof value === "string") {
+          phrases[phrase_key] = value.slice(0, MAX_PHRASE_LENGTH);
+        }
+      }
+      return phrases;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Persist project overrides for a locale. Only non-empty, valid keys are
+   * written; an empty map removes the override file.
+   */
+  write_overrides(lang: string, phrases: LanguagePhrases): LanguagePhrases {
+    const key = lang.toLowerCase();
+    if (!LOCALE_PATTERN.test(key)) {
+      throw new Error("Choose a valid locale such as en, es, fr, or en-GB.");
+    }
+
+    const clean: LanguagePhrases = {};
+    for (const [phrase_key, value] of Object.entries(phrases)) {
+      if (!PHRASE_KEY_PATTERN.test(phrase_key)) {
+        throw new Error(
+          `The phrase key "${phrase_key}" may contain letters, numbers, dots, dashes and underscores only.`
+        );
+      }
+
+      const text = String(value ?? "").trim();
+      if (text === "") continue;
+      if (text.length > MAX_PHRASE_LENGTH) {
+        throw new Error(`The phrase "${phrase_key}" is too long.`);
+      }
+
+      clean[phrase_key] = text;
+      if (Object.keys(clean).length > MAX_PHRASES) {
+        throw new Error(`A locale may contain at most ${MAX_PHRASES} phrases.`);
+      }
+    }
+
+    const file_path = this.override_path(key);
+    if (file_path === null) {
+      throw new Error("The locale override path is invalid.");
+    }
+
+    if (Object.keys(clean).length === 0) {
+      this.delete_overrides(key);
+      return {};
+    }
+
+    ensure_dir(nodePath.dirname(file_path));
+    fs.writeFileSync(file_path, JSON.stringify(clean, null, 2) + "\n", "utf8");
+    return clean;
+  }
+
+  /** Remove project overrides for a locale. */
+  delete_overrides(lang: string): boolean {
+    const key = lang.toLowerCase();
+    if (!LOCALE_PATTERN.test(key)) return false;
+
+    const file_path = this.override_path(key);
+    if (file_path === null) return false;
+
+    try {
+      if (fs.existsSync(file_path)) {
+        fs.unlinkSync(file_path);
+        return true;
+      }
+    } catch {
+      /* best effort */
+    }
+
+    return false;
+  }
+
+  private overrides_dir(): string {
+    return nodePath.join(DATA_DIR, "settings", "language");
+  }
+
+  private override_path(lang: string): string | null {
+    if (!LOCALE_PATTERN.test(lang)) return null;
+    return nodePath.join(this.overrides_dir(), `${lang}.json`);
   }
 
   /**
