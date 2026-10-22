@@ -16,18 +16,6 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-/**
- * SQL console — run one SQL statement against the SQLite database.
- *
- * Rendered by Db::sql_console() with
- * { headline, tables, browse_url_root, tables_url, sample_sql }.
- *
- * Statements POST as JSON to /api/xhr/db/run_sql; the model returns a
- * SqlResult ({ ok, message, columns, rows, affected_rows, last_insert_id }).
- * Any statement the SQLite driver accepts is allowed — this screen is the
- * admin tool's deliberate "escape hatch", guarded by the admin session.
- */
-
 interface TableSummary {
   name: string;
   num_rows: number;
@@ -206,8 +194,6 @@ export default function SqlConsole({ data }: EtViewProps) {
     </div>
   );
 }
-
-/** Cell text — NULL renders as an empty cell, exactly like PHP's `echo null`. */
 function format_cell(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") {

@@ -6,12 +6,6 @@ import EvoDisabled from "./disabled";
 import EvoErrorElement from "./error_element";
 import EvoGenerationError from "./generation_error";
 import EvoModuleDetailsIframe from "./module_details_iframe";
-
-/**
- * View registration map for the Evo child module.
- *
- * Keys use the PHP view names under modules/eterc_control/evo/views/.
- */
 export const views: Record<string, EtViewComponent> = {
   "evo/home": EvoHome,
   "evo/module_manager": EvoModuleManager,

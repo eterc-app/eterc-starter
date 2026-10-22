@@ -18,8 +18,8 @@ the Eterc starter. It replaces the earlier rebrand proposal.
 
 All outbound project links are kept in `src/engine/config.ts`.
 
-The project is a TypeScript port of an MIT-licensed PHP framework. The
-required copyright and permission notice is preserved in
+Eterc is an MIT-licensed TypeScript framework for Next.js. The required
+copyright and permission notice for its upstream project is preserved in
 `THIRD_PARTY_NOTICES.md`; the rest of the application uses Eterc naming only.
 
 ## 2. Naming contract
@@ -27,7 +27,7 @@ required copyright and permission notice is preserved in
 | Kind | Rule | Example |
 |---|---|---|
 | Framework classes | `Pascal_snake` | `Eterc_control`, `Eterc_administrators` |
-| Files for PHP classes | Same name as the class | `Eterc_administrators.ts` |
+| Files for framework classes | Same name as the class | `Eterc_administrators.ts` |
 | Controller/model methods | `snake_case` | `submit_login`, `get_db_config_form_data` |
 | TS-only framework functions | `snake_case` | `site_url`, `build_request` |
 | React components | `PascalCase` | `AdminTemplate`, `EtForm`, `EtButton` |
@@ -53,7 +53,7 @@ Framework modules:
   `utilities`, `file`, `image`
 - `eterc_control` and its child generators
 
-The PHP service modules (`flashdata`, `form`, `string_service`, `templates`,
+The core services (`flashdata`, `form`, `string_service`, `templates`,
 `eterc_tokens`, `url`, `validation`) are implemented inside `src/engine`.
 
 Generated modules live under `src/modules/generated/<module>/` and are indexed
@@ -128,7 +128,6 @@ Before committing:
 
 ```bash
 npm run typecheck
-npm run parity
 npm run styles:check
 npm run lint
 npm run build

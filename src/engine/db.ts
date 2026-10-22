@@ -2,20 +2,6 @@
 import * as fs from "node:fs";
 import { DB_FILE } from "./paths";
 
-/**
- * Db â€” the port of modules/db/Db.php over SQLite (better-sqlite3).
- *
- * The API deliberately mirrors the PHP class so ported module code reads
- * almost identically:
- *
- *   const rows  = db.get("id", "eterc_user_levels");          // ordered rows
- *   const row   = db.get_where(15, "users");                     // row by id | false
- *   const one   = db.get_one_where("email", "a@b.c", "users");   // row by column | false
- *   const id    = db.insert({ name: "Demo" }, "demo_table");     // last insert id
- *   db.update(id, { name: "New" }, "demo_table");
- *   db.delete(id, "demo_table");
- */
-
 let _sqlite: Database.Database | null = null;
 
 function openSqlite(): Database.Database {
@@ -48,7 +34,6 @@ function toRows(rows: unknown[]): Row[] {
 }
 
 export class Db {
-  /** Module that created this Db instance (mirrors PHP constructor). */
   readonly moduleName: string | null;
   readonly dbGroup: string | null;
 

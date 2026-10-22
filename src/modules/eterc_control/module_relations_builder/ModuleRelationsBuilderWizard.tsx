@@ -188,8 +188,6 @@ export function ModuleRelationsBuilderWizard({
     },
     []
   );
-
-  /** Reset the shared wizard session and return to step 1 (PHP doReset). */
   const reset = useCallback(async () => {
     await call("choose_relation_type");
     setStep("choose_relation_type");

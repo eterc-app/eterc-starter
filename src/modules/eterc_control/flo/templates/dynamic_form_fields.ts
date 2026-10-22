@@ -1,8 +1,6 @@
 /**
- * Dynamic JSX form controls — port of
- * site_builder/views/dynamic_form_fields.php and model_helper.php.
+ * Dynamic form-field template.
  */
-
 import type { PostedProperty, TemplateContext } from "../FloTypes";
 import {
   extractRuleName,

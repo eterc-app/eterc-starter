@@ -7,9 +7,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Installer DDL — SQLite port of modules/setup/sql/setup.sql.
+ * Installer DDL for the SQLite schema.
+ *
  * Mirrors prisma/schema.prisma so both Prisma and the framework Db layer can
- * speak to the same file. All statements are idempotent.
+ * use the same file. All statements are idempotent.
  */
 const SETUP_SQL = `
 CREATE TABLE IF NOT EXISTS "eterc_user_levels" (
@@ -67,14 +68,6 @@ CREATE TABLE IF NOT EXISTS "password_resets" (
 );
 CREATE INDEX IF NOT EXISTS "password_resets_token_idx" ON "password_resets"("token");
 `;
-
-/**
- * Setup model — port of modules/setup/Setup_model.php.
- *
- * The port targets SQLite through Prisma, so the "database configuration"
- * step verifies/creates the schema (prisma db push) instead of collecting
- * MySQL credentials.
- */
 export class Setup_model extends Model {
   /** True when an administrator account exists. */
   is_installed(): boolean {
@@ -86,9 +79,8 @@ export class Setup_model extends Model {
   }
 
   /**
-   * Ensure the SQLite schema exists — the port of Setup_model's
-   * "test db connection / install schema" step. Runs setup.sql equivalents
-   * directly against the SQLite file (idempotent).
+   * Ensure the SQLite schema exists. Runs the idempotent DDL directly against
+   * the SQLite file.
    */
   initialize_database(): { ok: boolean; message?: string } {
     try {

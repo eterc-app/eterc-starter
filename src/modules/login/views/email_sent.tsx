@@ -2,11 +2,6 @@ import { Mail } from "lucide-react";
 import type { EtViewProps } from "@/engine/views-registry";
 import { site_url } from "@/engine/Url";
 import { AuthShell } from "./AuthShell";
-
-/**
- * "Email sent" confirmation — port of
- * modules/login/forgot_password/views/email_sent.php.
- */
 export function EmailSent({ data }: EtViewProps) {
   const loginUrl = String(data.login_url ?? "");
 

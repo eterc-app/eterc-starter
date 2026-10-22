@@ -1,9 +1,5 @@
 import type { EtViewProps } from "@/engine/views-registry";
 import { site_url } from "@/engine/Url";
-
-/**
- * Rate-limited page — port of modules/login/views/not_allowed.php.
- */
 export function NotAllowed({ data }: EtViewProps) {
   const blockDuration = Number(data.block_duration ?? 15);
   const loginUrl = String(data.login_url ?? "");

@@ -1,8 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-
-/** Module details page — port of modules/templates/views/module_details.php. */
 export function ModuleDetailsTemplate({
   children,
   afterCloseUrl = "",

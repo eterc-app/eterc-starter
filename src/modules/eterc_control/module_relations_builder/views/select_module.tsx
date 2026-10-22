@@ -3,14 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { RelationModuleChoice } from "../types";
-
-/**
- * Steps 3/4 — port of
- * module_relations_builder/views/select_module.php.
- *
- * One component serves both module pickers: the heading and the controller
- * method posted for the chosen module come from the server step payload.
- */
 export function SelectModuleStep({
   heading,
   modules,

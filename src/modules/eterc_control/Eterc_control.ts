@@ -12,44 +12,13 @@ import { redirect, segment, site_url } from "@/engine/Url";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 import { Eterc_control_model } from "./Eterc_control_model";
 import type { ControlPanelLink, SqlFileInfo } from "./types";
-
-/** Maximum allowed SQL file size in kilobytes (PHP: MAX_SQL_FILE_SIZE_KB). */
 const MAX_SQL_FILE_SIZE_KB = 1000;
-
-/**
- * Eterc_control - port of modules/eterc_control/Eterc_control.php.
- *
- * The PHP original is the "Eterc Module Import Wizard": Core.php detects
- * SQL files inside a freshly imported module, stores et_target_module +
- * et_return_url in the session and redirects to this module, which lists the
- * SQL files (view / run / delete) through the transferer.js AJAX protocol.
- *
- * Port notes:
- *  - the whole module is dev-mode only (PHP: only manifests() stays available
- *    in any environment). The PHP original loaded the eterc_control-evo
- *    child module and rendered its "disabled" response; evo has not been
- *    ported yet, so the port raises the equivalent 403 response;
- *  - the original view is a standalone HTML document with no child links;
- *    the port also renders a control-panel dashboard (port-only) that links
- *    to the child modules. The dashboard is shown whenever no module import
- *    is pending;
- *  - PHP has no auth guard on this module; every ported admin method calls
- *    eterc_security->make_sure_allowed() like the other admin modules;
- *  - PHP built HTML strings (build_file_list + button helpers) and echoed
- *    them; the port computes SqlFileInfo records and lets views/main.tsx
- *    render the identical markup;
- *  - HTTP responses are transported by the port's JSON API route
- *    (/api/xhr/eterc_control/process); the client reads the `http` field
- *    as the equivalent of the PHP http_response_code().
- */
 export default class Eterc_control extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
 
     this.model = new Eterc_control_model(this.module_name || "eterc_control");
 
-    // PHP: the manifests() method is accessible in any environment; every
-    // other method only runs when ENV is 'dev'.
     if (has_context()) {
       const current_method = String(segment(2) ?? "").toLowerCase();
       if (ENV.toLowerCase() !== "dev" && current_method !== "manifests") {
@@ -61,71 +30,30 @@ export default class Eterc_control extends Eterc {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Service accessors (PHP: $this->model, $this->eterc_security)
-  // -------------------------------------------------------------------------
-
-  /** The module model (PHP: $this->model). */
   private controlModel(): Eterc_control_model {
     return this.model as Eterc_control_model;
   }
-
-  /**
-   * The synchronously-registered security service
-   * (PHP: $this->eterc_security).
-   */
   private securityService(): Eterc_security {
     return (this as unknown as { eterc_security: Eterc_security })
       .eterc_security;
   }
 
-  // -------------------------------------------------------------------------
-  // Public controller methods (PHP parity)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Main entry point (PHP: index()).
-   *
-   * When a module import is pending (session et_target_module) the faithful
-   * SQL import wizard is rendered; with no SQL files left the original clears
-   * the session and redirects to the finish URL, so the port does the same.
-   * Otherwise the control-panel dashboard is rendered (port-only; see the
-   * class docblock).
-   */
   async index(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
     return this.renderControlPanel();
   }
 
   /**
-   * Port-only alias of index(), so the panel is also reachable as
+   * Convenience alias of index(), so the panel is also reachable as
    * /eterc_control/main.
    */
   async main(): Promise<ReactNode> {
     return this.index();
   }
-
-  /**
-   * Output all module manifests as raw JSON (PHP: manifests()).
-   *
-   * Scans the modules directory for manifest.json files in root module
-   * folders (excluding child modules). Stays publicly accessible in any
-   * environment so package-management systems can discover modules.
-   *
-   * PHP echoed the JSON body with a JSON content type; the port returns the
-   * pretty-printed JSON string, which the page renderer emits as text.
-   */
   manifests(): string {
     const manifests = this.scanForManifests();
     return JSON.stringify(manifests, null, 4);
   }
-
-  /**
-   * Handle AJAX POST requests for SQL file operations (PHP: process()).
-   *
-   * Actions: viewSql, deleteFile, runSql, checkFinish. A request without an
-   * action answers 400, exactly like the PHP original.
-   */
   async process(): Promise<unknown> {
     this.securityService().make_sure_allowed();
 
@@ -141,19 +69,10 @@ export default class Eterc_control extends Eterc {
   // -------------------------------------------------------------------------
   // Panel / wizard rendering
   // -------------------------------------------------------------------------
-
-  /**
-   * Compose the admin page data for views/main.tsx. PHP: index()'s
-   * $data assignments (files / current_url / base_url / first_file) plus the
-   * dashboard data used by this port.
-   */
   private renderControlPanel(): Promise<ReactNode> {
     const target_module = this.getTargetModule();
     const files = target_module === "" ? [] : this.getSqlFiles();
 
-    // PHP parity: no SQL files left -> clear the session and redirect to the
-    // finish URL (et_return_url or BASE_URL). With no pending import the port
-    // shows the dashboard instead of redirecting to BASE_URL.
     if (target_module !== "" && files.length === 0) {
       this.finishAndRedirect();
     }
@@ -179,11 +98,6 @@ export default class Eterc_control extends Eterc {
 
     return this.templates.admin(data);
   }
-
-  /**
-   * Dashboard data: the control-panel child modules (port-only; the PHP
-   * parent module has no dashboard).
-   */
   private getControlPanelLinks(): ControlPanelLink[] {
     return [
       {
@@ -247,24 +161,12 @@ export default class Eterc_control extends Eterc {
     return `${base}api/xhr/eterc_control/process`;
   }
 
-  // -------------------------------------------------------------------------
-  // SQL file discovery (PHP: get_sql_files)
-  // -------------------------------------------------------------------------
 
   /** The module whose import is pending (session et_target_module). */
   private getTargetModule(): string {
     const value = session_get<string>("et_target_module");
     return typeof value === "string" ? value : "";
   }
-
-  /**
-   * Get SQL files from the original module directory.
-   *
-   * PHP: APPPATH + 'modules/' + $module_name + '/', with the parent/child
-   * split when the name holds exactly one hyphen. The port adds a fallback
-   * for generated modules (src/modules/generated/<name>), which is where the
-   * control panel's generators write new modules.
-   */
   private getSqlFiles(): string[] {
     const module_name = this.getTargetModule();
 
@@ -278,15 +180,12 @@ export default class Eterc_control extends Eterc {
       return [];
     }
 
-    // PHP: glob($module_path . '*.sql') - glob returns sorted matches.
     return fs
       .readdirSync(module_path)
       .filter((name) => name.endsWith(".sql"))
       .sort()
       .map((name) => path.join(module_path, name));
   }
-
-  /** Resolve the directory for a module name (PHP: get_sql_files' path logic). */
   private resolveModulePath(module_name: string): string {
     let module_path = path.join(MODULES_DIR, module_name);
 
@@ -307,15 +206,6 @@ export default class Eterc_control extends Eterc {
 
     return module_path;
   }
-
-  /**
-   * Build the file data consumed by views/main.tsx.
-   *
-   * PHP: build_file_list() + get_file_action_button(), which read each file,
-   * rounded its size to two decimals and ran the model's safety scan. Files
-   * above MAX_SQL_FILE_SIZE_KB get the "TOO BIG!" treatment and are never
-   * read.
-   */
   private buildFileInfos(files: string[]): SqlFileInfo[] {
     const infos: SqlFileInfo[] = [];
 
@@ -333,14 +223,6 @@ export default class Eterc_control extends Eterc {
     return infos;
   }
 
-  // -------------------------------------------------------------------------
-  // process() helpers (PHP: get_post_data, route_action, handle_*)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Read the JSON request body (PHP: file_get_contents('php://input') +
-   * json_decode()).
-   */
   private getPostData(): Record<string, unknown> {
     const json = get_context().json;
 
@@ -355,8 +237,6 @@ export default class Eterc_control extends Eterc {
 
     return json as Record<string, unknown>;
   }
-
-  /** Route to the matching action handler (PHP: route_action). */
   private routeAction(data: Record<string, unknown>): unknown {
     switch (data.action) {
       case "viewSql":
@@ -375,11 +255,6 @@ export default class Eterc_control extends Eterc {
         throw new EtHttpError(400, "");
     }
   }
-
-  /**
-   * Return the contents of a SQL file for viewing (PHP: handle_view_sql).
-   * The response is a plain string (PHP: readfile()).
-   */
   private handleViewSql(data: Record<string, unknown>): string {
     if (data.controllerPath === undefined || data.controllerPath === null) {
       throw new EtHttpError(400, "");
@@ -393,12 +268,6 @@ export default class Eterc_control extends Eterc {
 
     return fs.readFileSync(file_path, "utf8");
   }
-
-  /**
-   * Delete a SQL file (PHP: handle_delete_file). Success answers
-   * "Finished."; a failed delete answers 403 with the file path, exactly
-   * like the PHP model.
-   */
   private handleDeleteFile(data: Record<string, unknown>): string {
     if (data.targetFile === undefined || data.targetFile === null) {
       throw new EtHttpError(400, "");
@@ -413,15 +282,6 @@ export default class Eterc_control extends Eterc {
 
     throw new EtHttpError(403, target_file);
   }
-
-  /**
-   * Execute SQL code and delete the source file (PHP: handle_run_sql).
-   *
-   * A database error is returned as text so the client renders it under the
-   * "SQL ERROR" heading (PHP surfaced the raw error output the same way).
-   * When the SQL ran but the file could not be deleted the original set 403
-   * and echoed "Finished." + the file path.
-   */
   private handleRunSql(data: Record<string, unknown>): string {
     if (
       data.sqlCode === undefined ||
@@ -448,11 +308,6 @@ export default class Eterc_control extends Eterc {
 
     return "Finished.";
   }
-
-  /**
-   * Report whether more SQL files remain (PHP: handle_check_finish).
-   * "reload" keeps the wizard open; otherwise the finish URL is returned.
-   */
   private handleCheckFinish(): string {
     const files = this.getSqlFiles();
 
@@ -463,17 +318,12 @@ export default class Eterc_control extends Eterc {
     return this.getFinishUrl();
   }
 
-  // -------------------------------------------------------------------------
-  // Session helpers (PHP: get_return_url, get_finish_url, finish_and_redirect)
-  // -------------------------------------------------------------------------
 
   /** The URL to return to after processing (session et_return_url). */
   private getReturnUrl(): string {
     const value = session_get<string>("et_return_url");
     return typeof value === "string" ? value : "";
   }
-
-  /** et_return_url when set, otherwise BASE_URL (PHP: get_finish_url). */
   private getFinishUrl(): string {
     const return_url = this.getReturnUrl();
 
@@ -483,8 +333,6 @@ export default class Eterc_control extends Eterc {
 
     return BASE_URL;
   }
-
-  /** Clear the session and redirect (PHP: finish_and_redirect). */
   private finishAndRedirect(): never {
     const finish_url = this.getFinishUrl();
 
@@ -493,19 +341,6 @@ export default class Eterc_control extends Eterc {
     redirect(finish_url);
   }
 
-  // -------------------------------------------------------------------------
-  // manifests() helper (PHP: scan_for_manifests)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Scan module directories for manifest.json files.
-   *
-   * PHP scans APPPATH + 'modules/' and skips child modules (names containing
-   * a hyphen). The port scans the same directory and, additionally, the
-   * generated-modules directory (keys are prefixed with "generated/").
-   * Invalid JSON is stored with an error message and the raw content, exactly
-   * like the PHP original (the message text differs: JS parse errors).
-   */
   private scanForManifests(): Record<string, unknown> {
     const manifests: Record<string, unknown> = {};
 
@@ -515,7 +350,6 @@ export default class Eterc_control extends Eterc {
       for (const item of fs.readdirSync(dir).sort()) {
         const item_path = path.join(dir, item);
 
-        // Skip non-directories (PHP: is_dir()).
         if (!fs.statSync(item_path).isDirectory()) continue;
 
         // Skip child modules (those containing a hyphen).

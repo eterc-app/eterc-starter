@@ -113,13 +113,6 @@ function breadcrumb_items(
       : "Overview",
   ];
 }
-
-/**
- * Admin shell — the port of modules/templates/views/admin.php.
- *
- * The shell is deliberately quiet: a compact sidebar, a single breadcrumb row
- * and flat content surfaces. Module views keep the PHP view contract.
- */
 export function AdminTemplate({
   children,
   pageTitle = "Admin Panel",

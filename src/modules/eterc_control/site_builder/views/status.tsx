@@ -1,12 +1,4 @@
 import { Button } from "@/components/ui/button";
-
-/**
- * Port-only status page for the site_builder child module.
- *
- * The PHP module was a service used by Evo/Flo and had no landing page. The
- * control-panel dashboard links to every child module, so this page explains
- * how the port is wired and where its artifacts live.
- */
 export function SiteBuilderStatus({
   generatedModulesDir,
   navLinksPath,

@@ -8,11 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-/**
- * Record details — port of
- * modules/eterc_administrators/views/show.php.
- */
 export default function Show({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
   const is_own_account = data.is_own_account === true;

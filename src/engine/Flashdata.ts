@@ -1,14 +1,6 @@
 import { get_context, has_context } from "./request-context";
 import { FLASHDATA_CLOSE, FLASHDATA_OPEN } from "./config";
 
-/**
- * Flashdata — one-time messages, port of the flashdata module.
- *
- * set_flashdata() stores a JSON payload in the `et_flash` cookie; middleware
- * forwards it as the `x-et-flash` request header on GET renders and clears the
- * cookie afterwards, which reproduces PHP's "read once" session semantics.
- */
-
 export const FLASH_COOKIE = "et_flash";
 export const FLASH_HEADER = "x-et-flash";
 
@@ -49,12 +41,6 @@ export function set_flashdata(msg: string): void {
     });
   }
 }
-
-/**
- * Retrieve the flash message formatted with the PHP framework's wrapping
- * hierarchy (arguments → FLASHDATA_OPEN/CLOSE → default <p class="flashdata">).
- * Returns the HTML string (PHP parity helper) — React views use <Flashdata />.
- */
 export function flashdata(
   openingHtml?: string | null,
   closingHtml?: string | null

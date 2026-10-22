@@ -5,12 +5,6 @@ import Manage from "./manage";
 import NotFound from "./not_found";
 import Show from "./show";
 import UpdatePassword from "./update_password";
-
-/**
- * View registration map for the eterc_administrators module — keys are
- * "{module}/{view_file}" and match the PHP view filenames under
- * modules/eterc_administrators/views/.
- */
 export const views: Record<string, EtViewComponent> = {
   "eterc_administrators/create": Create,
   "eterc_administrators/delete_conf": DeleteConf,

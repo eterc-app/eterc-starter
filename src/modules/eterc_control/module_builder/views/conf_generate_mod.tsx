@@ -1,11 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Pre-generation confirmation — port of
- * module_builder/views/conf_generate_mod.php.
- */
 export function ConfGenerateModStep({
   onGenerate,
   onViewDetails,

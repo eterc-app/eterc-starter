@@ -4,15 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RELATION_TYPES } from "../types";
 
-/**
- * Step 1 — port of
- * module_relations_builder/views/choose_relation_type.php.
- *
- * The PHP view swapped a hidden options list into `main`; the React port
- * reveals the same list in place. Values stay literally spaced ("one to one")
- * because the controller validates them with an exact match.
- */
-
 const LABELS: Record<string, string> = {
   "one to one": "One to One",
   "one to many": "One to Many",

@@ -142,8 +142,6 @@ export function ImageUploaderBuilderWizard({
     const next = String(result.next_step ?? "");
     if (next !== "") setStep(next as Step);
   }, []);
-
-  /** Reset the shared wizard session and return to step 1 (PHP doReset). */
   const reset = useCallback(async () => {
     const result = await call("choose_mod");
     setStep("choose_mod");

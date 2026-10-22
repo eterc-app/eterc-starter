@@ -3,14 +3,6 @@ import { SESSION_COOKIE, SESSION_TTL } from "./config";
 import { sqlite } from "./db";
 import * as crypto from "node:crypto";
 
-/**
- * Session store — the port's replacement for PHP's $_SESSION.
- *
- * A signed, opaque session id lives in the `et_session` cookie; the payload is
- * a JSON object persisted in the `et_sessions` table. Values must be
- * JSON-serializable.
- */
-
 const g = globalThis as unknown as { __etTransientSessions?: Map<string, Record<string, unknown>> };
 
 function transientSessions(): Map<string, Record<string, unknown>> {

@@ -14,12 +14,10 @@ import {
 } from "./properties-logic";
 
 /**
- * One property accordion — port of drawProperties() plus
- * buildPropertiesEditorLeft/Center/Right() from properties_builder.js.
+ * One property accordion.
  *
- * The original emitted Eterc/W3 CSS class names. This port keeps the same
- * state and callbacks but renders the panel with shadcn primitives and
- * Tailwind utilities.
+ * Keeps the property state and callbacks while rendering the panel with
+ * shadcn primitives and Tailwind utilities.
  */
 
 const CHECKBOXES: Array<{ code: string; label: string }> = [

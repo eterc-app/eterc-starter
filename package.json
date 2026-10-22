@@ -1,7 +1,7 @@
 {
   "name": "eterc",
   "version": "0.1.0",
-  "description": "Eterc - a PHP-faithful TypeScript framework for Next.js",
+  "description": "Eterc - a TypeScript-first framework for Next.js",
   "license": "MIT",
   "private": true,
   "allowScripts": {
@@ -18,7 +18,6 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "parity": "node scripts/check_parity.mjs",
     "styles:check": "node scripts/check_styles.mjs"
   },
   "dependencies": {

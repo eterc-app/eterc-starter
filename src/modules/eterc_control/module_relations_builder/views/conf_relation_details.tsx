@@ -17,16 +17,6 @@ import {
 } from "@/components/ui/table";
 import type { RelationsWizard } from "../types";
 
-/**
- * Editable relation details — port of
- * module_relations_builder/views/conf_relation_details.php.
- *
- * The PHP view displayed a read-only summary, seeded identifier inputs from
- * localStorage through flo.js and posted with mx-post. The React port seeds
- * the inputs from the wizard session, posts to the JSON API and reproduces the
- * `afterValidation` behaviour (success closes the iframe/drawer).
- */
-
 type Errors = Record<string, string[]>;
 
 function ucwords(value: string): string {

@@ -3,23 +3,6 @@ import { Eterc } from "@/engine/controller";
 import { get_context, segment } from "@/engine/request-context";
 import { get_view } from "@/engine/views-registry";
 import { EtHttpError } from "@/engine/signals";
-
-/**
- * Utilities module — port of modules/utilities/Utilities.php.
- *
- * Framework service with the same public method names as the PHP original.
- * Where the PHP code echoed output or called die(), the port returns nodes /
- * throws framework signals (documented per method).
- */
-
-/**
- * Port of the utilities block_url() helper.
- *
- * Throws 403 Forbidden when the current URL addresses the blocked module
- * (or module/method) — the port's replacement for
- * `http_response_code(403); die(...)`. Internal calls are unaffected because
- * the current route simply is not the blocked one.
- */
 export function block_url(block_path = ""): void {
   if (block_path === "") {
     return; // Nothing to block.
@@ -48,22 +31,9 @@ export function block_url(block_path = ""): void {
 }
 
 export default class Utilities extends Eterc {
-  /**
-   * Blocks direct browser access to a module or a module/method combination.
-   * See block_url() above — internal PHP calls were harmless, internal TS
-   * calls are equally unaffected.
-   */
   block_url(block_path = ""): void {
     block_url(block_path);
   }
-
-  /**
-   * Outputs the given data as prettified JSON inside a <pre> element.
-   *
-   * @param data Array containing 'data' and 'kill_script' keys.
-   * @returns The rendered node. PHP's `kill_script` terminated the response;
-   *          in React the caller simply returns this node.
-   */
   json(data: { data?: unknown; kill_script?: unknown }): ReactNode {
     let encoded = "";
     try {
@@ -73,27 +43,12 @@ export default class Utilities extends Eterc {
     }
     return createElement("pre", null, encoded);
   }
-
-  /**
-   * Get the client's IP address.
-   *
-   * PHP read $_SERVER['REMOTE_ADDR']; the port reads the forwarding headers
-   * provided by its runtime (x-forwarded-for first, then x-real-ip).
-   */
   ip_address(): string {
     const ctx = get_context();
     const forwarded = ctx.headers.get("x-forwarded-for");
     if (forwarded) return forwarded.split(",")[0].trim();
     return ctx.headers.get("x-real-ip") ?? "";
   }
-
-  /**
-   * Display a content view.
-   *
-   * PHP auto-detected view_module (segment 1, defaulting to 'welcome'),
-   * defaulted view_file to 'index' and echoed a red error block when the view
-   * file was missing; the port renders the same error block as a node.
-   */
   async display(data: Record<string, unknown> = {}): Promise<ReactNode> {
     const view_module =
       data.view_module !== undefined && data.view_module !== ""
@@ -129,13 +84,6 @@ export default class Utilities extends Eterc {
 
     return this.templates.view(key, data);
   }
-
-  /**
-   * Extract file name and extension from a given file path.
-   *
-   * Mirrors return_file_info() exactly: pathinfo() extension, then
-   * str_replace(".ext", "", $file_string) on the full path.
-   */
   return_file_info(file_string: string): {
     file_name: string;
     file_extension: string;
@@ -147,20 +95,11 @@ export default class Utilities extends Eterc {
     const base = file_string.slice(last_slash + 1);
     const last_dot = base.lastIndexOf(".");
 
-    // PHP pathinfo() returns '' for names without an extension and, for
-    // dot-files such as ".htaccess", an extension of "htaccess".
     const file_extension = last_dot === -1 ? "" : base.slice(last_dot + 1);
     const file_name = file_string.split("." + file_extension).join("");
 
     return { file_name, file_extension: "." + file_extension };
   }
-
-  /**
-   * Sorts an array of associative arrays by a specified property.
-   *
-   * @param data Array containing 'array', 'property' and 'direction' keys.
-   * @returns A new sorted array (PHP's usort() sorted in place).
-   */
   sort_by_property(data: {
     array?: Array<Record<string, unknown>>;
     property?: string;
@@ -175,11 +114,6 @@ export default class Utilities extends Eterc {
       return direction === "desc" ? -result : result;
     });
   }
-
-  /**
-   * Sorts an array of objects by a specified property. Kept as a separate
-   * public method for parity with the PHP original (identical semantics).
-   */
   sort_rows_by_property(data: {
     array?: Array<Record<string, unknown>>;
     property?: string;
@@ -187,17 +121,10 @@ export default class Utilities extends Eterc {
   }): Array<Record<string, unknown>> {
     return this.sort_by_property(data);
   }
-
-  /**
-   * True when the request carries the Eterc-MX-Request header (the PHP
-   * original only checked that the header was set, whatever its value).
-   */
   from_eterc_mx(): boolean {
     return get_context().headers.get("eterc-mx-request") !== null;
   }
 }
-
-/** PHP's strcasecmp()/spaceship comparison for one property. */
 function compareValues(a: unknown, b: unknown): number {
   if (typeof a === "string" && typeof b === "string") {
     const left = a.toLowerCase();

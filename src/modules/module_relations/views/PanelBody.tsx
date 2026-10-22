@@ -7,19 +7,6 @@ import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { Button } from "@/components/ui/button";
 import type { PanelBodyData } from "./types";
 
-/**
- * PanelBody — the live content of an "Associated …" summary panel.
- *
- * Port of modules/module_relations/views/panel_body.php. The PHP view is TWO
- * panel-scoped regions (associate form + associated-items list) that MX swaps
- * out of band after add/remove. Here the same two regions are rendered from
- * React state: a mutation posts JSON to /api/xhr/module_relations/* with
- * `format: "json"` and the controller answers with the fresh panel data, which
- * replaces this component's state. Selector discipline from the PHP view is
- * kept: everything is scoped by the unique panel id, never by
- * `.associated-items` alone.
- */
-
 interface XhrReply {
   status: string;
   data?: { ok?: boolean; message?: string; panel?: PanelBodyData };
@@ -181,8 +168,6 @@ export function PanelBody({ data }: { data: PanelBodyData }) {
     </div>
   );
 }
-
-/** PHP ucwords(). */
 function ucwords(value: string): string {
   return value
     .split(" ")

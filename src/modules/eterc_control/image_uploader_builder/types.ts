@@ -1,12 +1,3 @@
-/**
- * Shared types for the Image Uploader Builder wizard.
- *
- * Port of modules/eterc_control/image_uploader_builder. Wizard state lives
- * in the `evo_wizard` session key, exactly like the PHP original; the settings
- * JSON written for the runtime uses the same key set.
- */
-
-/** Defaults applied to a newly chosen module (PHP self::DEFAULTS). */
 export const UPLOADER_DEFAULTS = {
   column: "picture",
   destination: "uploads",

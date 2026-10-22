@@ -3,15 +3,6 @@ import type { EtViewComponent, EtViewProps } from "@/engine/views-registry";
 import ConfRelationDetails from "./conf_relation_details";
 import { ModuleRelationsBuilderWizard } from "../ModuleRelationsBuilderWizard";
 
-/**
- * View registration map for the module_relations_builder child module.
- *
- * Keys are "{module}/{view_file}" and match the PHP view filenames under
- * modules/eterc_control/module_relations_builder/views/. Every wizard step
- * renders the same client wizard positioned at that step, so direct URLs
- * (and non-AJAX POST fallbacks) show the correct screen.
- */
-
 function wizardAt(initialStep: string): EtViewComponent {
   return function ModuleRelationsBuilderStep(props: EtViewProps) {
     const data = {

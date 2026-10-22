@@ -5,16 +5,6 @@ import Forger from "./forger";
 import NotFound from "./not_found";
 import SqlConsole from "./sql_console";
 import TableList from "./table_list";
-
-/**
- * View registration map for the db (admin database tool) module — keys are
- * "{module}/{view_file}" and match the view files Db addresses via
- * `viewFile`.
- *
- * NOTE: the PHP original modules/db/Db.php is the framework ENGINE class and
- * ships no views; these view files were designed from the data contracts of
- * the ported Db controller (see each view's docblock).
- */
 export const views: Record<string, EtViewComponent> = {
   "db/browse": Browse,
   "db/delete_conf": DeleteConf,

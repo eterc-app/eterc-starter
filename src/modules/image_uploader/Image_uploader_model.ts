@@ -3,42 +3,6 @@ import * as path from "node:path";
 import { Model } from "@/engine/model";
 import { DATA_DIR, MODULES_DIR } from "@/engine/paths";
 
-/**
- * Image_uploader_model — data layer for the image uploader runtime.
- * Port of modules/image_uploader/Image_uploader_model.php.
- *
- * Serves the runtime needs of modules already equipped with a single-image
- * feature: read + validate the per-module settings JSON, read/update the
- * target module's picture column (filename only — paths and URLs are always
- * constructed server-side, never stored) and answer whether a record exists
- * (the null return from get_picture_file_name()).
- *
- * Settings file lookup: the port reads the settings JSON from
- * data/settings/image_uploader/{module}.json first and falls back to
- * src/modules/image_uploader/settings/{module}.json (the module-local copy,
- * versioned alongside the runtime — the PHP original's location).
- *
- * Settings JSON shape:
- *   module                  — the target module name (== its table name)
- *   column                  — the picture column on the target table
- *   destination             — module-relative storage dir (default 'uploads')
- *   max_size                — upload size cap in KB (validation rule)
- *   max_width/max_height    — source dimension caps (validation rules)
- *   resize_max_width/height — downscale-to dimensions (image->upload)
- *   thumbnails              — bool; whether a thumbnail is generated
- *   thumbnail_max_width     — thumbnail max width in px
- *   thumbnail_max_height    — thumbnail max height in px
- *
- * Storage layout (per record id):
- *   public/{module}_module/{destination}/{id}/{filename}          ← main
- *   public/{module}_module/{destination}/{id}/thumbs/{filename}   ← thumb
- *
- * Trust boundary — identifiers in SQL: queries concatenate the table name
- * (module) and column name from the settings file, because SQL cannot bind
- * identifiers. This is safe ONLY because those values are validated against
- * `^[a-z0-9_]+$` on every read (see get_uploader_settings()).
- */
-
 export interface UploaderSettings {
   module: string;
   column: string;

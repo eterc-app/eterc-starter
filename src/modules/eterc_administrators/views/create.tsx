@@ -10,11 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/**
- * Create/update administrator form — port of
- * modules/eterc_administrators/views/create.php.
- */
 export default function Create({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
   const is_update = data.id !== undefined && data.id !== null;

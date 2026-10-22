@@ -4,29 +4,6 @@ export type { Row };
 import { Model } from "@/engine/model";
 import { post } from "@/engine/post";
 
-/**
- * Db admin model — the data layer of the port's admin database tool.
- *
- * The PHP original (modules/db/Db.php) is the framework's *database engine*
- * class; it is ported as `src/engine/db.ts`. This module is the admin tool the
- * port exposes over that engine: table list, record browser, "forger" (record
- * editor) and a SQL console.
- *
- * The engine already performs every MySQL → SQLite dialect adaptation this
- * tool relies upon:
- *   SHOW TABLES                 → sqlite_master            (Db::get_tables)
- *   SHOW TABLES LIKE :t         → sqlite_master lookup     (Db::table_exists)
- *   DESCRIBE `t`                → PRAGMA table_info(`t`)   (Db::describe_table)
- *   TRUNCATE TABLE `t`          → DELETE FROM `t` plus a
- *                                 sqlite_sequence reset    (Db::attempt_truncate)
- *   ALTER TABLE ... AUTO_INCREMENT → sqlite_sequence reset (Db::attempt_truncate)
- *
- * Behavioural note (reported to the orchestrator): PHP's attempt_truncate()
- * only truncates a table when it contains no rows; the ported engine drops the
- * row-count guard and always deletes. The admin tool therefore exposes it as
- * an explicit, confirmation-guarded "Truncate" action.
- */
-
 /** Identifier guard — identical to the engine's table/column validation. */
 const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -105,7 +82,7 @@ export class Db_model extends Model {
     return IDENTIFIER.test(table) && this.db.table_exists(table);
   }
 
-  /** Normalized column metadata (port of the engine's describe_table()). */
+  /** Normalized column metadata. */
   describe_columns(table: string): ColumnInfo[] {
     if (!this.table_exists(table)) return [];
 
@@ -150,9 +127,6 @@ export class Db_model extends Model {
     if (primary_key) return primary_key.name;
     return columns.length > 0 ? columns[0].name : "rowid";
   }
-
-  /** One page of records. `LIMIT/OFFSET` — the SQLite stand-in for the
-   * MySQL `LIMIT n OFFSET m` used by the PHP-era browser. */
   get_page_rows(
     table: string,
     order_by: string,
@@ -312,13 +286,11 @@ export class Db_model extends Model {
     return this.db.delete(id, table);
   }
 
-  /** Port engine: DELETE FROM + sqlite_sequence reset (TRUNCATE stand-in). */
+  /** DELETE FROM plus sqlite_sequence reset (TRUNCATE stand-in). */
   truncate_table(table: string): boolean {
     this.validate_table(table);
     return this.db.attempt_truncate(table);
   }
-
-  /** Renumber the `id` column starting at 1 (port of Db::resequence_ids()). */
   resequence_ids(table: string): boolean {
     this.validate_table(table);
     return this.db.resequence_ids(table);

@@ -3,13 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { UploaderModuleChoice } from "../types";
-
-/**
- * Step 1 — port of image_uploader_builder/views/choose_mod.php.
- *
- * Only ready modules are offered; blocked modules keep their reasons on the
- * server payload but are not shown (the original chooser behaves the same).
- */
 export function ChooseModStep({
   modules,
   onSelect,

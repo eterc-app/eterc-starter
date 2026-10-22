@@ -8,13 +8,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-/**
- * Port-only landing page for the plural_maker child module.
- *
- * The PHP module is a pure service used by the generators; this page documents
- * it and shows live output from the ported engine.
- */
-
 export interface PluralExample {
   singular: string;
   plural: string;

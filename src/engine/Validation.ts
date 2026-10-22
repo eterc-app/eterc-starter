@@ -8,16 +8,6 @@ import { EtHttpError, EtRedirectSignal } from "./signals";
 
 export { EtHttpError, EtRedirectSignal } from "./signals";
 
-/**
- * Validation — port of modules/validation (Validation.php + rules).
- *
- * Errors are collected on the instance and handed to React through
- * <ValidationErrorsProvider>; they are also mirrored into the session so a
- * redirected render can display them (same session keys as the PHP original).
- *
- * Image/file rules run asynchronously because dimensions are probed with sharp.
- */
-
 export type ValidationErrors = Record<string, string[]>;
 
 const MESSAGES: Record<string, string> = {
@@ -91,8 +81,6 @@ export class Validation {
     const ctx = get_context();
     return ctx.isAjax;
   }
-
-  /** CSRF gate identical in behavior to the PHP original. */
   private async csrf_protect(): Promise<void> {
     const posted = post(csrf_field_name);
     if (typeof posted !== "string" || posted === "" || !csrf_check(posted)) {
@@ -119,10 +107,9 @@ export class Validation {
         file,
         ctx,
       });
-      if (failed) break; // Early exit on first error for this field (PHP parity).
+      if (failed) break; // Early exit on the first error for this field.
     }
 
-    // Mirror into the session (parity with $_SESSION['form_submission_errors']).
     session_set("form_submission_errors", this.errors);
   }
 

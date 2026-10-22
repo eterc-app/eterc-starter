@@ -1,14 +1,6 @@
 import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-/**
- * Database resource not found.
- *
- * Rendered by Db::not_found(); mirrors the administrators module's
- * not_found view using the db controller's data contract
- * { headline, message, back_url, back_label }.
- */
 export default function NotFound({ data }: EtViewProps) {
   const headline = String(data.headline ?? "Not Found");
 

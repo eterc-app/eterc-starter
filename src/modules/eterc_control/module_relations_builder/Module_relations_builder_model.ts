@@ -13,22 +13,6 @@ import {
   type RelationsWizard,
 } from "./types";
 
-/**
- * Module_relations_builder_model - data layer for the relation wizard.
- *
- * Port of modules/eterc_control/module_relations_builder/Module_relations_
- * builder_model.php adapted to the port's SQLite database and generated-module
- * layout.
- *
- * SQLite adaptations:
- *   - information_schema is replaced by sqlite_master + PRAGMA table_info;
- *   - ALTER TABLE ADD COLUMN and CREATE INDEX are separate statements;
- *   - junction ids use INTEGER PRIMARY KEY AUTOINCREMENT.
- *
- * Settings are written to data/settings/module_relations/{parent}_and_{child}
- * .json - the runtime's first lookup location.
- */
-
 const SYSTEM_TABLES = [
   "login_attempts",
   "password_resets",
@@ -61,7 +45,7 @@ export class Module_relations_builder_model extends Model {
   /** Runtime route prefix used by every injected code block. */
   private readonly runtime_route = "module_relations";
 
-  /** Port-only settings directory (the runtime searches this first). */
+  /** Settings directory (the runtime searches this first). */
   private readonly settings_dir = path.join(
     DATA_DIR,
     "settings",
@@ -405,7 +389,6 @@ export class Module_relations_builder_model extends Model {
     try {
       if (fs.existsSync(file_path)) fs.unlinkSync(file_path);
     } catch {
-      /* best effort, like PHP's @unlink */
     }
   }
 

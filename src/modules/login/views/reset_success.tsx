@@ -2,11 +2,6 @@ import { CheckCircle2 } from "lucide-react";
 import { site_url } from "@/engine/Url";
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "./AuthShell";
-
-/**
- * Password reset complete — port of
- * modules/login/forgot_password/views/reset_success.php.
- */
 export function ResetSuccess() {
   return (
     <AuthShell

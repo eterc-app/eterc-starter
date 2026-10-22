@@ -11,14 +11,6 @@ import {
 import { compareSync, hashSync } from "bcryptjs";
 import { send_email } from "@/modules/eterc_email";
 
-/**
- * Login model — port of modules/login/Login_model.php.
- *
- * Handles authentication, rate limiting, token management and password resets
- * against configurable user tables (per user level). Configuration comes from
- * LOGIN_CONFIG (src/engine/config.ts), the ported config/login.php.
- */
-
 export interface PasswordResetRow extends Row {
   id: number;
   target_table: string;
@@ -33,8 +25,6 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
   // Configuration
   // -----------------------------------------------------------------
-
-  /** The ported configuration (PHP: APPPATH/config/login.php or module config). */
   load_config(): LoginConfig {
     return LOGIN_CONFIG;
   }
@@ -49,8 +39,6 @@ export class Login_model extends Model {
 
     return level_specific;
   }
-
-  /** Get a global config value (PHP: get_global_config()). */
   get_global_config<K extends keyof LoginConfig>(key: K): LoginConfig[K] {
     return LOGIN_CONFIG[key];
   }
@@ -79,14 +67,6 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
   // Authentication
   // -----------------------------------------------------------------
-
-  /**
-   * Validate login credentials against the configured user table for a level.
-   *
-   * Uses the same timing-safe pattern as the PHP original: a bcrypt comparison
-   * is always performed — even when the user does not exist — to prevent
-   * username enumeration.
-   */
   validate_credentials(
     identifier: string,
     password: string,
@@ -287,7 +267,6 @@ export class Login_model extends Model {
 
   /** Unlock all users (dev mode only). */
   unlock_all(): void {
-    // PHP: TRUNCATE TABLE login_attempts.
     this.db.attempt_truncate("login_attempts");
   }
 
@@ -330,8 +309,6 @@ export class Login_model extends Model {
         set_cookie: true,
       });
     } else {
-      // generate_token() stores the token in the session when not persisting
-      // a cookie — parity with $_SESSION['eterctoken'] = $token.
       token = tokens.generate_token({ user_id: eterc_user_id });
     }
 
@@ -524,13 +501,6 @@ export class Login_model extends Model {
 
     return true;
   }
-
-  /**
-   * Send a password reset email.
-   *
-   * Builds the same plain-text message as the PHP original and delegates
-   * delivery to the ported eterc_email module.
-   */
   async send_reset_email(to_email: string, reset_link: string): Promise<boolean> {
     let body = "Hello,\n\n";
     body += "We received a request to reset your password.\n\n";
@@ -539,7 +509,6 @@ export class Login_model extends Model {
     body += "This link will expire in 1 hour.\n\n";
     body += "If you did not request a password reset, you can safely ignore this email.\n";
 
-    // PHP: nl2br().
     const html_body = body.replace(/\n/g, "<br />\n");
 
     return send_email(to_email, "Password Reset Request", `<p>${html_body}</p>`);
@@ -614,8 +583,6 @@ export class Login_model extends Model {
 function now_seconds(): number {
   return Math.floor(Date.now() / 1000);
 }
-
-/** Safely quote a database identifier (PHP: quote_id()). */
 function quote_id(identifier: string): string {
   const clean = identifier.replace(/[^a-zA-Z0-9_]/g, "");
 

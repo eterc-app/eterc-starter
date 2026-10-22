@@ -7,17 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelBody } from "./PanelBody";
 import type { PanelBodyData } from "./types";
 
-/**
- * summary_panel — the "Associated …" panel shell on a generated show page.
- *
- * Port of modules/module_relations/views/summary_panel.php. The PHP shell seeds
- * its MX context as custom headers on the unique-ID container and lets MX
- * fetch the live content on load. The port does the same fetch from an effect:
- * POST /api/xhr/module_relations/render_panel_body with the same X-* context
- * (headlessly also mirrored in the JSON body), `format: "json"` asking for the
- * panel data instead of an HTML fragment.
- */
-
 interface XhrReply {
   status: string;
   data?: { ok?: boolean; message?: string; panel?: PanelBodyData };

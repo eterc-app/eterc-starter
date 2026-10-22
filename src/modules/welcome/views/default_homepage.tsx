@@ -1,9 +1,5 @@
 import { ENV, ETERC_HOME_URL, ETERC_DOCS_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
-
-/**
- * Default homepage — port of modules/welcome/views/default_homepage.php.
- */
 export default function DefaultHomepage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">

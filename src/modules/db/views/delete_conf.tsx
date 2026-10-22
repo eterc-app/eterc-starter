@@ -3,15 +3,6 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/**
- * Delete confirmation — the `db` module's pre-deletion page.
- *
- * Rendered by Db::delete_conf() with
- * { headline, table, update_id, preview, cancel_url }. The preview is a short
- * read-only excerpt of the record being deleted (label/value pairs supplied by
- * the controller). Deletion only happens on "Yes - Delete Now".
- */
-
 interface PreviewItem {
   label: string;
   value: string;

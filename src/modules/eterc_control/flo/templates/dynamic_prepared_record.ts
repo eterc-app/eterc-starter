@@ -1,8 +1,6 @@
 /**
- * Dynamic display preparation — port of
- * site_builder/views/dynamic_prepared_record.php.
+ * Dynamic prepared-record template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 
 /** Build the trim/boolean display conversions in prepare_record_for_display(). */

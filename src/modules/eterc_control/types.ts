@@ -11,7 +11,6 @@ export interface SqlFileInfo {
   path: string;
   /** Basename shown in the file list. */
   filename: string;
-  /** Size in kilobytes, rounded to two decimal places (PHP: round(..., 2)). */
   filesize_kb: number;
   /** Result of the model's check_sql_safety() scan. */
   safe: boolean;

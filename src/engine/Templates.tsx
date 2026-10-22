@@ -5,12 +5,6 @@ import { AdminTemplate } from "@/templates/AdminTemplate";
 import { ModuleDetailsTemplate } from "@/templates/ModuleDetailsTemplate";
 import { Error404 } from "@/templates/Error404";
 
-/**
- * Templates service — port of modules/templates/Templates.php.
- * The PHP `display()` call (rendering a view inside a theme) becomes a React
- * composition of the theme component with the addressed view component.
- */
-
 export interface EtTemplateData extends Record<string, unknown> {
   viewModule?: string;
   viewFile?: string;

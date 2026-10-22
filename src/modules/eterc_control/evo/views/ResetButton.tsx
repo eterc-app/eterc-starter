@@ -5,19 +5,6 @@ import { BASE_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
 
 const BASE = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-
-/**
- * Shared reset control for Evo views.
- *
- * The PHP views called the global `doReset()` from flo.js, which posted to
- * `eterc_control-evo/reset` and reloaded the Flo home menu. This component
- * keeps the same contract but uses the port's JSON API:
- *
- *   POST /api/xhr/eterc_control-evo/reset
- *
- * Inside the Flo iframe it asks the launcher to reopen Flo; outside it
- * navigates to the Evo home page.
- */
 export function ResetButton({
   label = "Okay",
   className,

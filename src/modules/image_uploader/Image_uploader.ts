@@ -20,29 +20,6 @@ import {
 } from "./Image_uploader_model";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 
-/**
- * Image_uploader controller — runtime for generated single-image features.
- * Port of modules/image_uploader/Image_uploader.php.
- *
- * Surface (same public method names as PHP):
- *   draw_panel        — renders the show-page "Picture" card (block_url'd);
- *   render_panel_body — renders the card's live region from X-* headers;
- *   upload_form       — dedicated upload page (plain multipart form);
- *   submit_upload     — POST handler: validates, uploads, updates the row;
- *   remove_picture    — removes the picture in place (CSRF-gated);
- *   delete_files      — delete hook helper (block_url'd, internal only).
- *
- * Port adaptations (documented):
- *   - the PHP MX live fetch of the panel body does not exist in the port;
- *     draw_panel renders the full card server-side, and remove_picture
- *     re-renders the same region for the client component that posts it;
- *   - `http_response_code(400/422) + echo` becomes EtHttpError, which the
- *     dispatcher renders with the equivalent status (the 422 JSON bodies
- *     become the standard error reply of the etSubmit server action);
- *   - the upload POST is submitted through <EtForm> (multipart server
- *     action), the port's equivalent of the dedicated multipart page.
- */
-
 /** Allowed stored extensions for each sniffed image MIME type. */
 const IMAGE_EXTENSIONS: Record<string, string[]> = {
   "image/jpeg": ["jpg", "jpeg"],
@@ -58,9 +35,6 @@ export default class Image_uploader extends Eterc {
     this.model = new Image_uploader_model(this.module_name || "image_uploader");
   }
 
-  // -------------------------------------------------------------------------
-  // Service accessors (PHP: $this->model, $this->eterc_security)
-  // -------------------------------------------------------------------------
 
   private uploaderModel(): Image_uploader_model {
     return this.model as Image_uploader_model;
@@ -71,9 +45,6 @@ export default class Image_uploader extends Eterc {
       .eterc_security;
   }
 
-  // =========================================================================
-  // Show-page panel (Modules::run from the target module's show view)
-  // =========================================================================
 
   /**
    * Render the "Picture" card on a generated show page.
@@ -103,15 +74,6 @@ export default class Image_uploader extends Eterc {
 
     return this.view("image_uploader/picture_panel", data);
   }
-
-  /**
-   * Render the panel's live region (picture state + actions).
-   *
-   * Session-authenticated like every admin page. The X-* custom headers
-   * carry the panel context (module, record id, panel id). Responds with
-   * HTTP 400 (PHP set the status and rendered nothing) when required
-   * context is missing or malformed, or when no uploader is configured.
-   */
   async render_panel_body(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
 
@@ -190,8 +152,6 @@ export default class Image_uploader extends Eterc {
     );
 
     if ((await this.validation.run()) !== true) {
-      // PHP re-rendered the full upload page; the port re-renders the bare
-      // view so <EtForm> can swap its own subtree while showing the errors.
       return this.render_upload_form(module, update_id, false);
     }
 
@@ -265,19 +225,6 @@ export default class Image_uploader extends Eterc {
   // =========================================================================
   // Remove (CSRF-gated)
   // =========================================================================
-
-  /**
-   * Remove the record's picture in place.
-   *
-   * Session-authenticated + CSRF-gated via validation.run(). The recorded
-   * main + thumb files are deleted (exact recorded names only) and the
-   * column is cleared to ''. The response is the re-rendered panel region,
-   * which the client component swaps in without a page reload.
-   *
-   * Business-rule failures raise EtHttpError(422) — the PHP original
-   * responded with a 422 JSON {ok, message} body; the port's server action
-   * surfaces the same status and message to the client.
-   */
   async remove_picture(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
     await this.validation.run(); // CSRF gate
@@ -320,17 +267,6 @@ export default class Image_uploader extends Eterc {
     return this.view("image_uploader/panel_body", data);
   }
 
-  // =========================================================================
-  // Delete hook (Modules::run from the target module's delete flow)
-  // =========================================================================
-
-  /**
-   * Delete the recorded picture files for a deleted record.
-   *
-   * Internal endpoint: public + block_url() + Modules::run only, so a
-   * direct URL hit is rejected. No-op (silent) when the file name is empty
-   * or the settings no longer exist.
-   */
   delete_files(params: Record<string, unknown> = {}): void {
     block_url("image_uploader/delete_files");
 
@@ -463,7 +399,7 @@ export default class Image_uploader extends Eterc {
       form_location: `${BASE_URL}image_uploader/submit_upload`,
       view_module: "image_uploader",
       view_file: "upload_form",
-      // The port's Templates addresses views with camelCase keys.
+      // Templates addresses views with camelCase keys.
       viewModule: "image_uploader",
       viewFile: "upload_form",
     };
@@ -547,7 +483,6 @@ export default class Image_uploader extends Eterc {
           fs.unlinkSync(target);
         }
       } catch {
-        /* ignore — best effort, like PHP's @unlink */
       }
     }
 

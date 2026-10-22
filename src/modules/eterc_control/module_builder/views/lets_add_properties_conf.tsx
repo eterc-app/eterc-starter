@@ -4,16 +4,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-/**
- * Step 3 — port of module_builder/views/lets_add_properties_conf.php.
- *
- * The PHP view opened the Properties Builder in a Flo shell overlay; the
- * builder reported back through the postMessage/localStorage protocol. The port
- * keeps that protocol and embeds the ported builder directly as an overlay, so
- * the "Okay" button behaves like the original. The JSON editor remains as a
- * fallback (and for paste/import).
- */
 export function LetsAddPropertiesConfStep({
   initialProperties,
   onOkay,

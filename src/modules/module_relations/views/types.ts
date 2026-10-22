@@ -1,11 +1,3 @@
-/**
- * Shared view types for the module_relations runtime panel.
- *
- * These mirror the arrays Module_relations_model produces:
- *   associated_rows    — {id, foreign_key, value}
- *   available_options  — {key, value}
- * plus the panel context Module_relations::panel_data() assembles.
- */
 
 export interface PanelOption {
   key: number;

@@ -46,20 +46,6 @@ import { buildTableSql } from "./templates/table_sql";
 import { buildManifest, renderManifest } from "./templates/manifest";
 import { buildGeneratedIndex } from "./templates/generated_index";
 
-/**
- * Flo's code-generation engine.
- *
- * Flo is the independent Next.js successor of the PHP site_builder donor
- * pipeline: it normalises the wizard data, renders the donor templates into
- * TypeScript/TSX, writes a complete module under
- * `src/modules/generated/<module>/`, applies the SQLite schema and rebuilds
- * the generated-module index.
- *
- * The generator deliberately does not subclass `Model`: it has no database
- * ownership and is safe to instantiate from tests. A `Db`-compatible object
- * may be injected for schema checks and SQL execution.
- */
-
 export interface FloGeneratorDb {
   table_exists(table: string): boolean;
   query(sql: string, returnType?: "object" | "array" | null): unknown;
@@ -415,9 +401,6 @@ export class FloGenerator {
       properties_json: JSON.stringify(properties),
     };
 
-    // -----------------------------------------------------------------------
-    // Precomputed dynamic fragments (PHP: $dynamic_* variables)
-    // -----------------------------------------------------------------------
     context.dynamic_validation_tests = buildValidationTests(context);
     context.dynamic_callback_methods = buildCallbackMethods(context);
     context.has_callbacks = context.dynamic_callback_methods !== "";
@@ -703,7 +686,6 @@ export class FloGenerator {
       }
     }
 
-    // Navigation link (PHP: Site_builder_model::add_nav_menu_link()).
     if (context.nav_label !== "") {
       this.add_nav_menu_link(module_name, context.nav_label);
     }
@@ -796,8 +778,6 @@ export class FloGenerator {
     }
     return index_path;
   }
-
-  /** Check that every path is writable (PHP: check_write_permissions). */
   check_write_permissions(additional_paths: string[] = []): boolean {
     const paths = [MODULES_DIR, GENERATED_MODULES_DIR, ...additional_paths];
 
@@ -822,15 +802,6 @@ export class FloGenerator {
 
     return true;
   }
-
-  /**
-   * Append a navigation link to the port's settings file.
-   *
-   * The PHP generator edited the admin template directly. The React admin
-   * template is code and must not be rewritten by a generator, so links are
-   * recorded in the same JSON file site_builder uses. An existing link is not
-   * duplicated and an empty label adds nothing.
-   */
   add_nav_menu_link(module_name: string, nav_label: string): boolean {
     if (nav_label === "") return false;
 
@@ -918,8 +889,6 @@ export class FloGenerator {
     return result;
   }
 }
-
-/** PHP truthiness for `run_sql`: absent defaults to true. */
 function boolValue(value: unknown, fallback: boolean): boolean {
   if (value === undefined || value === null) return fallback;
   if (typeof value === "boolean") return value;

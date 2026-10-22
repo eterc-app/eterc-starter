@@ -1,12 +1,6 @@
 /**
- * Dynamic date/time callback methods — port of
- * site_builder/views/dynamic_callback_methods.php.
- *
- * The generated controller delegates to the generated model's
- * `validate_*_in_*` methods; direct URL access is rejected with the same 403
- * signal the rest of the port uses.
+ * Dynamic callback fragment template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 
 function needsRule(

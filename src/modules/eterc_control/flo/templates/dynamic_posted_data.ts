@@ -1,8 +1,6 @@
 /**
- * Dynamic posted-data object members — port of
- * site_builder/views/dynamic_posted_data.php (`model_helper.php`).
+ * Dynamic posted-data template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 import { js } from "./helpers";
 

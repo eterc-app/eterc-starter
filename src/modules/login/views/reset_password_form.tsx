@@ -5,11 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "./AuthShell";
-
-/**
- * Reset password form — port of
- * modules/login/forgot_password/views/reset_password_form.php.
- */
 export function ResetPasswordForm({ data }: EtViewProps) {
   const errorMessage =
     typeof data.error_message === "string" && data.error_message !== ""

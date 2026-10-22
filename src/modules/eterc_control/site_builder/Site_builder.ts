@@ -22,37 +22,6 @@ import type {
   GeneratorContext,
 } from "./types";
 
-/**
- * Site_builder — port of
- * modules/eterc_control/site_builder/Site_builder.php.
- *
- * The PHP controller staged generated files under `site_builder/factory`,
- * renamed the staged directory into `modules/`, executed the generated SQL and
- * removed the one-shot .sql file. The port writes directly into
- * `src/modules/generated/<module>/` (the framework's generated-modules
- * directory), rolls that directory back on unexpected errors, and keeps the
- * .sql file when SQL execution fails so it can be run manually.
- *
- * The generated artifacts are Next.js modules:
- *   <Name>.ts            controller
- *   <Name>_model.ts      model
- *   views/*.tsx          manage / create / show / delete_conf / not_found
- *                        (+ search_modal when a property is searchable)
- *   views/index.ts       view registration map
- *   manifest.json        metadata used by the generated-module index
- *   <module>.sql         SQLite CREATE TABLE (deleted after a clean run)
- *
- * A successful run also rewrites `src/modules/generated/index.ts` and writes a
- * manifest, so the module becomes routable without any hand-edited registry
- * entry (the PHP original relied on its module autoloader).
- *
- * Error result shape mirrors Site_builder::submit_generate_mod():
- *   {status:'error', headline, message, more_info_url?}
- * The troubleshooting URLs intentionally point at the port-only Site Builder
- * status page anchors: the React module-builder wizard surfaces these errors as
- * JSON rather than through Evo's HTML error page.
- */
-
 const POSTED_FIELDS = [
   "module_folder_name",
   "record_name_singular",
@@ -83,14 +52,6 @@ export default class Site_builder extends Eterc {
   private builderModel(): Site_builder_model {
     return this.model as Site_builder_model;
   }
-
-  /**
-   * Port-only landing page.
-   *
-   * The PHP module had no page entry point (it is a generation service used by
-   * Evo/Flo). The control-panel dashboard links here, so the port renders a
-   * short status/help page instead of a 404.
-   */
   async index(): Promise<ReactNode> {
     const data: EtTemplateData = {
       viewModule: "site_builder",
@@ -106,13 +67,6 @@ export default class Site_builder extends Eterc {
     };
     return this.templates.admin(data);
   }
-
-  /**
-   * Generate a new module.
-   *
-   * Accepts a pre-built data array (called by module_builder::run_gen()) or a
-   * direct POST/JSON body (backward compatibility with the PHP URL endpoint).
-   */
   async submit_generate_mod(
     posted_values: GenerateModuleInput | null = null
   ): Promise<GenerateModuleResult> {
@@ -145,9 +99,6 @@ export default class Site_builder extends Eterc {
 
     const module_name = context.module_folder_name;
 
-    // ---------------------------------------------------------------------
-    // Directory / table / permission checks (PHP parity).
-    // ---------------------------------------------------------------------
     ensure_dir(GENERATED_MODULES_DIR);
 
     const target_module_path = context.module_folder_path;
@@ -223,8 +174,6 @@ export default class Site_builder extends Eterc {
       ensure_dir(target_module_path);
       written_files = this.write_files(target_module_path, files);
     } catch (error) {
-      // The target directory was created by this request; remove it so a
-      // retry can run cleanly (PHP removed its staging directory).
       this.remove_directory(target_module_path);
 
       return this.error(
@@ -234,8 +183,6 @@ export default class Site_builder extends Eterc {
       );
     }
 
-    // Record the navigation link in the port's settings file. Failure is not
-    // fatal (PHP: add_nav_menu_link() returns false and is ignored).
     if (wants_nav_link) {
       this.builderModel().add_nav_menu_link(module_name, context.nav_label);
     }
@@ -252,8 +199,6 @@ export default class Site_builder extends Eterc {
       try {
         this.db.query(files.get(`${module_name}.sql`) ?? "");
       } catch (error) {
-        // Keep the .sql file so it can be run manually (PHP parity). The
-        // generated module files remain in place.
         return this.error(
           "SQL Execution Error",
           `Module files were generated, but the database table could not be created: ${
@@ -274,9 +219,6 @@ export default class Site_builder extends Eterc {
       }
     }
 
-    // Persist a manifest so the generated-module index keeps this module's
-    // metadata (Flo writes the same file; site_builder originally relied on
-    // the PHP autoloader and therefore had no manifest).
     const manifest = {
       module_name,
       class_name: context.class_name,
@@ -294,9 +236,6 @@ export default class Site_builder extends Eterc {
     fs.writeFileSync(manifest_path, JSON.stringify(manifest, null, 2), "utf8");
     written_files.push(manifest_path);
 
-    // Register the module with the static generated index. The PHP original
-    // relied on its autoloader scanning modules/; in the port the index must be
-    // rewritten or the new module is on disk but not routable.
     try {
       new FloGenerator().rebuild_generated_index(GENERATED_MODULES_DIR);
     } catch (error) {
@@ -342,11 +281,6 @@ export default class Site_builder extends Eterc {
 
     return values as GenerateModuleInput;
   }
-
-  /**
-   * PHP truthiness for `run_sql`: absent defaults to true; "0", "false",
-   * "no", "off" and an empty string disable it.
-   */
   private bool_value(value: unknown, fallback: boolean): boolean {
     if (value === undefined || value === null) return fallback;
     if (typeof value === "boolean") return value;
@@ -383,8 +317,6 @@ export default class Site_builder extends Eterc {
       /* best effort */
     }
   }
-
-  /** Build the PHP-compatible error result. */
   private error(
     headline: string,
     message: string,

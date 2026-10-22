@@ -18,17 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PerPageSelect } from "./PerPageSelect";
-
-/**
- * Manage administrators — port of
- * modules/eterc_administrators/views/manage.php.
- *
- * Rendered on the server: the pagination is the canonical pagination module
- * (it reads the request context to resolve the current page), and the only
- * interactive part — the "Records Per Page" selector — is <PerPageSelect>,
- * a small client component that navigates to
- * {module}/set_per_page/{index} exactly like the PHP view's inline script.
- */
 export default function Manage({ data }: EtViewProps) {
   const rows = (data.rows ?? []) as Array<Record<string, unknown>>;
   const pagination_data = (data.pagination_data ?? {}) as Record<string, unknown>;

@@ -8,11 +8,6 @@ import { EtUiProvider } from "@/engine/ui/EtUiProvider";
 // (it reads cookies/headers and dispatches dynamically), so opt the segment
 // out of instant-navigation validation.
 export const instant = false;
-
-/**
- * The router entry point — every GET is addressed as
- * `{module}/{method}/{params...}` exactly like engine/Core.php.
- */
 export default async function EtercPage({
   params,
   searchParams,

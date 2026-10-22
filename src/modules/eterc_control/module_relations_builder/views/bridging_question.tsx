@@ -3,11 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { RelationsWizard } from "../types";
-
-/**
- * Step 5 (one-to-one only) — port of
- * module_relations_builder/views/bridging_question.php.
- */
 export function BridgingQuestionStep({
   wizard,
   onSelect,

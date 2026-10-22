@@ -1,13 +1,6 @@
 import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
-
-/**
- * Evo home menu — port of evo/views/home.php.
- *
- * The original list items called MX to swap `main`; the port uses ordinary
- * links because each Evo page is rendered inside the admin theme.
- */
 export default function EvoHome(_props: EtViewProps) {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-6">

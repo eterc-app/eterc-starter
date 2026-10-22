@@ -1,15 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Generation result — port of
- * module_relations_builder/views/generate_relation.php.
- *
- * Success shows the two module shortcuts; failure shows the controller's
- * headline and message. Both success buttons open the manage page in a new
- * tab and reset the wizard, matching the original doReset() behaviour.
- */
 export function GenerateRelationStep({
   error,
   headline,

@@ -7,15 +7,6 @@ import {
   segment,
 } from "@/engine/request-context";
 
-/**
- * Pagination_model — port of modules/pagination/Pagination_model.php.
- *
- * Validates the pagination configuration, fills in the documented defaults,
- * detects the pagination root / current page and returns the processed data
- * consumed by the Pagination renderer. Returns null when the record count is
- * too small to paginate (the controller then renders nothing).
- */
-
 export type PaginationSettings = Record<string, string>;
 
 export interface PaginationData {
@@ -124,14 +115,6 @@ function isExpectedType(value: unknown, type: OptionalProperty["type"]): boolean
 }
 
 export class Pagination_model extends Model {
-  /**
-   * Prepare and validate pagination data.
-   *
-   * Mirrors Pagination_model::prepare_pagination_data(): required-property
-   * failures are fatal (the PHP original calls die()), optional properties
-   * with a wrong type fall back to their defaults, and `null` means "no
-   * pagination required".
-   */
   prepare_pagination_data(
     pagination_data: PaginationData
   ): PreparedPaginationData | null {
@@ -194,8 +177,6 @@ export class Pagination_model extends Model {
   private init_optional_properties(data: Record<string, unknown>): void {
     for (const [property, options] of Object.entries(OPTIONAL_PROPERTIES)) {
       if (data[property] === undefined || data[property] === null) {
-        // Non-null defaults (bool/int/string/array) replace null exactly as
-        // PHP's isset() branch does; nullable defaults keep null.
         data[property] = options.default;
         continue;
       }
@@ -250,8 +231,6 @@ export class Pagination_model extends Model {
 
     const base_url = remove_query_string(page_url);
 
-    // Resolve the path component, then strip the configured BASE_URL so the
-    // result is a relative pagination root (PHP: str_replace(BASE_URL, ...)).
     let pathname = base_url;
     try {
       pathname = new URL(base_url).pathname;

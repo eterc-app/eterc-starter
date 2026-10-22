@@ -1,14 +1,3 @@
-/**
- * Code-injection templates for the Image Uploader Builder.
- *
- * The PHP original kept one template per injected fragment under
- * views/injectables/. The port keeps the same fragments as plain functions.
- *
- * Port adaptation: a React show view cannot call a runtime module directly
- * (the PHP view used `Modules::run`), so the generated module's show()
- * controller renders the panel first and passes it to the view as
- * `upload_panel`, exactly like the module_relations summary panel.
- */
 
 function lit(value: string): string {
   return JSON.stringify(value);

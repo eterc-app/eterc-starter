@@ -5,16 +5,6 @@ import { BASE_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
 import { Wand2, X } from "lucide-react";
 
-/**
- * Flo launcher — port of
- * modules/eterc_control/flo/views/flo_trigger.php.
- *
- * The PHP trigger relied on the framework's MX modal and a global
- * `window` message listener. The React version keeps the same postMessage
- * protocol and renders its overlays as fixed-position iframes, with the
- * launcher styled using the Eterc shadcn/Tailwind surface.
- */
-
 /** Respect BASE_URL without importing the server-only request context. */
 const BASE = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
 
@@ -29,8 +19,6 @@ interface OverlayState {
   width: number;
   height: number;
 }
-
-/** Parse a postMessage dimension, falling back to the PHP defaults. */
 function dimension(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -85,9 +73,6 @@ export function FloTrigger() {
     }
   }, [openOverlay]);
 
-  // -------------------------------------------------------------------------
-  // postMessage protocol (same messages as flo_trigger.php)
-  // -------------------------------------------------------------------------
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const data = event.data;
@@ -105,7 +90,6 @@ export function FloTrigger() {
           .split("|");
         if (!url) return;
 
-        // PHP toggles the overlay: a second message removes an open one.
         setOverlay((current) =>
           current
             ? null

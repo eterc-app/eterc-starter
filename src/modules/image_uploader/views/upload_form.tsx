@@ -5,20 +5,6 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-
-/**
- * Image Uploader — dedicated upload page (runtime).
- * Port of modules/image_uploader/views/upload_form.php.
- *
- * A full page for one record so a large upload is an ordinary multipart
- * form submission. The PHP original posted a plain multipart form to
- * submit_upload(); the port uses <EtForm> with encType="multipart/form-data"
- * (a server action that carries the same FormData), which is the port's
- * equivalent for real file transfers.
- *
- * Expects: headline, module, update_id, current_file_name,
- *          current_picture_url, cancel_url.
- */
 export default function UploadForm({ data }: EtViewProps) {
   const module = String(data.module ?? "");
   const update_id = Number(data.update_id ?? 0);

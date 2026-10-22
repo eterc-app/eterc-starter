@@ -2,8 +2,6 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-
-/** 404 page — port of modules/templates/views/error_404.php. */
 export function Error404() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">

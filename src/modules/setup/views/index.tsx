@@ -1,15 +1,6 @@
 import type { EtViewProps } from "@/engine/views-registry";
 import { SetupWizard, HelpMessage } from "../SetupWizard";
 
-/**
- * Setup module views - registration map for the React port.
- *
- * PHP originals: setup.php, database_config.php, admin_account.php,
- * update_default_module.php, setup_complete.php, help_message.php.
- * The five wizard steps live inside <SetupWizard /> (a client component);
- * this module keeps the {module}/{view_file} addressing intact.
- */
-
 function SetupIndex({ data }: EtViewProps) {
   return (
     <main>

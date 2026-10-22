@@ -1,11 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Generation result — port of
- * image_uploader_builder/views/generate_result.php.
- */
 export function GenerateResultStep({
   error,
   headline,

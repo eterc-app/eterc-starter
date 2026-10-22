@@ -1,14 +1,6 @@
-/**
- * Eterc - framework configuration.
- *
- * Mirrors: config/config.php, config/site_owner.php and parts of
- * config/login.php + config/eterc_email.php from the PHP original.
- */
 
 /** Base URL prefix. On Next.js the app is served from the site root. */
 export const BASE_URL = process.env.ET_BASE_URL ?? "/";
-
-/** Environment: 'dev' or 'production'. Mirrors config.php ENV. */
 export const ENV = process.env.NODE_ENV === "production" ? "production" : "dev";
 
 /** Default module when no module segment is present. */
@@ -23,9 +15,6 @@ export const MODULE_ASSETS_TRIGGER = "_module";
 /** 404 handler in "module/method" form. */
 export const ERROR_404 = "templates/error_404";
 
-// ---------------------------------------------------------------------------
-// Site owner settings (config/site_owner.php)
-// ---------------------------------------------------------------------------
 
 export const WEBSITE_NAME = "Eterc";
 export const OUR_NAME = "Your Company Name";
@@ -46,16 +35,10 @@ export const ETERC_FORUM_URL = "https://eterc-forum.eterc.app";
 export const ETERC_API_URL = "https://eterc-api.eterc.app/";
 export const ETERC_GITHUB_URL = "https://github.com/eterc-app/eterc-starter";
 
-// ---------------------------------------------------------------------------
-// Flashdata rendering wrappers (config/config.php: FLASHDATA_OPEN/CLOSE)
-// ---------------------------------------------------------------------------
 
 export const FLASHDATA_OPEN = "";
 export const FLASHDATA_CLOSE = "";
 
-// ---------------------------------------------------------------------------
-// Login configuration (config/login.php)
-// ---------------------------------------------------------------------------
 
 export interface LoginIdentifier {
   column: string;
@@ -113,9 +96,6 @@ export const LOGIN_CONFIG: LoginConfig = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Email configuration (config/eterc_email.php) — env driven in the port.
-// ---------------------------------------------------------------------------
 
 export const EMAIL_CONFIG = {
   smtp_host: process.env.ET_SMTP_HOST ?? "",
@@ -126,9 +106,6 @@ export const EMAIL_CONFIG = {
   smtp_from_name: process.env.ET_SMTP_FROM_NAME ?? "Eterc Support",
 };
 
-// ---------------------------------------------------------------------------
-// Routing: custom routes and interceptors (config/custom_routing.php)
-// ---------------------------------------------------------------------------
 
 export type CustomRoutes = Record<string, string>;
 export const CUSTOM_ROUTES: CustomRoutes = {};

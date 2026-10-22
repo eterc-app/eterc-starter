@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "./AuthShell";
-
-/**
- * Login form (default) — port of modules/login/views/login_default.php.
- * Markup uses the Eterc shadcn/Tailwind auth surface.
- */
 export function LoginDefault({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(

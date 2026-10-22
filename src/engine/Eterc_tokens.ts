@@ -4,16 +4,6 @@ import { session_get, session_set, session_unset } from "./session";
 import { make_rand_str, escape_html } from "./String_service";
 import { AUTH_TOKEN_COOKIE } from "./config";
 
-/**
- * Eterc_tokens — port of modules/eterc_tokens (controller + model).
- *
- * Tokens live in the `eterc_tokens` table and are looked up from (in the
- * same priority order as the PHP original):
- *   1. HTTP header `EtercToken`
- *   2. cookie `eterctoken`
- *   3. session value `eterctoken`
- */
-
 interface TokenRow {
   id: number;
   token: string;

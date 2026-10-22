@@ -49,24 +49,6 @@ import {
 
 register_views(views);
 
-/**
- * Module_relations_builder - the "Create Module Relation" wizard.
- *
- * Port of modules/eterc_control/module_relations_builder. The wizard walks
- * through relation type -> module A -> module B -> (bridging question for
- * 1:1) -> confirmation, then writes the schema, the runtime settings JSON and
- * the code injections that make the relation visible.
- *
- * Port adaptations:
- *  - generated modules live under src/modules/generated; injection targets that
- *    layout (with a fallback to src/modules/<module> for hand-written modules);
- *  - PHP code templates are rendered as TypeScript/JSX blocks and parse-checked
- *    with the TypeScript compiler before any file is written;
- *  - the original MX/echo flow is split: AJAX callers get JSON, page requests
- *    render through the admin theme;
- *  - the dev-only guard raises 403 instead of calling evo's disabled view.
- */
-
 const WIZARD_SESSION_KEY = "evo_wizard";
 
 const SHOW_FETCH_ANCHOR =
@@ -174,7 +156,7 @@ export default class Module_relations_builder extends Eterc {
   // Wizard entry point
   // ============================================
 
-  /** Port convenience: `/eterc_control-module_relations_builder`. */
+  /** Convenience route: `/eterc_control-module_relations_builder`. */
   async index(): Promise<ReactNode | Record<string, unknown>> {
     return this.choose_relation_type();
   }

@@ -21,29 +21,23 @@ import {
 } from "./image-utils";
 
 /**
- * Image — port of modules/image/Image.php.
+ * Image service.
  *
- * The PHP original decoded images with GD and held a GdImage resource; the
- * port holds the image's encoded bytes (the same format it was loaded in) and
- * uses sharp for encoding and transformations. The public method names and
- * option shapes mirror the PHP class:
+ * Holds encoded image bytes and uses sharp for encoding and transformations:
  *
  *   - upload() / load() / save() / output() and the resize/crop methods are
- *     ASYNC (sharp is asynchronous; the PHP versions were synchronous);
- *   - get_width() / get_height() / get_header() stay synchronous because
+ *     async;
+ *   - get_width() / get_height() / get_header() are synchronous because
  *     dimensions are decoded from the container header on load;
- *   - output() always returns the encoded bytes as a Buffer — PHP echoed the
- *     image to the response when `$return` was false (documented deviation);
- *   - the constructor keeps PHP's block_url('image') guard.
+ *   - output() always returns the encoded bytes as a Buffer;
+ *   - the constructor installs block_url('image') to prevent direct access.
  *
- * Stored file names follow the same security policy as the original: the
- * extension comes from the MIME type sniffed from the file's CONTENT (never
- * from the client's file name) and `make_rand_name` uses 16 random bytes,
- * hex-encoded, prefixed 'img_'.
+ * Stored file names use the MIME type sniffed from the file content, never
+ * the client's file name. `make_rand_name` uses 16 random bytes, hex-encoded,
+ * prefixed 'img_'.
  */
 
-// PHP IMAGETYPE_* constants used by the original (the port keeps the numeric
-// values so get_image_type()/get_header() behave identically).
+// Numeric image type identifiers returned by get_image_type() and get_header().
 const IMAGETYPE_GIF = 1;
 const IMAGETYPE_JPEG = 2;
 const IMAGETYPE_PNG = 3;
@@ -56,15 +50,15 @@ const FORMAT_TO_TYPE: Record<ImageFormat, number> = {
   webp: IMAGETYPE_WEBP,
 };
 
-/** PHP upload error codes (UPLOAD_ERR_*). */
+/** User-facing messages for numeric upload error codes. */
 const UPLOAD_ERRORS: Record<number, string> = {
-  1: "The uploaded file exceeds the upload_max_filesize directive",
-  2: "The uploaded file exceeds the MAX_FILE_SIZE directive",
+  1: "The uploaded file exceeds the server's size limit",
+  2: "The uploaded file exceeds the configured size limit",
   3: "The uploaded file was only partially uploaded",
   4: "No file was uploaded",
-  6: "Missing a temporary folder",
+  6: "The server's temporary folder is unavailable",
   7: "Failed to write file to disk",
-  8: "A PHP extension stopped the file upload",
+  8: "The upload was stopped by a server extension",
 };
 
 export interface ImageUploadConfig {
@@ -91,28 +85,24 @@ export interface ImageUploadInfo {
 export default class Image {
   /**
    * Exception code for a valid image whose format this runtime cannot
-   * process (kept from the PHP original; the validation module checked it).
-   * 415 is the HTTP status code for 'Unsupported Media Type'.
+   * process. 415 is the HTTP status code for "Unsupported Media Type".
    */
   static readonly UNSUPPORTED_FORMAT = 415;
 
-  /**
-   * The encoded bytes of the currently loaded image, in `image_format`.
-   * (PHP held a decoded GD resource here.)
-   */
+  /** The encoded bytes of the currently loaded image. */
   private image: Buffer | null = null;
 
-  /** Image type as one of the PHP IMAGETYPE_* constants. */
+  /** Numeric image type identifier. */
   private image_type: number | null = null;
 
-  /** The loaded image's format (the port's equivalent of `image_type`). */
+  /** The loaded image's format. */
   private image_format: ImageFormat | null = null;
 
   /** Current pixel dimensions (updated by every transform). */
   private width = 0;
   private height = 0;
 
-  /** File path of the loaded image (PHP: set by the constructor only). */
+  /** File path of the loaded image. */
   private file_name: string | null = null;
 
   /** Associative array mapping image types to their MIME types. */
@@ -129,7 +119,7 @@ export default class Image {
    * @param filename Path to an image file to load.
    */
   constructor(filename?: string | null) {
-    // Protect this module from unwanted browser access (PHP parity).
+    // Protect this module from direct browser access.
     block_url("image");
 
     if (filename) {
@@ -141,15 +131,6 @@ export default class Image {
   // -------------------------------------------------------------------------
   // Upload
   // -------------------------------------------------------------------------
-
-  /**
-   * Handle the upload and processing of an image file.
-   *
-   * PHP read $_FILES synchronously; the port reads the request's FormData
-   * through uploaded_files(), hence the async signature. The returned shape
-   * matches the PHP array: file_name, file_path, file_type, file_size and
-   * (when a thumbnail was requested) thumbnail_path.
-   */
   async upload(data: ImageUploadConfig = {}): Promise<ImageUploadInfo> {
     const destination = String(data.destination ?? "");
     const max_width = Number(data.max_width ?? 450);
@@ -186,9 +167,6 @@ export default class Image {
       throw new Error("Invalid file type. Only image files are allowed.");
     }
 
-    // Determine destination directory. PHP resolved module uploads to
-    // APPPATH/modules/{module}/...; the port resolves them to the publicly
-    // served module-assets folder (public/{module}_module/...).
     const destination_dir = resolveUploadDirectory(
       destination,
       upload_to_module,
@@ -262,7 +240,7 @@ export default class Image {
 
     // A file that is not resized above is published exactly as the client
     // sent it — unless its first 4 KB contain a short open tag byte pair,
-    // in which case it is re-encoded so no such bytes survive (see the PHP
+    // in which case it is re-encoded so no such bytes survive (see the
     // original's carries_short_open_tag_bytes()).
     if (!reencode && this.carries_short_open_tag_bytes(file_path)) {
       reencode = true;
@@ -316,13 +294,6 @@ export default class Image {
   // -------------------------------------------------------------------------
   // Load / validate
   // -------------------------------------------------------------------------
-
-  /**
-   * Load and validate an image file into memory.
-   *
-   * The PHP original created a GD resource; the port reads the file's bytes
-   * and decodes format + dimensions from the container header.
-   */
   load(filename: string): void {
     const bytes = this.validate_image(filename);
 
@@ -338,17 +309,6 @@ export default class Image {
     this.width = dimensions.width;
     this.height = dimensions.height;
   }
-
-  /**
-   * Comprehensive validation of an image file (PHP: validate_image()).
-   *
-   * Mirrors the original checks: existence, MIME allow-list (a valid image
-   * in an unsupported format raises UNSUPPORTED_FORMAT), container header
-   * dimensions, file signature, a scan of the first 256 bytes for HTML/PHP
-   * injection patterns and a memory requirement estimate.
-   *
-   * @returns The file's bytes (read once; PHP read the file several times).
-   */
   private validate_image(filename: string): Buffer {
     if (!fs.existsSync(filename)) {
       throw new Error(`File not found: ${filename}`);
@@ -378,27 +338,21 @@ export default class Image {
       throw new Error("Invalid image type");
     }
 
-    // Additional image validation: decode the dimensions (getimagesize()).
     const dimensions = readDimensions(bytes, format);
     if (dimensions === null) {
       throw new Error("Failed to get image information");
     }
 
-    // Verify the file signature matches the sniffed format. In PHP this
-    // compared finfo against getimagesize(); in the port both readings come
-    // from the same decode, so this is a structural check.
+    // Verify the file signature matches the sniffed format.
     if (!isSignatureValid(bytes, format)) {
       throw new Error("Invalid file signature");
     }
 
-    // PHP also verified both MIME bases were 'image'; the allow-list above
-    // already guarantees it for the sniffed content.
-
-    // Enhanced pattern including PHP tags. The '<?' pattern is not used
-    // here: those bytes occur by chance in compressed image data; such a
-    // file is re-encoded before publishing instead (see upload()).
+    // Reject executable markup in the image header. Short open tags are not
+    // scanned because those bytes occur by chance in compressed image data;
+    // such files are re-encoded before publishing instead (see upload()).
     const opening_bytes = bytes.subarray(0, 256).toString("latin1");
-    if (/<(script|iframe|object|embed|applet)[\s>]|<\?php/i.test(opening_bytes)) {
+    if (/<(script|iframe|object|embed|applet)[\s>]/i.test(opening_bytes)) {
       throw new Error("Potential security threat detected in image");
     }
 
@@ -413,13 +367,6 @@ export default class Image {
   // -------------------------------------------------------------------------
   // Save / output
   // -------------------------------------------------------------------------
-
-  /**
-   * Save the currently loaded image to a file.
-   *
-   * Async in the port because sharp encodes the output. Compression maps to
-   * JPEG/WEBP quality (0-100); GIF and PNG ignore it, like the PHP originals.
-   */
   async save(
     filename?: string | null,
     compression = 100,
@@ -457,16 +404,6 @@ export default class Image {
       }
     }
   }
-
-  /**
-   * Output the image content.
-   *
-   * PHP echoed the image straight to the browser when `return` was false and
-   * returned the bytes otherwise. A controller in the port cannot stream a
-   * partial response, so output() ALWAYS returns the encoded bytes as a
-   * Buffer (documented signature adaptation); the `return_data` parameter is
-   * accepted for PHP call-shape parity.
-   */
   async output(return_data = false): Promise<Buffer> {
     void return_data;
 
@@ -498,22 +435,12 @@ export default class Image {
     }
     return this.height;
   }
-
-  /**
-   * The MIME type header for the currently loaded image (PHP:
-   * get_header()). Throws when no image has been loaded.
-   */
   get_header(): string {
     if (this.image_type === null) {
       throw new Error("No image has been loaded, or image type is unset.");
     }
     return this.content_type[this.image_type];
   }
-
-  /**
-   * The type of the currently loaded image, as one of the PHP IMAGETYPE_*
-   * constants (protected, like the original).
-   */
   protected get_image_type(): number | null {
     return this.image_type;
   }
@@ -615,14 +542,6 @@ export default class Image {
       await this.crop(width, height);
     }
   }
-
-  /**
-   * Resize the image to the specified dimensions (PHP: protected resize()).
-   *
-   * GD's imagecopyresampled geometry is reproduced with sharp's "fill" fit;
-   * sharp preserves PNG/GIF alpha natively, so PHP's prepare_transparency()
-   * step has no separate equivalent.
-   */
   protected async resize(width: number, height: number): Promise<void> {
     if (this.image === null) {
       throw new Error("No image is loaded to resize.");
@@ -643,13 +562,6 @@ export default class Image {
     this.width = target_width;
     this.height = target_height;
   }
-
-  /**
-   * Crop the image to the given dimensions from a selected position.
-   *
-   * `trim` can be 'center' (default), 'right' or 'left'. Areas outside the
-   * source are padded black, matching GD's imagecreatetruecolor default.
-   */
   async crop(width: number, height: number, trim = "center"): Promise<void> {
     if (this.image === null) {
       throw new Error("No image is loaded to crop.");
@@ -700,7 +612,7 @@ export default class Image {
   // Internal helpers
   // -------------------------------------------------------------------------
 
-  /** Map a PHP-style upload error code to its message. */
+  /** Map a numeric upload error code to its message. */
   private get_upload_error_message(error_code: number): string {
     return UPLOAD_ERRORS[error_code] ?? "Unknown upload error";
   }
@@ -758,11 +670,6 @@ export default class Image {
 
     return final_path;
   }
-
-  /**
-   * PHP save_image(): optionally downscale the current image to fit the
-   * given maximums, then save a copy at `new_file_path`.
-   */
   private async saveResizedCopy(
     new_file_path: string,
     max_width: number,
@@ -785,16 +692,9 @@ export default class Image {
 
     await this.save(new_file_path, compression, 0o755);
   }
-
-  /**
-   * The port's equivalent of PHP's memory_limit: the V8 heap limit. The
-   * caller compares the estimated image memory against this value.
-   */
   private get_memory_limit(): number {
     return v8.getHeapStatistics().heap_size_limit;
   }
-
-  /** Encode the pipeline in the given format (PHP: imagejpeg/imagepng/...). */
   private async encode(
     pipeline: import("sharp").Sharp,
     format: ImageFormat,
@@ -831,7 +731,7 @@ function mimeForFormat(format: ImageFormat): string {
   return format === "jpeg" ? "image/jpeg" : `image/${format}`;
 }
 
-/** Attach a numeric error code to an Error (PHP exception codes). */
+/** Attach a numeric error code to an Error. */
 function withCode(message: string, code: number): Error {
   const error = new Error(message) as Error & { code?: number };
   error.code = code;
@@ -843,7 +743,7 @@ function clampCompression(compression: number): number {
   return Math.max(0, Math.min(100, Math.round(compression)));
 }
 
-/** PHP style return_file_info() used by the filename generators. */
+/** Build file name and extension metadata from a path. */
 function returnFileInfo(file_string: string): {
   file_name: string;
   file_extension: string;

@@ -1,8 +1,8 @@
 # Third-party notices
 
-## Trongate PHP framework
+## Trongate framework
 
-Eterc is a TypeScript port of the Trongate PHP framework.
+Eterc is derived from the Trongate framework.
 
 - Project: <https://github.com/trongate/trongate-framework>
 - Copyright (c) 2019, Dave Connelly and contributors

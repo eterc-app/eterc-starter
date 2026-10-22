@@ -4,17 +4,6 @@ import { Validation } from "./Validation";
 import { Eterc_tokens } from "./Eterc_tokens";
 import { Templates } from "./Templates";
 
-/**
- * Eterc base controller — port of engine/Eterc.php.
- *
- * Controllers extend this class and lazily reach framework modules/properties
- * exactly like the PHP original (`this.db`, `this.validation`, `this.model`,
- * `this.templates`, `this.eterc_tokens`, ...).
- *
- * Unknown properties resolve through the synchronously-registered service
- * factories (see register_sync_service) with a lazy per-request cache.
- */
-
 type SyncFactory = (controller: Eterc) => unknown;
 
 const syncFactories = new Map<string, SyncFactory>();
@@ -24,11 +13,10 @@ export function register_sync_service(name: string, factory: SyncFactory): void 
   syncFactories.set(name, factory);
 }
 
-/** Constructor shape of a ported module controller. */
+/** Constructor shape of a module controller. */
 export type ControllerCtor = new (moduleName?: string | null) => Eterc;
 
 export class Eterc {
-  /** PHP-style dynamic property access (module instances, services, ...). */
   [key: string]: unknown;
 
   protected module_name: string;
@@ -43,8 +31,6 @@ export class Eterc {
   constructor(moduleName?: string | null) {
     this.module_name = moduleName ?? "";
   }
-
-  /** Auto-loaded modules cache (mirrors PHP's $instances array). */
   private instances: Record<string, unknown> = {};
 
   /**
@@ -60,20 +46,9 @@ export class Eterc {
     this.instances[key] = instance;
     return instance as T;
   }
-
-  /**
-   * The PHP framework returns view markup as strings. In this port the
-   * equivalent helper composes React views:
-   *   return this.view("welcome/default_homepage", data);
-   */
   async view(name: string, data: Record<string, unknown> = {}) {
     return this.templates.view(name, data);
   }
-
-  /**
-   * Resolve properties not declared on the subclass through the sync service
-   * registry — the equivalent of PHP's __get() auto-loading.
-   */
   static create_proxy<T extends Eterc>(controller: T): T {
     return new Proxy(controller, {
       get(target, prop, receiver) {

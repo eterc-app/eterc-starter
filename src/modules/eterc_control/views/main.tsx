@@ -21,27 +21,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { ControlPanelLink, SqlFileInfo } from "../types";
 
-/**
- * Main view for the eterc_control parent module.
- *
- * PHP original: modules/eterc_control/views/main.php + the standalone
- * transferer.js/transferer.css assets. That page is a bare document holding
- * the SQL import wizard's headline (#headline) and display area (#info);
- * transferer.js drives its screens with XMLHttpRequest calls to
- * BASE_URL + 'eterc_control/process'.
- *
- * Port notes:
- *  - the original view is a standalone HTML document; the port renders
- *    inside the admin theme and drives the identical wizard screens with
- *    React state + fetch() against the JSON API endpoint (data.api_url);
- *  - the AJAX transport wraps controller output in
- *    {status, data, errors, flash, http}; `http` is the equivalent of the
- *    PHP http_response_code() and `data` is the echoed body;
- *  - this module's PHP parent has no dashboard. The port shows a
- *    control-panel dashboard linking to the child modules whenever no module
- *    import is pending (port-only; see Eterc_control.ts).
- */
-
 /** The wizard's display states (mirrors transferer.js update_display calls). */
 type WizardScreen =
   | "list"
@@ -66,7 +45,7 @@ export default function Main({ data }: EtViewProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard (port-only)
+// Dashboard
 // ---------------------------------------------------------------------------
 
 const BUILDER_ICONS: Record<string, LucideIcon> = {
@@ -200,9 +179,6 @@ function Dashboard({ data }: EtViewProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// SQL import wizard (PHP: main.php + transferer.js)
-// ---------------------------------------------------------------------------
 
 function ImportWizard({ data }: EtViewProps) {
   const files = (data.files ?? []) as SqlFileInfo[];
@@ -331,8 +307,6 @@ function ImportWizard({ data }: EtViewProps) {
     });
 
     if (status === 403) {
-      // The SQL ran but the file could not be deleted; the PHP response was
-      // "Finished." + the file path.
       const filepath = response.replace("Finished.", "") || target_file;
       setErrorMessage(filepath);
       setScreen("run_delete_required");
@@ -358,7 +332,6 @@ function ImportWizard({ data }: EtViewProps) {
       setFinishedMessage("The SQL file was successfully deleted.");
       setScreen("finished");
     } else {
-      // PHP: the model answered 403 with the file path as the body.
       show_error(status === 403 ? target_file : response, "Delete Error");
     }
   };

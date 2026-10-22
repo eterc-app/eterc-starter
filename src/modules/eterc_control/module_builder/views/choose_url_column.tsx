@@ -3,13 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { WizardProperty } from "../Module_builder";
-
-/**
- * Step 5 — port of module_builder/views/choose_url_column.php.
- *
- * The PHP view swapped its hidden options list into `main` when the selector
- * button was clicked; the React equivalent reveals the same list in place.
- */
 export function ChooseUrlColumnStep({
   properties,
   onSelect,

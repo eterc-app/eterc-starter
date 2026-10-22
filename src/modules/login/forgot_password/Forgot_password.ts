@@ -4,15 +4,6 @@ import { get_last_segment, redirect, segment, site_url } from "@/engine/Url";
 import { set_flashdata } from "@/engine/Flashdata";
 import type Login from "../Login";
 import type { Login_model } from "../Login_model";
-
-/**
- * Forgot Password child module — port of
- * modules/login/forgot_password/Forgot_password.php.
- *
- * Handles the forgot-password and password-reset flow. Instantiated by the
- * parent Login module (PHP: $this->module('login-forgot_password')) and
- * delegates model operations to the parent's Login model.
- */
 export default class Forgot_password {
   readonly moduleName: string;
   private readonly login: Login;
@@ -219,7 +210,7 @@ export default class Forgot_password {
       return level;
     }
 
-    // Port convenience: the reset form's "request a new link" href has no
+    // Convenience route: the reset form's "request a new link" href has no
     // level segment, so allow an unambiguous single-level fallback.
     const level_ids = Object.keys(levels);
     if (segment(3) === "" && level_ids.length === 1) {

@@ -14,21 +14,6 @@ import {
 } from "@/components/ui/table";
 import { PerPageSelector } from "./PerPageSelector";
 
-/**
- * Record browser — the `db` module's paginated table view.
- *
- * Rendered by Db::browse(); designed from the data contract that method
- * supplies (there is no PHP original view to port):
- *
- *   headline, table, columns (ColumnInfo[]), rows (Row[]), primary_key,
- *   total_rows, pagination_data, per_page_options, selected_per_page,
- *   tables_url, forger_url, sql_console_url
- *
- * A server component (the canonical pagination renderer reads request
- * context), with the interactive per-page selector isolated in its own client
- * component.
- */
-
 interface ColumnInfo {
   name: string;
   is_primary_key: boolean;
@@ -156,8 +141,6 @@ export default function Browse({ data }: EtViewProps) {
     </div>
   );
 }
-
-/** Cell text — NULL renders as an empty cell, exactly like PHP's `echo null`. */
 function format_cell(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") {

@@ -1,13 +1,5 @@
 import type { ReactNode, ComponentType } from "react";
 
-/**
- * View registry — maps "module/view_file" keys (identical to the PHP
- * framework's view addressing) to React components.
- *
- * Each module's `views/index.ts` registers its views here; the control
- * panel's generators append new entries when creating modules.
- */
-
 export type EtViewProps = {
   data: Record<string, unknown>;
 } & Record<string, unknown>;

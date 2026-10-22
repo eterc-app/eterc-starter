@@ -13,16 +13,6 @@ import {
 } from "@/components/ui/table";
 import { UPLOADER_DEFAULTS, type UploaderWizard } from "../types";
 
-/**
- * Read-only uploader summary — port of
- * image_uploader_builder/views/conf_uploader_details.php.
- *
- * The PHP view seeded its table from localStorage; the port takes the same
- * values from the wizard session passed by the controller. There is no form:
- * the copy tells the developer the settings file can be edited after
- * generation.
- */
-
 export default function ConfUploaderDetails({ data }: EtViewProps) {
   const wizard = (data.wizard ?? {}) as UploaderWizard;
 

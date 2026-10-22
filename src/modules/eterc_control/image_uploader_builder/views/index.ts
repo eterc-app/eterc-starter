@@ -3,15 +3,6 @@ import type { EtViewComponent, EtViewProps } from "@/engine/views-registry";
 import ConfUploaderDetails from "./conf_uploader_details";
 import { ImageUploaderBuilderWizard } from "../ImageUploaderBuilderWizard";
 
-/**
- * View registration map for the image_uploader_builder child module.
- *
- * Keys are "{module}/{view_file}" and match the PHP view filenames under
- * modules/eterc_control/image_uploader_builder/views/. Every wizard step
- * renders the same client wizard positioned at that step, so direct URLs
- * (and non-AJAX POST fallbacks) show the correct screen.
- */
-
 function wizardAt(initialStep: string): EtViewComponent {
   return function ImageUploaderBuilderStep(props: EtViewProps) {
     const data = {

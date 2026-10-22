@@ -7,24 +7,6 @@ import { EtHttpError } from "@/engine/signals";
 import type { Eterc_tokens } from "@/engine/Eterc_tokens";
 import { Login_model } from "./Login_model";
 import Forgot_password from "./forgot_password/Forgot_password";
-
-/**
- * Login module — port of modules/login/Login.php.
- *
- * Portable, configurable authentication module. Supports multiple user levels,
- * each with its own target table, field mappings and view file (LOGIN_CONFIG).
- *
- * URL addressing mirrors the PHP original:
- *   /login                       → index() → login()
- *   /login/login/{user_level_id} → login form
- *   POST /login/submit_login/{user_level_id}
- *   /login/not_allowed/{user_level_id}
- *   /login/logout
- *   /login/forgot_password/{user_level_id}       (delegates to the child module)
- *   POST /login/submit_forgot_password/{user_level_id}
- *   /login/reset_password/{token}
- *   POST /login/submit_reset_password
- */
 export default class Login extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
@@ -38,20 +20,6 @@ export default class Login extends Eterc {
   private tokens(): Eterc_tokens {
     return this.eterc_tokens as Eterc_tokens;
   }
-
-  /**
-   * Determine the target user level from the URL.
-   *
-   * Scans URL segments for configured secret_login_word values. If any level
-   * has a secret configured, only the correct secret word grants access —
-   * numeric level IDs alone are rejected. Otherwise the user level ID is
-   * extracted from segment(3) as an integer.
-   *
-   * @param allow_default When true and no level segment is present, fall back
-   *   to the only configured level. Used by the forgot-password entry points:
-   *   the reset form's "request a new link" href has no level segment (as in
-   *   the PHP view), which would otherwise 404 under a secret login word.
-   */
   private resolve_level(allow_default = false): number {
     const levels = this.loginModel().get_configured_level_configs();
     const last_segment = get_last_segment();
@@ -74,7 +42,7 @@ export default class Login extends Eterc {
       return level;
     }
 
-    // Port convenience: an unambiguous, level-less entry point.
+    // Convenience route: an unambiguous, level-less entry point.
     const level_ids = Object.keys(levels);
     if (allow_default && segment(3) === "" && level_ids.length === 1) {
       return Number(level_ids[0]);
@@ -115,7 +83,6 @@ export default class Login extends Eterc {
 
   /** Display the login form for a given user level. */
   async login(): Promise<ReactNode> {
-    // Guard: require a third URL segment to identify the user level.
     if (segment(3) === "") {
       redirect(BASE_URL);
     }
@@ -148,7 +115,6 @@ export default class Login extends Eterc {
       view_file,
     };
 
-    // Only include the forgot-password URL when enabled for this user level.
     if (config.enable_forgot_password) {
       data.forgot_password_url = `login/forgot_password/${level_slug}`;
     }
@@ -182,7 +148,7 @@ export default class Login extends Eterc {
 
     if ((await this.validation.run()) === true) {
       // Credentials are valid — log the user in.
-      const remember = to_php_bool(post("remember")) ? 1 : 0;
+      const remember = to_boolean(post("remember")) ? 1 : 0;
       const token = this.loginModel().log_user_in(identifier, user_level_id, remember);
 
       if (token === false) {
@@ -284,15 +250,6 @@ export default class Login extends Eterc {
 
     return "You must be logged in to access this page.";
   }
-
-  /**
-   * Hash a plain-text password using the configured bcrypt cost.
-   *
-   * Thin wrapper around Login_model#hash_password() so other modules can hash
-   * passwords with the same algorithm and cost factor as login. Mirrors the
-   * PHP original's block_url() protection by refusing direct URL access
-   * (URL invocation supplies no argument).
-   */
   hash_password(password: string): string {
     if (typeof password !== "string" || password === "") {
       throw new EtHttpError(403, "This method cannot be called directly.");
@@ -304,8 +261,6 @@ export default class Login extends Eterc {
   // -----------------------------------------------------------------
   // Forgot Password (delegates to the child module)
   // -----------------------------------------------------------------
-
-  /** Load the login-forgot_password child module (PHP: $this->module()). */
   private forgotPasswordModule(): Forgot_password {
     return new Forgot_password(this, "login-forgot_password");
   }
@@ -376,16 +331,6 @@ export default class Login extends Eterc {
   // -----------------------------------------------------------------
   // Custom Validation Callback
   // -----------------------------------------------------------------
-
-  /**
-   * Custom validation callback that checks credentials against the database.
-   *
-   * Invoked by the validation service as part of the 'identifier' field rules.
-   * Returns true if credentials are valid, or an error message string otherwise.
-   * Mirrors the PHP original's block_url() protection: the callback is only
-   * ever reached with a non-empty value, so a URL invocation (no argument)
-   * is rejected.
-   */
   credentials_valid(identifier: string): string | true {
     if (typeof identifier !== "string" || identifier === "") {
       throw new EtHttpError(403, "This method cannot be called directly.");
@@ -406,18 +351,13 @@ export default class Login extends Eterc {
 
     return "The [label] and/or password you entered is incorrect.";
   }
-
-  /**
-   * Stop processing with the 404 page (PHP: templates->error_404() + die()).
-   * The dispatcher renders the ported 404 template for EtHttpError(404).
-   */
   show_404(): never {
     throw new EtHttpError(404, "Page not found");
   }
 }
 
-/** PHP-style boolean cast for posted values ('0' and '' are false). */
-function to_php_bool(value: unknown): boolean {
+/** Boolean cast for posted values ('0' and '' are false). */
+function to_boolean(value: unknown): boolean {
   if (value === undefined || value === null || value === false) return false;
   if (typeof value === "string") return value !== "" && value !== "0";
   if (typeof value === "number") return value !== 0;

@@ -4,8 +4,8 @@
  *
  * The product layer has one authored stylesheet (Tailwind + shadcn tokens in
  * src/app/globals.css). Runtime pagination CSS is the only documented
- * exception because pagination settings are stored in the database and were
- * emitted as a <style> block by the PHP view.
+ * exception because pagination settings are stored in the database and
+ * rendered as a scoped <style> block.
  */
 import fs from "node:fs";
 import path from "node:path";

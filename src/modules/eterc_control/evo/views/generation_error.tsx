@@ -1,10 +1,6 @@
 import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
 import { ResetButton } from "./ResetButton";
-
-/**
- * Generation error — port of evo/views/generation_error.php.
- */
 export default function EvoGenerationError({
   data,
   message,

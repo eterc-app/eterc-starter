@@ -1,14 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Pre-generation confirmation — port of
- * image_uploader_builder/views/conf_generate_uploader.php.
- *
- * The loader image is served from the port's copy under
- * public/eterc_control-image_uploader_builder_module.
- */
 export function ConfGenerateUploaderStep({
   onGenerate,
   onViewDetails,

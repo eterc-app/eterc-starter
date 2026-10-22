@@ -1,11 +1,6 @@
 /**
- * Dynamic validation tests — port of site_builder/views/controller_helper.php
- * (`build_validation_tests`).
- *
- * Returns the indented `await this.validation.set_rules(...)` lines injected
- * into the generated controller's submit() method.
+ * Dynamic validation-test template.
  */
-
 import type { PostedProperty, TemplateContext } from "../FloTypes";
 import { js } from "./helpers";
 

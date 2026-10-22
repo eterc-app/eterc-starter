@@ -1,10 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Generation success — port of module_builder/views/generate_module.php.
- */
 export function GenerateModuleStep({
   onView,
   onOkay,

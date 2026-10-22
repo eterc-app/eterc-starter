@@ -4,41 +4,6 @@ import { escape_identifier, type Row } from "@/engine/db";
 import { Model } from "@/engine/model";
 import { DATA_DIR, MODULES_DIR, PROJECT_ROOT } from "@/engine/paths";
 
-/**
- * Module_relations_model — runtime data layer for module relations.
- *
- * Port of modules/module_relations/Module_relations_model.php. Serves three
- * runtime needs for relations already created by the control panel's relation
- * builder:
- *
- *   - the show-page "Associated …" panel (list current associations, list
- *     available options, create/remove an association);
- *   - dropdown options and one-to-one claim/release for a generated module's
- *     create/edit form;
- *   - one-to-one / one-to-many / junction release on a generated module's
- *     delete hook.
- *
- * Settings shape (JSON file, unchanged from the PHP builder):
- *   settings[0] — module "A" entry {module_name, record_name_singular,
- *                 record_name_plural, identifier_column}
- *   settings[1] — module "B" entry, same shape
- *   settings[2] — relation config {relationship_type, bridging_table}
- *
- * MySQL → SQLite adaptations:
- *   - SHOW COLUMNS FROM `t` → PRAGMA table_info(`t`)
- *   - CONCAT_WS(' ', …)     → the identifier columns are selected into
- *                             ident_0..ident_n and joined in JavaScript
- *                             (see row_value())
- *   - backticks are kept; the engine's escape_identifier() emits them and
- *     SQLite accepts them.
- *
- * Settings file lookup: the PHP original reads
- * APPPATH . 'modules/module_relations/settings'. The port searches (in order):
- *   ET_MODULE_RELATIONS_SETTINGS_DIR (env override), <root>/modules/…/settings
- *   (PHP-compatible), src/modules/module_relations/settings,
- *   data/module_relations/settings, data/settings/module_relations.
- */
-
 const SAFE_IDENTIFIER = /^[a-z0-9_]+$/;
 
 export interface RelationEntry {
@@ -72,12 +37,6 @@ export class Module_relations_model extends Model {
   // ============================================
   // Introspection helpers
   // ============================================
-
-  /**
-   * Real column names of a table (PHP: SHOW COLUMNS FROM). Used as the
-   * whitelist that identifier_column values are checked against, so a stale or
-   * malformed settings entry can never reach a query.
-   */
   get_table_columns(table: string): string[] {
     if (table === "" || !SAFE_IDENTIFIER.test(table)) return [];
     if (!this.db.table_exists(table)) return [];
@@ -95,11 +54,6 @@ export class Module_relations_model extends Model {
   // ============================================
   // Create-form runtime data (create-form injection)
   // ============================================
-
-  /**
-   * Dropdown options for a generated create/edit form's relation field
-   * (PHP: fetch_create_options()).
-   */
   fetch_create_options(
     settings: RelationSettings,
     calling_module: string,
@@ -127,8 +81,6 @@ export class Module_relations_model extends Model {
       const params: Record<string, unknown> = {};
       let where = `(${column("alt", back_fk)} IS NULL OR ${column("alt", back_fk)} = 0)`;
       if (selected_key > 0) {
-        // Include the currently-linked record even though its back-FK is
-        // claimed — otherwise editing would hide the existing partner.
         where += " OR alt.id = :selected_key";
         params.selected_key = selected_key;
       }
@@ -138,11 +90,6 @@ export class Module_relations_model extends Model {
 
     return {}; // Junction-backed relations have no create-form dropdown.
   }
-
-  /**
-   * Bidirectional one-to-one claim/release (PHP: sync_create_claim()). No-op
-   * for any other relation type or an invalid record id.
-   */
   sync_create_claim(
     settings: RelationSettings,
     calling_module: string,
@@ -196,11 +143,6 @@ export class Module_relations_model extends Model {
       { update_id, value }
     );
   }
-
-  /**
-   * Release a direct one-to-one link when a record is deleted — called BEFORE
-   * the row is removed (PHP: release_create_link()).
-   */
   release_create_link(
     settings: RelationSettings,
     calling_module: string,
@@ -220,12 +162,6 @@ export class Module_relations_model extends Model {
       { update_id }
     );
   }
-
-  /**
-   * Release every child when a one-to-many PARENT record is deleted — called
-   * BEFORE the row is removed (PHP: release_children()). No-op on the child
-   * side: nothing references a deleted child.
-   */
   release_children(
     settings: RelationSettings,
     calling_module: string,
@@ -245,12 +181,6 @@ export class Module_relations_model extends Model {
       { update_id }
     );
   }
-
-  /**
-   * Remove junction rows referencing a record being deleted (PHP:
-   * release_junction_links()). The PHP original sweeps the calling side's FK
-   * column; that behaviour is kept exactly.
-   */
   release_junction_links(
     settings: RelationSettings,
     calling_module: string,
@@ -291,14 +221,6 @@ export class Module_relations_model extends Model {
 
     return dirs;
   }
-
-  /**
-   * Read and decode the settings file for an unordered pair of modules
-   * (PHP: get_relation_settings()). Both filename orders are tried.
-   *
-   * Returns null when either module name is malformed/empty, no settings file
-   * exists for the pair, or its contents don't decode to a well-formed array.
-   */
   get_relation_settings(
     module_a: string,
     module_b: string
@@ -330,12 +252,6 @@ export class Module_relations_model extends Model {
 
     return null;
   }
-
-  /**
-   * The settings entry for the OTHER module in a relation
-   * (PHP: est_associated_module()). Null when the calling module isn't part
-   * of the relation.
-   */
   est_associated_module(
     settings: RelationSettings,
     calling_module: string
@@ -373,13 +289,6 @@ export class Module_relations_model extends Model {
       (settings[2]?.bridging_table ?? false) === false
     );
   }
-
-  /**
-   * Records currently associated with the calling record
-   * (PHP: fetch_associated_rows()). Row shape: {id, foreign_key, value} —
-   * `id` is the junction row id for junction-backed relations and the
-   * associated record's id otherwise.
-   */
   fetch_associated_rows(
     settings: RelationSettings,
     calling_module: string,
@@ -426,12 +335,6 @@ export class Module_relations_model extends Model {
       ` ORDER BY ${this.identifier_order(alt, "alt")}`;
     return this.to_associated_rows(alt, this.db.query_bind(sql, { update_id }) as Row[]);
   }
-
-  /**
-   * Records that could be newly associated with the calling record — the
-   * options offered in the show-page panel's add dropdown
-   * (PHP: fetch_available_options()).
-   */
   fetch_available_options(
     settings: RelationSettings,
     calling_module: string,
@@ -496,11 +399,6 @@ export class Module_relations_model extends Model {
       ` ORDER BY ${order}`;
     return this.to_options(alt, this.db.query_bind(sql, []) as Row[]);
   }
-
-  /**
-   * Create an association from the show-page panel's add form
-   * (PHP: submit_association()).
-   */
   submit_association(
     settings: RelationSettings,
     calling_module: string,
@@ -588,12 +486,6 @@ export class Module_relations_model extends Model {
     this.db.insert({ [calling_fk]: update_id, [alt_fk]: value }, junction);
     return true;
   }
-
-  /**
-   * Remove an association from the show-page panel
-   * (PHP: disassociate_association()). $value is the junction row id for
-   * junction-backed relations, otherwise the associated record's id.
-   */
   disassociate_association(
     settings: RelationSettings,
     calling_module: string,
@@ -684,11 +576,6 @@ export class Module_relations_model extends Model {
       this.db.query_bind(sql, { update_id }) as Row[]
     );
   }
-
-  /**
-   * The full bidirectional claim/release for a direct one-to-one association
-   * (PHP: submit_direct_one_to_one()).
-   */
   private submit_direct_one_to_one(
     settings: RelationSettings,
     calling_module: string,

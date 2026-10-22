@@ -2,10 +2,7 @@
 
 import { useEtUi } from "./EtUiProvider";
 
-/**
- * Flashdata — port of the flashdata module's rendering.
- * Default wrapper: <p style="color: green;">…</p>
- */
+/** Flashdata — renders one-shot flash messages. */
 export function Flashdata() {
   const { flash } = useEtUi();
   if (!flash || flash.length === 0) return null;

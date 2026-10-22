@@ -9,12 +9,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { decode_html_entities } from "./properties-logic";
 
-/**
- * Add-property / add-address modal — port of the `#id01` block in
- * properties_builder/views/home.php and clickLeftBtn/clickAddressBtn/
- * autocomplete() from properties_builder.js.
- */
-
 const ADDRESS_PLACEHOLDER = "Select Address Type...";
 
 export interface AddPropertyModalProps {
@@ -168,7 +162,7 @@ export function AddPropertyModal({
 }
 
 /**
- * Port of autocomplete() from properties_builder.js:
+ * Autocomplete behavior for the property form.
  * case-insensitive "starts with" matches, at most 15 results, arrow-key
  * navigation, Enter to choose, click to choose, and click-outside to close.
  */

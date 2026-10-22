@@ -1,11 +1,3 @@
-/**
- * Image decoding helpers for the port of modules/image/Image.php.
- *
- * The PHP module used GD + finfo; the port uses sharp for transformations
- * but still needs synchronous format/dimension detection so the public
- * get_width() / get_height() / get_header() methods keep their PHP
- * (synchronous) signatures.
- */
 
 export type ImageFormat = "jpeg" | "png" | "gif" | "webp";
 
@@ -15,8 +7,6 @@ export const FORMAT_MIME: Record<ImageFormat, string> = {
   gif: "image/gif",
   webp: "image/webp",
 };
-
-/** Canonical stored extension per sniffed MIME type (Image::MIME_EXTENSIONS). */
 export const MIME_EXTENSIONS: Record<string, "jpg" | "png" | "gif" | "webp"> = {
   "image/jpeg": "jpg",
   "image/jpg": "jpg",

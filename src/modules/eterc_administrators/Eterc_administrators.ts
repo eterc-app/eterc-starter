@@ -10,24 +10,6 @@ import type { Eterc_tokens, EtercUserObj } from "@/engine/Eterc_tokens";
 import { previous_url, redirect, segment } from "@/engine/Url";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 import { Eterc_administrators_model } from "./Eterc_administrators_model";
-
-/**
- * Eterc administrators — port of
- * modules/eterc_administrators/Eterc_administrators.php.
- *
- * Public method names mirror the PHP class. Every public method that the PHP
- * original guards starts by calling `eterc_security->make_sure_allowed()`
- * (through the synchronously-registered service available as
- * `this.eterc_security`).
- *
- * Port notes:
- *  - forms are rendered with <EtForm>, so a failed submission re-renders the
- *    bare form view (the EtForm subtree replacement) instead of the PHP
- *    full-page template; successful submissions redirect exactly as in PHP;
- *  - private helpers use camelCase names (the port's controller convention) so
- *    they cannot collide with lower-cased URL segments;
- *  - block_url() checks are reproduced with `assertNotDirectCall()` (403).
- */
 export default class Eterc_administrators extends Eterc {
   private admin_theme = "";
   private default_limit = 20;
@@ -42,34 +24,18 @@ export default class Eterc_administrators extends Eterc {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Service accessors (PHP: $this->model, $this->eterc_security, ...)
-  // -------------------------------------------------------------------------
-
-  /** The module model (PHP: $this->model). */
   private adminModel(): Eterc_administrators_model {
     return this.model as Eterc_administrators_model;
   }
-
-  /** The auth-token service (PHP: $this->eterc_tokens). */
   private tokensService(): Eterc_tokens {
     return (this as unknown as { eterc_tokens: Eterc_tokens })
       .eterc_tokens;
   }
-
-  /**
-   * The synchronously-registered security service
-   * (PHP: $this->eterc_security). `make_sure_allowed()` returns the
-   * logged-in user object and redirects to the login page when not authorized.
-   */
   private securityService(): Eterc_security {
     return (this as unknown as { eterc_security: Eterc_security })
       .eterc_security;
   }
 
-  // -------------------------------------------------------------------------
-  // Public controller methods (PHP parity)
-  // -------------------------------------------------------------------------
 
   /**
    * Display form for creating or editing a record.
@@ -213,8 +179,6 @@ export default class Eterc_administrators extends Eterc {
     );
 
     if ((await this.validation.run()) !== true) {
-      // PHP re-renders update_password(); the port re-renders the bare view so
-      // <EtForm> can swap its own subtree while showing the errors.
       const update_id = Number(segment(3, "int"));
       const record_data = this.adminModel().get_data_from_db(update_id);
 
@@ -289,8 +253,6 @@ export default class Eterc_administrators extends Eterc {
     );
 
     if ((await this.validation.run()) !== true) {
-      // PHP re-renders create(); the port re-renders the bare view so <EtForm>
-      // can swap its own subtree while showing the errors.
       const update_id = Number(segment(3, "int"));
       const data = this.loadCreateData(update_id);
 
@@ -395,16 +357,6 @@ export default class Eterc_administrators extends Eterc {
 
     return this.templates.admin(data);
   }
-
-  /**
-   * Ensure the current user has appropriate access permissions.
-   *
-   * In dev mode, automatically logs in as the first active user if no valid
-   * token exists, bypassing the login form (mirrors the PHP original; the
-   * runtime guards of this module use the eterc_security service).
-   *
-   * @returns The authentication token if access is granted, null otherwise
-   */
   make_sure_allowed(): string | null {
     this.assertNotDirectCall("make_sure_allowed");
 
@@ -482,14 +434,6 @@ export default class Eterc_administrators extends Eterc {
     return true;
   }
 
-  // -------------------------------------------------------------------------
-  // Private helpers (PHP private methods, camelCase per port convention)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Mirrors block_url('eterc_administrators/<method>') — direct URL access
-   * to the method answers 403 Forbidden (PHP: utilities/block_url).
-   */
   private assertNotDirectCall(method: string): void {
     const ctx = get_context();
     const module_segment = (ctx.segments[0] ?? "").toLowerCase();
@@ -502,11 +446,6 @@ export default class Eterc_administrators extends Eterc {
       throw new EtHttpError(403, "403 Forbidden - Direct URL access not permitted");
     }
   }
-
-  /**
-   * Administrator record id for a user object
-   * (PHP: get_user_by_token($token) + (int) $user_obj->id).
-   */
   private loggedInUserId(user_obj: EtercUserObj | null): number {
     if (user_obj === null) {
       redirect("login/login");
@@ -515,11 +454,6 @@ export default class Eterc_administrators extends Eterc {
     const record = this.adminModel().get_user_by_token(user_obj.token);
     return record === false ? 0 : Number(record.id ?? 0);
   }
-
-  /**
-   * Determine appropriate back URL for navigation
-   * (PHP: private get_back_url()).
-   */
   private getBackUrl(): string {
     const back_url = previous_url();
 
@@ -532,11 +466,6 @@ export default class Eterc_administrators extends Eterc {
 
     return `${BASE_URL}${this.module_name}/manage`;
   }
-
-  /**
-   * Get current pagination limit from the session
-   * (PHP: private get_limit()).
-   */
   private getLimit(): number {
     const selected = session_get<number>("selected_per_page");
 
@@ -546,22 +475,10 @@ export default class Eterc_administrators extends Eterc {
 
     return this.default_limit;
   }
-
-  /**
-   * Calculate pagination offset based on page number
-   * (PHP: private get_offset()).
-   */
   private getOffset(): number {
     const page_num = Number(segment(3, "int"));
     return page_num > 1 ? (page_num - 1) * this.getLimit() : 0;
   }
-
-  /**
-   * Generate pagination configuration data (PHP: private
-   * get_pagination_data()). The pagination module is also ported as a
-   * standalone service; this controller keeps the derived values inline so the
-   * list view receives the same data shape as the PHP implementation.
-   */
   private getPaginationData(limit: number, total_rows: number): Record<string, unknown> {
     const total_pages = limit > 0 ? Math.ceil(total_rows / limit) : 0;
     const requested_page = Number(segment(3, "int"));
@@ -581,19 +498,9 @@ export default class Eterc_administrators extends Eterc {
       total_pages: total_pages,
     };
   }
-
-  /**
-   * Get selected per-page index from the session
-   * (PHP: private get_selected_per_page()).
-   */
   private getSelectedPerPage(): number {
     return session_get<number>("selected_per_page") ?? 1;
   }
-
-  /**
-   * Load the data shown by the create/update form
-   * (PHP: create()'s get_data_from_db()/get_data_from_post() branch).
-   */
   private loadCreateData(update_id: number): Record<string, unknown> | false {
     if (update_id > 0) {
       const record = this.adminModel().get_data_from_db(update_id);
@@ -605,13 +512,6 @@ export default class Eterc_administrators extends Eterc {
 
     return this.adminModel().get_data_from_post();
   }
-
-  /**
-   * Data for the create/update form view (PHP: create()'s $data assignments).
-   *
-   * PHP builds update_password_url with str_replace() over current_url(); the
-   * server action's URL never contains "/create", so it is composed directly.
-   */
   private buildCreateViewData(
     data: Record<string, unknown>,
     update_id: number
@@ -631,11 +531,6 @@ export default class Eterc_administrators extends Eterc {
       viewFile: "create",
     };
   }
-
-  /**
-   * Data for the password update form view
-   * (PHP: update_password()'s $data assignments).
-   */
   private buildUpdatePasswordViewData(
     update_id: number,
     is_own_account: boolean

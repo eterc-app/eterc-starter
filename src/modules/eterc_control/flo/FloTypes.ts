@@ -1,10 +1,3 @@
-/**
- * Flo — shared types for the code-generation engine.
- *
- * The input shape mirrors the JSON produced by the Properties Builder and the
- * wizard session in the PHP original (`estructura` of site_builder's expected
- * POST data — see Site_builder.php:generate_controller_content()).
- */
 
 /** A single property definition as stored by the Properties Builder. */
 export interface PropertyInput {
@@ -15,11 +8,6 @@ export interface PropertyInput {
   onSummaryTable?: string;
   validationRules?: string[];
 }
-
-/**
- * A property after Flo's preprocessing (PHP: est_posted_properties()).
- * Date/time ranges are split into a start and an end property here.
- */
 export interface PostedProperty {
   property_name: string;
   property_type: string;
@@ -29,8 +17,6 @@ export interface PostedProperty {
   validation_rules: string[];
   form_field_name: string;
 }
-
-/** Data accepted by the generator (PHP: Site_builder::submit_generate_mod()). */
 export interface GenerationData extends Record<string, unknown> {
   module_folder_name?: string;
   record_name_singular?: string;
@@ -43,24 +29,16 @@ export interface GenerationData extends Record<string, unknown> {
   icon_id?: string;
   icon_code?: string;
 }
-
-/** Result contract of submit_generate_mod() (PHP parity). */
 export interface GenerationResult {
   status: "success" | "error";
   headline?: string;
   message: string;
   more_info_url?: string;
   module_name?: string;
-  /** Files written relative to src/modules/generated/<module>/ (port only). */
+  /** Files written relative to src/modules/generated/<module>/. */
   files?: string[];
 }
-
-/**
- * The full template/data context used by every Flo template module. It is the
- * port of the `$data` array handed to the donor views in the PHP original.
- */
 export interface TemplateContext extends Record<string, unknown> {
-  /** PascalCase controller class/file base name (PHP: ucfirst). */
   controller_name: string;
   /** Model class/file name, e.g. "Tasks_model". */
   model_name: string;
@@ -91,7 +69,6 @@ export interface TemplateContext extends Record<string, unknown> {
   posted_properties: PostedProperty[];
   /** Properties that appear on the summary table. */
   table_properties: PostedProperty[];
-  /** Generated code fragments (PHP: $dynamic_* variables). */
   dynamic_validation_tests: string;
   dynamic_callback_methods: string;
   dynamic_posted_data: string;

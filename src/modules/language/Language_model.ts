@@ -3,33 +3,9 @@ import * as nodePath from "node:path";
 import { Model } from "@/engine/model";
 import { MODULES_DIR, PROJECT_ROOT } from "@/engine/paths";
 
-/**
- * Language_model — data layer for the language module.
- *
- * The PHP original (modules/language/Language.php) is a thin service: it has
- * no model, and its load() method `require`s a PHP language file and returns
- * the `$phrases` array that file defines. A PHP file cannot be executed by the
- * port, so this model owns the two things the service needs:
- *
- *   1. file loading — JSON equivalents of the PHP language files, resolved
- *      from an APPPATH-style relative path with the {lang} placeholder
- *      substituted (e.g. "modules/validation/language/{lang}/
- *      validation_errors.json"). A ".php" extension in the requested path is
- *      translated to ".json", so calling code can keep the PHP-era paths.
- *
- *   2. the built-in validation-error catalogs — the ported copies of
- *      modules/validation/language/{en,es,fr}/validation_errors.php. PHP keys
- *      carry an `_error` suffix ("required_error"); the port's validation
- *      service keys rules without it ("required"), so
- *      get_port_validation_errors() returns the catalog re-keyed for
- *      Validation::set_language().
- *
- * No database tables are involved.
- */
-
 export type LanguagePhrases = Record<string, string>;
 
-/** Ported copies of modules/validation/language/{lang}/validation_errors.php. */
+/** Built-in validation-error catalogs for the supported languages. */
 export const VALIDATION_CATALOGS: Record<"en" | "es" | "fr", LanguagePhrases> = {
   en: {
     required_error: "The [label] field is required.",
@@ -202,13 +178,12 @@ export const VALIDATION_CATALOGS: Record<"en" | "es" | "fr", LanguagePhrases> = 
 };
 
 export class Language_model extends Model {
-  /** Fallback language (PHP: Language::$default_language). */
+  /** Fallback language when no supported locale is selected. */
   default_language = "en";
 
   /**
    * Resolve a language file path: substitute {lang} and anchor relative paths
-   * at the project root (the port's APPPATH). PHP paths ending in ".php" are
-   * translated to the port's ".json" equivalents by load_phrases().
+   * at the project root.
    */
   resolve_path(file_path: string, lang: string): string {
     const with_lang = file_path.replace(/\{lang\}/g, lang);
@@ -217,7 +192,7 @@ export class Language_model extends Model {
   }
 
   /**
-   * Load a language file (port of Language::load()'s file branch).
+   * Load a JSON language file.
    *
    * Returns {} when the file does not exist, is unreadable, decodes to
    * something other than a JSON object, or resolves outside the project root.
@@ -229,9 +204,9 @@ export class Language_model extends Model {
     const candidates: string[] = [];
     if (is_inside_project(json_path)) candidates.push(json_path);
 
-    // PHP-era paths are written as "modules/…" (APPPATH-relative). The port's
-    // modules live under src/modules, so also try that mapping when the
-    // PHP-compatible location does not exist.
+    // Module paths are written as "modules/…". The source modules live under
+    // src/modules, so also try that mapping when the project-root location
+    // does not exist.
     const normalized = file_path.replace(/\\/g, "/");
     if (!nodePath.isAbsolute(normalized) && normalized.startsWith("modules/")) {
       const fallback = to_json_path(
@@ -264,9 +239,8 @@ export class Language_model extends Model {
   }
 
   /**
-   * Built-in validation-error catalog for a language (PHP parity: the ported
-   * modules/validation/language/{lang}/validation_errors.php files). Unknown
-   * languages fall back to English.
+   * Built-in validation-error catalog for a language. Unknown languages fall
+   * back to English.
    */
   get_validation_errors(lang: string): LanguagePhrases {
     const key = lang.toLowerCase();
@@ -277,31 +251,29 @@ export class Language_model extends Model {
   }
 
   /**
-   * The validation catalog re-keyed for the port's Validation: PHP's
-   * "required_error" becomes the port's "required" rule key. Custom rule keys
+   * The validation catalog re-keyed for the validation service: the
+   * "required_error" key becomes the "required" rule key. Custom rule keys
    * (e.g. "title_check") carry no suffix and pass through unchanged.
    */
-  get_port_validation_errors(lang: string): LanguagePhrases {
+  get_validation_rule_catalog(lang: string): LanguagePhrases {
     const catalog = this.get_validation_errors(lang);
-    const port: LanguagePhrases = {};
+    const rules: LanguagePhrases = {};
     for (const [key, value] of Object.entries(catalog)) {
-      port[key.replace(/_error$/, "")] = value;
+      rules[key.replace(/_error$/, "")] = value;
     }
-    return port;
+    return rules;
   }
 
-  /** Whether a language is one of the catalogs shipped in the port. */
+  /** Whether a language is one of the shipped catalogs. */
   is_supported(lang: string): boolean {
     const key = lang.toLowerCase();
     return key === "en" || key === "es" || key === "fr";
   }
 }
 
-/** Translate a PHP-era ".php" phrase-file path to the port's ".json" file. */
+/** Ensure a phrase-file path uses the JSON extension. */
 function to_json_path(file_path: string): string {
-  return file_path.endsWith(".json")
-    ? file_path
-    : file_path.replace(/\.php$/i, ".json");
+  return file_path.endsWith(".json") ? file_path : `${file_path}.json`;
 }
 
 /** Guard against path traversal outside the project root. */

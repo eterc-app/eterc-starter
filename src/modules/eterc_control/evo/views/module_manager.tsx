@@ -1,13 +1,6 @@
 import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Button } from "@/components/ui/button";
-
-/**
- * Evo module manager — port of evo/views/module_manager.php.
- *
- * Labels are preserved. All three wizards are now ported; the relation and
- * image-uploader entries point at their dedicated builder modules.
- */
 export default function EvoModuleManager(_props: EtViewProps) {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-6">

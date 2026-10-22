@@ -16,26 +16,6 @@ import Plural_maker from "../plural_maker/Plural_maker";
 import type Site_builder from "../site_builder/Site_builder";
 import type { GenerateModuleResult } from "../site_builder/types";
 
-/**
- * Module_builder — port of
- * modules/eterc_control/module_builder/Module_builder.php.
- *
- * The interactive "Create Module" wizard:
- *   module name -> nav label -> properties -> URL column -> order by ->
- *   confirmation -> generation (delegated to site_builder).
- *
- * Wizard state is held in the shared `evo_wizard` session key exactly like the
- * PHP original. The step methods branch on the request type like the original
- * MX flow: AJAX requests receive JSON, normal page requests render the next
- * step inside the admin theme.
- *
- * Deviation from PHP: the original echoed bare view fragments (the Flo shell
- * swapped them into `main`). This port renders every page-shaped response
- * through the admin theme and returns JSON to the React wizard. Outside dev
- * mode a 403 is raised (Evo's disabled response is HTML and is not usable as a
- * JSON reply); generation errors are returned as JSON for the wizard.
- */
-
 export interface WizardProperty {
   propertyName?: string;
   propertyType?: string;
@@ -75,8 +55,6 @@ const RESERVED_NAMES = [
   "modules",
   "welcome",
 ];
-
-/** PHP ucwords(): capitalise the first letter of every space-separated word. */
 function ucwords(value: string): string {
   return value
     .split(" ")
@@ -126,8 +104,6 @@ export default class Module_builder extends Eterc {
   private saveWizard(wizard: EvoWizard): void {
     session_set(WIZARD_SESSION_KEY, wizard);
   }
-
-  /** Merge a partial update into the session wizard (PHP: $_SESSION[...] = ...). */
   private updateWizard(partial: Partial<EvoWizard>): EvoWizard {
     const wizard = { ...this.getWizard(), ...partial };
     this.saveWizard(wizard);
@@ -198,13 +174,7 @@ export default class Module_builder extends Eterc {
   // ============================================
   // Wizard Step 1: Submit Module Name
   // ============================================
-
-  /**
-   * Renders the 'enter module name' wizard step.
-   *
-   * Clears any stale wizard session state when starting fresh (PHP parity).
-   */
-  /** Port convenience: `/eterc_control-module_builder` → enter_mod_name. */
+  /** Convenience route: `/eterc_control-module_builder` → enter_mod_name. */
   async index() {
     return this.enter_mod_name();
   }
@@ -262,7 +232,6 @@ export default class Module_builder extends Eterc {
       return fail(`A module named '${module_folder_name}' already exists.`);
     }
 
-    // PHP replaces the whole evo_wizard array at this point.
     this.saveWizard({
       record_name_singular: mod_name,
       record_name_plural: plural,
@@ -289,7 +258,6 @@ export default class Module_builder extends Eterc {
   async add_nav_label(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
 
-    // Redirect back to start if no wizard session exists (PHP parity).
     if (session_get(WIZARD_SESSION_KEY) === undefined) {
       return this.renderStep("enter_mod_name");
     }
@@ -316,15 +284,6 @@ export default class Module_builder extends Eterc {
   // ============================================
   // Wizard Step 3: Properties Confirmation (STOP)
   // ============================================
-
-  /**
-   * Renders the 'now add some properties' stopping point.
-   *
-   * The PHP view opened the Properties Builder iframe through the Flo shell
-   * (`postMessage('open_properties_builder')`). That child module has not been
-   * ported, so the wizard additionally offers a built-in JSON editor which
-   * posts to store_properties() using the same contract.
-   */
   async lets_add_properties_conf(): Promise<ReactNode> {
     this.securityService().make_sure_allowed();
     return this.renderStep("lets_add_properties_conf", {
@@ -335,16 +294,6 @@ export default class Module_builder extends Eterc {
   // ============================================
   // Wizard Step 4: Store Properties (via AJAX)
   // ============================================
-
-  /**
-   * Receives properties JSON and stores it in the wizard session.
-   *
-   * Contract preserved from PHP:
-   *   {success: true, count, next_step: 'eterc_control-module_builder/choose_order_by'}
-   * The PHP code answered HTTP 400 with {success:false,error} for invalid
-   * data; that deviation is kept (the JSON API cannot set an arbitrary status
-   * from a return value, so the payload carries the same information).
-   */
   async store_properties(): Promise<Record<string, unknown>> {
     this.securityService().make_sure_allowed();
 
@@ -472,13 +421,6 @@ export default class Module_builder extends Eterc {
   // ============================================
   // Generate Module
   // ============================================
-
-  /**
-   * Generates the new module from wizard session data.
-   *
-   * Delegates to site_builder->submit_generate_mod(), exactly like PHP.
-   * AJAX callers receive {ok, ...}; page requests render the success view.
-   */
   async run_gen(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
 
@@ -494,7 +436,6 @@ export default class Module_builder extends Eterc {
       };
     }
 
-    // Map session data to Site_builder's expected format (PHP parity).
     const data: Record<string, unknown> = {
       module_folder_name: module_name,
       record_name_singular: wizard.record_name_singular ?? "Record",
@@ -527,8 +468,6 @@ export default class Module_builder extends Eterc {
       return this.renderStep("generate_module", { module_url });
     }
 
-    // PHP called evo->render_generation_error(). The port's wizard is a React
-    // client flow, so return the same information as JSON to display.
     return {
       ok: false,
       status: "error",
@@ -637,7 +576,6 @@ export default class Module_builder extends Eterc {
     if (result === true) {
       const posted_items = this.getPostedItems();
 
-      // Save to the wizard session for backward compatibility (PHP parity).
       const wizard = this.getWizard();
       wizard.module_folder_name = String(posted_items.moduleDir ?? "");
       wizard.record_name_singular = String(posted_items.recordNameSingular ?? "");

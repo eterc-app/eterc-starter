@@ -15,30 +15,6 @@ import {
   type RelationSettings,
 } from "./Module_relations_model";
 
-/**
- * Module_relations controller — runtime for generated module relations.
- *
- * Port of modules/module_relations/Module_relations.php. Two calling styles are
- * preserved:
- *
- *   1. Page load / module-to-module calls — draw_summary_panel(),
- *      fetch_create_options(), sync_create_claim(), release_create_link(),
- *      release_children() and release_junction_links() are invoked directly by
- *      a generated module's controller.
- *   2. Browser requests — render_panel_body(), submit_association() and
- *      remove_association() are hit over HTTP and are therefore
- *      session-authenticated; the two mutating endpoints are CSRF-gated.
- *
- * Port adaptation of the MX transport: the PHP panel exchanges HTML fragments
- * via mx-get / mx-post and out-of-band swaps. In the port the panel's client
- * components call /api/xhr/module_relations/* with `format: "json"` and
- * receive the same panel data the `panel_body` view renders, then re-render
- * only the two panel regions themselves. Non-JSON callers (a plain form post,
- * or a server-rendered page) still get the panel_body view, matching the PHP
- * contract. Business-rule failures answer {ok:false, message} instead of the
- * PHP original's HTTP 422 + JSON body.
- */
-
 export interface RelationParams {
   calling_module?: string;
   alt_module?: string;
@@ -87,14 +63,6 @@ export default class Module_relations extends Eterc {
   // ============================================
   // Show-page summary panel
   // ============================================
-
-  /**
-   * Render the "Associated …" summary panel shell on a generated show page
-   * (PHP: draw_summary_panel()). Returns null — render nothing — when no
-   * relation is configured for this module pair or the URL carries no record
-   * id to scope the panel to. PHP echoed the view; the port returns the React
-   * node so the calling controller can embed it.
-   */
   async draw_summary_panel(
     alt_module_name: string | null = null
   ): Promise<ReactNode | null> {
@@ -155,12 +123,6 @@ export default class Module_relations extends Eterc {
   // ============================================
   // Panel body + association endpoints (browser)
   // ============================================
-
-  /**
-   * Render the panel body — associate form + associated items
-   * (PHP: render_panel_body()). The X-* panel context arrives either as the
-   * original custom headers or as JSON body fields; both are accepted.
-   */
   async render_panel_body() {
     this.securityService().make_sure_allowed();
 
@@ -193,11 +155,6 @@ export default class Module_relations extends Eterc {
     if (this.wantsJson()) return { ok: true, panel: data };
     return this.view("module_relations/panel_body", data);
   }
-
-  /**
-   * Create an association from the panel's add form (PHP: submit_association();
-   * session auth + CSRF gate).
-   */
   async submit_association() {
     this.securityService().make_sure_allowed();
     await this.validation.run(); // CSRF gate
@@ -243,13 +200,6 @@ export default class Module_relations extends Eterc {
     if (this.wantsJson()) return { ok: true, panel: data };
     return this.view("module_relations/panel_body", data);
   }
-
-  /**
-   * Remove an association from the panel (PHP: remove_association(); session
-   * auth + CSRF gate). `value` is the id from fetch_associated_rows() — the
-   * junction row id for junction-backed relations, otherwise the associated
-   * record's id.
-   */
   async remove_association() {
     this.securityService().make_sure_allowed();
     await this.validation.run(); // CSRF gate
@@ -299,11 +249,6 @@ export default class Module_relations extends Eterc {
   // ============================================
   // Create-form runtime endpoints (internal)
   // ============================================
-
-  /**
-   * Dropdown options for a generated create/edit form
-   * (PHP: fetch_create_options(); internal — block_url + module calls only).
-   */
   fetch_create_options(params: RelationParams = {}): OptionsDropdown {
     this.assertNotDirectCall("fetch_create_options");
 
@@ -324,11 +269,6 @@ export default class Module_relations extends Eterc {
       selected_key
     );
   }
-
-  /**
-   * Bidirectional one-to-one claim/release from a generated create/edit form
-   * (PHP: sync_create_claim(); internal).
-   */
   sync_create_claim(params: RelationParams = {}): void {
     this.assertNotDirectCall("sync_create_claim");
 
@@ -353,11 +293,6 @@ export default class Module_relations extends Eterc {
       prev_value
     );
   }
-
-  /**
-   * Release a one-to-one link when a generated record is deleted
-   * (PHP: release_create_link(); internal).
-   */
   release_create_link(params: RelationParams = {}): void {
     this.assertNotDirectCall("release_create_link");
 
@@ -374,11 +309,6 @@ export default class Module_relations extends Eterc {
 
     this.relationsModel().release_create_link(settings, calling_module, update_id);
   }
-
-  /**
-   * Release a one-to-many parent's children when the parent is deleted
-   * (PHP: release_children(); internal).
-   */
   release_children(params: RelationParams = {}): void {
     this.assertNotDirectCall("release_children");
 
@@ -395,11 +325,6 @@ export default class Module_relations extends Eterc {
 
     this.relationsModel().release_children(settings, calling_module, update_id);
   }
-
-  /**
-   * Release a junction relation's rows when either side's record is deleted
-   * (PHP: release_junction_links(); internal).
-   */
   release_junction_links(params: RelationParams = {}): void {
     this.assertNotDirectCall("release_junction_links");
 
@@ -424,12 +349,6 @@ export default class Module_relations extends Eterc {
   // ============================================
   // Internal helpers
   // ============================================
-
-  /**
-   * Assemble the view data for a panel's live content (PHP: panel_data()).
-   * Returns null when the calling module isn't part of the relation, or the
-   * relation's other side can't be resolved; callers treat null as a failure.
-   */
   private panelData(
     settings: RelationSettings,
     calling_module: string,
@@ -493,12 +412,6 @@ export default class Module_relations extends Eterc {
       form_visible: form_visible,
     };
   }
-
-  /**
-   * JSON callers get {ok:false, message} for business-rule failures (HTTP 200
-   * by design — the port's XHR envelope); all other callers get the PHP
-   * original's HTTP 422.
-   */
   private associationFailure(
     message: string,
     status: number
@@ -552,8 +465,6 @@ export default class Module_relations extends Eterc {
     }
   }
 }
-
-/** PHP ucwords(): uppercase the first character of each space-separated word. */
 function ucwords(value: string): string {
   return value
     .split(" ")

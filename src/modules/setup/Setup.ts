@@ -3,14 +3,6 @@ import { redirect } from "@/engine/Url";
 import { post } from "@/engine/post";
 import { DEFAULT_MODULE } from "@/engine/config";
 import { Setup_model } from "./Setup_model";
-
-/**
- * Setup module — port of modules/setup/Setup.php.
- *
- * Steps: 1 Welcome → 2 Database → 3 Admin → 4 Finalize → 5 Finish.
- * The wizard UI is a React client component (SetupWizard) that drives these
- * methods through the JSON API.
- */
 export default class Setup extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);

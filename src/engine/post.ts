@@ -1,13 +1,5 @@
 import { get_context, type EtRequest, type EtUploadedFile } from "./request-context";
 
-/**
- * post() / get_param() — ports of the input helpers.
- *
- * post(field) reads from the parsed request body (FormData or JSON) supporting
- * PHP-style `user[profile][name]`, `user.profile.name` and `list[]` names.
- * Missing fields return '' exactly like the PHP helper.
- */
-
 const parsedCache = new WeakMap<EtRequest, Record<string, unknown>>();
 
 function formDataToObject(formData: FormData): Record<string, unknown> {
@@ -192,8 +184,6 @@ export function get_param(field: string): string {
 export function has_post(): boolean {
   return Object.keys(bodyObject()).length > 0;
 }
-
-/** List uploaded files from the request body (mirrors $_FILES access). */
 export async function uploaded_file(field: string): Promise<EtUploadedFile | null> {
   const ctx = get_context();
   if (!ctx.formData) return null;

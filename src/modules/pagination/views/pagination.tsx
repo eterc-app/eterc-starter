@@ -1,12 +1,5 @@
 import type { EtViewProps } from "@/engine/views-registry";
 import { format_number } from "../format";
-
-/**
- * pagination view — port of modules/pagination/views/pagination.php.
- *
- * The standalone list-style pagination view. The canonical renderer used by
- * other modules lives in ../PaginationRenderer.tsx.
- */
 type PaginationLink = {
   type?: string;
   label?: string;

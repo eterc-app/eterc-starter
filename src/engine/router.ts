@@ -6,12 +6,6 @@ import { EtHttpError } from "./signals";
 import { resolve_public_route } from "./url-aliases";
 import type { Validation } from "./Validation";
 
-/**
- * Router — port of engine/Core.php route resolution.
- * URLs are addressed as {module}/{method}/{params...} exactly like the PHP
- * original; controllers are TypeScript classes registered in registrations.ts.
- */
-
 export interface RouteTarget {
   module: string;
   method: string;

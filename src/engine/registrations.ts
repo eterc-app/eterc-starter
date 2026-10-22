@@ -8,14 +8,6 @@ import "@/modules/eterc_security";
 // this static index; Flo rewrites it whenever a module is generated.
 import { generatedControllerLoaders } from "@/modules/generated";
 
-/**
- * Controller registry — the port's equivalent of the PHP autoloader's module
- * discovery. Keys are lower-case module names ("{module}" addressing); the
- * control panel's generators append entries here (and under ./generated).
- *
- * Child modules use the "parent-child" form (e.g. "eterc_control-flo").
- */
-
 export const controllerLoaders: Record<
   string,
   () => Promise<{ default: ControllerCtor }>

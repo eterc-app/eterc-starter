@@ -2,15 +2,6 @@
 
 import type { ChangeEvent } from "react";
 import { BASE_URL } from "@/engine/config";
-
-/**
- * "Records Per Page" selector — the interactive part of the manage view.
- *
- * Extracted into a client component so the manage view itself can stay a
- * server component (it renders the canonical pagination, which reads the
- * request context). Navigates to {module}/set_per_page/{index} exactly like
- * the PHP view's inline setPerPage() script.
- */
 export function PerPageSelect({
   options,
   selected,

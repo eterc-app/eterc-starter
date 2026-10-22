@@ -4,10 +4,6 @@ import type { FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/**
- * Step 2 — port of module_builder/views/add_nav_label.php.
- */
 export function AddNavLabelStep({
   recordNamePlural,
   onSubmit,

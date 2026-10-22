@@ -15,25 +15,6 @@ import { FloTrigger } from "./FloTrigger";
 import { views } from "./views";
 
 register_views(views);
-
-/**
- * Flo — port of modules/eterc_control/flo/Flo.php.
- *
- * The PHP class was a thin shell around the site_builder donor pipeline:
- * `home()` rendered the Flo menu, while `draw_flow_trigger()` /
- * `draw_open_flo()` injected the launcher button into other pages.
- *
- * In this port Flo is the independent generator front-end. The launcher and
- * home page stay, and the controller exposes the generator through
- *
- *   POST /api/xhr/eterc_control-flo/generate
- *
- * so the React quick-generator can create a complete Next.js module without
- * going through the PHP wizard. Sibling builders are not modified.
- *
- * The generator itself is deliberately kept in FloGenerator; this controller
- * only handles request parsing, guards and page rendering.
- */
 export default class Flo extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
@@ -55,7 +36,7 @@ export default class Flo extends Eterc {
     return new FloGenerator();
   }
 
-  /** Port convenience: `/eterc_control-flo` → home. */
+  /** Convenience route: `/eterc_control-flo` → home. */
   index(): never {
     redirect("eterc_control-flo/home");
   }
@@ -65,31 +46,15 @@ export default class Flo extends Eterc {
     this.securityService().make_sure_allowed();
     return this.renderHome();
   }
-
-  /**
-   * Render (but do not echo) the Flo trigger element.
-   *
-   * The PHP method returned an HTML string; the port returns a React node.
-   * When `html` is supplied it is used verbatim, matching the optional
-   * behaviour of draw_open_flo().
-   */
   draw_flow_trigger(html?: string | null): ReactNode {
     return this.triggerNode(html ?? null);
   }
-
-  /**
-   * Return the "Open Flo" trigger element.
-   *
-   * PHP echoed the markup; the port returns the node so callers can embed it
-   * in a React tree (there is no output buffer).
-   */
   draw_open_flo(html?: string | null): ReactNode {
     return this.triggerNode(html ?? null);
   }
 
   private triggerNode(html: string | null): ReactNode {
     if (html !== null) {
-      // PHP: `isset($html) ? $html : view(...)`; an empty string renders nothing.
       return html === ""
         ? null
         : createElement("div", {
@@ -125,24 +90,12 @@ export default class Flo extends Eterc {
 
     return this.renderHome(result, module_url);
   }
-
-  /**
-   * Generator entry point for sibling callers (PHP: site_builder's
-   * submit_generate_mod contract). Returns the result instead of rendering.
-   */
   async submit_generate_mod(
     posted_values: GenerationData | null = null
   ): Promise<GenerationResult> {
     this.securityService().make_sure_allowed();
     return this.run_generation(posted_values ?? this.get_posted_values());
   }
-
-  /**
-   * Clear Flo's client-side wizard hints on the server side.
-   *
-   * The original cleared localStorage from the trigger script. The port keeps
-   * the shared `evo_wizard` session key clean as well, mirroring Evo::reset().
-   */
   async reset(): Promise<Record<string, unknown>> {
     this.securityService().make_sure_allowed();
     session_unset("evo_wizard");

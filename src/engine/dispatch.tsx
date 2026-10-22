@@ -11,12 +11,6 @@ import { ErrorPage } from "@/templates/Error404";
 import type { ValidationErrors } from "./Validation";
 import "@/modules/views";
 
-/**
- * Dispatcher — builds the request-scoped context (replacing PHP superglobals)
- * and runs controllers inside it. Shared by page renders, server actions and
- * the JSON API.
- */
-
 export interface EtRequestOptions {
   segments: string[];
   /** Original URL segments, when they differ from the resolved module path. */
@@ -77,12 +71,6 @@ export async function build_request(options: EtRequestOptions): Promise<EtReques
     flashBuffer: [],
   };
 }
-
-/**
- * Run the dispatcher inside an already-established context.
- * Converts framework errors into rendered nodes (PHP parity). Redirect
- * signals are rethrown for the caller (page/action/api) to handle.
- */
 export async function run_in_context(options: EtRequestOptions): Promise<EtRunResult> {
   let node: ReactNode = null;
   let rawReturn: unknown = null;

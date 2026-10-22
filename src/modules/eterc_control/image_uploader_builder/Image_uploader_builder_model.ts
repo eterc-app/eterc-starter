@@ -18,23 +18,6 @@ import {
   type UploaderWizard,
 } from "./types";
 
-/**
- * Image_uploader_builder_model - data layer for the uploader wizard.
- *
- * Port of modules/eterc_control/image_uploader_builder/Image_uploader_
- * builder_model.php adapted to the port's SQLite database, generated-module
- * layout and public module-assets folders.
- *
- * SQLite adaptations:
- *   - information_schema is replaced by PRAGMA table_info;
- *   - a compatible column accepts VARCHAR(255) or TEXT, NOT NULL DEFAULT '';
- *   - the ALTER TABLE statement adds VARCHAR(255) NOT NULL DEFAULT ''.
- *
- * Settings are written to data/settings/image_uploader/{module}.json - the
- * runtime's first lookup location. The destination root is created beneath
- * public/{module}_module/{destination}.
- */
-
 const IDENTIFIER = /^[a-z0-9_]+$/;
 
 /** Framework/system module folders never offered as uploader targets. */
@@ -70,7 +53,7 @@ export function ucwords(value: string): string {
 }
 
 export class Image_uploader_builder_model extends Model {
-  /** Port-only settings directory (the runtime searches this first). */
+  /** Settings directory (the runtime searches this first). */
   private readonly settings_dir = path.join(
     DATA_DIR,
     "settings",
@@ -247,7 +230,6 @@ export class Image_uploader_builder_model extends Model {
       const file_path = this.settings_path(module);
       if (fs.existsSync(file_path)) fs.unlinkSync(file_path);
     } catch {
-      /* best effort, like PHP's @unlink */
     }
   }
 

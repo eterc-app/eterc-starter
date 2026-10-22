@@ -3,18 +3,6 @@ import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from "./config";
 import { sqlite } from "./db";
 import * as crypto from "node:crypto";
 
-/**
- * CSRF protection — port of Eterc's `csrf_token` flow.
- *
- * The PHP original stores the token in the session and renders it as a hidden
- * field via form_close(); validation.run() compares the posted value.
- *
- * The port uses a signed double-submit cookie: middleware guarantees a
- * `et_csrf` cookie exists (nonce + HMAC), forms embed the same value, and
- * validation compares the posted value against the cookie with hash_equals-
- * style constant-time comparison.
- */
-
 export const csrf_field_name = CSRF_FIELD;
 
 function secret(): Buffer {

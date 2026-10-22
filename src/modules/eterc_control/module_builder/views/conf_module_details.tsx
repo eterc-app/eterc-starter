@@ -9,17 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-/**
- * Editable module details — port of
- * module_builder/views/conf_module_details.php.
- *
- * The PHP view seeded form values from localStorage through flo.js and posted
- * with `mx-post`; the React port receives the wizard values as props, posts
- * the form to the JSON API and reproduces the `afterValidation` behaviour:
- *   - success: postMessage('reload_iframe:<url>|<width>|<height>')
- *   - failure: render the validation errors in the form.
- */
-
 interface DetailsWizard {
   module_folder_name?: string;
   record_name_singular?: string;

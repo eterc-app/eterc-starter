@@ -1,16 +1,14 @@
 /**
- * Shared types for the site_builder child module (port of
+ * Shared types for the site_builder child module.
  * modules/eterc_control/site_builder).
  */
-
-/** Result contract preserved from PHP Site_builder::submit_generate_mod(). */
 export interface GenerateModuleResult {
   status: "success" | "error";
   message: string;
   headline?: string;
   more_info_url?: string;
   module_name?: string;
-  /** Absolute paths of the files written by the generator (port-only). */
+  /** Absolute paths of the files written by the generator. */
   files?: string[];
 }
 

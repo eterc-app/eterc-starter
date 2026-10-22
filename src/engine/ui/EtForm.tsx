@@ -6,11 +6,11 @@ import { etSubmit } from "@/app/actions";
 import { useEtUi } from "./EtUiProvider";
 
 /**
- * EtForm — port of form_open()/form_close().
+ * EtForm — form wrapper for module submissions.
  *
  * Submits through the etSubmit server action with Eterc-style metadata
- * (`{module}/{method}` addressing); the controller reply replaces the form
- * subtree (mirrors the MX target behaviour of the original views).
+ * (`{module}/{method}` addressing). The controller reply replaces the form
+ * subtree.
  */
 
 function queryFromLocation(): Record<string, string> {

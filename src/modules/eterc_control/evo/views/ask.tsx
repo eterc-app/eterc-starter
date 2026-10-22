@@ -2,10 +2,6 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { ETERC_FORUM_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
 import { ResetButton } from "./ResetButton";
-
-/**
- * Ask a Question panel — port of evo/views/ask.php.
- */
 export default function EvoAsk({ data }: EtViewProps) {
   const askUrl = String(data.ask_url ?? ETERC_FORUM_URL);
 

@@ -1,8 +1,6 @@
 /**
- * Dynamic model validation methods — port of
- * site_builder/views/dynamic_validation_methods.php and model_helper.php.
+ * Dynamic validation-method template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 import { js } from "./helpers";
 

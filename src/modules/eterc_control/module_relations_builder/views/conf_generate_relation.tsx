@@ -1,15 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
-/**
- * Pre-generation confirmation — port of
- * module_relations_builder/views/conf_generate_relation.php.
- *
- * The PHP view posted through mx-get/mx-post; this component calls the same
- * controller methods through the JSON API. The loader image is served from
- * the port's copy under public/eterc_control-module_relations_builder_module.
- */
 export function ConfGenerateRelationStep({
   onGenerate,
   onViewDetails,

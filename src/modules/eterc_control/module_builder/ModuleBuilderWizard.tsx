@@ -101,8 +101,6 @@ export function ModuleBuilderWizard({ data }: { data: Record<string, unknown> })
     },
     []
   );
-
-  /** Reset the shared wizard session and return to step 1 (PHP doReset). */
   const reset = useCallback(async () => {
     await call("enter_mod_name");
     setStep("enter_mod_name");
@@ -160,7 +158,6 @@ export function ModuleBuilderWizard({ data }: { data: Record<string, unknown> })
     if (!result || result.success !== true) return;
 
     setProperties(parsed as WizardProperty[]);
-    // PHP's store_properties contract points at choose_order_by.
     setStep("choose_order_by");
   };
 

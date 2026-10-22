@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "./AuthShell";
-
-/** Login form (compact) — port of modules/login/views/login_compact.php. */
 export function LoginCompact({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(

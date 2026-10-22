@@ -5,10 +5,7 @@ import type {
   StoredProperty,
 } from "./types";
 
-/**
- * Pure helpers for the Properties Builder — direct ports of the JavaScript
- * helpers in modules/eterc_control/properties_builder/js/properties_builder.js.
- */
+/** Pure helpers for the Properties Builder. */
 
 /** Deep-ish clone used when instantiating a new property from a type. */
 export function cloneValidationRules(
@@ -22,11 +19,6 @@ export function cloneCheckboxes(
 ): PropertyCheckbox[] {
   return checkboxes.map((checkbox) => ({ ...checkbox }));
 }
-
-/**
- * PHP/JS: buildValidationRuleFromAvailableRule()
- * Appends `[default]` when the rule requires a value.
- */
 export function buildValidationRule(rule: PropertyValidationRule): string {
   let value = rule.rule_label;
 
@@ -36,8 +28,6 @@ export function buildValidationRule(rule: PropertyValidationRule): string {
 
   return value;
 }
-
-/** PHP/JS: buildValidationRulesFromApiResponse() — only rules marked yes. */
 export function buildInitialValidationRules(
   rules: PropertyValidationRule[]
 ): string[] {
@@ -45,13 +35,6 @@ export function buildInitialValidationRules(
     .filter((rule) => rule.selected === "yes")
     .map((rule) => buildValidationRule(rule));
 }
-
-/**
- * PHP/JS: addToLocalStorage() — keep only the fields the parent uses.
- *
- * The order matches the original object literal: propertyName, propertyType,
- * onForm, isSearchable, onSummaryTable, validationRules.
- */
 export function toStoredProperties(properties: BuilderProperty[]): StoredProperty[] {
   return properties.map((property) => {
     const stored: StoredProperty = {
@@ -67,8 +50,6 @@ export function toStoredProperties(properties: BuilderProperty[]): StoredPropert
     return stored;
   });
 }
-
-/** PHP/JS: addNewProperty() title validation. */
 export function validatePropertyTitle(
   title: string,
   propertyType: string
@@ -119,11 +100,6 @@ export function maxLengthIndicator(rules: string[]): string {
   }
   return "";
 }
-
-/**
- * PHP/JS: removeValitionRule() —
- * `targetRule.replace(/\d+/g, '').replace('[]', '').replace('[,]', '')`.
- */
 export function normalizeRuleLabel(rule: string): string {
   return rule
     .replace(/\d+/g, "")
@@ -150,8 +126,6 @@ export function decode_html_entities(value: string): string {
     .replace(/&#0*39;/g, "'")
     .replace(/&#x0*27;/gi, "'");
 }
-
-/** Collapse runs of two or more spaces (PHP/JS: replace(/  +/g, ' ')). */
 export function collapseSpaces(value: string): string {
   return value.replace(/  +/g, " ");
 }

@@ -10,29 +10,6 @@ import type {
   PropertyInput,
 } from "./types";
 
-/**
- * Site_builder_model — port of
- * modules/eterc_control/site_builder/Site_builder_model.php.
- *
- * The PHP model mixed three kinds of work:
- *   1. property normalisation / searchable-column discovery;
- *   2. PHP view rendering for the dynamic fragments that were injected into
- *      the donor templates (controller_helper.php + model_helper.php);
- *   3. filesystem helpers (empty_directory / check_write_permissions) and the
- *      admin navigation-menu writer.
- *
- * In the port the donor PHP files are replaced by TypeScript/TSX emitters, so
- * the "dynamic fragment" methods return generated source strings instead of
- * rendered HTML. The public method names are preserved so the controller reads
- * like the PHP original.
- *
- * SQLite deviations (documented again in the generated .sql file):
- *   - `INT PRIMARY KEY AUTO_INCREMENT` → `INTEGER PRIMARY KEY AUTOINCREMENT`;
- *   - optional numeric columns default to 0, optional other columns to NULL
- *     (the same no-NULL sentinel convention as the PHP generator);
- *   - identifiers use backticks (SQLite accepts them).
- */
-
 const PROPERTY_TYPES = [
   "varchar",
   "textarea",
@@ -52,13 +29,9 @@ const NUMERIC_SQL_TYPES = ["INT", "DECIMAL(10,2)", "TINYINT(1)"];
 const MODULE_NAME_PATTERN = /^[a-z0-9_]+$/;
 const ORDER_BY_PATTERN = /^[a-z0-9_]+( DESC)?$/;
 const FIELD_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-
-/** PHP ucfirst(): upper-case the first character only. */
 function ucfirst(value: string): string {
   return value === "" ? value : value.charAt(0).toUpperCase() + value.slice(1);
 }
-
-/** PHP ucwords(): upper-case the first character of every space-separated word. */
 function ucwords(value: string): string {
   return value
     .split(" ")
@@ -92,8 +65,6 @@ function js(value: string): string {
 function jsxText(value: string): string {
   return "{" + js(value) + "}";
 }
-
-/** PHP extract_content($rule, '[', ']'). */
 function extractRuleValue(rule: string): string {
   const start = rule.indexOf("[");
   if (start === -1) return "";
@@ -101,8 +72,6 @@ function extractRuleValue(rule: string): string {
   if (end === -1) return "";
   return rule.slice(start + 1, end);
 }
-
-/** PHP extract_rule_name($rule). */
 function extractRuleName(rule: string): string {
   const start = rule.indexOf("[");
   return (start === -1 ? rule : rule.slice(0, start)).trim();
@@ -153,13 +122,6 @@ export class Site_builder_model extends Model {
 
     return [];
   }
-
-  /**
-   * Build the normalised generation context consumed by every emitter.
-   *
-   * Throws when the posted properties JSON is malformed; the controller turns
-   * that into the PHP "Invalid Request" response contract.
-   */
   normalize_input(input: GenerateModuleInput): GeneratorContext {
     const module_folder_name = String(input.module_folder_name ?? "").trim();
     const properties = this.parse_properties(input.properties);
@@ -295,15 +257,6 @@ export class Site_builder_model extends Model {
 
     return null;
   }
-
-  /**
-   * Resolve an order-by value posted by the module wizard.
-   *
-   * The wizard offers friendly property names ("Task Title") as well as raw
-   * columns; the donor model needs a column (the PHP generator relied on the
-   * wizard posting a column). Property names are mapped to their
-   * form_field_name equivalents here.
-   */
   private resolve_order_by(
     value: string,
     posted_properties: PostedProperty[]
@@ -330,14 +283,6 @@ export class Site_builder_model extends Model {
     return descending ? `${column} DESC` : column;
   }
 
-  // =========================================================================
-  // Property flattening (PHP: est_posted_properties + split_* helpers)
-  // =========================================================================
-
-  /**
-   * Flatten the posted property list, splitting date/time ranges into
-   * `<base>_start` / `<base>_end` columns exactly like the PHP original.
-   */
   est_posted_properties(
     properties: PropertyInput[] | string | null | undefined
   ): PostedProperty[] {
@@ -371,8 +316,6 @@ export class Site_builder_model extends Model {
 
     return posted_properties;
   }
-
-  /** PHP: build_form_field_name(). */
   build_form_field_name(property_name: string): string {
     return url_title(property_name).replace(/-/g, "_");
   }
@@ -425,8 +368,6 @@ export class Site_builder_model extends Model {
 
     return { start, end };
   }
-
-  /** PHP: derive_range_labels(). */
   private derive_range_labels(name: string): { start: string; end: string } {
     const match = name.match(/^(.+)\s+and\s+(.+)$/i);
     if (match) {
@@ -466,17 +407,6 @@ export class Site_builder_model extends Model {
     );
   }
 
-  // =========================================================================
-  // Filesystem helpers (PHP: check_write_permissions / empty_directory)
-  // =========================================================================
-
-  /**
-   * Check that every path is writable.
-   *
-   * The PHP original checked `config/` and `modules/`. The port writes only
-   * into the generated-modules directory and (optionally) the settings
-   * directory, so those are the defaults; callers may append more.
-   */
   check_write_permissions(additional_paths: string[] = []): boolean {
     const paths = [MODULES_DIR, GENERATED_MODULES_DIR, ...additional_paths];
 
@@ -519,23 +449,10 @@ export class Site_builder_model extends Model {
       }
     }
   }
-
-  /** PHP prep_file_contents(): legacy HTML-entity restoration. */
   prep_file_contents(content: string): string {
     return content.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
   }
 
-  // =========================================================================
-  // Generated validation tests (controller_helper.php)
-  // =========================================================================
-
-  /**
-   * Build the `await this.validation.set_rules(...)` lines for submit().
-   *
-   * The PHP generator returned pre-indented PHP statements; the port returns
-   * indented TypeScript statements because `Validation::set_rules` is
-   * asynchronous.
-   */
   build_validation_tests(data: GeneratorContext): string {
     const tests: string[] = [];
 
@@ -608,9 +525,6 @@ export class Site_builder_model extends Model {
     )}, ${js(validation_tests_str)});`;
   }
 
-  // =========================================================================
-  // Generated callback methods (controller_helper.php)
-  // =========================================================================
 
   /** Build the date/time validation callback methods for the controller. */
   build_dynamic_callback_methods(data: GeneratorContext): string {
@@ -727,9 +641,6 @@ export class Site_builder_model extends Model {
     return lines.join("\n");
   }
 
-  // =========================================================================
-  // Generated model validation methods (model_helper.php)
-  // =========================================================================
 
   /** Build the model's date/time validation methods. */
   build_dynamic_validation_methods(data: GeneratorContext): string {
@@ -867,9 +778,6 @@ export class Site_builder_model extends Model {
     ].join("\n");
   }
 
-  // =========================================================================
-  // Generated posted-data / display helpers (model_helper.php)
-  // =========================================================================
 
   /** Build the object literal inside the generated model's get_data_from_post(). */
   build_dynamic_posted_data(data: GeneratorContext): string {
@@ -922,9 +830,6 @@ export class Site_builder_model extends Model {
     return lines.join("\n");
   }
 
-  // =========================================================================
-  // Generated form fields (model_helper.php: build_dynamic_form_fields)
-  // =========================================================================
 
   /** Build the JSX form controls inserted into the generated create view. */
   build_dynamic_form_fields(data: GeneratorContext): string {
@@ -1087,9 +992,6 @@ export class Site_builder_model extends Model {
     return attributes.join("\n");
   }
 
-  // =========================================================================
-  // Date-constraint script (model_helper.php: needs_date_constraint_js)
-  // =========================================================================
 
   /** True when any temporal property has an in-the-past/future rule. */
   needs_date_constraint_js(data: GeneratorContext): boolean {
@@ -1101,14 +1003,6 @@ export class Site_builder_model extends Model {
           property.validation_rules.includes("in the future"))
     );
   }
-
-  /**
-   * Build the browser script body that sets min/max on temporal inputs.
-   *
-   * The PHP version emitted a DOMContentLoaded listener from the create view.
-   * The generated React view embeds this body in a <script> after the form;
-   * the body also handles the already-loaded case for client-side renders.
-   */
   build_dynamic_date_constraint_js(data: GeneratorContext): string {
     if (!this.needs_date_constraint_js(data)) return "";
 
@@ -1149,9 +1043,6 @@ export class Site_builder_model extends Model {
     ].join("\n");
   }
 
-  // =========================================================================
-  // Generated summary table / details (dynamic_table.php / dynamic_details.php)
-  // =========================================================================
 
   /** Build the full <table> markup for the generated manage view. */
   build_dynamic_table(data: GeneratorContext): string {
@@ -1296,9 +1187,6 @@ export class Site_builder_model extends Model {
       .join("\n");
   }
 
-  // =========================================================================
-  // Generated controller source (donor_controller.php)
-  // =========================================================================
 
   /** Build the generated `<Controller>.ts` source. */
   generate_controller_content(data: GeneratorContext): string {
@@ -1342,7 +1230,7 @@ export class Site_builder_model extends Model {
     lines.push(
       ` * Manages ${data.record_name_singular.toLowerCase()} records with full CRUD operations.`
     );
-    lines.push(" * Generated by Site Builder (port of donor_controller.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push(`export default class ${data.class_name} extends Eterc {`);
     lines.push("  private default_limit = 20;");
@@ -1883,9 +1771,6 @@ export class Site_builder_model extends Model {
     ];
   }
 
-  // =========================================================================
-  // Generated model source (donor_model.php)
-  // =========================================================================
 
   /** Build the generated `<Controller>_model.ts` source. */
   generate_model_content(data: GeneratorContext): string {
@@ -1902,7 +1787,7 @@ export class Site_builder_model extends Model {
     lines.push(
       ` * ${data.class_name}_model - Handles data operations for ${data.record_name_singular.toLowerCase()} records.`
     );
-    lines.push(" * Generated by Site Builder (port of donor_model.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push(`export class ${data.class_name}_model extends Model {`);
     lines.push(
@@ -2120,17 +2005,6 @@ export class Site_builder_model extends Model {
     return lines.join("\n").replace(/__MODULE__/g, data.module_folder_name);
   }
 
-  // =========================================================================
-  // Generated view source (donor_*.php)
-  // =========================================================================
-
-  /**
-   * Build one generated view file.
-   *
-   * Mirrors Site_builder::generate_view_content(): `create`, `manage` and
-   * `show` receive their dynamic fragment; every other donor view is copied
-   * with the generated copy substituted.
-   */
   generate_view_content(view_file: string, data: GeneratorContext): string {
     switch (view_file) {
       case "create":
@@ -2171,7 +2045,7 @@ export class Site_builder_model extends Model {
     lines.push(
       ` * Create/update ${data.record_name_singular.toLowerCase()} form`
     );
-    lines.push(" * Generated by Site Builder (port of donor_create.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push("export default function Create({ data }: EtViewProps) {");
     lines.push("  const update_id = Number(data.update_id ?? 0);");
@@ -2234,10 +2108,9 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("/**");
     lines.push(` * Manage ${data.record_name_plural.toLowerCase()}`);
-    lines.push(" * Generated by Site Builder (port of donor_manage.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" *");
-    lines.push(" * Deviation: the PHP view opened a record-preview modal through");
-    lines.push(" * MX; React views link the first summary column to the show page.");
+    lines.push(" * The first summary column links to the record detail page.");
     lines.push(" */");
     lines.push("export default function Manage({ data }: EtViewProps) {");
     lines.push(
@@ -2355,7 +2228,7 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("/**");
     lines.push(` * ${data.record_name_singular} details`);
-    lines.push(" * Generated by Site Builder (port of donor_show.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push("export default function Show({ data }: EtViewProps) {");
     lines.push("  const update_id = Number(data.update_id ?? 0);");
@@ -2412,7 +2285,7 @@ export class Site_builder_model extends Model {
     lines.push("");
     lines.push("/**");
     lines.push(` * Delete ${data.record_name_singular.toLowerCase()} confirmation`);
-    lines.push(" * Generated by Site Builder (port of donor_delete_conf.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push("export default function DeleteConf({ data }: EtViewProps) {");
     lines.push("  const update_id = Number(data.update_id ?? 0);");
@@ -2460,7 +2333,7 @@ export class Site_builder_model extends Model {
       "",
       "/**",
       ` * ${data.record_name_singular} not found`,
-      " * Generated by Site Builder (port of donor_not_found.php).",
+      " * Generated by Site Builder.",
       " */",
       "export default function NotFound({ data }: EtViewProps) {",
       "  return (",
@@ -2503,7 +2376,7 @@ export class Site_builder_model extends Model {
     lines.push(
       ` * Search modal form for filtering ${data.record_name_plural.toLowerCase()}.`
     );
-    lines.push(" * Generated by Site Builder (port of donor_search_modal.php).");
+    lines.push(" * Generated by Site Builder.");
     lines.push(" */");
     lines.push("export default function SearchModal(_props: EtViewProps) {");
     lines.push("  return (");
@@ -2541,8 +2414,7 @@ export class Site_builder_model extends Model {
       'import { BASE_URL } from "@/engine/config";',
       "",
       "/**",
-      " * Records-per-page selector — port of the inline setPerPage() script",
-      " * from donor_manage.php.",
+      " * Records-per-page selector for generated manage views.",
       " */",
       "export function PerPageSelect({",
       "  options,",
@@ -2626,18 +2498,6 @@ export class Site_builder_model extends Model {
     return lines.join("\n");
   }
 
-  // =========================================================================
-  // Generated SQL (Site_builder::generate_table_sql)
-  // =========================================================================
-
-  /**
-   * Build the SQLite table definition.
-   *
-   * Deviation from the PHP original (MySQL): `AUTO_INCREMENT` is expressed as
-   * `INTEGER PRIMARY KEY AUTOINCREMENT`; all other column types are accepted
-   * by SQLite's type affinity system. The generated file carries a comment
-   * explaining the deviation.
-   */
   generate_table_sql(data: GeneratorContext): string {
     const columns: string[] = [];
     columns.push("    `id` INTEGER PRIMARY KEY AUTOINCREMENT");
@@ -2658,9 +2518,7 @@ export class Site_builder_model extends Model {
     const lines: string[] = [];
     lines.push("-- Generated by Site Builder (Eterc).");
     lines.push("--");
-    lines.push(
-      "-- SQLite dialect. Deviation from the PHP original (MySQL):"
-    );
+    lines.push("-- SQLite dialect notes:");
     lines.push(
       "--   * INT PRIMARY KEY AUTO_INCREMENT -> INTEGER PRIMARY KEY AUTOINCREMENT"
     );
@@ -2702,8 +2560,6 @@ export class Site_builder_model extends Model {
         return "VARCHAR(255)";
     }
   }
-
-  /** PHP: extract_max_length(). */
   private extract_max_length(rules: string[]): number {
     for (const rule of rules) {
       if (rule.startsWith("max length[")) {
@@ -2716,22 +2572,6 @@ export class Site_builder_model extends Model {
     return 255;
   }
 
-  // =========================================================================
-  // Navigation settings (Site_builder_model::add_nav_menu_link)
-  // =========================================================================
-
-  /**
-   * Record a navigation link for a newly generated module.
-   *
-   * The PHP original edited `modules/templates/views/admin.php` directly. The
-   * port's admin template is a React component and must not be rewritten by a
-   * generator, so the links are appended to
-   * `data/settings/site_builder/nav_links.json` instead. The AdminTemplate can
-   * read that file to render the entries (external wiring gap).
-   *
-   * Rules preserved: an empty label adds nothing; an existing link (same
-   * module/href) is not duplicated.
-   */
   add_nav_menu_link(module_name: string, nav_label: string): boolean {
     if (nav_label === "") return false;
 

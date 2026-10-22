@@ -13,7 +13,7 @@ export const DATA_DIR = path.join(PROJECT_ROOT, "data");
 /** Uploaded / generated files that must be publicly accessible. */
 export const UPLOADS_DIR = path.join(PROJECT_ROOT, "public", "uploads");
 
-/** Source modules directory for the ported framework modules. */
+/** Source modules directory for framework modules. */
 export const MODULES_DIR = path.join(PROJECT_ROOT, "src", "modules");
 
 /** Directory where code generators write new Next.js modules. */

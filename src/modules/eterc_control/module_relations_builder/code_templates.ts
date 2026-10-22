@@ -1,12 +1,3 @@
-/**
- * Code-injection templates for the Module Relations Builder.
- *
- * The PHP original kept one template file per injected fragment under
- * views/injectables/. The port keeps the same fragments as plain functions so
- * the controller can render them without a second view registry. Every block
- * carries its `flo_relation` marker exactly like the originals; preflight uses
- * the marker to refuse double injection.
- */
 
 function lit(value: string): string {
   return JSON.stringify(value);

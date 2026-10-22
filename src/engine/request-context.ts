@@ -1,11 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-/**
- * Request-scoped context — the port's replacement for PHP's superglobals
- * (SEGMENTS, $_POST, $_GET, $_SERVER, $_COOKIE). Controllers and helpers read
- * from this context; it is established once per request by the dispatcher.
- */
-
 export interface EtUploadedFile {
   fieldName: string;
   originalName: string;

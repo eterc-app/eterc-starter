@@ -15,22 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-/**
- * Database tables — the `db` module's landing view.
- *
- * Rendered by Db::index(). The PHP-era admin tool was never shipped with
- * views (the original `modules/db` is the engine class), so this view is
- * designed directly from the data contract Db::index() supplies:
- *
- *   headline, subheading, tables (TableSummary[]),
- *   browse_url_root, forger_url_root, sql_console_url
- *
- * The per-table maintenance actions (Truncate / Resequence) POST JSON to
- * `/api/xhr/db/{method}/{table}` — the port's stand-in for the original tool's
- * AJAX endpoints — and report the result inline, since a client swap cannot
- * refresh the server-rendered row counts.
- */
-
 interface TableSummary {
   name: string;
   num_rows: number;

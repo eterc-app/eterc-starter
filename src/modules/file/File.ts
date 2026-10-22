@@ -11,17 +11,14 @@ import { block_url } from "@/modules/utilities/Utilities";
 import { resolveUploadDirectory } from "./upload-paths";
 
 /**
- * File — port of modules/file/File.php.
+ * File service.
  *
- * Upload/validation helper. The PHP class blocked direct URL invocation in
- * its constructor; the port keeps that guard. All other method names and
- * return shapes mirror the original:
+ * Provides filesystem helpers and upload/download handling:
  *
  *   - info() / exists() / read() / write() / delete() / delete_directory() /
  *     list_directory() / copy() / move()  → synchronous helpers;
  *   - upload()      → async (request bodies are read through uploaded_files());
- *   - download()    → returns a web Response carrying the file (PHP sent
- *                     headers and read the file into the output buffer).
+ *   - download()    → returns a web Response carrying the file.
  *
  * Uploads land beneath public/uploads/ (UPLOADS_DIR). See ./upload-paths.ts
  * for the destination rules (including upload_to_module destinations under
@@ -45,21 +42,21 @@ export interface UploadedFileInfo {
 
 export type DirectoryListing = Array<string | { [name: string]: DirectoryListing }>;
 
-/** PHP upload error codes (UPLOAD_ERR_*). */
+/** User-facing messages for numeric upload error codes. */
 const UPLOAD_ERRORS: Record<number, string> = {
-  1: "The uploaded file exceeds the upload_max_filesize directive",
-  2: "The uploaded file exceeds the MAX_FILE_SIZE directive",
+  1: "The uploaded file exceeds the server's size limit",
+  2: "The uploaded file exceeds the configured size limit",
   3: "The uploaded file was only partially uploaded",
   4: "No file was uploaded",
-  6: "Missing a temporary folder",
+  6: "The server's temporary folder is unavailable",
   7: "Failed to write file to disk",
-  8: "A PHP extension stopped the file upload",
+  8: "The upload was stopped by a server extension",
 };
 
 export default class File extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
-    // Protect this module from unwanted browser access (PHP parity).
+    // Protect this module from direct browser access.
     block_url("file");
   }
 
@@ -70,8 +67,8 @@ export default class File extends Eterc {
   /**
    * Handle a file upload with the given configuration.
    *
-   * PHP read $_FILES synchronously; the port reads the request's FormData
-   * through uploaded_files(), hence the async signature.
+   * Request bodies are read through uploaded_files(), hence the async
+   * signature.
    */
   async upload(config: FileUploadConfig): Promise<UploadedFileInfo> {
     const destination = config?.destination ?? "";
@@ -179,12 +176,6 @@ export default class File extends Eterc {
 
     return info;
   }
-
-  /**
-   * Create a directory (recursively by default). Returns true when the
-   * directory exists afterwards. Mirrors the PHP signature; the permissions
-   * argument is accepted for parity (fs.mkdirSync mode).
-   */
   create_directory(
     directory_path: string,
     permissions = 0o755,
@@ -298,15 +289,6 @@ export default class File extends Eterc {
 
     return true;
   }
-
-  /**
-   * Prepare a file for download or inline display.
-   *
-   * PHP sent the headers and streamed the file, then exited. A React server
-   * cannot terminate a response from inside a controller, so the port
-   * returns a Response with the identical headers/body; route handlers can
-   * return it directly.
-   */
   download(file_path: string, as_attachment = true): Response {
     if (!this.is_path_valid(file_path)) {
       throw new Error(`Access to this file is restricted: ${file_path}`);
@@ -338,12 +320,6 @@ export default class File extends Eterc {
       },
     });
   }
-
-  /**
-   * List files and directories within a directory. With `recursive`, each
-   * subdirectory is represented as an object keyed by its name (PHP used
-   * a string array key).
-   */
   list_directory(directory_path: string, recursive = false): DirectoryListing {
     if (!this.is_path_valid(directory_path)) {
       throw new Error(`Access to this path is restricted: ${directory_path}`);
@@ -416,11 +392,6 @@ export default class File extends Eterc {
   // -------------------------------------------------------------------------
   // Internal validation helpers
   // -------------------------------------------------------------------------
-
-  /**
-   * Validate the upload destination and return the resolved absolute
-   * directory (PHP: validate_upload_path() + the target path expression).
-   */
   private validate_upload_path(
     destination: string,
     upload_to_module = false,
@@ -476,13 +447,6 @@ export default class File extends Eterc {
       full_name: file_name + extension,
     };
   }
-
-  /**
-   * Validate a path against the framework's security rules: forbidden inside
-   * src/engine/ and prisma/, no direct children of the project root, and
-   * always inside the project directory. Non-existent paths inherit their
-   * parent's validity. (PHP equivalents: APPPATH config/ and engine/.)
-   */
   private is_path_valid(candidate: string): boolean {
     const root = realPathOrNull(PROJECT_ROOT);
     if (root === null) return false;
@@ -528,11 +492,6 @@ export default class File extends Eterc {
     if (!relative.includes(path.sep)) return false;
     return true;
   }
-
-  /**
-   * Validate an uploaded file: existence, memory requirements and MIME type.
-   * (PHP: validate_file(); the tmp file is already in memory here.)
-   */
   private validate_file(upload: EtUploadedFile): void {
     const bytes = upload.bytes ?? Buffer.alloc(0);
 
@@ -547,20 +506,9 @@ export default class File extends Eterc {
 
     this.validate_mime_type(bytes);
   }
-
-  /**
-   * Content-based MIME sniff. The PHP original cross-checked finfo with the
-   * system `file` command; the port has a single content source, so this
-   * confirms the content can be identified without a mismatch.
-   */
   private validate_mime_type(bytes: Buffer): string {
     return sniffBufferMime(bytes);
   }
-
-  /**
-   * Validate whether enough heap is available to process a file, using the
-   * V8 heap limit as the port's equivalent of PHP's memory_limit.
-   */
   private validate_memory_requirements(file_size: number): {
     status: boolean;
     message: string;
@@ -579,13 +527,13 @@ export default class File extends Eterc {
     return { status: true, message: "" };
   }
 
-  /** Map a PHP-style upload error code to its user-facing message. */
+  /** Map a numeric upload error code to its user-facing message. */
   private get_upload_error_message(error_code: number): string {
     return UPLOAD_ERRORS[error_code] ?? "Unknown upload error";
   }
 }
 
-/** PHP style return_file_info() used by the filename generator. */
+/** Build file name and extension metadata from a path. */
 function returnFileInfo(file_string: string): {
   file_name: string;
   file_extension: string;

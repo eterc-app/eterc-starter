@@ -6,7 +6,7 @@ import { etSubmit } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 
 /**
- * EtButton — port of buttons that trigger a module method (mx-post buttons).
+ * EtButton — button that triggers a module method (MX post).
  * The reply replaces the button subtree.
  */
 export function EtButton({

@@ -15,24 +15,6 @@ import { views } from "./views";
 
 register_views(views);
 
-/**
- * Evo — port of modules/eterc_control/evo/Evo.php.
- *
- * Evo is Flo's generic controller: home / module-manager menus, the
- * "ask a question" panel, the shared reset action and reusable error /
- * details / disabled views for sibling child modules.
- *
- * The original was loaded as a fragment inside the Flo iframe and had no
- * authentication guard. In the port the page-shaped methods render through
- * the admin theme and call the security service, while the reusable
- * render_* helpers stay bare so sibling modules can embed them. Direct URL
- * access to those helpers is rejected, mirroring `block_url()`.
- *
- * No framework files are read, written or upgraded by this module; the only
- * stateful action is reset(), which clears the shared `evo_wizard` session
- * key.
- */
-
 export interface EvoDetailsIframeData {
   view_content?: ReactNode;
   local_storage_items?: Record<string, unknown>;
@@ -71,7 +53,7 @@ export default class Evo extends Eterc {
    *
    * Sibling modules call these methods in-process, so the current URL method
    * segment is the caller's method (not the helper name) and the guard does
-   * not fire. A direct hit is refused with the port's 403 signal.
+   * not fire. A direct hit is refused with a 403 response.
    */
   private guardDirectInvocation(method: string): void {
     if (!has_context()) return;
@@ -85,7 +67,7 @@ export default class Evo extends Eterc {
     }
   }
 
-  /** Port convenience: `/eterc_control-evo` → home. */
+  /** Convenience route: `/eterc_control-evo` → home. */
   index(): never {
     redirect("eterc_control-evo/home");
   }
@@ -110,13 +92,6 @@ export default class Evo extends Eterc {
       ask_url: ETERC_FORUM_URL,
     });
   }
-
-  /**
-   * Clear the shared Flo wizard session and return to the main menu.
-   *
-   * PHP: unset($_SESSION['evo_wizard']) + view('home'). The AJAX caller gets a
-   * small JSON acknowledgement (used by the React reset button).
-   */
   async reset(): Promise<ReactNode | Record<string, unknown>> {
     this.securityService().make_sure_allowed();
     session_unset("evo_wizard");
@@ -127,25 +102,10 @@ export default class Evo extends Eterc {
 
     return this.renderPage("home", "Flo");
   }
-
-  /**
-   * Render an error element for a sibling module.
-   *
-   * PHP returned an HTML fragment and used block_url(). The port returns a
-   * React node with the same content; direct URL invocation is rejected.
-   */
   render_error(message = ""): ReactNode {
     this.guardDirectInvocation("render_error");
     return createElement(EvoErrorElement, { data: { message }, message });
   }
-
-  /**
-   * Render the generic "details review" overlay.
-   *
-   * The PHP version emitted a standalone document with a close header and a
-   * localStorage seeding script. The port composes ModuleDetailsTemplate with
-   * the registered module_details_iframe view, which performs the seeding.
-   */
   async render_details_iframe(
     data: EvoDetailsIframeData = {}
   ): Promise<ReactNode> {
@@ -177,13 +137,6 @@ export default class Evo extends Eterc {
       more_info_url,
     });
   }
-
-  /**
-   * Render the disabled response for non-dev environments.
-   *
-   * The constructor already raises a 403 outside dev (the port's equivalent
-   * of the PHP `die()`), but the view stays public for parity and reuse.
-   */
   render_disabled_response(): ReactNode {
     return createElement(EvoDisabled, { data: {} });
   }

@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/** Login form (split) — port of modules/login/views/login_split.php. */
 export function LoginSplit({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const passwordLabel = String(

@@ -2,15 +2,6 @@
 
 import { useEffect, type ReactNode } from "react";
 import type { EtViewProps } from "@/engine/views-registry";
-
-/**
- * Details iframe body — port of evo/views/module_details_iframe.php.
- *
- * The PHP file was a standalone document. In the port the outer document,
- * <base> and close header are provided by ModuleDetailsTemplate; this view
- * renders the caller-supplied content and reproduces the localStorage seeding
- * script.
- */
 export default function EvoModuleDetailsIframe({ data }: EtViewProps) {
   const viewContent = data?.view_content as ReactNode;
   const localStorageItems = (data?.local_storage_items ?? {}) as Record<

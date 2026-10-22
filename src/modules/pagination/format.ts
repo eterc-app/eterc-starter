@@ -1,4 +1,3 @@
-/** PHP number_format() equivalent for the pagination views. */
 export function format_number(value: number): string {
   const rounded = Math.round(value);
   const sign = rounded < 0 ? "-" : "";

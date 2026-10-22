@@ -1,7 +1,6 @@
 /**
- * Dynamic detail grid — port of site_builder/views/dynamic_details.php.
+ * Dynamic detail grid template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 import { jsxText, ucwords } from "./helpers";
 

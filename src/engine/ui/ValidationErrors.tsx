@@ -3,7 +3,7 @@
 import { useEtUi } from "./EtUiProvider";
 
 /**
- * Validation errors — port of validation's display_errors() rendering:
+ * Validation errors — renders validation messages.
  *
  *   <ValidationErrors field="username" />   -> inline list for one field
  *   <ValidationErrors />                    -> general summary list

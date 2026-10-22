@@ -1,10 +1,5 @@
 import * as crypto from "node:crypto";
 
-/**
- * String service — port of modules/string_service/String_service.php.
- * All functions mirror the PHP originals (same names, same semantics).
- */
-
 export function truncate_str(value: string, maxLength: number): string {
   if (Array.from(value).length <= maxLength) return value;
   return Array.from(value).slice(0, maxLength).join("") + "...";
@@ -93,8 +88,6 @@ function numberFormat(num: number, decimals: number): string {
   const sign = num < 0 ? "-" : "";
   return decPart !== undefined ? `${sign}${withCommas}.${decPart}` : `${sign}${withCommas}`;
 }
-
-/** Approximates PHP's Transliterator 'Any-Latin; Latin-ASCII'. */
 export function transliterate(value: string): string {
   return value
     .normalize("NFKD")
@@ -329,8 +322,6 @@ export function decode_html_entities(value: string): string {
     return named[entity.toLowerCase()] ?? match;
   });
 }
-
-/** Simplified strip_tags — removes PHP and HTML tags, preserving allowed ones. */
 export function strip_tags(str: string, allowedTags: string[] = []): string {
   let result = str.replace(/<\?[\s\S]*?\?>/g, "");
   const allowed = new Set(
@@ -343,8 +334,6 @@ export function strip_tags(str: string, allowedTags: string[] = []): string {
 
   return result;
 }
-
-/** Mirrors PHP's uniqid() closely enough for filename fallbacks. */
 export function uniqid(): string {
   return (
     Date.now().toString(16) +

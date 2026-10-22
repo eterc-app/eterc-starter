@@ -20,11 +20,6 @@ import { views as siteBuilderViews } from "./eterc_control/site_builder/views";
 // Generated modules (Flo) self-register their view maps when this index is
 // imported; Flo rewrites it whenever a module is generated.
 import "@/modules/generated";
-
-/**
- * Central view registration — imports each module's view map so views can be
- * addressed as "{module}/{view_file}" (PHP parity). Generators append entries.
- */
 register_views(welcomeViews);
 register_views(setupViews);
 register_views(loginViews);

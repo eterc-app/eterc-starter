@@ -7,39 +7,6 @@ import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 
-/**
- * Properties — port of
- * modules/eterc_control/properties/Properties.php.
- *
- * The PHP module is a small JSON data service used by the Properties Builder:
- *
- *   get_fields_info()     → data/fields_info.json
- *   get_address_types()   → data/address_types.json
- *   get_address_data()    → data/address_<type>.json  (JSON POST: addressType)
- *
- * The original echoed the raw file contents. The port returns the parsed JSON
- * value so the JSON API route can wrap it in its standard envelope:
- *
- *   POST /api/xhr/eterc_control-properties/get_fields_info
- *   POST /api/xhr/eterc_control-properties/get_address_types
- *   POST /api/xhr/eterc_control-properties/get_address_data
- *        body: {"addressType":"American"}
- *
- * The PHP implementation had no model/traits — all loading happens here.
- *
- * Deviations:
- *  - outside dev mode the PHP constructor delegated to
- *    eterc_control-evo::render_disabled_response() and died. The port raises
- *    a 403 instead (the JSON endpoints have no HTML disabled-response path;
- *    same approach as the sibling query_builder / module_builder controllers);
- *  - every public method is an admin endpoint, so it calls
- *    eterc_security->make_sure_allowed() like the ported admin modules;
- *  - a missing/corrupt data file yields {} or [] instead of a PHP warning and
- *    an empty response body;
- *  - the address-type filename is validated before use, so a crafted
- *    `addressType` cannot traverse outside the data directory.
- */
-
 /** A validation rule definition as stored in fields_info.json. */
 export interface PropertyValidationRule {
   rule_name: string;
@@ -83,7 +50,6 @@ export default class Properties extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
 
-    // PHP: non-dev requests rendered the evo "disabled" response and died.
     if (ENV.toLowerCase() !== "dev") {
       throw new EtHttpError(
         403,
@@ -97,27 +63,12 @@ export default class Properties extends Eterc {
       .eterc_security;
   }
 
-  // -------------------------------------------------------------------------
-  // Public API (PHP parity)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Return field info for all property types.
-   *
-   * PHP: get_fields_info() — file_get_contents(fields_info.json).
-   */
   get_fields_info(): PropertyFieldsInfo {
     this.securityService().make_sure_allowed();
 
     const value = this.read_data_file("fields_info.json");
     return this.as_record<PropertyFieldsInfo>(value);
   }
-
-  /**
-   * Return available address types.
-   *
-   * PHP: get_address_types() — file_get_contents(address_types.json).
-   */
   get_address_types(): string[] {
     this.securityService().make_sure_allowed();
 
@@ -126,14 +77,6 @@ export default class Properties extends Eterc {
       ? value.map((item) => String(item))
       : [];
   }
-
-  /**
-   * Return address property rows for a given address type.
-   *
-   * PHP: get_address_data() — reads the JSON POST body, lower-cases
-   * `addressType`, and loads `address_<type>.json`. Falls back to 'American';
-   * an unknown type answers `[]`.
-   */
   get_address_data(): unknown[] {
     this.securityService().make_sure_allowed();
 
@@ -154,9 +97,6 @@ export default class Properties extends Eterc {
     return Array.isArray(value) ? value : [];
   }
 
-  // -------------------------------------------------------------------------
-  // Data loading (PHP: file_get_contents + echo)
-  // -------------------------------------------------------------------------
 
   /** Read one JSON document from the module's data/ directory. */
   private read_data_file(filename: string): unknown {
@@ -170,13 +110,9 @@ export default class Properties extends Eterc {
       const contents = fs.readFileSync(file_path, "utf8");
       return JSON.parse(contents) as unknown;
     } catch {
-      // PHP surfaced a warning and echoed an empty body; return the closest
-      // JSON equivalent so clients always receive valid JSON.
       return null;
     }
   }
-
-  /** Read the JSON request body (PHP: php://input + json_decode). */
   private getPostData(): Record<string, unknown> {
     const json = get_context().json;
 

@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-
-/** Public theme — port of modules/templates/views/public.php. */
 export function PublicTemplate({
   children,
   pageTitle,

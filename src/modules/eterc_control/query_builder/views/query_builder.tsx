@@ -7,25 +7,6 @@ import { cn } from "@/lib/utils";
 import type { EtViewProps } from "@/engine/views-registry";
 import type { QueryBuilderTable } from "../Query_builder";
 
-/**
- * Query builder — port of the standalone page served by
- * modules/eterc_control/query_builder.
- *
- * PHP originals:
- *   views/query_builder.php  — page shell + loading spinner + JPEG preloads
- *   js/query_builder.js      — the whole builder (drag & drop, join drawing,
- *                              SQL generation) — ported below, function by
- *                              function, with the original comment structure
- *   css/query_builder.css    — /eterc_control-query_builder_module/css/
- *   css/table-joins.css      — (join-type menu backgrounds)
- *   fonts/VT323-Regular.ttf  — page font
- *   images/joins/{active,dark}/joinN.png — join type menu images
- *
- * The original was embedded in a Flo iframe and talked to its parent with
- * `window.parent.postMessage(...)`; that protocol is preserved here (it is a
- * no-op when the page is opened directly).
- */
-
 const nl = "\n";
 const ind = "    ";
 
@@ -718,9 +699,6 @@ export default function QueryBuilder({ data }: EtViewProps): ReactNode {
     let sql = "";
     let errorMsg = "";
 
-    // NOTE: the PHP/JS original compared the arrays themselves
-    // (droppedTables < 1) which can never be true; the port checks lengths so
-    // the intended validation messages actually appear.
     if (droppedTables.length < 1) {
       errorMsg = "You did not select any tables!";
     }

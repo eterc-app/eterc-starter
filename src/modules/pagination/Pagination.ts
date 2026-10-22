@@ -6,23 +6,6 @@ import {
 } from "./Pagination_model";
 import { renderPreparedPagination } from "./PaginationRenderer";
 import type { ReactNode } from "react";
-
-/**
- * Pagination — port of modules/pagination/Pagination.php.
- *
- * Library used by other modules (PHP: Modules::run('pagination/display',
- * $pagination_data)). The public API keeps the PHP method name and accepts
- * the same configuration array. PHP echoed its output and returned void; a
- * React port must return the node, so `display()` returns ReactNode|null.
- *
- * Usage from a controller:
- *
- *   const pagination = await this.module<Pagination>("pagination");
- *   return pagination.display(pagination_data);
- *
- * Views can use the canonical <Pagination data={...} /> component from
- * ./PaginationRenderer directly (the administrators manage view does).
- */
 export default class Pagination extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);

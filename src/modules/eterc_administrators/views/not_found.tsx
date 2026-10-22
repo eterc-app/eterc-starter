@@ -6,11 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-/**
- * Record not found — port of
- * modules/eterc_administrators/views/not_found.php.
- */
 export default function NotFound({ data }: EtViewProps) {
   const headline = String(data.headline ?? "");
 

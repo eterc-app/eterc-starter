@@ -27,22 +27,6 @@ import type {
   StoredProperty,
 } from "./types";
 
-/**
- * Properties Builder — port of
- * modules/eterc_control/properties_builder (views/home.php + js/properties_builder.js).
- *
- * The original was a standalone full-screen document loaded in a Flo iframe.
- * This component keeps the same state and localStorage protocol, while
- * replacing the DOM-string manipulation with React state and the Eterc/W3
- * styling with shadcn/Tailwind.
- *
- * External contract (unchanged):
- *  - `localStorage.properties` holds the reduced property list;
- *  - on submit/cancel the page writes localStorage.tempParams, localStorage.action
- *    and sets document.title, then posts `properties_submitted` or `close` to
- *    the parent window (when the page is embedded).
- */
-
 const DEFAULT_API_BASE = "/api/xhr";
 const PROPERTIES_MODULE = "eterc_control-properties";
 const ADDRESS_PLACEHOLDER = "Select Address Type...";
@@ -781,7 +765,7 @@ export function PropertiesBuilder({
           "*"
         );
       } else if (window.parent === window) {
-        // Port-only fallback: the dashboard links directly to this page, so
+        // Fallback route: the dashboard links directly to this page, so
         // return there when the builder is not running inside the iframe.
         router.replace("/control");
       }

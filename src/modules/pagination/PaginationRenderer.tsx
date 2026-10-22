@@ -6,20 +6,6 @@ import {
   type PaginationSettings,
   type PreparedPaginationData,
 } from "./Pagination_model";
-
-/**
- * Pagination renderer — React port of Pagination::render_pagination() and
- * Pagination::get_showing_statement() from modules/pagination/Pagination.php.
- *
- * The renderer emits the same HTML the PHP module produced: the wrapper,
- * first/previous links, page numbers, next/last links and the optional
- * showing statement. Building the markup as a string keeps custom
- * `settings` fragments (which are HTML in the PHP API) working unchanged;
- * the React component injects that string into a display:contents wrapper so
- * the DOM structure and CSS behaviour match.
- */
-
-/** PHP number_format() for whole row counts. */
 function format_number(value: number): string {
   const rounded = Math.round(value);
   const sign = rounded < 0 ? "-" : "";
@@ -30,8 +16,6 @@ function format_number(value: number): string {
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   );
 }
-
-/** PHP htmlspecialchars($value, ENT_QUOTES, 'UTF-8'). */
 function htmlspecialchars(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -171,9 +155,6 @@ export function buildPaginationMarkup(data: PreparedPaginationData): string {
 
   html += settings.pagination_close + "\n";
 
-  // Pagination styling ships with the app's Tailwind layer. The PHP
-  // include_css flag is intentionally ignored so no runtime style element is
-  // injected; custom `settings` fragments still work as before.
   return html;
 }
 
@@ -198,17 +179,6 @@ export function renderPreparedPagination(
   html += buildPaginationMarkup(data);
   return <PaginationMarkup html={html} />;
 }
-
-/**
- * Canonical pagination component.
- *
- * Usage (the port's equivalent of Modules::run('pagination/display', ...)):
- *
- *   <Pagination data={pagination_data} />
- *
- * It validates/prepares the configuration through Pagination_model and
- * renders null when the record count does not require pagination.
- */
 export function Pagination({ data }: { data: Record<string, unknown> }) {
   const model = new Pagination_model("pagination");
   const prepared = model.prepare_pagination_data(data as PaginationData);

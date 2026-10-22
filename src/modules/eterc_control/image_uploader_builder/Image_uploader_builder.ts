@@ -35,28 +35,6 @@ import { views } from "./views";
 
 register_views(views);
 
-/**
- * Image_uploader_builder - the "Add Image Uploader" wizard.
- *
- * Port of modules/eterc_control/image_uploader_builder. Walks the
- * developer through module choice -> confirmation -> generation, then writes
- * the schema, the runtime settings JSON and the code injections that make the
- * picture panel and file cleanup visible.
- *
- * Port adaptations:
- *  - generated modules live under src/modules/generated; injection targets that
- *    layout (with a fallback to src/modules/<module> for hand-written modules);
- *  - the PHP view's Modules::run call becomes a controller-side draw_panel()
- *    fetch plus a `{data.upload_panel}` expression in the show view;
- *  - injected TypeScript/JSX is parse-checked with the TypeScript compiler
- *    before any file is written (the token_get_all(TOKEN_PARSE) equivalent);
- *  - the original MX/echo flow is split: AJAX callers get JSON, page requests
- *    render through the admin theme;
- *  - the destination root is public/<module>_module/<destination> (the port's
- *    module-assets location);
- *  - the dev-only guard raises 403 instead of calling evo's disabled view.
- */
-
 const WIZARD_SESSION_KEY = "evo_wizard";
 
 const SHOW_FETCH_ANCHOR =
@@ -154,7 +132,7 @@ export default class Image_uploader_builder extends Eterc {
   // Wizard entry point
   // ============================================
 
-  /** Port convenience: `/eterc_control-image_uploader_builder`. */
+  /** Convenience route: `/eterc_control-image_uploader_builder`. */
   async index(): Promise<ReactNode | Record<string, unknown>> {
     return this.choose_mod();
   }

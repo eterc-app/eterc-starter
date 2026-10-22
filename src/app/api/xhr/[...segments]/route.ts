@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { build_request, run_in_context, flush_response_cookies } from "@/engine/dispatch";
 import { run_with_context } from "@/engine/request-context";
 import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
-
-/**
- * JSON API — POST /api/xhr/{module}/{method}/{params...}
- * The AJAX counterpart of the PHP framework's MX requests; controllers
- * addressed here should return JSON-serializable data.
- */
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ segments: string[] }> }

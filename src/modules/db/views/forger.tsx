@@ -7,20 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-/**
- * The forger — create/edit record form for one table.
- *
- * Rendered by Db::forger() / buildForgerViewData(); designed from the
- * data contract (no PHP original view exists):
- *
- *   headline, table, update_id, fields (FormField[]), primary_key, cancel_url
- *
- * Non-submittable fields (the primary key) render read-only; everything else
- * is a text, number or textarea input. Submitting posts to db/submit_forge
- * through <EtForm>, so validation failures re-render this same view inside the
- * form subtree while showing the errors.
- */
-
 interface FormField {
   name: string;
   label: string;

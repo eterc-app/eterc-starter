@@ -1,6 +1,5 @@
 /**
- * Generated records-per-page selector — port of the inline setPerPage()
- * script from site_builder/views/donor_manage.php.
+ * Records-per-page selector template.
  */
 export const PER_PAGE_SELECT_TEMPLATE = `"use client";
 

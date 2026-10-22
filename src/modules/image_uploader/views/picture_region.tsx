@@ -6,20 +6,6 @@ import { etSubmit } from "@/app/actions";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { Button } from "@/components/ui/button";
 
-/**
- * Picture region — the interactive body of the show-page "Picture" card.
- *
- * Client component because removing a picture is a stateful action in the
- * port: PHP used a Eterc MX POST with an out-of-band swap, while the port
- * posts through the etSubmit server action and replaces this component's
- * subtree with the re-rendered region. Upload/Replace stay plain links to
- * the dedicated multipart upload page.
- *
- * The server-rendered markup mirrors modules/image_uploader/views/
- * panel_body.php: the empty state with an Upload action, or the preview
- * (thumbnail when enabled) with Replace/Remove actions.
- */
-
 export interface PictureRegionProps {
   data: Record<string, unknown>;
 }

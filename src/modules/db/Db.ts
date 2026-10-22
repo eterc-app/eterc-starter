@@ -11,30 +11,6 @@ import {
   type FormField,
   type Row,
 } from "./Db_model";
-
-/**
- * Db admin — the port's admin database tool (table list / browse / forger /
- * SQL console).
- *
- * The PHP original modules/db/Db.php is the framework *engine* class (ported
- * as src/engine/db.ts); it also called `block_url('db')` so the module could
- * never be addressed from a URL. This module keeps the engine unreachable as a
- * plain route while exposing an explicitly admin-guarded tool over it: every
- * public method starts with `eterc_security->make_sure_allowed()`.
- *
- * Routes (URL segments mirror the PHP module addressing):
- *   db                          table list
- *   db/browse/{table}/{page}    record browser (paginated)
- *   db/forger/{table}/{id}      forge (create) / edit a record
- *   db/submit_forge/{table}/{id}
- *   db/delete_conf/{table}/{id}
- *   db/submit_delete/{table}/{id}
- *   db/set_per_page/{index}/{table}
- *   db/truncate/{table}         XHR — POST /api/xhr/db/truncate
- *   db/resequence/{table}       XHR — POST /api/xhr/db/resequence
- *   db/sql_console              SQL console view
- *   db/run_sql                  XHR — POST /api/xhr/db/run_sql
- */
 export default class Db extends Eterc {
   private admin_theme = "";
   private default_limit = 20;
@@ -229,8 +205,6 @@ export default class Db extends Eterc {
     }
 
     if ((await this.validation.run()) !== true) {
-      // PHP re-renders forger(); the port re-renders the bare view so <EtForm>
-      // can swap its own subtree while showing the errors.
       const record: Row | false =
         update_id > 0 ? this.dbModel().get_record(table, update_id) : this.dbModel().posted_record(columns);
 
@@ -478,8 +452,6 @@ export default class Db extends Eterc {
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(raw)) return false;
     return this.dbModel().table_exists(raw) ? raw : false;
   }
-
-  /** View data for the forger form (PHP: forger()'s $data assignments). */
   private buildForgerViewData(
     table: string,
     update_id: number,
@@ -503,8 +475,6 @@ export default class Db extends Eterc {
       viewFile: "forger",
     };
   }
-
-  /** Pagination limit from the session (PHP: private get_limit()). */
   private getLimit(): number {
     const selected = session_get<number>("db_selected_per_page");
 

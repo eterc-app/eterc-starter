@@ -1,8 +1,6 @@
 /**
- * Dynamic date-constraint script — port of
- * site_builder/views/dynamic_date_constraint_js.php.
+ * Dynamic date-constraint script template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 
 /** True when any temporal property has an in-the-past/future rule. */

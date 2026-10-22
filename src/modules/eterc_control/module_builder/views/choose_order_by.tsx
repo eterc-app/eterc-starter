@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { WizardProperty } from "../Module_builder";
-
-/** PHP url_title() equivalent for property names (client-side). */
 function url_title(value: string): string {
   return value
     .replace(/[^\p{L}\d]+/gu, "-")
@@ -18,13 +16,6 @@ interface OrderByOption {
   /** Value posted to submit_order_by (original: url_title column). */
   column: string;
 }
-
-/**
- * Step 6 — port of module_builder/views/choose_order_by.php.
- *
- * Options: id, id DESC, and for each property its raw name / raw name DESC
- * (display) mapped to the slug column / slug column DESC (posted value).
- */
 export function ChooseOrderByStep({
   properties,
   onSelect,

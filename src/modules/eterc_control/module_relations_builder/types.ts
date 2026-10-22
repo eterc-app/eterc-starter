@@ -1,9 +1,3 @@
-/**
- * Shared types for the Module Relations Builder wizard.
- *
- * Port of modules/eterc_control/module_relations_builder. The wizard state
- * lives in the `evo_wizard` session key, exactly like the PHP original.
- */
 
 export const RELATION_TYPES = [
   "one to one",

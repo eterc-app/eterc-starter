@@ -4,11 +4,6 @@ import type { FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/**
- * Step 1 — port of module_builder/views/enter_mod_name.php.
- * Markup and copy preserved; the form is handled by ModuleBuilderWizard.
- */
 export function EnterModNameStep({
   onSubmit,
   busy,

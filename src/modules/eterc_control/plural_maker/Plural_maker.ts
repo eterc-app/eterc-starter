@@ -1,25 +1,7 @@
 import type { ReactNode } from "react";
 import { Eterc } from "@/engine/controller";
 import type { EtTemplateData } from "@/engine/Templates";
-
-/**
- * Plural Maker — port of
- * modules/eterc_control/plural_maker/Plural_maker.php.
- *
- * A comprehensive English pluralisation engine using pattern-matching rules
- * and compact embedded dictionaries. No database dependency.
- *
- * Loading from a sibling module (e.g. Module_builder):
- *   const plural_maker = await this.module<Plural_maker>("eterc_control-plural_maker");
- *   const plural = plural_maker.make_plural("Tooth");   // "Teeth"
- *
- * The two public methods (`make_plural`, `get_singular`) are synchronous
- * exactly like the PHP originals.
- */
 export default class Plural_maker extends Eterc {
-  // ============================================
-  // Dictionaries (verbatim from Plural_maker.php)
-  // ============================================
 
   /** Unchanging / uncountable nouns (singular === plural). */
   private readonly unchanging: string[] = [
@@ -188,8 +170,6 @@ export default class Plural_maker extends Eterc {
   // ============================================
   // Public API
   // ============================================
-
-  /** Reverse irregular lookup (built lazily on first use, PHP parity). */
   private plural_to_singular: Record<string, string> | null = null;
   private ves_to_f: Record<string, string> | null = null;
   private a_to_um: Record<string, string> | null = null;
@@ -198,14 +178,6 @@ export default class Plural_maker extends Eterc {
   constructor(moduleName?: string | null) {
     super(moduleName);
   }
-
-  /**
-   * Port-only landing page.
-   *
-   * The PHP module is a service (no page entry point), but the control-panel
-   * dashboard links here, so render a short page with live examples instead of
-   * a 404.
-   */
   async index(): Promise<ReactNode> {
     const example_words = [
       "tooth",
@@ -269,7 +241,6 @@ export default class Plural_maker extends Eterc {
   get_singular(word: string): string {
     const trimmed = word.trim();
 
-    // Build reverse lookups on first call (PHP parity).
     this.reverseLookups();
 
     // Handle multi-word: singularise only the LAST word.
@@ -288,9 +259,6 @@ export default class Plural_maker extends Eterc {
     return this.singularize_single(trimmed);
   }
 
-  // ============================================
-  // Private Engine (PHP parity)
-  // ============================================
 
   /** Pluralise a single word. */
   private pluralize_single(word: string): string {
@@ -364,8 +332,6 @@ export default class Plural_maker extends Eterc {
     // 11. Default: add 's'.
     return word + "s";
   }
-
-  /** Reverse lookup tables, built on first use (PHP parity). */
   private reverseLookups(): {
     plural_to_singular: Record<string, string>;
     ves_to_f: Record<string, string>;
@@ -497,13 +463,6 @@ export default class Plural_maker extends Eterc {
     return word;
   }
 }
-
-/**
- * Preserve the capitalisation pattern of the original word.
- *
- * Mirrors the PHP helper's ctype_upper()/ucfirst() behaviour (digits are
- * not uppercase letters for ctype_upper()).
- */
 function preserve_case(original: string, transformed: string): string {
   if (original.length > 0 && /^[A-Z]+$/.test(original)) {
     return transformed.toUpperCase();
@@ -513,11 +472,6 @@ function preserve_case(original: string, transformed: string): string {
   }
   return transformed;
 }
-
-/**
- * PHP array_flip() — last key wins for duplicated values and insertion order
- * is preserved (JS object key order matches PHP's flipped array order).
- */
 function flip(source: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(source)) {

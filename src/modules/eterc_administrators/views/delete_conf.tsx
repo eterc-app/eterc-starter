@@ -7,14 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-/**
- * Delete confirmation — port of
- * modules/eterc_administrators/views/delete_conf.php.
- *
- * Deletion happens only after the "Yes - Delete Now" submit; the controller
- * then re-checks ownership and record existence (PHP parity).
- */
 export default function DeleteConf({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
 

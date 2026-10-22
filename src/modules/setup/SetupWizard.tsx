@@ -23,15 +23,6 @@ interface SetupWizardProps {
   dbFile: string;
   appPath: string;
 }
-
-/**
- * Setup wizard - the port of modules/setup (views: setup, database_config,
- * admin_account, update_default_module, setup_complete).
- *
- * The PHP original swapped `.setup-container` over MX requests; here a single
- * client component drives the five steps through the JSON API
- * (`/api/xhr/setup/*`), keeping identical copy and the same server contract.
- */
 export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
   const { csrf_token } = useEtUi();
   const [step, setStep] = useState(0);
@@ -161,7 +152,7 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
   );
 }
 
-/* -- Steps indicator (port of setup/draw_steps_indicator) ------------------ */
+/* -- Steps indicator ------------------------------------------------------- */
 
 function StepsIndicator({ current }: { current: number }) {
   return (
@@ -216,8 +207,6 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* -- Step 1: Welcome (view: setup.php) ------------------------------------ */
-
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="space-y-5">
@@ -240,8 +229,6 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   );
 }
 
-/* -- Step 2: Database (view: database_config.php) ------------------------- */
-
 function DatabaseStep({
   dbFile,
   notice,
@@ -260,7 +247,7 @@ function DatabaseStep({
           Database Connection Test
         </h1>
         <p className="text-muted-foreground">
-          This port runs on SQLite (managed through Prisma). There are no
+          Eterc runs on SQLite (managed through Prisma). There are no
           credentials to enter - the database file is created automatically.
         </p>
       </div>
@@ -302,8 +289,6 @@ function DatabaseStep({
     </div>
   );
 }
-
-/* -- Step 3: Admin account (view: admin_account.php) ---------------------- */
 
 function FieldErrors({ field, errors }: { field: string; errors: Errors }) {
   const messages = errors[field];
@@ -397,8 +382,6 @@ function AdminStep({
   );
 }
 
-/* -- Step 4: Finalize (view: update_default_module.php) ------------------- */
-
 function FinalizeStep({
   dbFile,
   adminUsername,
@@ -462,8 +445,6 @@ function FinalizeStep({
   );
 }
 
-/* -- Step 5: Complete (view: setup_complete.php) -------------------------- */
-
 function CompleteStep({ appPath }: { appPath: string }) {
   return (
     <div className="space-y-5">
@@ -502,8 +483,6 @@ function CompleteStep({ appPath }: { appPath: string }) {
   );
 }
 
-/* -- Help message (view: help_message.php) -------------------------------- */
-
 export function HelpMessage({ onBack }: { onBack: () => void }) {
   return (
     <div className="space-y-4">
@@ -515,15 +494,14 @@ export function HelpMessage({ onBack }: { onBack: () => void }) {
       </CardHeader>
 
       <p className="text-sm leading-relaxed text-muted-foreground">
-        In the world of PHP frameworks, nothing is more disheartening than when
-        someone begins their journey but fails at the initial setup. When that
-        happens, everyone loses - the users walk away disappointed (having
-        wasted their time) and the framework makers miss an opportunity to share
-        their work.
+        Nothing is more disheartening than starting a new project and getting
+        stuck during initial setup. When that happens, everyone loses: users
+        walk away disappointed, and framework authors miss the opportunity to
+        share their work.
       </p>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        So here is the promise this port keeps: if you are stuck, the Eterc
-        documentation and community forum are one click away.
+        So here is the promise Eterc keeps: if you are stuck, the documentation
+        and community forum are one click away.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
@@ -549,7 +527,7 @@ export function HelpMessage({ onBack }: { onBack: () => void }) {
   );
 }
 
-/* -- Confetti (port of setup.js startConfetti) ---------------------------- */
+/* -- Confetti -------------------------------------------------------------- */
 
 function ConfettiCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

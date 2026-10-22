@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "./AuthShell";
-
-/**
- * Forgot password form — port of
- * modules/login/forgot_password/views/forgot_password_form.php.
- */
 export function ForgotPasswordForm({ data }: EtViewProps) {
   const identifierLabel = String(data.identifier_label ?? "");
   const loginUrl = String(data.login_url ?? "");

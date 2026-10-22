@@ -34,8 +34,6 @@ export class EtApiResponse {
     this.headers = headers;
   }
 }
-
-/** Require a valid administrator token/session and return its user object. */
 export function require_api_user(level = 1): EtercUserObj {
   const tokens = new Eterc_tokens();
   const token = tokens.attempt_get_valid_token(level);

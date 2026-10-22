@@ -1,13 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-/**
- * Middleware â€” framework-level request duties:
- *  1. Ensure the signed CSRF cookie exists and expose it to server code via
- *     the `x-et-csrf` request header (forms embed it; validation compares it).
- *  2. Flashdata one-shot semantics: forward `et_flash` as a request header and
- *     delete the cookie on the response (PHP session "read once" behaviour).
- */
-
 const CSRF_COOKIE = "et_csrf";
 const CSRF_HEADER = "x-et-csrf";
 const FLASH_COOKIE = "et_flash";

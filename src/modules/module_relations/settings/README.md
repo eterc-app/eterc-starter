@@ -42,12 +42,12 @@ names of the pair. Either order is accepted; the runtime tries both.
   `^[a-z0-9_]+$` and exist on the module's table. Invalid parts are ignored and
   the display value falls back to the record id.
 
-## Lookup order (port)
+## Lookup order
 
 The runtime searches these locations, in order, for each filename:
 
 1. `ET_MODULE_RELATIONS_SETTINGS_DIR` (environment override)
-2. `<project root>/modules/module_relations/settings` (PHP-compatible layout)
+2. `<project root>/modules/module_relations/settings` (legacy layout)
 3. `src/modules/module_relations/settings` (this directory)
 4. `data/module_relations/settings`
 5. `data/settings/module_relations`

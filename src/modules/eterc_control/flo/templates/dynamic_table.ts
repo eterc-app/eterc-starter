@@ -1,7 +1,6 @@
 /**
- * Dynamic summary table — port of site_builder/views/dynamic_table.php.
+ * Dynamic summary table template.
  */
-
 import type { TemplateContext } from "../FloTypes";
 import { js, jsxText, ucwords } from "./helpers";
 
