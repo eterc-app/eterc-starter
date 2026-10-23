@@ -97,29 +97,15 @@ export function CopyButton({
 }
 
 export function PageHeader({
-  eyebrow,
   title,
-  description,
   actions,
 }: {
-  eyebrow?: string;
   title: string;
-  description?: string;
   actions?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        {eyebrow ? (
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
-        {description ? (
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
@@ -128,12 +114,10 @@ export function PageHeader({
 export function EmptyState({
   icon,
   title,
-  description,
   action,
 }: {
   icon: ReactNode;
   title: string;
-  description: string;
   action?: ReactNode;
 }) {
   return (
@@ -142,7 +126,6 @@ export function EmptyState({
         {icon}
       </div>
       <h2 className="mt-4 text-sm font-semibold">{title}</h2>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

@@ -2,33 +2,15 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  AlertTriangle,
-  Check,
-  KeyRound,
-  Pencil,
-  Plus,
-  Shield,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-  Users,
-} from "lucide-react";
+import { Check, KeyRound, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -50,7 +32,6 @@ import type {
   CmsPermission,
   CmsPermissionAction,
   CmsRole,
-  CmsRuntimeConfig,
   CmsUserSummary,
 } from "@/modules/cms/cms-types";
 import {
@@ -73,7 +54,6 @@ interface Overview {
 
 interface AccessState {
   overview: Overview;
-  runtime: CmsRuntimeConfig;
 }
 
 interface RoleForm {
@@ -140,7 +120,6 @@ function roleBadges(role: CmsRole) {
 
 export default function AccessStudio({ data }: EtViewProps) {
   const initial = data.overview as Overview;
-  const runtime = data.runtime as CmsRuntimeConfig | undefined;
   const [overview, setOverview] = useState<Overview>(initial);
   const [tab, setTab] = useState("roles");
 
@@ -371,14 +350,11 @@ export default function AccessStudio({ data }: EtViewProps) {
   );
 
   const apiRoles = overview.roles.filter((role) => role.api_access);
-  const activeKeys = overview.api_keys.filter((key) => key.active).length;
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5 p-4 sm:p-6">
       <PageHeader
-        eyebrow="Access control"
         title="Access & API keys"
-        description="Roles decide who can enter the app, who can call the API, and which collections they can read or write. APIs are private by default."
         actions={
           <>
             <Button asChild variant="outline">
@@ -395,42 +371,6 @@ export default function AccessStudio({ data }: EtViewProps) {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid size-9 place-items-center rounded-lg bg-muted">
-              <Shield className="size-4" />
-            </span>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Roles</p>
-              <p className="text-xl font-semibold">{overview.roles.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid size-9 place-items-center rounded-lg bg-muted">
-              <UserRound className="size-4" />
-            </span>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Users</p>
-              <p className="text-xl font-semibold">{overview.users.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="grid size-9 place-items-center rounded-lg bg-muted">
-              <KeyRound className="size-4" />
-            </span>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active keys</p>
-              <p className="text-xl font-semibold">{activeKeys}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="roles">Roles & permissions</TabsTrigger>
@@ -443,7 +383,6 @@ export default function AccessStudio({ data }: EtViewProps) {
             <Card className="h-fit">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Roles</CardTitle>
-                <CardDescription>App and API access is granted per role.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-1.5 p-2">
                 {overview.roles.map((role) => (
@@ -471,13 +410,7 @@ export default function AccessStudio({ data }: EtViewProps) {
 
             <Card>
               <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-                <div>
-                  <CardTitle>{selectedRole ? selectedRole.name : "Select a role"}</CardTitle>
-                  <CardDescription>
-                    {selectedRole?.description ||
-                      "Choose a role on the left to edit its collection permissions."}
-                  </CardDescription>
-                </div>
+                <CardTitle>{selectedRole ? selectedRole.name : "Select a role"}</CardTitle>
                 {selectedRole ? (
                   <div className="flex gap-1">
                     <Button
@@ -506,9 +439,8 @@ export default function AccessStudio({ data }: EtViewProps) {
               <CardContent>
                 {!selectedRole ? (
                   <EmptyState
-                    icon={<Shield className="size-5" />}
+                    icon={<ShieldCheck className="size-5" />}
                     title="No role selected"
-                    description="Create a role or select one from the list."
                     action={<Button onClick={openCreateRole}>New role</Button>}
                   />
                 ) : selectedRole.is_system ? (
@@ -516,10 +448,6 @@ export default function AccessStudio({ data }: EtViewProps) {
                     <p className="flex items-center gap-2 font-medium">
                       <ShieldCheck className="size-4" />
                       Full access
-                    </p>
-                    <p className="mt-1 text-muted-foreground">
-                      The system Admin role always has every collection permission and cannot be
-                      restricted. Create a separate role for editors or API clients.
                     </p>
                   </div>
                 ) : (
@@ -572,11 +500,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                         </tbody>
                       </table>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        Empty permissions mean no access. Field-level limits can be set through the
-                        API for advanced cases.
-                      </p>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <BusyButton type="button" busy={permissionSaving} onClick={savePermissions}>
                         <Check className="size-4" />
                         Save permissions
@@ -593,17 +517,12 @@ export default function AccessStudio({ data }: EtViewProps) {
           <Card>
             <CardHeader>
               <CardTitle>Users and roles</CardTitle>
-              <CardDescription>
-                Assign a role to each account. App access controls the application; API access
-                controls tokens and API keys.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {overview.users.length === 0 ? (
                 <EmptyState
                   icon={<Users className="size-5" />}
                   title="No users yet"
-                  description="Create administrator accounts in Manage Users, then assign roles here."
                   action={
                     <Button asChild>
                       <Link href="/administrators/manage">Manage users</Link>
@@ -661,13 +580,7 @@ export default function AccessStudio({ data }: EtViewProps) {
         <TabsContent value="keys" className="mt-4">
           <Card>
             <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-              <div>
-                <CardTitle>API keys</CardTitle>
-                <CardDescription>
-                  Keys inherit the permissions of their role. Send them as{" "}
-                  <code className="font-mono text-[11px]">Authorization: Bearer etk_...</code>.
-                </CardDescription>
-              </div>
+              <CardTitle>API keys</CardTitle>
               <Button onClick={openCreateKey}>
                 <Plus className="size-4" />
                 Create API key
@@ -678,7 +591,6 @@ export default function AccessStudio({ data }: EtViewProps) {
                 <EmptyState
                   icon={<KeyRound className="size-5" />}
                   title="No API keys yet"
-                  description="Create a key for a server, script or integration. Keys are shown once and stored as hashes."
                   action={<Button onClick={openCreateKey}>Create API key</Button>}
                 />
               ) : (
@@ -751,22 +663,10 @@ export default function AccessStudio({ data }: EtViewProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Auth provider: <strong>{runtime?.auth.label ?? "Built-in accounts"}</strong>. API keys work
-          independently of the sign-in provider. Revoking a key takes effect immediately for new
-          requests.
-        </p>
-      </div>
-
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{roleForm.id ? "Edit role" : "New role"}</DialogTitle>
-            <DialogDescription>
-              App access controls the application. API access controls API keys and tokens.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -793,47 +693,32 @@ export default function AccessStudio({ data }: EtViewProps) {
               />
             </div>
             <div className="space-y-2 rounded-lg border p-3">
-              <label className="flex items-start gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={roleForm.app_access}
                   onCheckedChange={(checked) =>
                     setRoleForm((form) => ({ ...form, app_access: checked === true }))
                   }
                 />
-                <span>
-                  <span className="block font-medium">App access</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Allow users with this role to sign in to the application.
-                  </span>
-                </span>
+                <span className="font-medium">App access</span>
               </label>
-              <label className="flex items-start gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={roleForm.api_access}
                   onCheckedChange={(checked) =>
                     setRoleForm((form) => ({ ...form, api_access: checked === true }))
                   }
                 />
-                <span>
-                  <span className="block font-medium">API access</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Allow tokens and API keys for this role to call the content API.
-                  </span>
-                </span>
+                <span className="font-medium">API access</span>
               </label>
-              <label className="flex items-start gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={roleForm.admin_access}
                   onCheckedChange={(checked) =>
                     setRoleForm((form) => ({ ...form, admin_access: checked === true }))
                   }
                 />
-                <span>
-                  <span className="block font-medium">Admin area</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Allow this role to open Data Studio, Access and Project settings.
-                  </span>
-                </span>
+                <span className="font-medium">Admin area</span>
               </label>
             </div>
           </div>
@@ -854,12 +739,9 @@ export default function AccessStudio({ data }: EtViewProps) {
       </Dialog>
 
       <Dialog open={keyOpen} onOpenChange={setKeyOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Create API key</DialogTitle>
-            <DialogDescription>
-              The secret is shown once. Store it in the server environment or your integration.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -906,7 +788,6 @@ export default function AccessStudio({ data }: EtViewProps) {
                   setKeyForm((form) => ({ ...form, expires_at: event.target.value }))
                 }
               />
-              <p className="text-[11px] text-muted-foreground">Leave empty for no expiry.</p>
             </div>
           </div>
           <DialogFooter>
@@ -926,20 +807,14 @@ export default function AccessStudio({ data }: EtViewProps) {
       </Dialog>
 
       <Dialog open={createdKey !== null} onOpenChange={(open) => !open && setCreatedKey(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>API key created</DialogTitle>
-            <DialogDescription>
-              Copy this secret now. It is stored as a hash and cannot be recovered.
-            </DialogDescription>
           </DialogHeader>
           {createdKey ? (
             <div className="space-y-3">
               <div className="rounded-lg border bg-muted/40 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {createdKey.name}
-                </p>
-                <p className="mt-1 break-all font-mono text-xs">{createdKey.secret}</p>
+                <p className="break-all font-mono text-xs">{createdKey.secret}</p>
               </div>
               <div className="flex gap-2">
                 <CopyButton value={createdKey.secret} label="Copy key" />

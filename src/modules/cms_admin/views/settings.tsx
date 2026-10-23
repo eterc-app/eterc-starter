@@ -10,19 +10,11 @@ import {
   KeyRound,
   RefreshCw,
   Save,
-  ShieldCheck,
   Sparkles,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,13 +23,7 @@ import type {
   CmsProviderDefinition,
   CmsRuntimeConfig,
 } from "@/modules/cms/cms-types";
-import {
-  BusyButton,
-  CopyButton,
-  PageHeader,
-  cms_call,
-  format_relative,
-} from "./ui";
+import { BusyButton, CopyButton, PageHeader, cms_call } from "./ui";
 
 interface ProviderCatalog {
   databases: CmsProviderDefinition[];
@@ -117,13 +103,7 @@ function ProviderGrid({
                 : "hover:bg-muted/30"
             }`}
           >
-            <span className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium">{provider.name}</span>
-              {provider.badge ? <Badge variant="secondary">{provider.badge}</Badge> : null}
-            </span>
-            <span className="mt-1 block text-xs text-muted-foreground">
-              {provider.description}
-            </span>
+            <span className="text-sm font-medium">{provider.name}</span>
           </button>
         );
       })}
@@ -140,13 +120,7 @@ function ProviderFields({
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
-  if (provider.fields.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-        No configuration is required. Accounts are stored in the project database.
-      </p>
-    );
-  }
+  if (provider.fields.length === 0) return null;
   return (
     <div className="space-y-3">
       {provider.fields.map((field) => (
@@ -177,9 +151,6 @@ function ProviderFields({
               onChange={(event) => onChange(field.key, event.target.value)}
             />
           )}
-          {field.help ? (
-            <p className="text-[11px] text-muted-foreground">{field.help}</p>
-          ) : null}
         </div>
       ))}
     </div>
@@ -396,9 +367,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-5 p-4 sm:p-6">
       <PageHeader
-        eyebrow="Project"
         title="Project settings"
-        description="Choose the database and auth provider, review the generated environment variables, and keep API access private by default."
         actions={
           <BusyButton busy={saving} onClick={save}>
             <Save className="size-4" />
@@ -406,17 +375,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
           </BusyButton>
         }
       />
-
-      <div className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4">
-        <ShieldCheck className="mt-0.5 size-5 shrink-0" />
-        <div className="min-w-0 text-sm">
-          <p className="font-medium">Private API by default</p>
-          <p className="mt-0.5 text-muted-foreground">
-            Content endpoints always require a session token or an API key. Public access is only
-            possible through a role you explicitly grant, and API keys are hashed at rest.
-          </p>
-        </div>
-      </div>
 
       <Card>
         <CardHeader>
@@ -426,11 +384,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 <Database className="size-4" />
                 Database
               </CardTitle>
-              <CardDescription>
-                The bundled SQLite engine is active in this build. Test and save a managed database
-                now; connection checks, masked secrets and environment variables are ready for
-                deployment.
-              </CardDescription>
             </div>
             <StatusPill status={databaseStatus} message={databaseMessage} />
           </div>
@@ -441,48 +394,29 @@ export default function ProjectSettings({ data }: EtViewProps) {
             selected={databaseProviderId}
             onSelect={selectDatabase}
           />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="space-y-3">
-              <ProviderFields
-                provider={databaseProvider}
-                values={databaseValues}
-                onChange={(key, value) => {
-                  setDatabaseValues((values) => ({ ...values, [key]: value }));
-                  setDatabaseStatus("unconfigured");
-                  setDatabaseMessage("Not verified");
-                }}
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <BusyButton
-                  type="button"
-                  variant="outline"
-                  busy={testingDatabase}
-                  onClick={testDatabase}
-                >
-                  {testingDatabase ? null : <RefreshCw className="size-4" />}
-                  Test connection
-                </BusyButton>
-                {databaseMessage ? (
-                  <p className="text-xs text-muted-foreground">{databaseMessage}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">{databaseProvider.name}</p>
-              <p className="mt-1">{databaseProvider.description}</p>
-              {databaseProvider.notes?.length ? (
-                <ul className="mt-2 list-disc space-y-1 pl-4">
-                  {databaseProvider.notes.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                </ul>
+          <div className="space-y-3">
+            <ProviderFields
+              provider={databaseProvider}
+              values={databaseValues}
+              onChange={(key, value) => {
+                setDatabaseValues((values) => ({ ...values, [key]: value }));
+                setDatabaseStatus("unconfigured");
+                setDatabaseMessage("Not verified");
+              }}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <BusyButton
+                type="button"
+                variant="outline"
+                busy={testingDatabase}
+                onClick={testDatabase}
+              >
+                {testingDatabase ? null : <RefreshCw className="size-4" />}
+                Test connection
+              </BusyButton>
+              {databaseMessage ? (
+                <p className="text-xs text-muted-foreground">{databaseMessage}</p>
               ) : null}
-              <p className="mt-2">
-                Last verified:{" "}
-                {runtime.database.verified_at
-                  ? format_relative(runtime.database.verified_at)
-                  : "Not yet"}
-              </p>
             </div>
           </div>
         </CardContent>
@@ -496,10 +430,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 <KeyRound className="size-4" />
                 Authentication
               </CardTitle>
-              <CardDescription>
-                Test and save an auth provider without changing collection permissions or API keys.
-                Built-in accounts remain the local fallback while a hosted provider is configured.
-              </CardDescription>
             </div>
             <StatusPill status={authStatus} message={authMessage} />
           </div>
@@ -510,41 +440,24 @@ export default function ProjectSettings({ data }: EtViewProps) {
             selected={authProviderId}
             onSelect={selectAuth}
           />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="space-y-3">
-              <ProviderFields
-                provider={authProvider}
-                values={authValues}
-                onChange={(key, value) => {
-                  setAuthValues((values) => ({ ...values, [key]: value }));
-                  setAuthStatus("unconfigured");
-                  setAuthMessage("Not verified");
-                }}
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <BusyButton type="button" variant="outline" busy={testingAuth} onClick={testAuth}>
-                  {testingAuth ? null : <RefreshCw className="size-4" />}
-                  Test provider
-                </BusyButton>
-                {authMessage ? (
-                  <p className="text-xs text-muted-foreground">{authMessage}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">{authProvider.name}</p>
-              <p className="mt-1">{authProvider.description}</p>
-              {authProvider.notes?.length ? (
-                <ul className="mt-2 list-disc space-y-1 pl-4">
-                  {authProvider.notes.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                </ul>
+          <div className="space-y-3">
+            <ProviderFields
+              provider={authProvider}
+              values={authValues}
+              onChange={(key, value) => {
+                setAuthValues((values) => ({ ...values, [key]: value }));
+                setAuthStatus("unconfigured");
+                setAuthMessage("Not verified");
+              }}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <BusyButton type="button" variant="outline" busy={testingAuth} onClick={testAuth}>
+                {testingAuth ? null : <RefreshCw className="size-4" />}
+                Test provider
+              </BusyButton>
+              {authMessage ? (
+                <p className="text-xs text-muted-foreground">{authMessage}</p>
               ) : null}
-              <p className="mt-2">
-                Last verified:{" "}
-                {runtime.auth.verified_at ? format_relative(runtime.auth.verified_at) : "Not yet"}
-              </p>
             </div>
           </div>
         </CardContent>
@@ -554,7 +467,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
         <Card>
           <CardHeader>
             <CardTitle>API defaults</CardTitle>
-            <CardDescription>Limits applied to every content endpoint.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
@@ -567,29 +479,16 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 value={maxPageSize}
                 onChange={(event) => setMaxPageSize(Number(event.target.value) || 200)}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Requests above this limit are clamped. The default is 200 records.
-              </p>
             </div>
-            <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
               <input
                 type="checkbox"
-                className="mt-0.5 size-4 accent-foreground"
+                className="size-4 accent-foreground"
                 checked={seedMemberRole}
                 onChange={(event) => setSeedMemberRole(event.target.checked)}
               />
-              <span>
-                <span className="block font-medium">Keep the Member role</span>
-                <span className="block text-xs text-muted-foreground">
-                  A default role for application users. It has app and API access but no collection
-                  permissions until you grant them.
-                </span>
-              </span>
+              <span className="font-medium">Keep the Member role</span>
             </label>
-            <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">API policy</p>
-              <p className="mt-1">Authentication required · Bearer API keys · Session tokens</p>
-            </div>
           </CardContent>
         </Card>
 
@@ -599,9 +498,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
               <FileCode2 className="size-4" />
               Environment preview
             </CardTitle>
-            <CardDescription>
-              Generated from the selected providers. Secrets are masked until you save them.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <pre className="max-h-72 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-5">
@@ -619,11 +515,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
                   <ClipboardCheck className="size-4" />
                   Write .env
                 </BusyButton>
-              ) : (
-                <p className="self-center text-[11px] text-muted-foreground">
-                  Writing .env is disabled in production.
-                </p>
-              )}
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -635,7 +527,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
             <Sparkles className="size-4" />
             Utilities
           </CardTitle>
-          <CardDescription>Useful when you add tables outside Data Studio.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <BusyButton type="button" variant="outline" busy={utilityBusy} onClick={createStarter}>
@@ -651,13 +542,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
 
       <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <p>
-          <strong className="text-foreground">Runtime note:</strong> this build executes content and
-          accounts on the bundled SQLite database and built-in accounts. Provider setup is saved and
-          tested, and the environment preview is ready for deployment. Restart the server after
-          writing a new <code className="font-mono">.env</code>. Existing sessions and API keys keep
-          working because access control is stored separately from the sign-in provider.
-        </p>
+        <p>SQLite and built-in accounts stay active in this build.</p>
       </div>
     </div>
   );

@@ -21,18 +21,11 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -546,9 +539,7 @@ export default function DataStudio({ data }: EtViewProps) {
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5 p-4 sm:p-6">
       <PageHeader
-        eyebrow="Content service"
         title="Data Studio"
-        description="Create collections, edit records and shape the API payloads your app consumes."
         actions={
           <>
             <Button asChild variant="outline">
@@ -569,12 +560,9 @@ export default function DataStudio({ data }: EtViewProps) {
         <Card className="h-fit">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Collections</CardTitle>
-            <CardDescription>{collections.length} available</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1 p-2">
-            {collections.length === 0 ? (
-              <p className="px-2 py-4 text-xs text-muted-foreground">No collections yet.</p>
-            ) : (
+            {collections.length === 0 ? null : (
               collections.map((collection) => {
                 const active = collection.name === selected?.name;
                 return (
@@ -622,7 +610,6 @@ export default function DataStudio({ data }: EtViewProps) {
                 <EmptyState
                   icon={<Database className="size-5" />}
                   title="Create your first collection"
-                  description="A collection is a database table with labels, field metadata and permissions. You can also start with a Posts collection and edit it."
                   action={
                     <div className="flex flex-wrap justify-center gap-2">
                       <Button onClick={openCreateCollection}>
@@ -643,14 +630,7 @@ export default function DataStudio({ data }: EtViewProps) {
               <CardHeader className="gap-3 border-b">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle>{selected.label || selected.name}</CardTitle>
-                      <Badge variant="secondary">{total} records</Badge>
-                      {selected.system ? <Badge variant="outline">System</Badge> : null}
-                    </div>
-                    <CardDescription className="mt-1">
-                      {selected.note || `Table ${selected.name}`}
-                    </CardDescription>
+                    <CardTitle>{selected.label || selected.name}</CardTitle>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={openEditCollection}>
@@ -708,11 +688,6 @@ export default function DataStudio({ data }: EtViewProps) {
                   <EmptyState
                     icon={<FilePlus2 className="size-5" />}
                     title={search ? "No matching records" : "No records yet"}
-                    description={
-                      search
-                        ? "Try a different search term or clear the filter."
-                        : "Create the first record for this collection. It will be available through the content API immediately."
-                    }
                     action={
                       search ? (
                         <Button variant="outline" onClick={() => refresh(selected.name, 1, "")}>
@@ -837,16 +812,14 @@ export default function DataStudio({ data }: EtViewProps) {
       </div>
 
       <Dialog open={collectionOpen} onOpenChange={setCollectionOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        >
           <DialogHeader>
             <DialogTitle>
               {collectionMode === "create" ? "New collection" : "Collection settings"}
             </DialogTitle>
-            <DialogDescription>
-              {collectionMode === "create"
-                ? "Collections become SQLite tables and immediately get REST endpoints under /api/v1/cms/items."
-                : "Change labels and behavior. Field changes are applied to the underlying table."}
-            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -870,9 +843,6 @@ export default function DataStudio({ data }: EtViewProps) {
                     }))
                   }
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  Letters, numbers and underscores. Cannot be changed later.
-                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="collection-label">Label</Label>
@@ -926,12 +896,7 @@ export default function DataStudio({ data }: EtViewProps) {
             {collectionMode === "create" ? (
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Fields</p>
-                    <p className="text-xs text-muted-foreground">
-                      The ID, created_at and updated_at fields are added automatically.
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium">Fields</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -1038,12 +1003,7 @@ export default function DataStudio({ data }: EtViewProps) {
             ) : (
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Fields</p>
-                    <p className="text-xs text-muted-foreground">
-                      Add or remove columns. Existing data is preserved when possible.
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium">Fields</p>
                   <Button type="button" variant="outline" size="sm" onClick={openCreateField}>
                     <Plus className="size-3.5" />
                     Add field
@@ -1118,13 +1078,9 @@ export default function DataStudio({ data }: EtViewProps) {
       </Dialog>
 
       <Dialog open={fieldOpen} onOpenChange={setFieldOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingField ? "Edit field" : "Add field"}</DialogTitle>
-            <DialogDescription>
-              Field metadata controls the editor and the API documentation. The database column is
-              created immediately.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1183,7 +1139,6 @@ export default function DataStudio({ data }: EtViewProps) {
                     setFieldForm((form) => ({ ...form, choices: event.target.value }))
                   }
                 />
-                <p className="text-[11px] text-muted-foreground">Comma separated.</p>
               </div>
             ) : null}
             <div className="space-y-1.5">
@@ -1235,12 +1190,6 @@ export default function DataStudio({ data }: EtViewProps) {
                 Read only
               </label>
             </div>
-            {editingField ? (
-              <p className="rounded-md bg-muted/50 p-2 text-[11px] text-muted-foreground">
-                Changing the type updates metadata only. SQLite keeps the existing column affinity;
-                new values are validated by the CMS layer.
-              </p>
-            ) : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setFieldOpen(false)}>
@@ -1259,37 +1208,26 @@ export default function DataStudio({ data }: EtViewProps) {
       </Dialog>
 
       <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+        >
           <DialogHeader>
             <DialogTitle>{editingRecord ? "Edit record" : "New record"}</DialogTitle>
-            <DialogDescription>
-              {selected ? `Collection: ${selected.label || selected.name}` : ""}
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {editableFields.length === 0 ? (
-              <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                This collection has no editable fields. Add a field from Collection settings.
-              </p>
-            ) : (
-              editableFields.map((field) => (
-                <div key={field.name} className="space-y-1.5">
-                  <FieldLabel field={field} />
-                  <FieldInput
-                    field={field}
-                    value={recordValues[field.name]}
-                    onChange={(value) =>
-                      setRecordValues((values) => ({ ...values, [field.name]: value }))
-                    }
-                  />
-                  {field.options.help ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {String(field.options.help)}
-                    </p>
-                  ) : null}
-                </div>
-              ))
-            )}
+            {editableFields.map((field) => (
+              <div key={field.name} className="space-y-1.5">
+                <FieldLabel field={field} />
+                <FieldInput
+                  field={field}
+                  value={recordValues[field.name]}
+                  onChange={(value) =>
+                    setRecordValues((values) => ({ ...values, [field.name]: value }))
+                  }
+                />
+              </div>
+            ))}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setRecordOpen(false)}>
