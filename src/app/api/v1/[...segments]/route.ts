@@ -22,6 +22,7 @@ const BUILT_IN_API_CONTROLLERS: Record<
   () => Promise<{ default: ControllerCtor }>
 > = {
   system_api: () => import("@/modules/system_api/System_api"),
+  cms_api: () => import("@/modules/cms_api/Cms_api"),
 };
 
 interface RouteContext {

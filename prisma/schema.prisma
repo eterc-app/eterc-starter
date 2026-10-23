@@ -75,3 +75,118 @@ model PasswordReset {
   @@index([token])
   @@map("password_resets")
 }
+
+// ---------------------------------------------------------------------------
+// Content service (CMS) and access control.
+//
+// These tables are also created by the installer DDL in
+// src/modules/cms/cms-schema.ts. Keep the two definitions in sync.
+// ---------------------------------------------------------------------------
+
+model CmsCollection {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  label      String   @default("")
+  icon       String   @default("table")
+  note       String   @default("")
+  primary_key String  @default("id")
+  singleton  Int      @default(0)
+  hidden     Int      @default(0)
+  system     Int      @default(0)
+  created_at Int
+  updated_at Int
+
+  fields CmsField[]
+
+  @@map("cms_collections")
+}
+
+model CmsField {
+  id            Int    @id @default(autoincrement())
+  collection_id Int
+  name          String
+  label         String @default("")
+  type          String @default("string")
+  interface     String @default("input")
+  options       String @default("{}")
+  required      Int    @default(0)
+  unique        Int    @default(0)
+  hidden        Int    @default(0)
+  readonly      Int    @default(0)
+  sort          Int    @default(0)
+  created_at    Int
+  updated_at    Int
+
+  collection CmsCollection @relation(fields: [collection_id], references: [id], onDelete: Cascade)
+
+  @@unique([collection_id, name])
+  @@index([collection_id])
+  @@map("cms_fields")
+}
+
+model EtercRole {
+  id            Int    @id @default(autoincrement())
+  user_level_id Int    @unique
+  name          String @unique
+  slug          String @unique
+  description   String @default("")
+  app_access    Int    @default(1)
+  api_access    Int    @default(1)
+  admin_access  Int    @default(0)
+  is_system     Int    @default(0)
+  created_at    Int
+  updated_at    Int
+
+  permissions EtercPermission[]
+  api_keys    EtercApiKey[]
+
+  @@map("eterc_roles")
+}
+
+model EtercPermission {
+  id            Int    @id @default(autoincrement())
+  role_id       Int
+  collection    String
+  action        String
+  fields        String @default("[]")
+  created_at    Int
+  updated_at    Int
+
+  role EtercRole @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, collection, action])
+  @@index([role_id])
+  @@map("eterc_permissions")
+}
+
+model EtercApiKey {
+  id           Int    @id @default(autoincrement())
+  name         String
+  key_prefix   String @unique
+  key_hash     String
+  role_id      Int
+  user_id      Int?
+  active       Int    @default(1)
+  expires_at   Int?
+  last_used_at Int?
+  created_at   Int
+
+  role EtercRole @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  @@index([key_prefix])
+  @@map("eterc_api_keys")
+}
+
+model EtercIdentity {
+  id         Int    @id @default(autoincrement())
+  user_id    Int
+  provider   String
+  subject    String
+  email      String @default("")
+  name       String @default("")
+  created_at Int
+
+  @@unique([provider, subject])
+  @@index([user_id])
+  @@map("eterc_identities")
+}

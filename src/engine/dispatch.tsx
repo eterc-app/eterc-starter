@@ -30,6 +30,7 @@ export interface EtRunResult {
   flash: string[];
   csrf_token: string;
   status: number;
+  error: { status: number; message: string } | null;
 }
 
 export async function build_request(options: EtRequestOptions): Promise<EtRequest> {
@@ -76,6 +77,7 @@ export async function run_in_context(options: EtRequestOptions): Promise<EtRunRe
   let rawReturn: unknown = null;
   let status = 200;
   let validation: { errors: ValidationErrors } | undefined;
+  let caught: { status: number; message: string } | null = null;
 
   try {
     const result = await dispatch(options.segments);
@@ -85,6 +87,7 @@ export async function run_in_context(options: EtRequestOptions): Promise<EtRunRe
   } catch (error) {
     if (error instanceof EtHttpError) {
       status = error.status;
+      caught = { status: error.status, message: error.message };
       node =
         error.status === 404
           ? await templates_service.error_404()
@@ -104,6 +107,7 @@ export async function run_in_context(options: EtRequestOptions): Promise<EtRunRe
     flash: flash_messages(),
     csrf_token: csrf_token(),
     status,
+    error: caught,
   };
 }
 

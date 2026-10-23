@@ -31,6 +31,7 @@ const CONTROL_CHILD_ALIASES: Record<string, string> = {
 
 /** Longest legacy prefixes first so child modules win over the parent. */
 const PUBLIC_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["cms_admin", "admin"],
   ["eterc_control-module_relations_builder", "control/module-relations-builder"],
   ["eterc_control-image_uploader_builder", "control/image-uploader-builder"],
   ["eterc_control-properties_builder", "control/properties-builder"],
@@ -51,6 +52,13 @@ const PUBLIC_PREFIXES: ReadonlyArray<readonly [string, string]> = [
  */
 export function resolve_public_route(segments: string[]): string[] {
   const first = segments[0]?.toLowerCase();
+
+  if (first === "admin") {
+    if (segments.length === 1) {
+      return ["cms_admin", "index"];
+    }
+    return ["cms_admin", ...segments.slice(1)];
+  }
 
   if (first === "administrators") {
     if (segments.length === 1) {

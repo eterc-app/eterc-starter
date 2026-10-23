@@ -5,7 +5,10 @@ import * as path from "node:path";
 export const PROJECT_ROOT = process.cwd();
 
 /** SQLite database file used by Prisma and the framework Db layer. */
-export const DB_FILE = path.join(PROJECT_ROOT, "prisma", "dev.db");
+const configuredSqliteFile = process.env.ET_SQLITE_FILE?.trim();
+export const DB_FILE = configuredSqliteFile
+  ? path.resolve(/* turbopackIgnore: true */ PROJECT_ROOT, configuredSqliteFile)
+  : path.join(PROJECT_ROOT, "prisma", "dev.db");
 
 /** Internal runtime state (properties JSON, settings, generated artifacts). */
 export const DATA_DIR = path.join(PROJECT_ROOT, "data");

@@ -25,6 +25,7 @@ interface ModuleEntry {
  */
 export default class System_api extends Eterc {
   health() {
+    require_api_user();
     return api_response({
       status: "ok",
       name: WEBSITE_NAME,
@@ -35,6 +36,7 @@ export default class System_api extends Eterc {
   }
 
   echo() {
+    require_api_user();
     const context = get_context();
     return {
       method: context.httpMethod,

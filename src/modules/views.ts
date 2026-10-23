@@ -16,6 +16,7 @@ import { views as propertiesBuilderViews } from "./eterc_control/properties_buil
 import { views as pluralMakerViews } from "./eterc_control/plural_maker/views";
 import { views as queryBuilderViews } from "./eterc_control/query_builder/views";
 import { views as siteBuilderViews } from "./eterc_control/site_builder/views";
+import { views as cmsAdminViews } from "./cms_admin/views";
 
 // Generated modules (Flo) self-register their view maps when this index is
 // imported; Flo rewrites it whenever a module is generated.
@@ -37,3 +38,4 @@ register_views(propertiesBuilderViews);
 register_views(pluralMakerViews);
 register_views(queryBuilderViews);
 register_views(siteBuilderViews);
+register_views(cmsAdminViews);

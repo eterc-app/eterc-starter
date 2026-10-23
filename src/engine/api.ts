@@ -2,10 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { MODULES_DIR } from "./paths";
 import { EtHttpError } from "./signals";
-import {
-  Eterc_tokens,
-  type EtercUserObj,
-} from "./Eterc_tokens";
+import type { EtercUserObj } from "./Eterc_tokens";
+import { resolve_principal } from "@/modules/cms/cms-access";
 
 /**
  * Helpers for the public JSON API.
@@ -34,23 +32,21 @@ export class EtApiResponse {
     this.headers = headers;
   }
 }
-export function require_api_user(level = 1): EtercUserObj {
-  const tokens = new Eterc_tokens();
-  const token = tokens.attempt_get_valid_token(level);
+export function require_api_user(level: number | null = 1): EtercUserObj {
+  const principal = resolve_principal();
 
-  if (!token) {
-    throw new EtHttpError(
-      401,
-      "A valid administrator token is required. Sign in to the control panel or send an EtercToken header."
-    );
+  if (level !== null && principal.role.user_level_id !== level) {
+    throw new EtHttpError(403, "This API resource requires a different role.");
   }
 
-  const user = tokens.get_user_obj(token);
-  if (!user) {
-    throw new EtHttpError(401, "The supplied administrator token is not valid.");
-  }
-
-  return user;
+  return {
+    eterc_user_code: principal.kind === "api_key" ? "api-key" : "user",
+    user_level_id: principal.role.user_level_id,
+    user_level: principal.role.name,
+    token: "",
+    eterc_user_id: principal.user_id ?? 0,
+    expiry_date: 0,
+  };
 }
 
 /** Wrap an API payload to choose a non-200 status and/or response headers. */
@@ -89,7 +85,7 @@ const BASE_DOCUMENT: OpenApiDocument = {
     title: "Eterc API",
     version: process.env.npm_package_version ?? "0.1.0",
     description:
-      "JSON API for the current Eterc project. The documentation below is generated from src/modules/*/assets/api.json and is served by Scalar. Requests sent from the signed-in desktop control panel use its session automatically; external clients can send an EtercToken header.",
+      "JSON API for the current Eterc project. Content endpoints are private by default. Sign in to the administration area or send an API key with Authorization: Bearer etk_... (an EtercToken header is also accepted). The documentation is generated from src/modules/*/assets/api.json and served by Scalar.",
   },
   servers: [
     {
@@ -107,6 +103,19 @@ const BASE_DOCUMENT: OpenApiDocument = {
         name: "EtercToken",
         description:
           "Administrator token. The control-panel session is accepted too, so requests sent from Scalar inside the signed-in desktop app work without pasting a token.",
+      },
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "etk_<prefix>_<secret>",
+        description:
+          "API key created in Access & API keys. The key inherits the permissions of its role.",
+      },
+      apiKeyAuth: {
+        type: "apiKey",
+        in: "header",
+        name: "x-api-key",
+        description: "Alternative header for the same API key.",
       },
     },
   },

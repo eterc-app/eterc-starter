@@ -2,6 +2,7 @@ import { Model } from "@/engine/model";
 import { sqlite } from "@/engine/db";
 import { make_rand_str } from "@/engine/String_service";
 import { ensure_dir } from "@/engine/paths";
+import { ensure_cms_schema } from "@/modules/cms/cms-schema";
 import { hashSync } from "bcryptjs";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -85,6 +86,7 @@ export class Setup_model extends Model {
   initialize_database(): { ok: boolean; message?: string } {
     try {
       sqlite().exec(SETUP_SQL);
+      ensure_cms_schema();
       return { ok: true };
     } catch (error) {
       const message =

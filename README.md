@@ -40,13 +40,19 @@ Open <http://localhost:3000>.
 - To start over: stop the server, delete `prisma/dev.db*`, restart, and revisit
   `/`.
 
-`.env`:
+Copy `.env.example` to `.env` and set a secret:
 
 ```dotenv
 DATABASE_URL="file:./prisma/dev.db"
 ET_SECRET=<64-char hex>     # HMAC key for CSRF tokens
-# ET_BASE_URL="/"           # only when served under a sub-path
+# ET_SQLITE_FILE="prisma/dev.db"  # optional custom SQLite path
+# ET_BASE_URL="/"                 # only when served under a sub-path
 ```
+
+For a VPS, keep the SQLite file on a persistent disk. For serverless hosting,
+configure a managed database provider in **Project settings** and enable its
+deployment adapter; the bundled SQLite runtime is intended for a persistent
+filesystem.
 
 ## Routing
 
@@ -73,10 +79,12 @@ through `src/engine/registrations.ts`.
 
 ## JSON API and Scalar
 
-The starter includes an opt-in JSON API and an interactive
-[Scalar](https://scalar.com/) reference at `/api-reference`.
+The starter includes an API-first CMS and an interactive
+[Scalar](https://scalar.com/) reference at `/api-reference`. Every content
+endpoint is private by default: requests need an authenticated session, an
+`EtercToken` header, or an API key.
 
-- Public API routes use `/api/v1/{resource}/{method}` and map to the
+- API routes use `/api/v1/{resource}/{method}` and map to the
   `{resource}_api` controller. For example,
   `/api/v1/system/health` calls `System_api.health()`.
 - Only controllers registered under a module name ending in `_api` are
@@ -98,10 +106,50 @@ Built-in endpoints:
 
 | Method | URL                      | Purpose                                |
 | ------ | ------------------------ | -------------------------------------- |
-| GET    | `/api/v1/system/health`  | Public health check                    |
-| GET    | `/api/v1/system/me`      | Current administrator (token required) |
+| GET    | `/api/v1/system/health`  | Authenticated health check             |
+| GET    | `/api/v1/system/me`      | Current principal (token required)     |
 | GET    | `/api/v1/system/modules` | Project modules (token required)       |
 | POST   | `/api/v1/system/echo`    | Echo a JSON body, query and method     |
+
+## CMS, roles and API keys
+
+Open `/admin` after signing in. The production admin surface is separate from
+the development-only `/control` builders.
+
+- **Data Studio** creates collections (SQLite tables), fields and records. Every
+  collection immediately gets REST endpoints under
+  `/api/v1/cms/items/{collection}`.
+- **Access** creates roles with `read`, `create`, `update` and `delete`
+  permissions per collection. Roles also control `app_access`, `api_access`
+  and `admin_access`.
+- **API keys** use the format `etk_<prefix>_<secret>`. Only a SHA-256 hash is
+  stored, and the secret is shown once. Send a key as
+  `Authorization: Bearer etk_...` or `x-api-key`.
+- **Project settings** stores the selected database and auth providers in
+  `data/settings/runtime.json`, masks secrets, tests connections and generates
+  an `.env` preview.
+
+Useful content endpoints:
+
+| Method | URL                                      | Purpose                       |
+| ------ | ---------------------------------------- | ----------------------------- |
+| GET    | `/api/v1/cms/health`                     | Verify authentication         |
+| GET    | `/api/v1/cms/me`                         | Current role and permissions  |
+| GET    | `/api/v1/cms/collections`                | List accessible collections   |
+| GET    | `/api/v1/cms/items/{collection}`         | List records                  |
+| POST   | `/api/v1/cms/items/{collection}`         | Create a record               |
+| GET    | `/api/v1/cms/items/{collection}/{id}`    | Read a record                 |
+| PATCH  | `/api/v1/cms/items/{collection}/{id}`    | Update a record               |
+| DELETE | `/api/v1/cms/items/{collection}/{id}`    | Delete a record               |
+
+Collection, field, role, permission, user and API-key management require a
+signed-in administrator. API keys cannot change schema or access control.
+
+The bundled runtime uses SQLite and built-in accounts. Provider connection
+tests, secret storage and environment generation work for Neon, Supabase,
+PostgreSQL, Turso, MySQL, Firebase, Clerk, Auth0 and Supabase Auth. External
+runtime adapters are deployment work: this build keeps SQLite and built-in
+accounts active while the selected provider configuration is saved.
 
 Add a resource with a normal module plus a controller class ending in `_api`:
 

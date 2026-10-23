@@ -1,0 +1,26 @@
+{
+  "database": {
+    "provider": "sqlite",
+    "label": "SQLite",
+    "values": {
+      "file": "prisma/dev.db"
+    },
+    "status": "verified",
+    "message": "SQLite is ready.",
+    "verified_at": 1792756800
+  },
+  "auth": {
+    "provider": "builtin",
+    "label": "Built-in accounts",
+    "values": {},
+    "status": "verified",
+    "message": "Built-in accounts are ready.",
+    "verified_at": 1792756800
+  },
+  "cms": {
+    "api_private": true,
+    "max_page_size": 200,
+    "seed_member_role": true
+  },
+  "updated_at": 1792756800
+}

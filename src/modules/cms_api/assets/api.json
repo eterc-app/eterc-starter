@@ -1,0 +1,283 @@
+{
+  "tags": [
+    {
+      "name": "CMS",
+      "description": "Private-by-default content collections, records and access metadata. Send an API key with Authorization: Bearer etk_... or an EtercToken header."
+    }
+  ],
+  "security": [
+    { "bearerAuth": [] },
+    { "apiKeyAuth": [] },
+    { "adminToken": [] }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "etk_<prefix>_<secret>",
+        "description": "API key created in Access & API keys. The key inherits the permissions of its role."
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Alternative header for the same API key."
+      }
+    },
+    "schemas": {
+      "CmsError": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      },
+      "CmsItemList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "pages": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/cms/health": {
+      "get": {
+        "tags": ["CMS"],
+        "summary": "Check API authentication",
+        "responses": {
+          "200": { "description": "Authenticated" },
+          "401": { "description": "Missing or invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/cms/me": {
+      "get": {
+        "tags": ["CMS"],
+        "summary": "Current principal, role and permissions",
+        "responses": {
+          "200": { "description": "Current principal" },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/v1/cms/collections": {
+      "get": {
+        "tags": ["CMS"],
+        "summary": "List accessible collections",
+        "responses": { "200": { "description": "Collection list" } }
+      },
+      "post": {
+        "tags": ["CMS"],
+        "summary": "Create a collection (administrator session)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "posts" },
+                  "label": { "type": "string", "example": "Posts" },
+                  "note": { "type": "string" },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["name"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "label": { "type": "string" },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "string",
+                            "text",
+                            "integer",
+                            "decimal",
+                            "boolean",
+                            "datetime",
+                            "json",
+                            "select",
+                            "image",
+                            "relation"
+                          ]
+                        },
+                        "required": { "type": "boolean" },
+                        "unique": { "type": "boolean" },
+                        "hidden": { "type": "boolean" },
+                        "readonly": { "type": "boolean" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Collection created" },
+          "403": { "description": "Administrator session required" }
+        }
+      }
+    },
+    "/api/v1/cms/collections/{collection}": {
+      "parameters": [
+        {
+          "name": "collection",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "get": {
+        "tags": ["CMS"],
+        "summary": "Get collection metadata and fields",
+        "responses": { "200": { "description": "Collection" } }
+      },
+      "patch": {
+        "tags": ["CMS"],
+        "summary": "Update collection metadata (administrator session)",
+        "responses": { "200": { "description": "Updated collection" } }
+      },
+      "delete": {
+        "tags": ["CMS"],
+        "summary": "Drop a collection and its records (administrator session)",
+        "responses": { "200": { "description": "Collection deleted" } }
+      }
+    },
+    "/api/v1/cms/items/{collection}": {
+      "parameters": [
+        {
+          "name": "collection",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "get": {
+        "tags": ["CMS"],
+        "summary": "List records",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 25 } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "direction",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["asc", "desc"] }
+          },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "JSON object. Supports _eq, _neq, _contains, _starts_with, _ends_with, _gt, _gte, _lt, _lte, _in and _null.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CmsItemList" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["CMS"],
+        "summary": "Create a record",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Record created" },
+          "403": { "description": "Role cannot create in this collection" }
+        }
+      }
+    },
+    "/api/v1/cms/items/{collection}/{id}": {
+      "parameters": [
+        {
+          "name": "collection",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer" }
+        }
+      ],
+      "get": {
+        "tags": ["CMS"],
+        "summary": "Get a record",
+        "responses": { "200": { "description": "Record" } }
+      },
+      "patch": {
+        "tags": ["CMS"],
+        "summary": "Update a record",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated record" } }
+      },
+      "delete": {
+        "tags": ["CMS"],
+        "summary": "Delete a record",
+        "responses": { "200": { "description": "Record deleted" } }
+      }
+    },
+    "/api/v1/cms/keys": {
+      "get": {
+        "tags": ["CMS"],
+        "summary": "List API keys (administrator session)",
+        "responses": { "200": { "description": "API keys" } }
+      },
+      "post": {
+        "tags": ["CMS"],
+        "summary": "Create an API key (administrator session)",
+        "responses": { "201": { "description": "API key and one-time secret" } }
+      }
+    },
+    "/api/v1/cms/roles": {
+      "get": {
+        "tags": ["CMS"],
+        "summary": "List roles (administrator session)",
+        "responses": { "200": { "description": "Roles" } }
+      },
+      "post": {
+        "tags": ["CMS"],
+        "summary": "Create a role (administrator session)",
+        "responses": { "201": { "description": "Role created" } }
+      }
+    }
+  }
+}

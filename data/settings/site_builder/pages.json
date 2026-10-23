@@ -1,0 +1,81 @@
+[
+  {
+    "id": "page_16f22267d8c2",
+    "title": "Home",
+    "slug": "home",
+    "description": "A starter page created by the Eterc Site Builder.",
+    "published": true,
+    "created_at": "2026-10-23T11:13:21.375Z",
+    "updated_at": "2026-10-23T11:13:21.375Z",
+    "settings": {
+      "background": "#ffffff",
+      "text_color": "#171717",
+      "max_width": 1120,
+      "font_family": "sans"
+    },
+    "blocks": [
+      {
+        "id": "blk_e4be6bce87de",
+        "type": "hero",
+        "eyebrow": "Eterc page builder",
+        "title": "Build a page that feels like your product",
+        "subtitle": "Compose sections on the canvas, tune the details, and publish a real Next.js route.",
+        "button_label": "Get started",
+        "button_href": "#",
+        "align": "center",
+        "min_height": 440,
+        "overlay": 58,
+        "background_color": "#0f172a",
+        "text_color": "#ffffff",
+        "background_image": "",
+        "padding_y": 72
+      },
+      {
+        "id": "blk_96311c5c603b",
+        "type": "features",
+        "title": "Everything you need to launch",
+        "subtitle": "A flexible foundation that stays out of your way.",
+        "align": "left",
+        "background_color": "#f8fafc",
+        "text_color": "",
+        "padding_y": 64,
+        "items": [
+          {
+            "title": "Composable",
+            "description": "Build with reusable blocks and keep every section editable."
+          },
+          {
+            "title": "Fast by default",
+            "description": "The page renders as a real Next.js route with no client runtime."
+          },
+          {
+            "title": "Yours to extend",
+            "description": "Add your own blocks and styling without fighting a page builder."
+          }
+        ]
+      },
+      {
+        "id": "blk_71488e724766",
+        "type": "text",
+        "content": "Write a short paragraph here. Use the inspector to change the copy, width, and alignment.",
+        "align": "left",
+        "font_size": 17,
+        "max_width": 760,
+        "color": "",
+        "padding_y": 16
+      },
+      {
+        "id": "blk_b87b101f4004",
+        "type": "cta",
+        "title": "Ready to build the next page?",
+        "subtitle": "Save this page, publish it, and keep iterating.",
+        "button_label": "Start now",
+        "button_href": "#",
+        "align": "center",
+        "background_color": "#2563eb",
+        "text_color": "#ffffff",
+        "padding_y": 64
+      }
+    ]
+  }
+]

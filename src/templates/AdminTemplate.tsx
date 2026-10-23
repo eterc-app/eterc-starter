@@ -18,11 +18,14 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
+  Database,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
   PanelLeft,
+  Settings2,
   UserRound,
   Users,
   X,
@@ -36,7 +39,10 @@ interface NavItem {
 }
 
 const WORKSPACE_NAV: NavItem[] = [
-  { href: "/control", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin", label: "Content overview", icon: LayoutDashboard },
+  { href: "/admin/data", label: "Data Studio", icon: Database },
+  { href: "/admin/access", label: "Access & API", icon: KeyRound },
+  { href: "/admin/settings", label: "Project settings", icon: Settings2 },
   { href: "/administrators/manage", label: "Manage Users", icon: Users },
 ];
 
@@ -92,11 +98,21 @@ function breadcrumb_items(
       pageTitle && pageTitle !== "Admin Panel" && pageTitle !== "Eterc Control Panel"
         ? pageTitle.replace(/^Eterc\s+/, "")
         : "Overview";
-    return ["Workspace", current];
+    return ["Builders", current];
+  }
+
+  if (is_active(pathname, "/admin")) {
+    const labels: Record<string, string> = {
+      "/admin": "Content overview",
+      "/admin/data": "Data Studio",
+      "/admin/access": "Access & API",
+      "/admin/settings": "Project settings",
+    };
+    return ["Content", labels[pathname] ?? pageTitle];
   }
 
   if (is_active(pathname, "/administrators")) {
-    return ["Workspace", "Administrators"];
+    return ["Content", "Administrators"];
   }
 
   const builder = BUILDER_NAV.find((item) =>
@@ -129,12 +145,7 @@ export function AdminTemplate({
   const [buildersOpen, setBuildersOpen] = useState(true);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  const nav_items =
-    ENV === "dev"
-      ? WORKSPACE_NAV
-      : WORKSPACE_NAV.filter((item) =>
-          item.href.startsWith("/administrators"),
-        );
+  const nav_items = WORKSPACE_NAV;
   const buildersActive = BUILDER_NAV.some((item) =>
     builder_active(current_path, item.href),
   );
@@ -196,8 +207,8 @@ export function AdminTemplate({
           {nav_items.map((item) => {
             const Icon = item.icon;
             const active =
-              item.href === "/control"
-                ? current_path === "/control"
+              item.href === "/admin"
+                ? current_path === "/admin"
                 : is_active(current_path, item.href);
             return (
               <a
@@ -253,6 +264,18 @@ export function AdminTemplate({
 
             {buildersOpen ? (
               <div className="mt-0.5 space-y-0.5">
+                <a
+                  href="/control"
+                  onClick={mobile ? close_mobile : undefined}
+                  className={cn(
+                    "flex h-7 items-center rounded-md pl-8 pr-2 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                    current_path === "/control"
+                      ? "bg-muted/60 font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate">Builder dashboard</span>
+                </a>
                 {BUILDER_NAV.map((item) => {
                   const active = builder_active(current_path, item.href);
                   return (

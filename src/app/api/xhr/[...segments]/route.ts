@@ -27,6 +27,18 @@ export async function POST(
   try {
     const result = await run_with_context(ctx, () => run_in_context(options));
     await flush_response_cookies(ctx);
+    if (result.error) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: result.error.message,
+          errors: result.errors,
+          flash: result.flash,
+          http: result.error.status,
+        },
+        { status: result.error.status }
+      );
+    }
     return NextResponse.json({
       status: "ok",
       data: safeJson(result.rawReturn),
