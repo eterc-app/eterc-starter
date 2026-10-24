@@ -26,9 +26,9 @@ copyright and permission notice for its upstream project is preserved in
 
 | Kind | Rule | Example |
 |---|---|---|
-| Framework classes | `Pascal_snake` | `Eterc_control`, `Eterc_administrators` |
+| Framework classes | `Pascal_snake` | `Cms_admin`, `Eterc_administrators` |
 | Files for framework classes | Same name as the class | `Eterc_administrators.ts` |
-| Controller/model methods | `snake_case` | `submit_login`, `get_db_config_form_data` |
+| Controller/model methods | `snake_case` | `submit_login`, `data_snapshot` |
 | TS-only framework functions | `snake_case` | `site_url`, `build_request` |
 | React components | `PascalCase` | `AdminTemplate`, `EtForm`, `EtButton` |
 | React hooks | `use` + `PascalCase` | `useEtUi` |
@@ -49,15 +49,11 @@ Framework modules:
 
 - `welcome`, `setup`, `login` (including `forgot_password`)
 - `eterc_security`, `eterc_email`, `eterc_administrators`
-- `pagination`, `image_uploader`, `db`, `module_relations`, `language`,
-  `utilities`, `file`, `image`
-- `eterc_control` and its child generators
+- `cms`, `cms_admin`, `cms_api`, `media`
+- `pagination`, `db`, `utilities`, `file`, `image`
 
 The core services (`flashdata`, `form`, `string_service`, `templates`,
 `eterc_tokens`, `url`, `validation`) are implemented inside `src/engine`.
-
-Generated modules live under `src/modules/generated/<module>/` and are indexed
-by `src/modules/generated/index.ts`.
 
 ## 4. Public URLs
 
@@ -65,13 +61,14 @@ Clean paths are the canonical browser URLs:
 
 | Public URL | Internal module |
 |---|---|
-| `/control` | `eterc_control` |
-| `/control/flo/home` | `eterc_control-flo` |
-| `/control/module-builder` | `eterc_control-module_builder` |
+| `/admin` | `cms_admin` |
+| `/admin/media` | `media` |
 | `/administrators/manage` | `eterc_administrators` |
 
 The alias resolution lives in `src/engine/url-aliases.ts`. The browser URL and
-`current_url()` keep the clean path; `site_url()` emits the clean path.
+`current_url()` keep the clean path; `site_url()` emits the clean path. The
+API lives under `/api/v1/{resource}/{method}`, with OpenAPI at `/api/openapi`
+and the Scalar reference at `/api-reference`.
 
 ## 5. Database
 
@@ -88,6 +85,8 @@ Core tables:
 - `et_sessions`
 - `login_attempts`
 - `password_resets`
+- `cms_collections`, `cms_fields` and dynamic collection tables
+- `eterc_roles`, `eterc_permissions`, `eterc_api_keys`
 
 The installer is idempotent. A fresh project starts in the setup wizard and
 creates the schema and first administrator.

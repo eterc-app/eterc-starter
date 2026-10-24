@@ -14,7 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Eterc",
   description:
-    "Eterc is a TypeScript-first framework for Next.js with file-based routing, modules, authentication, and code generators.",
+    "Eterc is an API-first CMS and TypeScript framework with collections, access control, API keys, and a Next.js runtime.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

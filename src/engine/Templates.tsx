@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { render_view } from "./views-registry";
 import { PublicTemplate } from "@/templates/PublicTemplate";
 import { AdminTemplate } from "@/templates/AdminTemplate";
-import { ModuleDetailsTemplate } from "@/templates/ModuleDetailsTemplate";
 import { Error404 } from "@/templates/Error404";
 
 export interface EtTemplateData extends Record<string, unknown> {
@@ -44,19 +43,6 @@ export class Templates {
       >
         {viewNode(data)}
       </AdminTemplate>
-    );
-  }
-
-  /** Full-page module details template (Flo overlay iframe). */
-  async module_details(data: EtTemplateData): Promise<ReactNode> {
-    return (
-      <ModuleDetailsTemplate
-        afterCloseUrl={String(data.after_close_url ?? "")}
-        afterCloseWidth={String(data.after_close_width ?? "")}
-        afterCloseHeight={String(data.after_close_height ?? "")}
-      >
-        {viewNode(data)}
-      </ModuleDetailsTemplate>
     );
   }
 

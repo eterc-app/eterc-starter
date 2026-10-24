@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { ETERC_DOCS_URL, ETERC_FORUM_URL } from "@/engine/config";
 import { Button } from "@/components/ui/button";
@@ -211,6 +212,14 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
+        <NextImage
+          src="/company-logo.png"
+          alt="Eterc"
+          width={56}
+          height={56}
+          className="mx-auto size-14 rounded-xl object-cover"
+          priority
+        />
         <h1 className="text-lg font-semibold tracking-[-0.01em] sm:text-xl">
           Welcome to Your New Eterc Application
         </h1>

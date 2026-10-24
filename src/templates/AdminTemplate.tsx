@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import {
   ETERC_DOCS_URL,
   ETERC_GITHUB_URL,
-  ENV,
   WEBSITE_NAME,
 } from "@/engine/config";
 import { to_public_path } from "@/engine/url-aliases";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight,
-  Blocks,
   BookOpen,
   Braces,
-  ChevronDown,
   ChevronRight,
   ChevronsUpDown,
   Database,
+  Image as ImageIcon,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -41,21 +40,10 @@ interface NavItem {
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/admin", label: "Content overview", icon: LayoutDashboard },
   { href: "/admin/data", label: "Data Studio", icon: Database },
+  { href: "/admin/media", label: "Media library", icon: ImageIcon },
   { href: "/admin/access", label: "Access & API", icon: KeyRound },
   { href: "/admin/settings", label: "Project settings", icon: Settings2 },
   { href: "/administrators/manage", label: "Manage Users", icon: Users },
-];
-
-const BUILDER_NAV = [
-  { href: "/control/flo/home", label: "Flo" },
-  { href: "/control/module-builder", label: "Module Builder" },
-  { href: "/control/site-builder", label: "Site Builder" },
-  { href: "/control/properties-builder", label: "Properties Builder" },
-  { href: "/control/query-builder", label: "Query Builder" },
-  { href: "/control/module-relations-builder", label: "Module Relations" },
-  { href: "/control/image-uploader-builder", label: "Image Uploader" },
-  { href: "/control/plural-maker", label: "Plural Maker" },
-  { href: "/control/evo", label: "Evo" },
 ];
 
 const RESOURCE_NAV = [
@@ -83,28 +71,15 @@ function is_active(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function builder_active(pathname: string, href: string): boolean {
-  if (is_active(pathname, href)) return true;
-  const base = href.replace(/\/home$/, "");
-  return pathname === base || pathname.startsWith(`${base}/`);
-}
-
 function breadcrumb_items(
   pathname: string,
   pageTitle: string,
 ): [string, string] {
-  if (pathname === "/control") {
-    const current =
-      pageTitle && pageTitle !== "Admin Panel" && pageTitle !== "Eterc Control Panel"
-        ? pageTitle.replace(/^Eterc\s+/, "")
-        : "Overview";
-    return ["Builders", current];
-  }
-
   if (is_active(pathname, "/admin")) {
     const labels: Record<string, string> = {
       "/admin": "Content overview",
       "/admin/data": "Data Studio",
+      "/admin/media": "Media library",
       "/admin/access": "Access & API",
       "/admin/settings": "Project settings",
     };
@@ -113,13 +88,6 @@ function breadcrumb_items(
 
   if (is_active(pathname, "/administrators")) {
     return ["Content", "Administrators"];
-  }
-
-  const builder = BUILDER_NAV.find((item) =>
-    builder_active(pathname, item.href),
-  );
-  if (builder) {
-    return ["Builders", builder.label];
   }
 
   return [
@@ -142,13 +110,9 @@ export function AdminTemplate({
   const current_path = to_public_path(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [buildersOpen, setBuildersOpen] = useState(true);
   const [accountOpen, setAccountOpen] = useState(false);
 
   const nav_items = WORKSPACE_NAV;
-  const buildersActive = BUILDER_NAV.some((item) =>
-    builder_active(current_path, item.href),
-  );
   const [section, current] = breadcrumb_items(current_path, pageTitle);
 
   useEffect(() => {
@@ -167,9 +131,14 @@ export function AdminTemplate({
   const render_sidebar = (mobile: boolean) => (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-3 py-3.5">
-        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background">
-          E
-        </span>
+        <NextImage
+          src="/company-logo.png"
+          alt=""
+          width={28}
+          height={28}
+          className="size-7 shrink-0 rounded-md object-cover"
+          priority
+        />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-semibold leading-4">
             {WEBSITE_NAME}
@@ -234,70 +203,6 @@ export function AdminTemplate({
             );
           })}
         </div>
-
-        {ENV === "dev" ? (
-          <div className="mt-2">
-            <button
-              type="button"
-              aria-expanded={buildersOpen}
-              onClick={() => setBuildersOpen((open) => !open)}
-              className={cn(
-                "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-                buildersActive
-                  ? "text-foreground"
-                  : "text-foreground/80 hover:text-foreground",
-              )}
-            >
-              <Blocks
-                className="size-4 shrink-0 text-muted-foreground"
-                strokeWidth={1.75}
-              />
-              <span className="flex-1 truncate">Builders</span>
-              <ChevronDown
-                className={cn(
-                  "size-3.5 text-muted-foreground transition-transform",
-                  !buildersOpen && "-rotate-90",
-                )}
-                strokeWidth={1.75}
-              />
-            </button>
-
-            {buildersOpen ? (
-              <div className="mt-0.5 space-y-0.5">
-                <a
-                  href="/control"
-                  onClick={mobile ? close_mobile : undefined}
-                  className={cn(
-                    "flex h-7 items-center rounded-md pl-8 pr-2 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-                    current_path === "/control"
-                      ? "bg-muted/60 font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                  )}
-                >
-                  <span className="truncate">Builder dashboard</span>
-                </a>
-                {BUILDER_NAV.map((item) => {
-                  const active = builder_active(current_path, item.href);
-                  return (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      onClick={mobile ? close_mobile : undefined}
-                      className={cn(
-                        "flex h-7 items-center rounded-md pl-8 pr-2 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-                        active
-                          ? "bg-muted/60 font-medium text-foreground"
-                          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                      )}
-                    >
-                      <span className="truncate">{item.label}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
 
         <p className="px-2 pb-1.5 pt-5 text-[11px] font-medium text-muted-foreground">
           Resources

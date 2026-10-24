@@ -80,7 +80,7 @@
         "tags": ["System"],
         "operationId": "systemModules",
         "summary": "List project modules",
-        "description": "Lists the core and generated module folders in the current project. Administrator access is required.",
+        "description": "Lists the module folders in the current project. Administrator access is required.",
         "security": [{ "adminToken": [] }],
         "responses": {
           "200": {

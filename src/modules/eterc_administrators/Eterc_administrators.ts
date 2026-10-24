@@ -1,5 +1,5 @@
 import { Eterc } from "@/engine/controller";
-import { BASE_URL, ENV } from "@/engine/config";
+import { admin_login_path, BASE_URL, ENV } from "@/engine/config";
 import { set_flashdata } from "@/engine/Flashdata";
 import { post } from "@/engine/post";
 import { from_eterc_mx, get_context } from "@/engine/request-context";
@@ -380,7 +380,7 @@ export default class Eterc_administrators extends Eterc {
         }
       } else {
         // PROD: Redirect to login page.
-        redirect("login/login");
+        redirect(admin_login_path());
       }
     }
 
@@ -448,7 +448,7 @@ export default class Eterc_administrators extends Eterc {
   }
   private loggedInUserId(user_obj: EtercUserObj | null): number {
     if (user_obj === null) {
-      redirect("login/login");
+      redirect(admin_login_path());
     }
 
     const record = this.adminModel().get_user_by_token(user_obj.token);

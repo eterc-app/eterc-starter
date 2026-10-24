@@ -1,5 +1,5 @@
+import { admin_login_path } from "@/engine/config";
 import { Eterc } from "@/engine/controller";
-import { ENV } from "@/engine/config";
 import { set_flashdata } from "@/engine/Flashdata";
 import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
@@ -22,15 +22,8 @@ import {
 } from "@/modules/cms/cms-access";
 import {
   get_public_runtime_config,
-  provider_catalog,
-  save_runtime_config,
-  write_env_preview,
+  save_cms_settings,
 } from "@/modules/cms/cms-runtime";
-import {
-  env_preview,
-  test_auth_connection,
-  test_database_connection,
-} from "@/modules/cms/cms-providers";
 import {
   add_field,
   create_collection,
@@ -98,14 +91,9 @@ function array_value<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-function status_value(value: unknown): "unconfigured" | "verified" | "error" {
-  return value === "verified" || value === "error" ? value : "unconfigured";
-}
-
 /**
- * Production-ready CMS administration area.
+ * Production CMS administration area.
  *
- * The original control panel remains the development-only builder workspace.
  * This module is the deployable content and access-management surface.
  */
 export default class Cms_admin extends Eterc {
@@ -115,7 +103,7 @@ export default class Cms_admin extends Eterc {
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in with an administrator account.");
-        redirect("login/login");
+        redirect(admin_login_path());
       }
       throw error;
     }
@@ -225,13 +213,9 @@ export default class Cms_admin extends Eterc {
 
   async settings() {
     const principal = this.principal();
-    const runtime = get_public_runtime_config();
     return this.admin_view("settings", "Project settings", {
       principal,
-      runtime,
-      providers: provider_catalog(),
-      envPreview: env_preview(runtime.database, runtime.auth),
-      allowEnvWrite: ENV === "dev" || process.env.ET_ALLOW_ENV_WRITE === "1",
+      runtime: get_public_runtime_config(),
     });
   }
 
@@ -440,101 +424,21 @@ export default class Cms_admin extends Eterc {
 
   settings_state() {
     this.principal();
-    const runtime = get_public_runtime_config();
-    return {
-      runtime,
-      providers: provider_catalog(),
-      envPreview: env_preview(runtime.database, runtime.auth),
-      allowEnvWrite: ENV === "dev" || process.env.ET_ALLOW_ENV_WRITE === "1",
-    };
-  }
-
-  async settings_test() {
-    this.principal();
-    const payload = body();
-    const kind = text_value(payload.kind);
-    const provider = text_value(payload.provider);
-    const values = Object.fromEntries(
-      Object.entries(object_value(payload.values)).map(([key, value]) => [key, String(value ?? "")])
-    );
-    if (kind === "database") {
-      return test_database_connection(provider, values);
-    }
-    if (kind === "auth") {
-      return test_auth_connection(provider, values);
-    }
-    throw new EtHttpError(400, "Provider kind must be 'database' or 'auth'.");
+    return { runtime: get_public_runtime_config() };
   }
 
   settings_save() {
     this.principal();
     const payload = body();
-    const database = object_value(payload.database);
-    const auth = object_value(payload.auth);
     const cms = object_value(payload.cms);
-    const saved = save_runtime_config({
-      database: {
-        provider: text_value(database.provider, "sqlite"),
-        values: Object.fromEntries(
-          Object.entries(object_value(database.values)).map(([key, value]) => [
-            key,
-            String(value ?? ""),
-          ])
-        ),
-        status: status_value(database.status),
-        message:
-          text_value(database.message) ||
-          (status_value(database.status) === "verified"
-            ? "Connection verified."
-            : "Saved. Run Test connection to verify these settings."),
-        verified_at:
-          status_value(database.status) === "verified"
-            ? number_value(database.verified_at, Math.floor(Date.now() / 1000))
-            : null,
-      },
-      auth: {
-        provider: text_value(auth.provider, "builtin"),
-        values: Object.fromEntries(
-          Object.entries(object_value(auth.values)).map(([key, value]) => [
-            key,
-            String(value ?? ""),
-          ])
-        ),
-        status: status_value(auth.status),
-        message:
-          text_value(auth.message) ||
-          (status_value(auth.status) === "verified"
-            ? "Provider verified."
-            : "Saved. Run Test provider to verify these settings."),
-        verified_at:
-          status_value(auth.status) === "verified"
-            ? number_value(auth.verified_at, Math.floor(Date.now() / 1000))
-            : null,
-      },
-      cms: {
-        api_private: true,
-        max_page_size: Math.max(1, Math.min(500, number_value(cms.max_page_size, 200))),
-        seed_member_role: bool_value(cms.seed_member_role, true),
-      },
+    save_cms_settings({
+      max_page_size: Math.max(
+        1,
+        Math.min(500, number_value(cms.max_page_size, 200))
+      ),
+      seed_member_role: bool_value(cms.seed_member_role, true),
     });
-    return {
-      runtime: saved,
-      envPreview: env_preview(saved.database, saved.auth),
-    };
-  }
-
-  settings_write_env() {
-    this.principal();
-    if (!(ENV === "dev" || process.env.ET_ALLOW_ENV_WRITE === "1")) {
-      throw new EtHttpError(
-        403,
-        "Writing .env is disabled in production. Set ET_ALLOW_ENV_WRITE=1 to allow it."
-      );
-    }
-    const runtime = get_public_runtime_config();
-    const values = env_preview(runtime.database, runtime.auth);
-    write_env_preview(values);
-    return { written: true, values };
+    return { runtime: get_public_runtime_config() };
   }
 
   settings_bootstrap() {

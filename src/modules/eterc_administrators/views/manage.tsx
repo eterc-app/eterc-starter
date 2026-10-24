@@ -32,7 +32,7 @@ export default function Manage({ data }: EtViewProps) {
         <div>
           <h1>Manage Administrators</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Accounts that can sign in to the Eterc control panel.
+            Accounts that can sign in to Eterc.
           </p>
         </div>
         <Button asChild>

@@ -12,8 +12,8 @@ import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
  *
  * The framework router only accepts JSON on /api/xhr, so this route builds a
  * normal Eterc request context from the form body and dispatches the upload
- * through the image_uploader_builder controller. Authentication, CSRF and
- * image validation therefore stay in the same place as every other builder.
+ * through the media controller. Authentication, CSRF and image validation
+ * therefore stay in one place.
  */
 export async function POST(request: NextRequest) {
   let formData: FormData;
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   const options = {
-    segments: ["eterc_control-image_uploader_builder", "upload_media"],
+    segments: ["media", "upload_media"],
     formData,
     isAjax: true,
     canSetCookies: true,

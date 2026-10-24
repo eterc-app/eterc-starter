@@ -3,7 +3,7 @@
  *
  * The content service is intentionally database-shaped: a collection is a
  * table, a field is a column, and an item is a row. That keeps existing
- * databases useful while giving the control panel and API a Directus-style
+ * databases useful while giving the CMS and API a Directus-style
  * layer for metadata, roles, permissions and API keys.
  */
 
@@ -199,24 +199,6 @@ export interface CmsRuntimeConfig {
     seed_member_role: boolean;
   };
   updated_at: number;
-}
-
-export interface CmsProviderField {
-  key: string;
-  label: string;
-  placeholder?: string;
-  help?: string;
-  secret?: boolean;
-  required?: boolean;
-}
-
-export interface CmsProviderDefinition {
-  id: string;
-  name: string;
-  description: string;
-  badge?: string;
-  fields: CmsProviderField[];
-  notes?: string[];
 }
 
 export const CMS_ACTIONS: CmsPermissionAction[] = [

@@ -80,7 +80,7 @@ export const LOGIN_CONFIG: LoginConfig = {
       target_table: "eterc_administrators",
       user_ref_field: "eterc_user_id",
       secret_login_word: "et-admin",
-      redirect_on_success: "eterc_administrators/manage",
+      redirect_on_success: "admin",
       allow_remember: 0,
       remember_days: 0,
       enable_forgot_password: false,
@@ -96,6 +96,11 @@ export const LOGIN_CONFIG: LoginConfig = {
   },
 };
 
+/** Canonical login path for the administrator level. */
+export function admin_login_path(): string {
+  const secret = LOGIN_CONFIG.user_levels[1]?.secret_login_word?.trim();
+  return secret ? `login/login/${secret}` : "login/login";
+}
 
 export const EMAIL_CONFIG = {
   smtp_host: process.env.ET_SMTP_HOST ?? "",

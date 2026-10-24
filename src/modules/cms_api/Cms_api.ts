@@ -23,16 +23,7 @@ import {
   set_user_role,
   update_role,
 } from "@/modules/cms/cms-access";
-import {
-  get_public_runtime_config,
-  get_runtime_config,
-  provider_catalog,
-  save_runtime_config,
-} from "@/modules/cms/cms-runtime";
-import {
-  test_auth_connection,
-  test_database_connection,
-} from "@/modules/cms/cms-providers";
+import { get_public_runtime_config } from "@/modules/cms/cms-runtime";
 import {
   add_field,
   collection_fields,
@@ -495,48 +486,8 @@ export default class Cms_api extends Eterc {
 
   settings(): EtApiResponse {
     require_human_admin();
-    const verb = method();
-    if (verb === "GET") {
-      return api_response({
-        data: {
-          runtime: get_public_runtime_config(),
-          raw: get_runtime_config(),
-          providers: provider_catalog(),
-        },
-      });
-    }
-    if (verb === "PATCH" || verb === "PUT" || verb === "POST") {
-      require_human_admin();
-      const payload = require_body();
-      const saved = save_runtime_config(payload as never);
-      return api_response({ data: { runtime: saved } });
-    }
-    not_found();
-  }
-
-  providers(): EtApiResponse {
-    require_human_admin();
-    const verb = method();
-    if (verb === "GET") {
-      return api_response({ data: provider_catalog() });
-    }
-    if (verb === "POST") {
-      const payload = require_body();
-      const kind = String(payload.kind ?? "");
-      const provider = String(payload.provider ?? "");
-      const values =
-        payload.values && typeof payload.values === "object" && !Array.isArray(payload.values)
-          ? (payload.values as Record<string, string>)
-          : {};
-      if (kind === "database") {
-        return api_response({ data: test_database_connection(provider, values) });
-      }
-      if (kind === "auth") {
-        return api_response({ data: test_auth_connection(provider, values) });
-      }
-      throw new EtHttpError(400, "Provider kind must be 'database' or 'auth'.");
-    }
-    not_found();
+    if (method() !== "GET") not_found();
+    return api_response({ data: { runtime: get_public_runtime_config() } });
   }
 
   bootstrap(): EtApiResponse {

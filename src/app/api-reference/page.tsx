@@ -28,15 +28,15 @@ export default function ApiReferencePage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 sm:px-4">
-        <Link href="/control" className={linkClasses}>
+        <Link href="/admin" className={linkClasses}>
           <ArrowLeft className="size-3.5" />
-          Control panel
+          CMS admin
         </Link>
         <span aria-hidden="true" className="h-4 w-px bg-border" />
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-[12px] font-medium">API Reference</span>
           <span className="hidden text-[11px] text-muted-foreground md:inline">
-            Generated from module API specs
+            Generated from API fragments
           </span>
         </div>
         <a

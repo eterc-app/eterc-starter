@@ -1,4 +1,4 @@
-import { LOGIN_CONFIG } from "@/engine/config";
+import { admin_login_path } from "@/engine/config";
 import { set_flashdata } from "@/engine/Flashdata";
 import { Eterc_tokens, type EtercUserObj } from "@/engine/Eterc_tokens";
 import { redirect } from "@/engine/Url";
@@ -6,10 +6,6 @@ import { redirect } from "@/engine/Url";
 /** Administrator user level — the 'admin panel' scenario (LOGIN_CONFIG key). */
 const ADMIN_USER_LEVEL = 1;
 const NOT_ALLOWED_MESSAGE = "You must be logged in to access this page.";
-function loginRedirectUrl(): string {
-  const secret = LOGIN_CONFIG.user_levels[ADMIN_USER_LEVEL]?.secret_login_word?.trim();
-  return secret ? `login/login/${secret}` : "login/login";
-}
 
 export class Eterc_security {
   readonly moduleName = "eterc_security";
@@ -37,6 +33,6 @@ export class Eterc_security {
     }
 
     set_flashdata(NOT_ALLOWED_MESSAGE);
-    redirect(loginRedirectUrl());
+    redirect(admin_login_path());
   }
 }

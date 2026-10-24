@@ -1,10 +1,10 @@
 # Eterc
 
-Eterc is a TypeScript-first framework for **Next.js App Router**. It provides a
-module/controller/model structure, routing, validation, sessions, tokens,
-flashdata, an authenticated control panel, and code generators for building
-CRUD modules. Views are React components and application code is TypeScript
-from end to end.
+Eterc is an API-first CMS and TypeScript framework for **Next.js App Router**.
+It provides collections, fields, records, roles, permissions, API keys, a media
+library, and a module/controller/model structure with routing, validation,
+sessions, and tokens. Views are React components and application code is
+TypeScript from end to end.
 
 - Website: <https://www.eterc.app>
 - Documentation: <https://eterc-docs.eterc.app>
@@ -50,9 +50,9 @@ ET_SECRET=<64-char hex>     # HMAC key for CSRF tokens
 ```
 
 For a VPS, keep the SQLite file on a persistent disk. For serverless hosting,
-configure a managed database provider in **Project settings** and enable its
-deployment adapter; the bundled SQLite runtime is intended for a persistent
-filesystem.
+select a managed database provider while creating the project in Eterc Desktop
+and enable its deployment adapter; the bundled SQLite runtime is intended for a
+persistent filesystem.
 
 ## Routing
 
@@ -69,8 +69,8 @@ filesystem.
 | `segment()`, `post()`, `get_param()`     | Request helpers in `src/engine`             |
 
 Public URLs use clean aliases while the internal module names stay
-addressable: `/control` resolves to `eterc_control`, `/administrators` to
-`eterc_administrators`, and `/control/flo` to `eterc_control-flo`.
+addressable: `/admin` resolves to `cms_admin`, `/admin/media` to `media`, and
+`/administrators` to `eterc_administrators`.
 
 Controllers live in `src/modules/<module>/<Class>.ts` and extend `Eterc`.
 Views are React components registered per module (`views/index.ts` →
@@ -94,7 +94,7 @@ endpoint is private by default: requests need an authenticated session, an
 - `/api/openapi` serves an OpenAPI 3.1 document assembled from
   `src/modules/<module>/assets/api.json` fragments.
 - `/api-reference` renders that document with Scalar. Test requests use the
-  current same-origin session, so signing in to the control panel is enough to
+  current same-origin session, so signing in to the CMS admin is enough to
   call protected endpoints. External clients can send an `EtercToken`
   header instead.
 - Scalar cannot read the HttpOnly session cookie, so protected operations may
@@ -113,21 +113,22 @@ Built-in endpoints:
 
 ## CMS, roles and API keys
 
-Open `/admin` after signing in. The production admin surface is separate from
-the development-only `/control` builders.
+Open `/admin` after signing in.
 
 - **Data Studio** creates collections (SQLite tables), fields and records. Every
   collection immediately gets REST endpoints under
   `/api/v1/cms/items/{collection}`.
+- **Media library** uploads images, edits titles and alt text, and copies stable
+  URLs for use in content fields.
 - **Access** creates roles with `read`, `create`, `update` and `delete`
   permissions per collection. Roles also control `app_access`, `api_access`
   and `admin_access`.
 - **API keys** use the format `etk_<prefix>_<secret>`. Only a SHA-256 hash is
   stored, and the secret is shown once. Send a key as
   `Authorization: Bearer etk_...` or `x-api-key`.
-- **Project settings** stores the selected database and auth providers in
-  `data/settings/runtime.json`, masks secrets, tests connections and generates
-  an `.env` preview.
+- **Project settings** manages API defaults and schema utilities. Database and
+  auth provider selection happens in Eterc Desktop during project creation;
+  `/admin` shows the active runtime read-only.
 
 Useful content endpoints:
 
@@ -145,11 +146,11 @@ Useful content endpoints:
 Collection, field, role, permission, user and API-key management require a
 signed-in administrator. API keys cannot change schema or access control.
 
-The bundled runtime uses SQLite and built-in accounts. Provider connection
-tests, secret storage and environment generation work for Neon, Supabase,
-PostgreSQL, Turso, MySQL, Firebase, Clerk, Auth0 and Supabase Auth. External
-runtime adapters are deployment work: this build keeps SQLite and built-in
-accounts active while the selected provider configuration is saved.
+The bundled runtime uses SQLite and built-in accounts. Eterc Desktop supports
+provider selection and connection tests for Neon, Supabase, PostgreSQL, Turso,
+MySQL, Firebase, Clerk, Auth0 and Supabase Auth. External runtime adapters are
+deployment work: this build keeps SQLite and built-in accounts active while the
+selected provider configuration is saved.
 
 Add a resource with a normal module plus a controller class ending in `_api`:
 
@@ -209,54 +210,12 @@ model, controller, templates, URL helpers, views registry and UI primitives
 **Framework modules**:
 
 `welcome`, `setup`, `login` (+ `forgot_password`), `eterc_security`,
-`eterc_email`, `eterc_administrators`, `pagination`, `image_uploader`,
-`db`, `module_relations`, `language`, `utilities`, `file`, `image`,
-`eterc_control`.
+`eterc_email`, `eterc_administrators`, `cms`, `cms_admin`, `cms_api`, `media`,
+`pagination`, `db`, `utilities`, `file`, `image`.
 
 The `flashdata`, `form`, `string_service`, `templates`, `eterc_tokens`, `url`,
 and `validation` services live inside `src/engine` rather than as separate
 modules.
-
-**Control panel** (`eterc_control`): dashboard plus every child module —
-
-- `flo` — Flo generator front-end
-- `evo` — Evo shell (home, module manager, error/disabled helpers)
-- `module_builder` — interactive "Create Module" wizard
-- `query_builder` — visual SQL query builder
-- `site_builder` — module generation service
-- `properties` + `properties_builder` — property data service and builder
-- `module_relations` + `module_relations_builder` — relation runtime and wizard
-- `image_uploader` + `image_uploader_builder` — uploader runtime and wizard
-- `plural_maker` — pluralisation engine
-
-## Code generation
-
-Flo and the Module Builder's Site Builder write complete Next.js modules to
-`src/modules/generated/<module>/`:
-
-```
-<Module>.ts            controller
-<Module>_model.ts      model
-views/*.tsx            manage / create / show / delete_conf / not_found
-                       (+ search_modal when a property is searchable)
-views/index.ts         view registration map
-manifest.json          metadata used by the generated-module index
-<module>.sql           one-shot SQLite schema (removed after a clean run)
-```
-
-After each successful generation the index at
-`src/modules/generated/index.ts` is rewritten with static imports and lazy
-controller loaders; `src/engine/registrations.ts` and `src/modules/views.ts`
-spread that index once, so no shared file needs editing per module. The dev
-server must recompile (or be restarted) before the new routes resolve; a
-production build picks up generated modules on the next build.
-
-Module Relations Builder and Image Uploader Builder modify an existing generated
-module in place: they add foreign-key columns/junction tables, write settings
-under `data/settings/module_relations/` and `data/settings/image_uploader/`, and
-inject panel/dropdown/delete-hook code into the target views and controller.
-
-All generators are **development-only** (`ENV === 'dev'`).
 
 ## Implementation notes
 
@@ -269,12 +228,10 @@ All generators are **development-only** (`ENV === 'dev'`).
   equivalents.
 - Remember-me cookies are `HttpOnly`. The feature is disabled by default via
   `LOGIN_CONFIG`.
-- Dev-only modules and JSON endpoints return HTTP 403 instead of rendering the
-  Evo "disabled" page.
 - The forgot-password entry point falls back to the only configured user level
   when the URL has no level segment.
-- `eterc_control` child modules expose small `index()` aliases where the
-  dashboard links need a stable entry point.
+- The media library stores files under `public/uploads/media` and metadata under
+  `data/settings/media_library/index.json`.
 
 ## Checks
 
@@ -294,10 +251,7 @@ static inline styles.
 mostly `@next/next/no-img-element` for intentional `<img>` markup. The project
 disables two Next rules on purpose: `no-assign-module-variable` (the framework
 uses `module` as a local identifier) and `no-html-link-for-pages` (plain
-anchors force full-page navigation for generated post-back flows). The query
-builder's one-shot DOM measurement carries two targeted
-`react-hooks/set-state-in-effect` disables, and the control panel redirect
-helper uses `location.assign` instead of assigning `location.href`.
+anchors force full-page navigation for post-back flows).
 
 ## Attribution
 
