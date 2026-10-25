@@ -47,7 +47,7 @@ export const DEFAULT_SETTINGS: PaginationSettings = {
     '<nav aria-label="Pagination" class="inline-flex flex-wrap items-center gap-1">',
   pagination_close: "</nav>",
   cur_link_open:
-    '<a aria-current="page" class="pointer-events-none inline-flex items-center rounded-md border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">',
+    '<a aria-current="page" class="pointer-events-none inline-flex h-10 items-center rounded-lg border border-primary bg-primary px-3 text-sm font-semibold text-primary-foreground">',
   cur_link_close: "</a>",
   num_link_open: "",
   num_link_close: "",

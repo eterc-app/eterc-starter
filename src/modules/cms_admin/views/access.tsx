@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, KeyRound, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,6 +123,7 @@ export default function AccessStudio({ data }: EtViewProps) {
   const initial = data.overview as Overview;
   const [overview, setOverview] = useState<Overview>(initial);
   const [tab, setTab] = useState("roles");
+  const { confirm, dialog: confirm_dialog } = useConfirm();
 
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleForm, setRoleForm] = useState<RoleForm>(emptyRole());
@@ -209,7 +211,19 @@ export default function AccessStudio({ data }: EtViewProps) {
 
   const deleteRole = useCallback(
     async (role: CmsRole) => {
-      if (!window.confirm(`Delete the role '${role.name}'? Users must be moved first.`)) return;
+      const confirmed = await confirm({
+        title: "Delete role?",
+        description: (
+          <>
+            The role{" "}
+            <span className="font-mono text-foreground">{role.name}</span> will
+            be permanently removed. Users assigned to it must be moved first.
+            This cannot be undone.
+          </>
+        ),
+        confirmLabel: "Delete role",
+      });
+      if (!confirmed) return;
       try {
         await cms_call("access_role_delete", { id: role.id });
         toast.success("Role deleted.");
@@ -218,7 +232,7 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.error(error instanceof Error ? error.message : "Could not delete the role.");
       }
     },
-    [refresh]
+    [confirm, refresh]
   );
 
   const togglePermission = useCallback(
@@ -313,9 +327,19 @@ export default function AccessStudio({ data }: EtViewProps) {
 
   const revokeKey = useCallback(
     async (key: CmsApiKey) => {
-      if (!window.confirm(`Revoke the API key '${key.name}'? Existing clients will stop working.`)) {
-        return;
-      }
+      const confirmed = await confirm({
+        title: "Revoke API key?",
+        description: (
+          <>
+            The key{" "}
+            <span className="font-mono text-foreground">{key.name}</span> will
+            stop working immediately. Existing clients will receive
+            authentication errors.
+          </>
+        ),
+        confirmLabel: "Revoke key",
+      });
+      if (!confirmed) return;
       try {
         await cms_call("access_key_revoke", { id: key.id });
         toast.success("API key revoked.");
@@ -324,12 +348,23 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.error(error instanceof Error ? error.message : "Could not revoke the API key.");
       }
     },
-    [refresh]
+    [confirm, refresh]
   );
 
   const deleteKey = useCallback(
     async (key: CmsApiKey) => {
-      if (!window.confirm(`Permanently delete the API key '${key.name}'?`)) return;
+      const confirmed = await confirm({
+        title: "Delete API key?",
+        description: (
+          <>
+            The key{" "}
+            <span className="font-mono text-foreground">{key.name}</span> will
+            be permanently removed. This cannot be undone.
+          </>
+        ),
+        confirmLabel: "Delete key",
+      });
+      if (!confirmed) return;
       try {
         await cms_call("access_key_delete", { id: key.id });
         toast.success("API key deleted.");
@@ -338,7 +373,7 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.error(error instanceof Error ? error.message : "Could not delete the API key.");
       }
     },
-    [refresh]
+    [confirm, refresh]
   );
 
   const collectionsForMatrix = useMemo(
@@ -352,9 +387,11 @@ export default function AccessStudio({ data }: EtViewProps) {
   const apiRoles = overview.roles.filter((role) => role.api_access);
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-5 p-4 sm:p-6">
+    <div className="app-page">
       <PageHeader
+        eyebrow="System"
         title="Access & API keys"
+        description="Roles, user assignments, and private API credentials."
         actions={
           <>
             <Button asChild variant="outline">
@@ -378,38 +415,38 @@ export default function AccessStudio({ data }: EtViewProps) {
           <TabsTrigger value="keys">API keys</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="roles" className="mt-4">
-          <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <TabsContent value="roles" className="mt-6">
+          <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
             <Card className="h-fit">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Roles</CardTitle>
+              <CardHeader className="border-b border-border">
+                <CardTitle>Roles</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1.5 p-2">
+              <CardContent className="space-y-2 p-2">
                 {overview.roles.map((role) => (
                   <button
                     key={role.id}
                     type="button"
                     onClick={() => selectRole(role)}
-                    className={`w-full rounded-lg border p-2.5 text-left transition-colors ${
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
                       role.id === selectedRoleId
-                        ? "border-foreground/20 bg-muted/60"
-                        : "hover:bg-muted/30"
+                        ? "border-foreground/30 bg-muted"
+                        : "border-border hover:bg-surface-subtle"
                     }`}
                   >
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{role.name}</span>
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="truncate text-sm font-semibold">{role.name}</span>
+                      <span className="text-xs text-muted-foreground">
                         {role.user_count} user{role.user_count === 1 ? "" : "s"}
                       </span>
                     </span>
-                    <span className="mt-1 flex flex-wrap gap-1">{roleBadges(role)}</span>
+                    <span className="mt-2 flex flex-wrap gap-1">{roleBadges(role)}</span>
                   </button>
                 ))}
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+              <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
                 <CardTitle>{selectedRole ? selectedRole.name : "Select a role"}</CardTitle>
                 {selectedRole ? (
                   <div className="flex gap-1">
@@ -444,23 +481,23 @@ export default function AccessStudio({ data }: EtViewProps) {
                     action={<Button onClick={openCreateRole}>New role</Button>}
                   />
                 ) : selectedRole.is_system ? (
-                  <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-                    <p className="flex items-center gap-2 font-medium">
-                      <ShieldCheck className="size-4" />
+                  <div className="rounded-lg border border-border bg-surface-subtle p-4 text-sm">
+                    <p className="flex items-center gap-2 font-semibold">
+                      <ShieldCheck className="size-4" strokeWidth={1.75} />
                       Full access
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="overflow-x-auto rounded-lg border">
+                  <div className="space-y-4">
+                    <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
                       <table className="w-full min-w-[560px] text-sm">
                         <thead>
-                          <tr className="border-b bg-muted/40 text-left">
-                            <th className="px-3 py-2 font-medium text-muted-foreground">Collection</th>
+                          <tr className="border-b border-border bg-surface-subtle text-left">
+                            <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Collection</th>
                             {ACTIONS.map((action) => (
                               <th
                                 key={action.key}
-                                className="px-3 py-2 text-center font-medium text-muted-foreground"
+                                className="h-11 px-3 text-center text-xs font-semibold text-muted-foreground"
                               >
                                 {action.label}
                               </th>
@@ -476,15 +513,15 @@ export default function AccessStudio({ data }: EtViewProps) {
                               delete: false,
                             };
                             return (
-                              <tr key={collection.name} className="border-b last:border-b-0">
-                                <td className="px-3 py-2">
-                                  <span className="font-medium">{collection.label}</span>
-                                  <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                              <tr key={collection.name} className="border-b border-border last:border-b-0">
+                                <td className="px-3 py-3">
+                                  <span className="font-semibold">{collection.label}</span>
+                                  <span className="ml-2 font-mono text-xs text-muted-foreground">
                                     {collection.name}
                                   </span>
                                 </td>
                                 {ACTIONS.map((action) => (
-                                  <td key={action.key} className="px-3 py-2 text-center">
+                                  <td key={action.key} className="px-3 py-3 text-center">
                                     <Checkbox
                                       checked={row[action.key]}
                                       onCheckedChange={() =>
@@ -513,9 +550,9 @@ export default function AccessStudio({ data }: EtViewProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="users" className="mt-4">
+        <TabsContent value="users" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="border-b border-border">
               <CardTitle>Users and roles</CardTitle>
             </CardHeader>
             <CardContent>
@@ -530,27 +567,27 @@ export default function AccessStudio({ data }: EtViewProps) {
                   }
                 />
               ) : (
-                <div className="overflow-x-auto rounded-lg border">
+                <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/40 text-left">
-                        <th className="px-3 py-2 font-medium text-muted-foreground">User</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Email</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Role</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Status</th>
+                      <tr className="border-b border-border bg-surface-subtle text-left">
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">User</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Email</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Role</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {overview.users.map((user) => (
-                        <tr key={user.id} className="border-b last:border-b-0">
-                          <td className="px-3 py-2 font-medium">{user.username || `#${user.id}`}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{user.email || "—"}</td>
-                          <td className="px-3 py-2">
+                        <tr key={user.id} className="border-b border-border last:border-b-0">
+                          <td className="px-3 py-3 font-semibold">{user.username || `#${user.id}`}</td>
+                          <td className="px-3 py-3 text-muted-foreground">{user.email || "—"}</td>
+                          <td className="px-3 py-3">
                             <Select
                               value={user.role_id ? String(user.role_id) : ""}
                               onValueChange={(value) => changeUserRole(user, value)}
                             >
-                              <SelectTrigger className="w-[190px]">
+                              <SelectTrigger className="w-[190px]" size="sm">
                                 <SelectValue placeholder="Unassigned" />
                               </SelectTrigger>
                               <SelectContent>
@@ -562,8 +599,8 @@ export default function AccessStudio({ data }: EtViewProps) {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="px-3 py-2">
-                            <Badge variant={user.active ? "default" : "secondary"}>
+                          <td className="px-3 py-3">
+                            <Badge variant={user.active ? "success" : "outline"}>
                               {user.active ? "Active" : "Inactive"}
                             </Badge>
                           </td>
@@ -577,9 +614,9 @@ export default function AccessStudio({ data }: EtViewProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="keys" className="mt-4">
+        <TabsContent value="keys" className="mt-6">
           <Card>
-            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
               <CardTitle>API keys</CardTitle>
               <Button onClick={openCreateKey}>
                 <Plus className="size-4" />
@@ -594,41 +631,41 @@ export default function AccessStudio({ data }: EtViewProps) {
                   action={<Button onClick={openCreateKey}>Create API key</Button>}
                 />
               ) : (
-                <div className="overflow-x-auto rounded-lg border">
+                <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
                   <table className="w-full min-w-[780px] text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/40 text-left">
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Name</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Key</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Role</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Last used</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Expires</th>
-                        <th className="px-3 py-2 font-medium text-muted-foreground">Status</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                      <tr className="border-b border-border bg-surface-subtle text-left">
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Name</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Key</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Role</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Last used</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Expires</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Status</th>
+                        <th className="h-11 px-3 text-right text-xs font-semibold text-muted-foreground">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {overview.api_keys.map((key) => (
-                        <tr key={key.id} className="border-b last:border-b-0">
-                          <td className="px-3 py-2 font-medium">{key.name}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                        <tr key={key.id} className="border-b border-border last:border-b-0">
+                          <td className="px-3 py-3 font-semibold">{key.name}</td>
+                          <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
                             etk_{key.key_prefix}_…
                           </td>
-                          <td className="px-3 py-2">{key.role_name || `#${key.role_id}`}</td>
-                          <td className="px-3 py-2 text-muted-foreground">
+                          <td className="px-3 py-3">{key.role_name || `#${key.role_id}`}</td>
+                          <td className="px-3 py-3 text-muted-foreground">
                             {format_relative(key.last_used_at)}
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground">
+                          <td className="px-3 py-3 text-muted-foreground">
                             {key.expires_at ? format_datetime(key.expires_at * 1000) : "Never"}
                           </td>
-                          <td className="px-3 py-2">
-                            <Badge variant={key.active ? "default" : "secondary"}>
+                          <td className="px-3 py-3">
+                            <Badge variant={key.active ? "success" : "outline"}>
                               {key.active ? "Active" : "Revoked"}
                             </Badge>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-3">
                             <div className="flex justify-end gap-1">
                               {key.active ? (
                                 <Button
@@ -668,8 +705,8 @@ export default function AccessStudio({ data }: EtViewProps) {
           <DialogHeader>
             <DialogTitle>{roleForm.id ? "Edit role" : "New role"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="role-name">Name</Label>
               <Input
                 id="role-name"
@@ -681,7 +718,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="role-description">Description</Label>
               <Input
                 id="role-description"
@@ -692,8 +729,8 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-2 rounded-lg border p-3">
-              <label className="flex items-center gap-2 text-sm">
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <label className="flex items-center gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.app_access}
                   onCheckedChange={(checked) =>
@@ -702,7 +739,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 />
                 <span className="font-medium">App access</span>
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.api_access}
                   onCheckedChange={(checked) =>
@@ -711,7 +748,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 />
                 <span className="font-medium">API access</span>
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.admin_access}
                   onCheckedChange={(checked) =>
@@ -743,8 +780,8 @@ export default function AccessStudio({ data }: EtViewProps) {
           <DialogHeader>
             <DialogTitle>Create API key</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="key-name">Name</Label>
               <Input
                 id="key-name"
@@ -755,7 +792,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Role</Label>
               <Select
                 value={keyForm.role_id}
@@ -773,12 +810,12 @@ export default function AccessStudio({ data }: EtViewProps) {
                 </SelectContent>
               </Select>
               {apiRoles.length === 0 ? (
-                <p className="text-[11px] text-destructive">
+                <p className="text-xs text-destructive">
                   Enable API access on a role before creating a key.
                 </p>
               ) : null}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="key-expiry">Expires</Label>
               <Input
                 id="key-expiry"
@@ -813,7 +850,7 @@ export default function AccessStudio({ data }: EtViewProps) {
           </DialogHeader>
           {createdKey ? (
             <div className="space-y-3">
-              <div className="rounded-lg border bg-muted/40 p-3">
+              <div className="rounded-lg border border-border bg-surface-subtle p-4">
                 <p className="break-all font-mono text-xs">{createdKey.secret}</p>
               </div>
               <div className="flex gap-2">
@@ -833,6 +870,8 @@ export default function AccessStudio({ data }: EtViewProps) {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {confirm_dialog}
     </div>
   );
 }

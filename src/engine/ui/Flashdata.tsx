@@ -10,7 +10,7 @@ export function Flashdata() {
   return (
     <>
       {flash.map((message, index) => (
-        <p key={index} className="font-medium text-green-600">
+        <p key={index} className="font-semibold text-success">
           {message}
         </p>
       ))}

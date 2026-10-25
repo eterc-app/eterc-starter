@@ -20,18 +20,17 @@ export function LoginDefault({ data }: EtViewProps) {
   return (
     <AuthShell
       title="Welcome back"
-      description="Please sign in to access your account."
+      description="Sign in to the private CMS workspace."
     >
       <ValidationErrors />
 
-      <EtForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
+      <EtForm action="login/submit_login" params={[loginUrl]} className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="identifier">{identifierLabel}</Label>
           <Input
             id="identifier"
             type="text"
             name="identifier"
-            placeholder={identifierLabel}
             autoComplete="username"
             required
           />
@@ -43,22 +42,26 @@ export function LoginDefault({ data }: EtViewProps) {
             id="password"
             type="password"
             name="password"
-            placeholder={passwordLabel}
             autoComplete="current-password"
             required
           />
         </div>
 
         {allowRemember ? (
-          <Label className="flex items-center gap-2 text-sm font-normal">
-            <input type="checkbox" name="remember" value="1" className="m-0 size-4" />
+          <Label className="flex items-center gap-3 text-sm font-medium">
+            <input
+              type="checkbox"
+              name="remember"
+              value="1"
+              className="m-0 size-5 accent-foreground"
+            />
             Remember me
           </Label>
         ) : null}
 
-        <div className="grid gap-2 pt-2 sm:grid-cols-2">
+        <div className="grid gap-2 pt-1 sm:grid-cols-2">
           <Button type="submit" className="w-full">
-            Sign In
+            Sign in
           </Button>
           <Button asChild variant="outline" className="w-full">
             <a href={site_url("")}>Cancel</a>
@@ -69,7 +72,7 @@ export function LoginDefault({ data }: EtViewProps) {
       {forgotUrl !== null ? (
         <p className="mt-4 text-center text-sm">
           <a
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            className="font-semibold text-foreground underline-offset-4 hover:underline"
             href={site_url(forgotUrl)}
           >
             Forgot your password?

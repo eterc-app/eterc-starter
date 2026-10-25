@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fira_Mono, Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +12,13 @@ const inter = Inter({
   display: "swap",
 });
 
+const firaMono = Fira_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-fira-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Eterc",
   description:
@@ -19,10 +27,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${firaMono.variable}`}
+      suppressHydrationWarning
+    >
       <body className="bg-background text-foreground">
-        <TooltipProvider>{children}</TooltipProvider>
-        <Toaster richColors />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <TooltipProvider>{children}</TooltipProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

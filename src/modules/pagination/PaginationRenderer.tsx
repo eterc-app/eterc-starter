@@ -71,7 +71,7 @@ function build_link(
     ? ` aria-label="${htmlspecialchars(aria_label)}"`
     : "";
 
-  return `<a class="inline-flex items-center rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted" href="${htmlspecialchars(url)}"${aria}>${label}</a>`;
+  return `<a class="inline-flex h-10 items-center rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted" href="${htmlspecialchars(url)}"${aria}>${label}</a>`;
 }
 
 /** Build the complete markup for already-prepared pagination data. */

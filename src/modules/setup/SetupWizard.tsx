@@ -1,9 +1,11 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import NextImage from "next/image";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import { ETERC_DOCS_URL, ETERC_FORUM_URL } from "@/engine/config";
+import { Notice } from "@/components/app/Notice";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -104,11 +106,9 @@ export function SetupWizard({ dbFile, appPath }: SetupWizardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 px-4 py-10">
-      {step === 4 ? <ConfettiCanvas /> : null}
-
+    <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
-        <Card className="shadow-none border-border/70">
+        <Card className="border-border shadow-none">
           <CardContent className="p-6 sm:p-8">
             {helpOpen ? (
               <HelpMessage onBack={() => setHelpOpen(false)} />
@@ -164,23 +164,23 @@ function StepsIndicator({ current }: { current: number }) {
           <div
             key={title}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-center transition-colors",
+              "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-center transition-colors",
               active
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "text-muted-foreground",
+                ? "border-foreground bg-muted text-foreground"
+                : "border-border text-muted-foreground",
             )}
           >
             <span
               className={cn(
-                "grid size-6 place-items-center rounded-full text-xs font-bold",
+                "grid size-6 place-items-center rounded-full text-xs font-semibold",
                 active
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-foreground text-background"
                   : "bg-muted text-muted-foreground",
               )}
             >
               {index + 1}
             </span>
-            <span className="text-[10px] font-medium leading-tight sm:text-xs">
+            <span className="text-xs font-medium leading-tight">
               {title}
             </span>
           </div>
@@ -200,14 +200,6 @@ function HelpLink({ onClick }: { onClick: () => void }) {
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-      {children}
-    </div>
-  );
-}
-
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="space-y-5">
@@ -217,11 +209,11 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           alt="Eterc"
           width={56}
           height={56}
-          className="mx-auto size-14 rounded-xl object-cover"
+          className="mx-auto size-14 rounded-lg border border-border object-cover"
           priority
         />
-        <h1 className="text-lg font-semibold tracking-[-0.01em] sm:text-xl">
-          Welcome to Your New Eterc Application
+        <h1 className="type-title">
+          Welcome to your new Eterc application
         </h1>
         <p className="text-muted-foreground">
           This wizard will guide you through the initial setup of your
@@ -231,7 +223,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       <StepsIndicator current={0} />
       <div className="text-center">
         <Button type="button" size="lg" onClick={onNext}>
-          Get Started
+          Get started
         </Button>
       </div>
     </div>
@@ -252,8 +244,8 @@ function DatabaseStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-lg font-semibold tracking-[-0.01em]">
-          Database Connection Test
+        <h1 className="type-title">
+          Database connection test
         </h1>
         <p className="text-muted-foreground">
           Eterc runs on SQLite (managed through Prisma). There are no
@@ -261,7 +253,11 @@ function DatabaseStep({
         </p>
       </div>
       <StepsIndicator current={1} />
-      {notice ? <Notice>{notice}</Notice> : null}
+      {notice ? (
+        <Notice icon={AlertTriangle} tone="destructive">
+          {notice}
+        </Notice>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="database-file">Database file</Label>
@@ -279,7 +275,7 @@ function DatabaseStep({
         </p>
       </div>
 
-      <div className="divide-y rounded-lg border">
+      <div className="divide-y divide-border rounded-lg border border-border">
         <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
           <span className="text-muted-foreground">Engine</span>
           <span className="font-medium">SQLite 3 (via better-sqlite3)</span>
@@ -292,7 +288,7 @@ function DatabaseStep({
 
       <div className="text-center">
         <Button type="button" disabled={busy} onClick={onNext}>
-          Test Connection &amp; Continue
+          Test connection &amp; continue
         </Button>
       </div>
     </div>
@@ -323,67 +319,64 @@ function AdminStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-lg font-semibold tracking-[-0.01em]">Create Admin Account</h1>
+        <h1 className="type-title">Create administrator account</h1>
         <p className="text-muted-foreground">Set up your administrator account.</p>
       </div>
       <StepsIndicator current={2} />
 
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <form className="space-y-5" onSubmit={onSubmit}>
         <div className="space-y-2">
           <Label htmlFor="username">Username</Label>
-          <FieldErrors field="username" errors={errors} />
           <Input
             type="text"
             id="username"
             name="username"
-            placeholder="Enter username here"
             autoComplete="username"
             required
           />
+          <FieldErrors field="username" errors={errors} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email Address</Label>
-          <FieldErrors field="email" errors={errors} />
+          <Label htmlFor="email">Email address</Label>
           <Input
             type="email"
             id="email"
             name="email"
-            placeholder="Enter email address here"
             autoComplete="email"
             required
           />
+          <FieldErrors field="email" errors={errors} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password (min. 8 characters)</Label>
-          <FieldErrors field="password" errors={errors} />
+          <Label htmlFor="password">Password</Label>
           <Input
             type="password"
             id="password"
             name="password"
-            placeholder="Enter password here"
             autoComplete="new-password"
             required
           />
+          <p className="type-note">Use at least 8 characters.</p>
+          <FieldErrors field="password" errors={errors} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm_password">Confirm Password</Label>
-          <FieldErrors field="confirm_password" errors={errors} />
+          <Label htmlFor="confirm_password">Confirm password</Label>
           <Input
             type="password"
             id="confirm_password"
             name="confirm_password"
-            placeholder="Confirm your password"
             autoComplete="new-password"
             required
           />
+          <FieldErrors field="confirm_password" errors={errors} />
         </div>
 
         <div className="text-center">
           <Button type="submit" disabled={busy}>
-            Create Admin Account
+            Create administrator
           </Button>
         </div>
       </form>
@@ -407,17 +400,21 @@ function FinalizeStep({
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-lg font-semibold tracking-[-0.01em]">Finalize Setup</h1>
+        <h1 className="type-title">Finalize setup</h1>
         <p className="text-muted-foreground">Please review your configuration.</p>
       </div>
       <StepsIndicator current={3} />
-      {notice ? <Notice>{notice}</Notice> : null}
+      {notice ? (
+        <Notice icon={AlertTriangle} tone="destructive">
+          {notice}
+        </Notice>
+      ) : null}
 
-      <div className="overflow-hidden rounded-lg border">
-        <div className="bg-muted/60 px-4 py-2 text-sm font-semibold">
-          Your Configuration
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="border-b border-border bg-surface-subtle px-4 py-3 text-sm font-semibold">
+          Your configuration
         </div>
-        <div className="divide-y">
+        <div className="divide-y divide-border">
           <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
             <span className="text-muted-foreground">Default module</span>
             <span className="text-right font-medium">
@@ -435,7 +432,7 @@ function FinalizeStep({
         </div>
       </div>
 
-      <div className="space-y-2 rounded-lg bg-muted/50 p-4 text-sm">
+      <div className="space-y-2 rounded-lg bg-surface-subtle p-4 text-sm">
         <p>
           <strong>1.</strong> Click the button below to complete the
           installation.
@@ -447,7 +444,7 @@ function FinalizeStep({
 
       <div className="text-center">
         <Button type="button" disabled={busy} onClick={onNext}>
-          Verify &amp; Continue
+          Verify &amp; continue
         </Button>
       </div>
     </div>
@@ -458,12 +455,15 @@ function CompleteStep({ appPath }: { appPath: string }) {
   return (
     <div className="space-y-5">
       <div className="space-y-2 text-center">
-        <h1 className="text-lg font-semibold tracking-[-0.01em]">Congratulations!</h1>
-        <p className="text-muted-foreground">You are ready to rock.</p>
+        <span className="mx-auto grid size-12 place-items-center rounded-full bg-muted text-foreground">
+          <CheckCircle2 className="size-5" strokeWidth={1.75} />
+        </span>
+        <h1 className="type-title">Setup complete</h1>
+        <p className="text-muted-foreground">Your Eterc application is ready.</p>
       </div>
       <StepsIndicator current={4} />
 
-      <div className="space-y-3 rounded-lg bg-muted/50 p-4 text-sm">
+      <div className="space-y-3 rounded-lg bg-surface-subtle p-4 text-sm">
         <p>
           <strong>1.</strong> Optionally, delete the{" "}
           <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">
@@ -471,7 +471,7 @@ function CompleteStep({ appPath }: { appPath: string }) {
           </code>{" "}
           module folder. You&apos;ll find it here:
         </p>
-        <div className="rounded-md border bg-background p-2">
+        <div className="rounded-lg border border-border bg-card p-3">
           <code className="break-all font-mono text-xs">{`${appPath}\\src\\modules\\setup`}</code>
         </div>
         <p>
@@ -482,10 +482,10 @@ function CompleteStep({ appPath }: { appPath: string }) {
 
       <div className="flex flex-wrap justify-center gap-2">
         <Button asChild>
-          <a href="/">Go to Your Homepage</a>
+          <a href="/">Go to homepage</a>
         </Button>
         <Button asChild variant="outline">
-          <a href="/administrators/manage">Go to Admin Panel</a>
+          <a href="/administrators/manage">Go to admin panel</a>
         </Button>
       </div>
     </div>
@@ -496,7 +496,7 @@ export function HelpMessage({ onBack }: { onBack: () => void }) {
   return (
     <div className="space-y-4">
       <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-base">A Message From the Eterc Team</CardTitle>
+        <CardTitle>A message from the Eterc team</CardTitle>
         <CardDescription>
           Nobody should have to abandon a framework because setup got in the way.
         </CardDescription>
@@ -529,86 +529,9 @@ export function HelpMessage({ onBack }: { onBack: () => void }) {
 
       <div className="text-center">
         <Button type="button" variant="outline" onClick={onBack}>
-          &larr; Back to Setup
+          &larr; Back to setup
         </Button>
       </div>
     </div>
-  );
-}
-
-/* -- Confetti -------------------------------------------------------------- */
-
-function ConfettiCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-
-    const colors = [
-      "#e74c3c",
-      "#f1c40f",
-      "#2ecc71",
-      "#3498db",
-      "#9b59b6",
-      "#e67e22",
-    ];
-    const pieces = Array.from({ length: 160 }, () => ({
-      x: width / 2 + (Math.random() - 0.5) * 120,
-      y: height / 2 + (Math.random() - 0.5) * 60,
-      vx: (Math.random() - 0.5) * 14,
-      vy: -Math.random() * 14 - 4,
-      size: 6 + Math.random() * 6,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      rotation: Math.random() * Math.PI,
-      spin: (Math.random() - 0.5) * 0.3,
-    }));
-
-    const startedAt = performance.now();
-    let raf = 0;
-
-    const tick = (now: number) => {
-      const elapsed = (now - startedAt) / 1000;
-      ctx.clearRect(0, 0, width, height);
-      let alive = false;
-      for (const piece of pieces) {
-        piece.vy += 0.35;
-        piece.x += piece.vx;
-        piece.y += piece.vy;
-        piece.rotation += piece.spin;
-        if (piece.y < height + 30) alive = true;
-        ctx.save();
-        ctx.translate(piece.x, piece.y);
-        ctx.rotate(piece.rotation);
-        ctx.fillStyle = piece.color;
-        ctx.fillRect(-piece.size / 2, -piece.size / 4, piece.size, piece.size / 2);
-        ctx.restore();
-      }
-      if (alive && elapsed < 4) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        ctx.clearRect(0, 0, width, height);
-      }
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  return (
-    <canvas
-      id="confetti-canvas"
-      ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-[9999]"
-    />
   );
 }

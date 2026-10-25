@@ -1,29 +1,24 @@
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-export default function NotFound({ data }: EtViewProps) {
-  const headline = String(data.headline ?? "");
+import { Card, CardContent } from "@/components/ui/card";
 
+export default function NotFound({ data }: EtViewProps) {
   return (
-    <div className="space-y-6">
-      <h1>{headline}</h1>
+    <div className="app-page max-w-3xl">
+      <PageHeader eyebrow="Content" title="Administrator not found" />
 
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle>{headline}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-5 pt-6">
           <p className="text-sm text-muted-foreground">
-            {String(data.message ?? "")}
+            {String(
+              data.message ??
+                "The administrator you are looking for does not exist or has been deleted."
+            )}
           </p>
           <Button asChild variant="outline">
             <a href={String(data.back_url ?? "")}>
-              {String(data.back_label ?? "")}
+              {String(data.back_label ?? "Back")}
             </a>
           </Button>
         </CardContent>

@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, CheckCircle2, Database } from "lucide-react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import type { EtViewProps } from "@/engine/views-registry";
+import { useConfirm } from "@/components/app/ConfirmDialog";
+import { EmptyState } from "@/components/app/EmptyState";
+import { Notice } from "@/components/app/Notice";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -39,13 +44,34 @@ export default function TableList({ data }: EtViewProps) {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const { confirm, dialog: confirm_dialog } = useConfirm();
 
   const call = async (
     method: "truncate" | "resequence",
-    table: string,
-    confirmation: string
+    table: string
   ) => {
-    if (!window.confirm(confirmation)) return;
+    const confirmed = await confirm({
+      title: method === "truncate" ? "Truncate table?" : "Resequence table?",
+      description:
+        method === "truncate" ? (
+          <>
+            Every row in{" "}
+            <span className="font-mono text-foreground">{table}</span> will be
+            permanently deleted. The table structure is kept. This cannot be
+            undone.
+          </>
+        ) : (
+          <>
+            The{" "}
+            <span className="font-mono text-foreground">id</span> column of{" "}
+            <span className="font-mono text-foreground">{table}</span> will be
+            renumbered from 1. Existing references to these IDs may break.
+          </>
+        ),
+      confirmLabel: method === "truncate" ? "Truncate table" : "Resequence",
+      tone: method === "truncate" ? "destructive" : "default",
+    });
+    if (!confirmed) return;
 
     setBusy(`${method}:${table}`);
     setNotice("");
@@ -82,88 +108,88 @@ export default function TableList({ data }: EtViewProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          {data.subheading ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {String(data.subheading)}
-            </p>
-          ) : null}
-        </div>
-        <Button asChild variant="outline">
-          <a href={sql_console_url}>SQL Console</a>
-        </Button>
-      </div>
+    <div className="app-page">
+      <PageHeader
+        eyebrow="Database"
+        title="Database tables"
+        description={
+          data.subheading
+            ? String(data.subheading)
+            : "Inspect schema and maintenance actions for the local SQLite database."
+        }
+        actions={
+          <Button asChild variant="outline">
+            <a href={sql_console_url}>SQL console</a>
+          </Button>
+        }
+      />
 
       <Flashdata />
 
       {notice ? (
-        <p className="rounded-md border border-emerald-600/30 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+        <Notice icon={CheckCircle2} tone="success">
           {notice}
-        </p>
+        </Notice>
       ) : null}
       {error ? (
-        <p
-          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
-          role="alert"
-        >
+        <Notice icon={AlertTriangle} tone="destructive">
           {error}
-        </p>
+        </Notice>
       ) : null}
 
       {tables.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            There are currently no tables in the database.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Database className="size-5" strokeWidth={1.75} />}
+          title="No tables yet"
+          description="This database does not contain any tables."
+        />
       ) : (
         <Card className="overflow-hidden p-0">
-          <CardHeader className="border-b px-4 py-3">
+          <CardHeader className="border-b border-border px-4 py-3">
             <CardTitle>Tables</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
+                <TableRow>
                   <TableHead className="px-4">Table</TableHead>
                   <TableHead>Rows</TableHead>
                   <TableHead>Columns</TableHead>
-                  <TableHead>Primary Key</TableHead>
+                  <TableHead>Primary key</TableHead>
                   <TableHead className="px-4 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tables.map((table) => (
                   <TableRow key={table.name}>
-                    <TableCell className="px-4 font-medium">
+                    <TableCell className="px-4 font-mono text-xs font-semibold">
                       {table.name}
                     </TableCell>
-                    <TableCell>{table.num_rows.toLocaleString("en-US")}</TableCell>
-                    <TableCell>{table.num_columns}</TableCell>
-                    <TableCell>{table.primary_key || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {table.num_rows.toLocaleString("en-US")}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {table.num_columns}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {table.primary_key || "—"}
+                    </TableCell>
                     <TableCell className="px-4">
                       <div className="flex flex-wrap justify-end gap-1.5">
                         <Button asChild variant="outline" size="sm">
                           <a href={`${browse_url_root}/${table.name}`}>Browse</a>
                         </Button>
                         <Button asChild variant="outline" size="sm">
-                          <a href={`${forger_url_root}/${table.name}`}>Forge</a>
+                          <a href={`${forger_url_root}/${table.name}`}>
+                            New record
+                          </a>
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           disabled={busy !== ""}
-                          onClick={() =>
-                            void call(
-                              "resequence",
-                              table.name,
-                              `Resequence the 'id' column of '${table.name}' from 1? ` +
-                                "This rewrites primary key values and cannot be undone."
-                            )
-                          }
+                          onClick={() => void call("resequence", table.name)}
                         >
                           Resequence
                         </Button>
@@ -172,14 +198,7 @@ export default function TableList({ data }: EtViewProps) {
                           variant="destructive"
                           size="sm"
                           disabled={busy !== ""}
-                          onClick={() =>
-                            void call(
-                              "truncate",
-                              table.name,
-                              `Truncate '${table.name}'? Every row in the table will be ` +
-                                "deleted. This cannot be undone."
-                            )
-                          }
+                          onClick={() => void call("truncate", table.name)}
                         >
                           Truncate
                         </Button>
@@ -192,6 +211,8 @@ export default function TableList({ data }: EtViewProps) {
           </CardContent>
         </Card>
       )}
+
+      {confirm_dialog}
     </div>
   );
 }

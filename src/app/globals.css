@@ -3,76 +3,125 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Eterc design tokens. The shadcn variables below are the product's single
-   styling source; Tailwind utilities and shadcn components consume them. */
+/* Eterc starter design tokens.
+ *
+ * Source of truth: docs/design-system.md. The web starter shares the desktop
+ * admin hierarchy: neutral canvas, white surfaces, black primary actions,
+ * Inter/Fira Mono, 1 px lines, 8 px controls, and 10 px surfaces. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --background: #ededed;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #171717;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #2563eb;
+  --popover-foreground: #000000;
+  --surface-subtle: #f5f5f5;
+  --surface-inverted: #0e1c2f;
+  --overlay: rgb(38 50 56 / 0.8);
+
+  /* Brand and actions */
+  --primary: #000000;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #eff6ff;
-  --accent-foreground: #1d4ed8;
-  --destructive: #dc2626;
+  --secondary: #ededed;
+  --secondary-foreground: #000000;
+  --muted: #ededed;
+  --muted-foreground: #666666;
+  --accent: #ededed;
+  --accent-foreground: #000000;
+  --brand: #11355d;
+  --brand-foreground: #ffffff;
+  --destructive: #a51d2d;
   --destructive-foreground: #ffffff;
-  --success: #16a34a;
+  --success: #2e7d32;
   --success-foreground: #ffffff;
-  --warning: #d97706;
+  --warning: #b26a00;
   --warning-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #2563eb;
+
+  /* Lines and focus */
+  --border: #d9d9d9;
+  --input: #cccccc;
+  --ring: #000000;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--ring);
+  --focus-shadow: 0 0 16px -8px var(--ring);
+
+  /* Geometry */
   --radius: 0.5rem;
-  --chart-1: #2563eb;
-  --chart-2: #16a34a;
-  --chart-3: #d97706;
-  --chart-4: #7c3aed;
-  --chart-5: #dc2626;
-  --sidebar: #f8fafc;
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #2563eb;
+  --radius-surface: 0.625rem;
+  --field-height: 3.25rem;
+  --field-height-lg: 3.75rem;
+  --field-padding: 1rem;
+  --header-height: 4rem;
+  --sidebar-width: 17.5rem;
+  --content-padding: 2rem;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eff6ff;
-  --sidebar-accent-foreground: #1d4ed8;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #2563eb;
+  --sidebar-accent: #ededed;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #d9d9d9;
+  --sidebar-ring: #000000;
+
+  /* Data visualisation */
+  --chart-1: #11355d;
+  --chart-2: #2e7d32;
+  --chart-3: #b26a00;
+  --chart-4: #6d4aff;
+  --chart-5: #a51d2d;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #171717;
-  --card-foreground: #fafafa;
-  --popover: #171717;
-  --popover-foreground: #fafafa;
-  --primary: #3b82f6;
-  --primary-foreground: #0a0a0a;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #1e3a8a;
-  --accent-foreground: #dbeafe;
-  --destructive: #ef4444;
-  --destructive-foreground: #0a0a0a;
-  --border: #262626;
-  --input: #262626;
-  --ring: #3b82f6;
-  --sidebar: #171717;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #262626;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #262626;
-  --sidebar-ring: #3b82f6;
+  --background: #0d1117;
+  --foreground: #c9d1d9;
+  --card: #161b22;
+  --card-foreground: #c9d1d9;
+  --popover: #1c2128;
+  --popover-foreground: #f0f6fc;
+  --surface-subtle: #1c2128;
+  --surface-inverted: #f0f6fc;
+  --overlay: rgb(0 0 0 / 0.8);
+
+  --primary: #f0f6fc;
+  --primary-foreground: #0d1117;
+  --secondary: #21262e;
+  --secondary-foreground: #f0f6fc;
+  --muted: #21262e;
+  --muted-foreground: #8b949e;
+  --accent: #30363d;
+  --accent-foreground: #f0f6fc;
+  --brand: #9db8d8;
+  --brand-foreground: #0d1117;
+  --destructive: #f85149;
+  --destructive-foreground: #ffffff;
+  --success: #3fb950;
+  --success-foreground: #0d1117;
+  --warning: #d29922;
+  --warning-foreground: #0d1117;
+
+  --border: #30363d;
+  --input: #3d444d;
+  --ring: #f0f6fc;
+  --focus-shadow: 0 0 16px -8px var(--ring);
+
+  --sidebar: #161b22;
+  --sidebar-foreground: #f0f6fc;
+  --sidebar-primary: #f0f6fc;
+  --sidebar-primary-foreground: #0d1117;
+  --sidebar-accent: #21262e;
+  --sidebar-accent-foreground: #f0f6fc;
+  --sidebar-border: #30363d;
+  --sidebar-ring: #f0f6fc;
+
+  --chart-1: #9db8d8;
+  --chart-2: #3fb950;
+  --chart-3: #d29922;
+  --chart-4: #a78bfa;
+  --chart-5: #f85149;
 }
 
 @theme inline {
@@ -90,6 +139,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -99,6 +150,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-inverted: var(--surface-inverted);
+  --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -112,31 +166,183 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-fira-mono), "Cascadia Code", Consolas, monospace;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 2rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
   }
+
   body {
-    @apply bg-background text-[13px] leading-5 text-foreground antialiased;
-    font-family:
-      var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 22px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
   h1 {
-    @apply text-[18px] font-semibold tracking-[-0.01em];
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: -0.01em;
   }
+
   h2 {
-    @apply text-[15px] font-semibold tracking-[-0.01em];
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 22px;
   }
+
   h3 {
-    @apply text-[13px] font-semibold tracking-[-0.01em];
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
   }
+
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [contenteditable="true"]:focus-visible {
+    outline: none;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+  textarea:focus-visible,
+  [data-slot="select-trigger"]:focus-visible {
+    border-color: var(--ring);
+    box-shadow: var(--focus-shadow);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--foreground) 16%, transparent);
+  }
+}
+
+@layer utilities {
+  .app-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+
+  .app-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--input);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  .app-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .type-headline {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  .type-title {
+    color: var(--foreground);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: -0.01em;
+  }
+
+  .type-label {
+    color: var(--foreground);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 19px;
+  }
+
+  .type-text {
+    color: var(--foreground);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 22px;
+  }
+
+  .type-note {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    font-style: italic;
+    font-weight: 500;
+    line-height: 18px;
+  }
+}
+
+[data-sonner-toast] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-surface) !important;
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 16px 40px -20px rgb(0 0 0 / 0.35) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  line-height: 22px !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--success);
+}
+
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--destructive);
+}
+
+[data-sonner-toast][data-type="warning"] [data-icon] {
+  color: var(--warning);
 }
 
 @layer components {

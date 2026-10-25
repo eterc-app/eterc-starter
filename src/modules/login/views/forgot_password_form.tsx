@@ -21,7 +21,7 @@ export function ForgotPasswordForm({ data }: EtViewProps) {
       <EtForm
         action="login/submit_forgot_password"
         params={[loginUrl]}
-        className="space-y-4"
+        className="space-y-5"
       >
         <div className="space-y-2">
           <Label htmlFor="identifier">{identifierLabel}</Label>
@@ -29,20 +29,19 @@ export function ForgotPasswordForm({ data }: EtViewProps) {
             id="identifier"
             type="text"
             name="identifier"
-            placeholder={`${identifierLabel} or Email`}
             autoComplete="email"
             required
           />
         </div>
 
         <Button type="submit" className="w-full">
-          Send Reset Link
+          Send reset link
         </Button>
       </EtForm>
 
-      <p className="mt-5 border-t pt-4 text-center text-sm">
+      <p className="mt-5 border-t border-border pt-4 text-center text-sm">
         <a
-          className="font-medium text-primary underline-offset-4 hover:underline"
+          className="font-semibold text-foreground underline-offset-4 hover:underline"
           href={site_url(`login/login/${loginUrl}`)}
         >
           Back to login

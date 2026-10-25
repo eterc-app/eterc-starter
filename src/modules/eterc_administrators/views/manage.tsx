@@ -2,6 +2,9 @@ import { BASE_URL } from "@/engine/config";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
+import { EmptyState } from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Users } from "lucide-react";
 import { PerPageSelect } from "./PerPageSelect";
+
 export default function Manage({ data }: EtViewProps) {
   const rows = (data.rows ?? []) as Array<Record<string, unknown>>;
   const pagination_data = (data.pagination_data ?? {}) as Record<string, unknown>;
@@ -25,36 +30,42 @@ export default function Manage({ data }: EtViewProps) {
   const selected_per_page = Number(data.selected_per_page ?? 1);
 
   const base = BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`;
+  const has_pagination =
+    Number(pagination_data.total_rows ?? 0) > Number(pagination_data.limit ?? 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1>Manage Administrators</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Accounts that can sign in to Eterc.
-          </p>
-        </div>
-        <Button asChild>
-          <a href={`${base}administrators/create`}>Create New Record</a>
-        </Button>
-      </div>
+    <div className="app-page">
+      <PageHeader
+        eyebrow="Content"
+        title="Manage administrators"
+        description="Accounts that can sign in to Eterc."
+        actions={
+          <Button asChild>
+            <a href={`${base}administrators/create`}>Create administrator</a>
+          </Button>
+        }
+      />
 
       <Flashdata />
 
       {rows.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            There are currently no records to display.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Users className="size-5" strokeWidth={1.75} />}
+          title="No administrators yet"
+          description="Create an account to let someone sign in to this workspace."
+          action={
+            <Button asChild>
+              <a href={`${base}administrators/create`}>Create administrator</a>
+            </Button>
+          }
+        />
       ) : (
         <>
           <Card className="overflow-hidden p-0">
-            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border px-4 py-3">
               <CardTitle>Administrators</CardTitle>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                Records Per Page:
+                Records per page
                 <PerPageSelect
                   options={per_page_options}
                   selected={selected_per_page}
@@ -62,31 +73,39 @@ export default function Manage({ data }: EtViewProps) {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="border-b px-4 py-2">
-                <Pagination data={pagination_data} />
-              </div>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
+                  <TableRow>
                     <TableHead className="px-4">Username</TableHead>
                     <TableHead>User ID</TableHead>
                     <TableHead>Active</TableHead>
-                    <TableHead className="w-24 px-4 text-right">Action</TableHead>
+                    <TableHead className="w-24 px-4 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={String(row.id)}>
-                      <TableCell className="px-4 font-medium">
+                      <TableCell className="px-4 font-mono text-xs font-semibold">
                         {String(row.username ?? "")}
                       </TableCell>
-                      <TableCell>{String(row.eterc_user_id ?? "")}</TableCell>
-                      <TableCell>{String(row.active_formatted ?? "")}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {String(row.eterc_user_id ?? "")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            String(row.active_formatted ?? "").toLowerCase() ===
+                            "active"
+                              ? "success"
+                              : "outline"
+                          }
+                        >
+                          {String(row.active_formatted ?? "")}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="px-4 text-right">
                         <Button asChild variant="outline" size="sm">
-                          <a
-                            href={`${base}administrators/show/${row.id}`}
-                          >
+                          <a href={`${base}administrators/show/${row.id}`}>
                             View
                           </a>
                         </Button>
@@ -98,7 +117,7 @@ export default function Manage({ data }: EtViewProps) {
             </CardContent>
           </Card>
 
-          {rows.length > 9 ? (
+          {has_pagination ? (
             <div className="flex justify-end">
               <Pagination
                 data={{ ...pagination_data, include_showing_statement: false }}

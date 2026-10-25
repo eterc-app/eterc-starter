@@ -14,8 +14,8 @@ function SetupIndex({ data }: EtViewProps) {
 
 function SetupHelpMessage() {
   return (
-    <main className="min-h-screen bg-muted/30 px-4 py-10">
-      <div className="mx-auto w-full max-w-3xl rounded-lg border border-border/70 bg-card p-6 shadow-none sm:p-8">
+    <main className="min-h-screen bg-background px-4 py-10">
+      <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-card p-6 shadow-none sm:p-8">
         <HelpMessage onBack={() => undefined} />
       </div>
     </main>

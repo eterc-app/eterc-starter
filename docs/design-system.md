@@ -1,0 +1,308 @@
+# Eterc Starter design system
+
+This document is the visual contract for the Eterc Starter web frontend. It adapts the
+canonical Eterc Desktop admin design system to a browser application. The implementation source
+of truth is `src/app/globals.css` plus the primitives in `src/components/ui` and the shared page
+components in `src/components/app`. When this document and a one-off class disagree, the document
+wins and the class must be removed or promoted into a primitive.
+
+The starter remains CMS-first and private by default. The visual system must not change setup,
+authentication, roles, API keys, media, database, or routing behavior.
+
+## 1. Non-negotiable rules
+
+1. Use design tokens or shared primitives. Do not introduce raw hex colors, Tailwind palette
+   colors (`slate`, `blue`, `emerald`, `amber`, `violet`, etc.), or page-level shadows.
+2. Use the type scale in section 3. Do not add arbitrary `text-[13px]`, `font-bold`, oversized
+   display headings, or all-caps section labels.
+3. Use an 8 px radius for controls and a 10 px radius for surfaces. Pills and avatars may be
+   fully round. Do not use `rounded-2xl`, `rounded-3xl`, or arbitrary radii.
+4. Use 1 px borders. Do not use 2 px borders, colored glow rings, or border opacity variants for
+   neutral dividers.
+5. Use black for primary actions and field focus. The navy brand color is for identity accents
+   only.
+6. Use labels selectively. A field label is required when the value is not self-evident. A
+   description is reserved for destructive actions, security, non-obvious defaults, and
+   validation. Do not repeat the label in helper text.
+7. The top bar is global workspace chrome. The page title belongs in `PageHeader`. Do not render
+   the same page title in both places.
+8. Every authenticated page root uses `app-page`. Auth, setup, and public pages use their own
+   full-screen surface but the same tokens and type scale.
+9. Run `npm run typecheck`, `npm run styles:check`, `npm run lint`, and `npm run build` before
+   considering a UI change complete.
+
+## 2. Color tokens
+
+Light mode is canonical. Dark mode is an adaptation of the same hierarchy and must not invent new
+accents.
+
+| Token | Light | Use |
+| --- | --- | --- |
+| `--background` | `#ededed` | App canvas behind cards |
+| `--card` / `--popover` | `#ffffff` | Sidebar, top bar, cards, menus |
+| `--foreground` | `#000000` | Primary text and primary actions |
+| `--muted-foreground` | `#666666` | Secondary text, notes, placeholders |
+| `--border` | `#d9d9d9` | Card, table, and divider borders |
+| `--input` | `#cccccc` | Field borders and scrollbar thumb |
+| `--primary` | `#000000` | Primary button, checked control, focus |
+| `--primary-foreground` | `#ffffff` | Text on primary |
+| `--secondary` / `--muted` | `#ededed` | Secondary buttons, selected rows, icon wells |
+| `--brand` | `#11355d` | Identity accents (brand marks, code/folder icons) |
+| `--destructive` | `#a51d2d` | Destructive text and tinted destructive actions |
+| `--success` | `#2e7d32` | Healthy status only |
+| `--warning` | `#b26a00` | Attention states only |
+| `--surface-subtle` | `#f5f5f5` | Table headers, footers, inset panels |
+| `--surface-inverted` | `#0e1c2f` | Tooltip surface |
+| `--overlay` | `rgb(38 50 56 / 0.8)` | Dialog and mobile-navigation scrim |
+
+Rules:
+
+- Semantic tints are allowed only for semantic states, for example
+  `border-destructive/30 bg-destructive/5 text-destructive`.
+- Never use a semantic color as decoration. A healthy card does not get a green tint unless it
+  communicates health.
+- Do not use the old starter blue (`#2563eb`), emerald/blue status accents, or blue-tinted
+  surfaces. The canvas is neutral gray and the primary action is black.
+- `text-white` and `bg-white` are forbidden; use foreground/background tokens.
+
+## 3. Typography
+
+Fonts are self-hosted by `next/font/google`: Inter for UI and Fira Mono for machine-readable
+values. If the font download fails at build time, the CSS falls back to the system sans/mono
+stack; do not switch to a runtime font CDN.
+
+| Role | Class / recipe | Size / line | Weight |
+| --- | --- | --- | --- |
+| Body | default | 14 / 22 | 500 |
+| Label | `Label` / `type-label` | 16 / 19 | 600 |
+| Page title | `PageHeader` / `type-title` | 18 / 24 | 500 |
+| Section title | `h2` / `text-base font-semibold` | 16 / 22 | 600 |
+| Card title | `CardTitle` | 16 / 22 | 600 |
+| Note | `type-note` | 13 / 18 italic | 500 |
+| Eyebrow | `type-headline` | 12 / 16 | 600 |
+| Micro / badge | `text-xs` | 13 / 18 | 600 |
+| Mono value | `font-mono text-xs` | 13 / 18 | 500 |
+| Hero number | `text-lg font-medium` | 18 / 24 | 500 |
+
+Rules:
+
+- Page titles are 18 px. Do not use 24 px or 30 px page headings.
+- Use `font-medium` for display numbers and titles, `font-semibold` for labels and emphasis.
+  Never use `font-bold`.
+- Use sentence case. All-caps is reserved for short brand lockups and is not a section-label
+  device.
+- Use `type-note` only for an actual note: security guidance, destructive consequences, or a
+  non-obvious default. Do not put a note under every field.
+- Machine-readable identifiers, paths, keys, SQL, and code use `font-mono`. UI prose does not.
+- Use tabular numbers for counts and timings.
+
+## 4. Geometry and layout
+
+| Element | Value |
+| --- | --- |
+| Sidebar | 280 px (`w-[280px]`) |
+| Top bar | 64 px (`h-16`) |
+| Content padding | 32 px on large screens, 16–24 px below |
+| Maximum content width | 1560 px (`max-w-[1560px]`) |
+| Control radius | 8 px (`rounded-lg`) |
+| Surface radius | 10 px (`rounded-xl`) |
+| Border width | 1 px |
+| Standard field height | 52 px (`h-13`) |
+| Large field height | 60 px (`h-15`) |
+| Standard button height | 40 px (`h-10`) |
+| Large button height | 60 px (`h-15`) |
+| Compact button height | 32 px (`h-8`) |
+| Icon button | 40 px (`size-10`) |
+| Card padding | 16 px |
+| Form column gap | 32 px |
+| Form row gap | 24 px |
+
+Shell composition:
+
+- `AdminTemplate` is the authenticated shell. It has a 280 px white sidebar, a 64 px white top
+  bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
+- The sidebar has 12 px horizontal padding, 40 px navigation rows, and 12 px sentence-case
+  section labels. The active row uses `--muted` and semibold text.
+- The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, a private-API
+  badge, and the theme toggle. It does not repeat the page title.
+- The account menu lives in the sidebar footer and opens upward.
+- Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
+  consistent 24 px vertical rhythm.
+- Auth and setup pages are full-screen canvas surfaces with a single white card. Public pages
+  use the same canvas and card hierarchy.
+
+## 5. Components
+
+### Buttons
+
+- Default: black fill, white text, 40 px tall, 8 px radius, 16 px horizontal padding.
+- Outline: white fill, 1 px `--border`, foreground text. Hover uses `--muted`.
+- Secondary: neutral fill for selected filters and toggles.
+- Ghost: text/icon actions only; hover uses `--muted`.
+- Destructive: tinted red surface with red text. A destructive action inside a confirmation
+  dialog uses `variant="destructive"`. Do not use solid red for normal buttons.
+- Icon buttons are 40 px with a visible `aria-label` and, when useful, a tooltip.
+- Never add page-level shadows to buttons. Focus is the shared 2 px outline with 2 px offset.
+
+### Fields
+
+- Inputs, selects, and textareas are 52 px tall by default, white, 1 px `--input`, 8 px radius,
+  16 px horizontal padding, 14 px text.
+- Focus is a 1 px black border plus a soft black shadow:
+  `focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]`. Do not use a
+  colored outer ring on fields.
+- Placeholders are muted and never replace a label.
+- Labels are 16 px semibold. Keep the label and control in an 8 px vertical stack.
+- Helper text is 13 px italic muted and appears only when it changes a decision.
+- Form grids use two columns at `sm` and larger, 32 px column gap, 24 px row gap. Long text fields
+  span both columns.
+
+### Cards and surfaces
+
+- Cards are white, 1 px `--border`, 10 px radius, no shadow, 16 px padding.
+- Card headers that separate from content use a 1 px bottom border and 12 px bottom padding.
+- Use `--surface-subtle` for table headers, footers, inset panels, and metadata wells.
+- Do not use gradients, glass effects, lift-on-hover, or colored card borders except for
+  semantic warning/error surfaces.
+- Non-blocking notices use the shared `Notice` primitive: a white surface, 10 px radius, 1 px
+  border, a 4 px black left border, and a black icon. Reserve red tints for destructive
+  consequences and failed operations. Do not use amber-tinted cards for ordinary guidance.
+
+### Tables
+
+- Table text is 14 px; headers are 13 px semibold muted on `--surface-subtle`, 44 px tall.
+- Rows are 44 px tall with 1 px bottom borders and a subtle hover. Selected rows use `--muted`.
+- Cells use 12 px horizontal padding. Actions are right-aligned.
+- Identifiers use `font-mono text-xs`. Do not use 10 px or 11 px text in tables.
+- Empty states use the shared `EmptyState` primitive with a 48 px icon well, a 16 px semibold
+  title, and at most one short note.
+
+### Tabs
+
+- The tab list is a 40 px neutral track with 8 px radius and 4 px padding.
+- Tabs are 32 px tall, 14 px semibold, with an 8 px radius. The active tab is a white surface
+  with a 1 px border. Do not use colored underlines except for the explicit `line` variant.
+
+### Dialogs
+
+- Dialogs are white, 10 px radius, 1 px border, 24 px padding, and a large soft shadow. The
+  scrim uses `--overlay`.
+- Titles are 18 px medium. Descriptions are 13 px italic muted and only explain consequences or
+  non-obvious behavior.
+- Footers are inset with a 1 px top border and `--surface-subtle`, with the primary action on the
+  right and Cancel on the left.
+- Destructive confirmations must name the object and state that the action cannot be undone.
+- Use the shared `useConfirm` hook from `@/components/app/ConfirmDialog` for confirmations;
+  render its `dialog` once per page and `await confirm({...})` before the action. Do not call
+  `window.confirm` in application code.
+- Long dialogs scroll with `app-scrollbar`; the close button stays at the top right.
+
+### Badges and status
+
+- Badges are 24 px tall, 13 px semibold, 6 px radius, and use outline or a semantic tint.
+- Status is communicated by text plus a semantic badge, not color alone. Success is green,
+  attention amber, error red, inactive neutral.
+- Do not create custom pill colors outside the badge variants.
+
+### Menus and tooltips
+
+- Menus are white popovers, 10 px radius, 1 px border, 4 px padding, 36 px minimum row height.
+- Tooltips use the inverted surface, 13 px text, 8 px radius, and a 300 ms delay.
+- Focus and hover states use `--muted`/`--accent`; no colored highlights.
+
+### Empty states
+
+- Use `EmptyState` for a full empty region. It is a white card with a dashed 1 px border, a
+  48 px icon well, a 16 px semibold title, and optional actions.
+- Use an inline empty state inside a table or editor for a smaller region.
+- Do not use emoji, illustrations, or decorative gradients.
+
+## 6. Page composition
+
+Every authenticated page follows this structure:
+
+```tsx
+<div className="app-page">
+  <PageHeader
+    eyebrow="Workspace" // or "Content" / "System" / "Database"
+    title="Content overview"
+    actions={<Button variant="outline">Refresh</Button>}
+  />
+  {/* page sections, 24 px apart via app-page */}
+</div>
+```
+
+- `PageHeader` owns the `h1`. Do not add another page-level heading.
+- Use an eyebrow for the section of the app. Use a title for the page.
+- Actions live on the right of the header and wrap on narrow widths.
+- Metadata such as an API endpoint or database path goes in a `font-mono text-xs` line or an inset
+  panel, not in a hero card.
+- Start content immediately after the header; do not add `mt-4`/`mt-5` when `app-page` already
+  provides the gap.
+- Dashboard cards may use a simple stat row. Do not add decorative charts or invented metrics.
+
+## 7. Auth, setup, and public pages
+
+- `AuthShell` owns the full-screen canvas, the 440 px card, the brand mark, the title, the
+  optional description, and the private-by-default footer. Login, forgot/reset password, and
+  blocked-access views use it.
+- Auth cards use the same 10 px surface radius, 1 px border, 16 px semibold labels, and 52 px
+  fields as the admin workspace.
+- The setup wizard uses a 3xl max-width card on the canvas. Steps use a neutral track; the active
+  step is black, not blue. Do not add confetti, gradients, or rainbow colors.
+- Public pages use the neutral canvas, a white card, and black primary actions. They do not use
+  the admin sidebar or top bar.
+- Error pages use the same card hierarchy and sentence-case copy. Do not use 30 px status
+  headings.
+
+## 8. Dark mode
+
+- Dark mode uses the same hierarchy: dark canvas, slightly lighter cards, light foreground, and
+  a light primary action.
+- Do not add dark-only accent colors. Semantic colors remain green/amber/red with the same
+  meaning.
+- Check focus outlines and field borders in dark mode; both must remain visible.
+- The theme toggle lives in the top bar. Persist the preference through `next-themes`.
+
+## 9. Accessibility
+
+- Every icon-only button needs `aria-label` and a tooltip when the icon is not universally
+  understood.
+- Keyboard focus is always visible: 2 px outline, 2 px offset, `--ring`.
+- Inputs, selects, and textareas use `Label` with a matching `htmlFor`.
+- Do not rely on color alone for status, validation, or selection.
+- Dialog titles and descriptions must be announced; destructive confirmations must have a
+  description.
+- Keep text contrast at or above WCAG AA for the token pairings in section 2.
+
+## 10. Enforcement
+
+`npm run styles:check` scans source for the most common regressions:
+
+- raw hex colors in TSX (the Scalar reference theme is the documented exception)
+- Tailwind palette colors
+- arbitrary text sizes, radii, tracking, and page-level shadows
+- `font-bold`, `bg-white`, `text-black`, `border-border/…`, `divide-border/…`, `ring-*`
+- page roots that miss `app-page` in the authenticated admin modules
+- required tokens and shell geometry in `globals.css` and `AdminTemplate`
+- native `window.confirm` calls
+- legacy stylesheets and inline `<style>` blocks
+
+The check is intentionally narrow. It does not replace review. A reviewer should still inspect
+the rendered app at 1280 px, 1440 px, and 390 px.
+
+## 11. Change checklist
+
+- [ ] The page uses `app-page` and `PageHeader` (or the appropriate auth/setup/public surface).
+- [ ] No duplicate page title in the top bar.
+- [ ] No raw palette colors, hex colors, arbitrary type sizes, or arbitrary radii.
+- [ ] Fields use `Input`/`Select`/`Textarea` and the shared focus treatment.
+- [ ] Buttons use the shared variants and sizes.
+- [ ] Cards use 1 px borders, 10 px radius, no shadow.
+- [ ] Labels are selective; notes are reserved for real decisions.
+- [ ] Icon-only buttons have labels and tooltips.
+- [ ] Light and dark mode both render correctly.
+- [ ] `npm run typecheck` passes.
+- [ ] `npm run styles:check` passes.
+- [ ] `npm run lint` passes.
+- [ ] `npm run build` passes.

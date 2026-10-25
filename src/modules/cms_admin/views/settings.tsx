@@ -5,14 +5,22 @@ import {
   AlertTriangle,
   CheckCircle2,
   Database,
+  FilePlus2,
   KeyRound,
   RefreshCw,
   Save,
-  Sparkles,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Notice } from "@/components/app/Notice";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EtViewProps } from "@/engine/views-registry";
@@ -22,25 +30,25 @@ import { BusyButton, PageHeader, cms_call } from "./ui";
 function StatusPill({ status }: { status?: string }) {
   if (status === "verified") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-        <CheckCircle2 className="size-3.5" />
+      <Badge variant="success">
+        <CheckCircle2 className="size-3.5" strokeWidth={1.75} />
         Verified
-      </span>
+      </Badge>
     );
   }
   if (status === "error") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive">
-        <XCircle className="size-3.5" />
+      <Badge variant="destructive">
+        <XCircle className="size-3.5" strokeWidth={1.75} />
         Needs attention
-      </span>
+      </Badge>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
-      <AlertTriangle className="size-3.5" />
+    <Badge variant="outline">
+      <AlertTriangle className="size-3.5" strokeWidth={1.75} />
       Not configured
-    </span>
+    </Badge>
   );
 }
 
@@ -58,15 +66,17 @@ function RuntimeRow({
   message?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="text-muted-foreground">{icon}</span>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+          {icon}
+        </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium">{label}</p>
+          <p className="text-sm font-semibold">{label}</p>
           <p className="truncate text-xs text-muted-foreground">{provider}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {message ? (
           <span className="hidden text-xs text-muted-foreground sm:inline">
             {message}
@@ -146,9 +156,11 @@ export default function ProjectSettings({ data }: EtViewProps) {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-5 p-4 sm:p-6">
+    <div className="app-page max-w-4xl">
       <PageHeader
+        eyebrow="System"
         title="Project settings"
+        description="Runtime defaults for this private CMS workspace."
         actions={
           <BusyButton busy={saving} onClick={save}>
             <Save className="size-4" />
@@ -160,17 +172,20 @@ export default function ProjectSettings({ data }: EtViewProps) {
       <Card>
         <CardHeader>
           <CardTitle>Runtime</CardTitle>
+          <CardDescription>
+            Providers currently active for this installation.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <RuntimeRow
-            icon={<Database className="size-4" />}
+            icon={<Database className="size-4" strokeWidth={1.75} />}
             label="Database"
             provider={runtime.database.label ?? runtime.database.provider}
             status={runtime.database.status}
             message={runtime.database.message}
           />
           <RuntimeRow
-            icon={<KeyRound className="size-4" />}
+            icon={<KeyRound className="size-4" strokeWidth={1.75} />}
             label="Authentication"
             provider={runtime.auth.label ?? runtime.auth.provider}
             status={runtime.auth.status}
@@ -182,9 +197,12 @@ export default function ProjectSettings({ data }: EtViewProps) {
       <Card>
         <CardHeader>
           <CardTitle>API defaults</CardTitle>
+          <CardDescription>
+            Limits applied to every private API response.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="max-page-size">Maximum page size</Label>
             <Input
               id="max-page-size"
@@ -197,14 +215,14 @@ export default function ProjectSettings({ data }: EtViewProps) {
               }
             />
           </div>
-          <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+          <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
             <input
               type="checkbox"
-              className="size-4 accent-foreground"
+              className="size-5 accent-foreground"
               checked={seedMemberRole}
               onChange={(event) => setSeedMemberRole(event.target.checked)}
             />
-            <span className="font-medium">Keep the Member role</span>
+            <span className="font-semibold">Keep the Member role</span>
           </label>
         </CardContent>
       </Card>
@@ -212,6 +230,9 @@ export default function ProjectSettings({ data }: EtViewProps) {
       <Card>
         <CardHeader>
           <CardTitle>Utilities</CardTitle>
+          <CardDescription>
+            Maintenance tasks for the current schema.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <BusyButton
@@ -220,7 +241,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
             busy={utilityBusy}
             onClick={createStarter}
           >
-            <Sparkles className="size-4" />
+            <FilePlus2 className="size-4" />
             Create starter Posts collection
           </BusyButton>
           <BusyButton
@@ -235,13 +256,10 @@ export default function ProjectSettings({ data }: EtViewProps) {
         </CardContent>
       </Card>
 
-      <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <p>
-          SQLite and built-in accounts stay active in this build. Provider
-          changes are handled in Eterc Desktop.
-        </p>
-      </div>
+      <Notice icon={AlertTriangle}>
+        SQLite and built-in accounts stay active in this build. Provider changes
+        are handled in Eterc Desktop.
+      </Notice>
     </div>
   );
 }

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  ArrowUpRight,
   Braces,
   Database,
   KeyRound,
+  Layers,
   Plus,
   ShieldCheck,
-  Sparkles,
   Table2,
   Users,
 } from "lucide-react";
@@ -16,15 +17,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EtViewProps } from "@/engine/views-registry";
 import type { CmsCollectionWithFields } from "@/modules/cms/cms-types";
-import { PageHeader } from "./ui";
+import { EmptyState, PageHeader } from "./ui";
 
 export default function CmsDashboard({ data }: EtViewProps) {
   const collections = (data.collections ?? []) as CmsCollectionWithFields[];
+  const fieldCount = collections.reduce(
+    (total, collection) => total + (collection.fields?.length ?? 0),
+    0
+  );
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
+    <div className="app-page">
       <PageHeader
+        eyebrow="Workspace"
         title="Content overview"
+        description="Manage collections, media, and access from one private workspace."
         actions={
           <>
             <Button asChild variant="outline">
@@ -43,56 +50,111 @@ export default function CmsDashboard({ data }: EtViewProps) {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardContent className="flex items-center gap-3 py-1">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+              <Table2 className="size-4" strokeWidth={1.75} />
+            </span>
+            <span>
+              <span className="block text-xs text-muted-foreground">
+                Collections
+              </span>
+              <span className="type-title mt-0.5 block">
+                {collections.length}
+              </span>
+            </span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-1">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+              <Layers className="size-4" strokeWidth={1.75} />
+            </span>
+            <span>
+              <span className="block text-xs text-muted-foreground">
+                Fields
+              </span>
+              <span className="type-title mt-0.5 block">{fieldCount}</span>
+            </span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-1">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+              <ShieldCheck className="size-4" strokeWidth={1.75} />
+            </span>
+            <span>
+              <span className="block text-xs text-muted-foreground">
+                API mode
+              </span>
+              <span className="mt-0.5 block text-sm font-semibold">
+                Private by default
+              </span>
+            </span>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
             <CardTitle>Collections</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/data">
-                Manage <ArrowRight className="size-3.5" />
+                Manage
+                <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-1.5">
+          <CardContent>
             {collections.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-6 text-center">
-                <Button asChild variant="outline">
-                  <Link href="/admin/data">
-                    <Plus className="size-4" />
-                    Create a collection
-                  </Link>
-                </Button>
-              </div>
+              <EmptyState
+                icon={<Table2 className="size-5" strokeWidth={1.75} />}
+                title="No collections yet"
+                description="Create your first collection to start modelling content."
+                action={
+                  <Button asChild variant="outline">
+                    <Link href="/admin/data">
+                      <Plus className="size-4" />
+                      Create a collection
+                    </Link>
+                  </Button>
+                }
+              />
             ) : (
-              collections.slice(0, 8).map((collection) => (
-                <Link
-                  key={collection.name}
-                  href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
-                  className="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/40"
-                >
-                  <span className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
-                    <Table2 className="size-3.5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                      {collection.label || collection.name}
+              <div className="space-y-2">
+                {collections.slice(0, 8).map((collection) => (
+                  <Link
+                    key={collection.name}
+                    href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
+                    className="group flex items-center gap-3 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-surface-subtle"
+                  >
+                    <span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground">
+                      <Table2 className="size-4" strokeWidth={1.75} />
                     </span>
-                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {collection.name}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">
+                        {collection.label || collection.name}
+                      </span>
+                      <span className="block truncate font-mono text-xs text-muted-foreground">
+                        {collection.name}
+                      </span>
                     </span>
-                  </span>
-                </Link>
-              ))
+                    <span className="hidden text-xs text-muted-foreground sm:block">
+                      {collection.fields?.length ?? 0} fields
+                    </span>
+                    <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  </Link>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="size-4" />
-              Quick actions
-            </CardTitle>
+            <CardTitle>Quick actions</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
             <Button asChild variant="outline" className="justify-start">

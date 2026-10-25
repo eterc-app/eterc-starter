@@ -1,6 +1,7 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,36 +11,35 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 export default function Create({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
   const is_update = data.id !== undefined && data.id !== null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>{String(data.headline ?? "")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Set the account username and whether it can sign in.
-        </p>
-      </div>
+    <div className="app-page max-w-3xl">
+      <PageHeader
+        eyebrow="Content"
+        title={is_update ? "Update administrator" : "Create administrator"}
+        description="Set the account username and whether it can sign in."
+        actions={
+          is_update ? (
+            <Button asChild variant="outline">
+              <a href={String(data.update_password_url ?? "")}>
+                Update password
+              </a>
+            </Button>
+          ) : null
+        }
+      />
 
       <ValidationErrors />
 
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Record Details</CardTitle>
+        <CardHeader className="border-b border-border">
+          <CardTitle>Account details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {is_update ? (
-            <div className="mb-5 flex justify-end">
-              <Button asChild variant="outline" size="sm">
-                <a href={String(data.update_password_url ?? "")}>
-                  Update Password
-                </a>
-              </Button>
-            </div>
-          ) : null}
-
           <EtForm
             action="eterc_administrators/submit"
             params={[update_id]}
@@ -52,25 +52,24 @@ export default function Create({ data }: EtViewProps) {
                 type="text"
                 name="username"
                 defaultValue={String(data.username ?? "")}
-                placeholder="Enter Username"
                 autoComplete="off"
               />
             </div>
 
-            <Label className="flex items-center gap-2 font-normal">
+            <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
               <input
                 type="checkbox"
                 name="active"
                 value="1"
                 defaultChecked={Number(data.active ?? 0) === 1}
-                className="m-0 size-4 rounded border-input"
+                className="m-0 size-5 accent-foreground"
               />
-              Active
-            </Label>
+              <span className="font-semibold">Active</span>
+            </label>
 
-            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row">
               <Button type="submit" name="submit" value="Submit">
-                Submit
+                {is_update ? "Save administrator" : "Create administrator"}
               </Button>
               <Button asChild variant="outline">
                 <a href={String(data.cancel_url ?? "")}>Cancel</a>

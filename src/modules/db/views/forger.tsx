@@ -1,6 +1,7 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,20 +25,22 @@ export default function Forger({ data }: EtViewProps) {
   const fields = (data.fields ?? []) as FormField[];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {update_id > 0
+    <div className="app-page max-w-3xl">
+      <PageHeader
+        eyebrow="Database"
+        title={update_id > 0 ? "Edit record" : "New record"}
+        description={
+          update_id > 0
             ? `Edit record #${update_id} in ${table}.`
-            : `Create a new record in ${table}.`}
-        </p>
-      </div>
+            : `Create a new record in ${table}.`
+        }
+      />
 
       <ValidationErrors />
 
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Record Details</CardTitle>
+        <CardHeader className="border-b border-border">
+          <CardTitle>Record details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <EtForm
@@ -83,9 +86,9 @@ export default function Forger({ data }: EtViewProps) {
               </div>
             ))}
 
-            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+            <div className="flex flex-col gap-2 border-t border-border pt-5 sm:flex-row">
               <Button type="submit" name="submit" value="Submit">
-                Submit
+                Save record
               </Button>
               <Button asChild variant="outline">
                 <a href={String(data.cancel_url ?? "")}>Cancel</a>

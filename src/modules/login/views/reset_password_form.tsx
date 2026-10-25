@@ -21,9 +21,9 @@ export function ResetPasswordForm({ data }: EtViewProps) {
           "This password reset link is invalid or has expired."
         }
       >
-        <div className="border-t pt-4 text-center text-sm">
+        <div className="border-t border-border pt-4 text-center text-sm">
           <a
-            className="font-medium text-primary underline-offset-4 hover:underline"
+            className="font-semibold text-foreground underline-offset-4 hover:underline"
             href={site_url("login/forgot_password")}
           >
             Request a new reset link
@@ -39,7 +39,7 @@ export function ResetPasswordForm({ data }: EtViewProps) {
       description="Enter your new password below."
     >
       {errorMessage !== null ? (
-        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="mb-4 rounded-xl border border-border border-l-4 border-l-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {errorMessage}
         </div>
       ) : null}
@@ -47,34 +47,33 @@ export function ResetPasswordForm({ data }: EtViewProps) {
       <EtForm
         action="login/submit_reset_password"
         hidden={{ token }}
-        className="space-y-4"
+        className="space-y-5"
       >
         <div className="space-y-2">
-          <Label htmlFor="password">New Password</Label>
+          <Label htmlFor="password">New password</Label>
           <Input
             id="password"
             type="password"
             name="password"
-            placeholder="Min. 8 characters"
             autoComplete="new-password"
             required
           />
+          <p className="type-note">Use at least 8 characters.</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm_password">Confirm New Password</Label>
+          <Label htmlFor="confirm_password">Confirm new password</Label>
           <Input
             id="confirm_password"
             type="password"
             name="confirm_password"
-            placeholder="Confirm new password"
             autoComplete="new-password"
             required
           />
         </div>
 
         <Button type="submit" className="w-full">
-          Reset Password
+          Reset password
         </Button>
       </EtForm>
     </AuthShell>

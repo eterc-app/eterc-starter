@@ -10,27 +10,27 @@ import type { OpenApiDocument } from "@/engine/api";
 const customCss = `
   :root {
     --scalar-font: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --scalar-font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    --scalar-radius: 4px;
+    --scalar-font-code: var(--font-fira-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --scalar-radius: 8px;
     --scalar-background-1: #ffffff;
-    --scalar-background-2: #f7f7f8;
-    --scalar-background-3: #efeff1;
-    --scalar-background-accent: #f4f4f5;
-    --scalar-color-1: #18181b;
-    --scalar-color-2: #52525b;
-    --scalar-color-3: #71717a;
-    --scalar-color-accent: #18181b;
-    --scalar-border-color: #e4e4e7;
-    --scalar-button-1: #18181b;
-    --scalar-button-1-hover: #3f3f46;
+    --scalar-background-2: #ededed;
+    --scalar-background-3: #f5f5f5;
+    --scalar-background-accent: #ededed;
+    --scalar-color-1: #000000;
+    --scalar-color-2: #666666;
+    --scalar-color-3: #666666;
+    --scalar-color-accent: #000000;
+    --scalar-border-color: #d9d9d9;
+    --scalar-button-1: #000000;
+    --scalar-button-1-hover: #333333;
     --scalar-button-1-color: #ffffff;
-    --scalar-sidebar-background-1: #fafafa;
-    --scalar-sidebar-search-background: #f4f4f5;
+    --scalar-sidebar-background-1: #ffffff;
+    --scalar-sidebar-search-background: #f5f5f5;
   }
 
   .scalar-host .references-layout {
     min-height: 100% !important;
-    --full-height: calc(100dvh - 48px) !important;
+    --full-height: calc(100dvh - 64px) !important;
   }
 `;
 

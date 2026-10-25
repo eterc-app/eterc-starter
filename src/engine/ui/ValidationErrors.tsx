@@ -25,7 +25,7 @@ export function ValidationErrors({
     const fieldErrors = errors[field];
     if (!fieldErrors || fieldErrors.length === 0) return null;
     return (
-      <ul className="my-3 space-y-1 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <ul className="my-3 space-y-1 rounded-xl border border-border border-l-4 border-l-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive">
         {fieldErrors.map((error, index) => (
           <li key={index}>{error}</li>
         ))}
@@ -51,7 +51,7 @@ export function ValidationErrors({
   }
 
   return (
-    <ul className="my-3 space-y-1 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <ul className="my-3 space-y-1 rounded-xl border border-border border-l-4 border-l-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive">
       {all.map((error, index) => (
         <li key={index} dangerouslySetInnerHTML={{ __html: error }} />
       ))}

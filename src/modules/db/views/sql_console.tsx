@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, CheckCircle2, Terminal } from "lucide-react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import type { EtViewProps } from "@/engine/views-registry";
+import { Notice } from "@/components/app/Notice";
+import { PageHeader } from "@/components/app/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -76,11 +80,22 @@ export default function SqlConsole({ data }: EtViewProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="app-page">
+      <PageHeader
+        eyebrow="Database"
+        title="SQL console"
+        description="Run read or write statements against the local SQLite database."
+        actions={
+          <Button asChild variant="outline">
+            <a href={String(data.tables_url ?? "")}>Database tables</a>
+          </Button>
+        }
+      />
+
       <Flashdata />
 
       <Card>
-        <CardHeader className="border-b">
+        <CardHeader className="border-b border-border">
           <CardTitle>Run SQL</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -99,54 +114,47 @@ export default function SqlConsole({ data }: EtViewProps) {
               placeholder="SELECT * FROM sqlite_master WHERE type = 'table';"
               spellCheck={false}
               autoComplete="off"
-              className="min-h-40 font-mono text-sm"
+              className="min-h-48 font-mono text-sm"
             />
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild variant="outline">
-                <a href={String(data.tables_url ?? "")}>Database Tables</a>
-              </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button type="submit" disabled={busy || sql.trim() === ""}>
+                <Terminal className="size-4" strokeWidth={1.75} />
                 {busy ? "Running…" : "Run SQL"}
               </Button>
             </div>
           </form>
 
           {error ? (
-            <p
-              className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
-              role="alert"
-            >
+            <Notice icon={AlertTriangle} tone="destructive" className="mt-4">
               {error}
-            </p>
+            </Notice>
           ) : null}
         </CardContent>
       </Card>
 
       {result ? (
         <Card>
-          <CardHeader className="border-b">
-            <CardTitle>
-              <span className={result.ok ? "text-emerald-600" : "text-destructive"}>
-                {result.ok ? "Result" : "SQL Error"}
-              </span>
+          <CardHeader className="border-b border-border">
+            <CardTitle className="flex items-center gap-2">
+              SQL result
+              <Badge variant={result.ok ? "success" : "destructive"}>
+                {result.ok ? "Success" : "Error"}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
-            <p
-              className={
-                result.ok
-                  ? "text-sm text-emerald-700"
-                  : "text-sm font-medium text-destructive"
-              }
+            <Notice
+              icon={result.ok ? CheckCircle2 : AlertTriangle}
+              tone={result.ok ? "success" : "destructive"}
             >
               {result.message}
-            </p>
+            </Notice>
 
             {result.ok && result.columns.length > 0 && result.rows.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border">
+              <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
+                    <TableRow>
                       {result.columns.map((column) => (
                         <TableHead key={column} className="px-3">
                           {column}
@@ -158,7 +166,10 @@ export default function SqlConsole({ data }: EtViewProps) {
                     {result.rows.map((row, row_index) => (
                       <TableRow key={row_index}>
                         {result.columns.map((column) => (
-                          <TableCell key={column} className="px-3">
+                          <TableCell
+                            key={column}
+                            className="px-3 font-mono text-xs"
+                          >
                             {format_cell(row[column])}
                           </TableCell>
                         ))}
@@ -172,10 +183,9 @@ export default function SqlConsole({ data }: EtViewProps) {
         </Card>
       ) : null}
 
-      {/* Quick access to every table, alongside the SQL form. */}
       {tables.length > 0 ? (
         <Card>
-          <CardHeader className="border-b">
+          <CardHeader className="border-b border-border">
             <CardTitle>Tables</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
@@ -194,6 +204,7 @@ export default function SqlConsole({ data }: EtViewProps) {
     </div>
   );
 }
+
 function format_cell(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") {

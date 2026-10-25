@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import { etSubmit } from "@/app/actions";
+import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -25,10 +26,17 @@ export function EtButton({
   const [reply, setReply] = useState<ReactNode | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { confirm, dialog: confirm_dialog } = useConfirm();
 
-  const handleClick = () => {
-    if (confirmMessage && typeof window !== "undefined" && !window.confirm(confirmMessage)) {
-      return;
+  const handleClick = async () => {
+    if (confirmMessage) {
+      const confirmed = await confirm({
+        title: "Confirm action",
+        description: confirmMessage,
+        confirmLabel: "Continue",
+        tone: "default",
+      });
+      if (!confirmed) return;
     }
     const formData = new FormData();
     formData.set("_et_action", action);
@@ -55,7 +63,7 @@ export function EtButton({
         type="button"
         variant="outline"
         className={className}
-        onClick={handleClick}
+        onClick={() => void handleClick()}
         disabled={isPending}
       >
         {children}
@@ -65,6 +73,7 @@ export function EtButton({
           {errorMessage}
         </p>
       ) : null}
+      {confirm_dialog}
     </>
   );
 }

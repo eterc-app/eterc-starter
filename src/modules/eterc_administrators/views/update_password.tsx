@@ -1,6 +1,7 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,23 +11,23 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 export default function UpdatePassword({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>{String(data.headline ?? "")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Choose a new password for this administrator.
-        </p>
-      </div>
+    <div className="app-page max-w-3xl">
+      <PageHeader
+        eyebrow="Content"
+        title="Update password"
+        description="Choose a new password for this administrator."
+      />
 
       <ValidationErrors />
 
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Update Password</CardTitle>
+        <CardHeader className="border-b border-border">
+          <CardTitle>Update password</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <EtForm
@@ -35,32 +36,31 @@ export default function UpdatePassword({ data }: EtViewProps) {
             className="space-y-5"
           >
             <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
+              <Label htmlFor="password">New password</Label>
               <Input
                 id="password"
                 type="password"
                 name="password"
                 defaultValue=""
-                placeholder="Enter New Password"
-                autoComplete="off"
+                autoComplete="new-password"
               />
+              <p className="type-note">Use at least 8 characters.</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm_password">Confirm Password</Label>
+              <Label htmlFor="confirm_password">Confirm password</Label>
               <Input
                 id="confirm_password"
                 type="password"
                 name="confirm_password"
                 defaultValue=""
-                placeholder="Confirm New Password"
-                autoComplete="off"
+                autoComplete="new-password"
               />
             </div>
 
-            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row">
               <Button type="submit" name="submit" value="Update Password">
-                Update Password
+                Update password
               </Button>
               <Button asChild variant="outline">
                 <a href={String(data.cancel_url ?? "")}>Cancel</a>

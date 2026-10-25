@@ -17,13 +17,13 @@ export function LoginCompact({ data }: EtViewProps) {
     typeof data.forgot_password_url === "string" ? data.forgot_password_url : null;
 
   return (
-    <AuthShell title="Log In">
+    <AuthShell title="Log in" description="Access the private CMS workspace.">
       <ValidationErrors />
 
       <EtForm
         action="login/submit_login"
         params={[loginUrl]}
-        className="space-y-4"
+        className="space-y-5"
         id="loginForm"
       >
         <div className="space-y-2">
@@ -32,7 +32,6 @@ export function LoginCompact({ data }: EtViewProps) {
             id="identifier"
             type="text"
             name="identifier"
-            placeholder={identifierLabel}
             autoComplete="username"
             required
           />
@@ -44,20 +43,19 @@ export function LoginCompact({ data }: EtViewProps) {
             id="password"
             type="password"
             name="password"
-            placeholder={passwordLabel}
             autoComplete="current-password"
             required
           />
         </div>
 
         <Button type="submit" className="w-full">
-          Log In
+          Log in
         </Button>
 
         {forgotUrl !== null ? (
           <p className="text-center text-sm">
             <a
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              className="font-semibold text-foreground underline-offset-4 hover:underline"
               href={site_url(forgotUrl)}
             >
               Forgot password?

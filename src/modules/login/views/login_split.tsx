@@ -17,24 +17,24 @@ export function LoginSplit({ data }: EtViewProps) {
     typeof data.forgot_password_url === "string" ? data.forgot_password_url : null;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="grid w-full max-w-4xl gap-0 overflow-hidden p-0 md:grid-cols-2">
+    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="grid w-full max-w-4xl gap-0 overflow-hidden border-border p-0 md:grid-cols-2">
         <div className="hidden min-h-[32rem] bg-[url('/login_module/images/surfgirl.webp')] bg-cover bg-center md:block" />
         <div className="p-8 sm:p-10">
-          <h1 className="mb-6 text-center text-lg font-semibold tracking-[-0.01em] text-foreground">
-            Account Login
+          <p className="type-headline text-center">Eterc CMS</p>
+          <h1 className="type-title mt-1 text-center">
+            Account login
           </h1>
 
           <ValidationErrors />
 
-          <EtForm action="login/submit_login" params={[loginUrl]} className="space-y-4">
+          <EtForm action="login/submit_login" params={[loginUrl]} className="mt-6 space-y-5">
             <div className="space-y-2">
               <Label htmlFor="identifier">{identifierLabel}</Label>
               <Input
                 id="identifier"
                 type="text"
                 name="identifier"
-                placeholder={identifierLabel}
                 autoComplete="username"
                 required
               />
@@ -46,20 +46,19 @@ export function LoginSplit({ data }: EtViewProps) {
                 id="password"
                 type="password"
                 name="password"
-                placeholder={passwordLabel}
                 autoComplete="current-password"
                 required
               />
             </div>
 
             <Button type="submit" className="w-full">
-              Sign In
+              Sign in
             </Button>
 
             {forgotUrl !== null ? (
               <p className="text-center text-sm">
                 <a
-                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  className="font-semibold text-foreground underline-offset-4 hover:underline"
                   href={site_url(forgotUrl)}
                 >
                   Forgot password?

@@ -10,7 +10,7 @@ export function EmailSent({ data }: EtViewProps) {
       title="Check your email"
       description="If an account with that email address exists, you will receive a password reset link shortly."
     >
-      <div className="mb-5 flex justify-center text-primary">
+      <div className="mb-5 flex justify-center text-foreground">
         <Mail aria-hidden="true" className="size-12" />
       </div>
 
@@ -19,9 +19,9 @@ export function EmailSent({ data }: EtViewProps) {
         your password.
       </p>
 
-      <div className="mt-6 border-t pt-4 text-center text-sm">
+      <div className="mt-6 border-t border-border pt-4 text-center text-sm">
         <a
-          className="font-medium text-primary underline-offset-4 hover:underline"
+          className="font-semibold text-foreground underline-offset-4 hover:underline"
           href={site_url(`login/login/${loginUrl}`)}
         >
           Back to login

@@ -2,12 +2,16 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import { Check, Clipboard, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { CmsField } from "@/modules/cms/cms-types";
+
+export { EmptyState, PageHeader };
 
 export interface CmsEnvelope<T> {
   status?: string;
@@ -96,41 +100,6 @@ export function CopyButton({
   );
 }
 
-export function PageHeader({
-  title,
-  actions,
-}: {
-  title: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </div>
-  );
-}
-
-export function EmptyState({
-  icon,
-  title,
-  action,
-}: {
-  icon: ReactNode;
-  title: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-14 text-center">
-      <div className="grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
-        {icon}
-      </div>
-      <h2 className="mt-4 text-sm font-semibold">{title}</h2>
-      {action ? <div className="mt-4">{action}</div> : null}
-    </div>
-  );
-}
-
 export function BusyButton({
   busy,
   children,
@@ -187,11 +156,11 @@ export function FieldInput({
 
   if (field.type === "boolean") {
     return (
-      <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+      <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
         <input
           id={id}
           type="checkbox"
-          className="size-4 accent-foreground"
+          className="size-5 accent-foreground"
           checked={value === true || value === 1 || value === "1"}
           disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
@@ -223,7 +192,7 @@ export function FieldInput({
       return (
         <select
           id={id}
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-13 w-full rounded-lg border border-input bg-card px-4 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]"
           value={stringValue}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}

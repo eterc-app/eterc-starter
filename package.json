@@ -18,7 +18,8 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "styles:check": "node scripts/check_styles.mjs"
+    "styles:check": "node scripts/check_styles.mjs",
+    "validate": "npm run typecheck && npm run styles:check && npm run lint && npm run build"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.1",

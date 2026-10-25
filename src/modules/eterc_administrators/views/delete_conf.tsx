@@ -1,5 +1,8 @@
+import { AlertTriangle } from "lucide-react";
 import { EtForm } from "@/engine/ui/EtForm";
 import type { EtViewProps } from "@/engine/views-registry";
+import { Notice } from "@/components/app/Notice";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,28 +10,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
 export default function DeleteConf({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>{String(data.headline ?? "")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This action permanently removes the administrator account.
-        </p>
-      </div>
+    <div className="app-page max-w-3xl">
+      <PageHeader
+        eyebrow="Content"
+        title="Delete administrator"
+        description="This action permanently removes the administrator account."
+      />
 
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Confirmation Required</CardTitle>
+        <CardHeader className="border-b border-border">
+          <CardTitle>Confirmation required</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
-          <p className="font-medium">Are you sure?</p>
-          <p className="text-sm text-muted-foreground">
-            You are about to delete a record. This cannot be undone. Do you
-            really want to do this?
-          </p>
+          <Notice icon={AlertTriangle} tone="destructive">
+            You are about to delete this administrator. This cannot be undone.
+          </Notice>
 
           <EtForm
             action="eterc_administrators/submit_delete"
@@ -36,7 +37,7 @@ export default function DeleteConf({ data }: EtViewProps) {
           >
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="submit" variant="destructive">
-                Yes - Delete Now
+                Delete administrator
               </Button>
               <Button asChild variant="outline">
                 <a href={String(data.cancel_url ?? "")}>Cancel</a>

@@ -9,11 +9,12 @@ import {
   type ChangeEvent,
 } from "react";
 import {
+  AlertTriangle,
   Check,
+  CheckCircle2,
   Copy,
   ExternalLink,
   Grid2X2,
-  HardDrive,
   Image as ImageIcon,
   List,
   Loader2,
@@ -23,6 +24,9 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { useConfirm } from "@/components/app/ConfirmDialog";
+import { Notice } from "@/components/app/Notice";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,6 +119,7 @@ export function MediaLibrary({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAlt, setDraftAlt] = useState("");
   const [copied, setCopied] = useState(false);
+  const { confirm, dialog: confirm_dialog } = useConfirm();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progress_style = { width: `${progress}%` };
@@ -275,9 +280,18 @@ export function MediaLibrary({
 
   const deleteSelected = async () => {
     if (selected === null) return;
-    if (!window.confirm(`Delete "${selected.title}"? This cannot be undone.`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete media?",
+      description: (
+        <>
+          <span className="font-mono text-foreground">{selected.title}</span>{" "}
+          will be permanently removed from the media library. This cannot be
+          undone.
+        </>
+      ),
+      confirmLabel: "Delete media",
+    });
+    if (!confirmed) return;
 
     setError("");
     setNotice("");
@@ -373,43 +387,40 @@ export function MediaLibrary({
   };
 
   return (
-    <div className="space-y-4 pb-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-[-0.01em]">Media library</h1>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <HardDrive className="size-3.5" strokeWidth={1.75} />
-            {stats.count} {stats.count === 1 ? "image" : "images"} ·{" "}
-            {stats.total_label}
-          </p>
-        </div>
-        <Button type="button" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="size-4" strokeWidth={1.75} />
-          Upload images
-        </Button>
-      </div>
+    <div className="app-page">
+      <PageHeader
+        eyebrow="Content"
+        title="Media library"
+        description={`${stats.count} ${stats.count === 1 ? "image" : "images"} · ${stats.total_label}`}
+        actions={
+          <Button type="button" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="size-4" strokeWidth={1.75} />
+            Upload images
+          </Button>
+        }
+      />
 
       <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 strokeWidth={1.75}
               />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search media..."
-                className="pl-9"
+                className="pl-10"
               />
             </div>
-            <div className="flex items-center rounded-md border bg-background p-0.5">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
               <Button
                 type="button"
                 variant={view === "grid" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2"
+                size="icon-sm"
                 aria-label="Grid view"
+                aria-pressed={view === "grid"}
                 onClick={() => setView("grid")}
               >
                 <Grid2X2 className="size-4" strokeWidth={1.75} />
@@ -417,9 +428,9 @@ export function MediaLibrary({
               <Button
                 type="button"
                 variant={view === "list" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2"
+                size="icon-sm"
                 aria-label="List view"
+                aria-pressed={view === "list"}
                 onClick={() => setView("list")}
               >
                 <List className="size-4" strokeWidth={1.75} />
@@ -428,21 +439,18 @@ export function MediaLibrary({
           </div>
 
           {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-            >
+            <Notice icon={AlertTriangle} tone="destructive">
               {error}
-            </p>
+            </Notice>
           ) : null}
           {notice ? (
-            <p className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700">
+            <Notice icon={CheckCircle2} tone="success">
               {notice}
-            </p>
+            </Notice>
           ) : null}
 
           {uploading ? (
-            <div className="space-y-2 rounded-lg border bg-card p-3">
+            <div className="space-y-3 rounded-lg border border-border bg-card p-4">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="size-3.5 animate-spin" />
@@ -452,7 +460,7 @@ export function MediaLibrary({
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-primary transition-[width]"
+                  className="h-full rounded-full bg-foreground transition-[width]"
                   style={progress_style}
                 />
               </div>
@@ -482,18 +490,18 @@ export function MediaLibrary({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    "flex min-h-[340px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-card px-6 py-12 text-center transition-colors hover:border-primary/50 hover:bg-accent/30",
-                    dragActive && "border-primary bg-accent/40"
+                    "flex min-h-[340px] w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center transition-colors hover:border-foreground/30 hover:bg-surface-subtle",
+                    dragActive && "border-foreground bg-muted"
                   )}
                 >
-                  <span className="grid size-12 place-items-center rounded-full border bg-muted/40">
+                  <span className="grid size-12 place-items-center rounded-full border border-border bg-muted text-muted-foreground">
                     <ImageIcon
-                      className="size-5 text-muted-foreground"
+                      className="size-5"
                       strokeWidth={1.75}
                     />
                   </span>
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium">
+                    <span className="block text-sm font-semibold">
                       {media.length === 0
                         ? "Your media library is empty"
                         : "No images match that search"}
@@ -512,12 +520,11 @@ export function MediaLibrary({
                       type="button"
                       onClick={() => select(item.file)}
                       className={cn(
-                        "group overflow-hidden rounded-lg border bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                        selectedFile === item.file &&
-                          "border-primary ring-2 ring-primary/20"
+                        "group overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:bg-surface-subtle",
+                        selectedFile === item.file && "border-foreground"
                       )}
                     >
-                      <span className="relative block aspect-square overflow-hidden bg-muted/30">
+                      <span className="relative block aspect-square overflow-hidden bg-muted">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.thumbnail_url}
@@ -526,16 +533,16 @@ export function MediaLibrary({
                           loading="lazy"
                         />
                         {selectedFile === item.file ? (
-                          <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">
                             <Check className="size-3.5" strokeWidth={2} />
                           </span>
                         ) : null}
                       </span>
-                      <span className="block space-y-0.5 px-2.5 py-2">
-                        <span className="block truncate text-[12px] font-medium">
+                      <span className="block space-y-0.5 px-3 py-2.5">
+                        <span className="block truncate text-sm font-semibold">
                           {item.title}
                         </span>
-                        <span className="block text-[10.5px] text-muted-foreground">
+                        <span className="block text-xs text-muted-foreground">
                           {dimensions(item)} · {formatBytes(item.size)}
                         </span>
                       </span>
@@ -543,33 +550,33 @@ export function MediaLibrary({
                   ))}
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-lg border bg-card">
+                <div className="app-scrollbar overflow-hidden rounded-xl border border-border bg-card">
                   {filtered.map((item) => (
                     <button
                       key={item.file}
                       type="button"
                       onClick={() => select(item.file)}
                       className={cn(
-                        "flex w-full items-center gap-3 border-b border-border/60 px-3 py-2.5 text-left last:border-b-0 hover:bg-muted/40",
-                        selectedFile === item.file && "bg-accent/50"
+                        "flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-subtle",
+                        selectedFile === item.file && "bg-muted"
                       )}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.thumbnail_url}
                         alt={item.alt || item.title}
-                        className="size-10 shrink-0 rounded-md border object-cover"
+                        className="size-11 shrink-0 rounded-lg border border-border object-cover"
                         loading="lazy"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] font-medium">
+                        <span className="block truncate text-sm font-semibold">
                           {item.title}
                         </span>
-                        <span className="block truncate text-[11px] text-muted-foreground">
+                        <span className="block truncate text-xs text-muted-foreground">
                           {item.original_name}
                         </span>
                       </span>
-                      <span className="hidden shrink-0 text-right text-[11px] text-muted-foreground sm:block">
+                      <span className="hidden shrink-0 text-right text-xs text-muted-foreground sm:block">
                         {dimensions(item)}
                         <br />
                         {formatBytes(item.size)}
@@ -590,19 +597,19 @@ export function MediaLibrary({
             </div>
 
             {selected !== null ? (
-              <aside className="h-fit overflow-hidden rounded-xl border bg-card xl:sticky xl:top-4">
-                <div className="flex items-start justify-between gap-2 border-b px-3 py-2.5">
+              <aside className="h-fit overflow-hidden rounded-xl border border-border bg-card xl:sticky xl:top-4">
+                <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-[12px] font-semibold">Attachment details</p>
-                    <p className="truncate text-[10.5px] text-muted-foreground">
+                    <p className="text-sm font-semibold">Attachment details</p>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
                       {selected.file}
                     </p>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="size-7 shrink-0"
+                    size="icon-sm"
+                    className="shrink-0"
                     aria-label="Close details"
                     onClick={() => {
                       setSelectedFile("");
@@ -613,8 +620,8 @@ export function MediaLibrary({
                   </Button>
                 </div>
 
-                <div className="space-y-3 p-3">
-                  <div className="overflow-hidden rounded-lg border bg-muted/20">
+                <div className="space-y-4 p-4">
+                  <div className="overflow-hidden rounded-lg border border-border bg-muted">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={selected.url}
@@ -624,21 +631,17 @@ export function MediaLibrary({
                   </div>
 
                   {editing ? (
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="media-title" className="text-xs">
-                          Title
-                        </Label>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="media-title">Title</Label>
                         <Input
                           id="media-title"
                           value={draftTitle}
                           onChange={(event) => setDraftTitle(event.target.value)}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="media-alt" className="text-xs">
-                          Alternative text
-                        </Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="media-alt">Alternative text</Label>
                         <Textarea
                           id="media-alt"
                           value={draftAlt}
@@ -663,42 +666,40 @@ export function MediaLibrary({
                   ) : (
                     <>
                       <div className="space-y-0.5">
-                        <p className="text-sm font-medium leading-5">
+                        <p className="text-sm font-semibold leading-5">
                           {selected.title}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {dimensions(selected)} · {formatBytes(selected.size)}
                         </p>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">
-                          File URL
-                        </Label>
-                        <div className="flex gap-1.5">
+                      <div className="space-y-2">
+                        <Label>File URL</Label>
+                        <div className="flex gap-2">
                           <Input
                             readOnly
                             value={selected.url}
-                            className="h-8 font-mono text-[11px]"
+                            className="font-mono text-xs"
                           />
                           <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="size-8 shrink-0"
+                            className="shrink-0"
                             aria-label="Copy image URL"
                             onClick={() => void copyUrl(selected.url)}
                           >
                             {copied ? (
-                              <Check className="size-3.5" strokeWidth={2} />
+                              <Check className="size-4" strokeWidth={2} />
                             ) : (
-                              <Copy className="size-3.5" strokeWidth={1.75} />
+                              <Copy className="size-4" strokeWidth={1.75} />
                             )}
                           </Button>
                         </div>
                       </div>
 
-                      <dl className="grid grid-cols-[92px_minmax(0,1fr)] gap-y-1.5 text-[11px]">
+                      <dl className="grid grid-cols-[92px_minmax(0,1fr)] gap-y-2 text-xs">
                         <dt className="text-muted-foreground">Uploaded</dt>
                         <dd>{new Date(selected.created_at).toLocaleString()}</dd>
                         <dt className="text-muted-foreground">Original name</dt>
@@ -713,7 +714,7 @@ export function MediaLibrary({
                         </dd>
                       </dl>
 
-                      <div className="flex flex-wrap gap-2 border-t pt-3">
+                      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                         <Button
                           type="button"
                           size="sm"
@@ -754,11 +755,13 @@ export function MediaLibrary({
           </div>
 
           {media.length > 0 && selected === null ? (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Select an image to copy its URL, edit its metadata, or delete it.
             </p>
           ) : null}
       </div>
+
+      {confirm_dialog}
     </div>
   );
 }

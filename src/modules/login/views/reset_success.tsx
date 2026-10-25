@@ -8,12 +8,12 @@ export function ResetSuccess() {
       title="Password reset complete"
       description="Your password has been updated successfully. You can now log in using your new password."
     >
-      <div className="mb-5 flex justify-center text-emerald-600">
+      <div className="mb-5 flex justify-center text-success">
         <CheckCircle2 aria-hidden="true" className="size-12" />
       </div>
 
       <Button asChild className="w-full">
-        <a href={site_url("login")}>Log In</a>
+        <a href={site_url("login")}>Log in</a>
       </Button>
     </AuthShell>
   );
