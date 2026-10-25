@@ -417,9 +417,7 @@ function FinalizeStep({
         <div className="divide-y divide-border">
           <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
             <span className="text-muted-foreground">Default module</span>
-            <span className="text-right font-medium">
-              setup (this wizard skips itself once installed)
-            </span>
+            <span className="font-mono text-xs">setup</span>
           </div>
           <div className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
             <span className="text-muted-foreground">Database</span>
@@ -434,11 +432,12 @@ function FinalizeStep({
 
       <div className="space-y-2 rounded-lg bg-surface-subtle p-4 text-sm">
         <p>
-          <strong>1.</strong> Click the button below to complete the
-          installation.
+          <span className="font-semibold">1.</span> Click the button below to
+          complete the installation.
         </p>
         <p>
-          <strong>2.</strong> After that, you&apos;ll be taken to your homepage.
+          <span className="font-semibold">2.</span> Then open your homepage or
+          admin panel.
         </p>
       </div>
 
@@ -465,7 +464,7 @@ function CompleteStep({ appPath }: { appPath: string }) {
 
       <div className="space-y-3 rounded-lg bg-surface-subtle p-4 text-sm">
         <p>
-          <strong>1.</strong> Optionally, delete the{" "}
+          <span className="font-semibold">1.</span> Optionally, delete the{" "}
           <code className="rounded bg-background px-1 py-0.5 font-mono text-xs">
             setup
           </code>{" "}
@@ -475,8 +474,8 @@ function CompleteStep({ appPath }: { appPath: string }) {
           <code className="break-all font-mono text-xs">{`${appPath}\\src\\modules\\setup`}</code>
         </div>
         <p>
-          <strong>2.</strong> After that, click the button below to go to your
-          homepage.
+          <span className="font-semibold">2.</span> Then open your homepage or
+          admin panel.
         </p>
       </div>
 
