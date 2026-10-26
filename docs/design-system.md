@@ -107,8 +107,8 @@ Rules:
 | Control radius | 8 px (`rounded-lg`) |
 | Surface radius | 10 px (`rounded-xl`) |
 | Border width | 1 px |
-| Standard field height | 52 px (`h-13`) |
-| Large field height | 60 px (`h-15`) |
+| Standard field height | 40 px (`h-10`) |
+| Large field height | 48 px (`h-12`) |
 | Standard button height | 40 px (`h-10`) |
 | Large button height | 60 px (`h-15`) |
 | Compact button height | 32 px (`h-8`) |
@@ -123,8 +123,8 @@ Shell composition:
   bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
 - The sidebar has 12 px horizontal padding, 40 px navigation rows, and 12 px sentence-case
   section labels. The active row uses `--muted` and semibold text.
-- The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, a private-API
-  badge, and the theme toggle. It does not repeat the page title.
+- The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, and the theme
+  toggle. It does not repeat the page title or carry status badges.
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
@@ -146,13 +146,13 @@ Shell composition:
 
 ### Fields
 
-- Inputs, selects, and textareas are 52 px tall by default, white, 1 px `--input`, 8 px radius,
-  16 px horizontal padding, 14 px text.
+- Inputs, selects, and textareas are 40 px tall by default, white, 1 px `--input`, 8 px radius,
+  12 px horizontal padding, 14 px text.
 - Focus is a 1 px black border plus a soft black shadow:
   `focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]`. Do not use a
   colored outer ring on fields.
 - Placeholders are muted and never replace a label.
-- Labels are 16 px semibold. Keep the label and control in an 8 px vertical stack.
+- Labels are 14 px semibold. Keep the label and control in an 8 px vertical stack.
 - Helper text is 13 px italic muted and appears only when it changes a decision.
 - Form grids use two columns at `sm` and larger, 32 px column gap, 24 px row gap. Long text fields
   span both columns.
@@ -177,11 +177,19 @@ Shell composition:
 - Empty states use the shared `EmptyState` primitive with a 48 px icon well, a 16 px semibold
   title, and at most one short note.
 
-### Tabs
+### Section navigation and drawers
 
-- The tab list is a 40 px neutral track with 8 px radius and 4 px padding.
-- Tabs are 32 px tall, 14 px semibold, with an 8 px radius. The active tab is a white surface
-  with a 1 px border. Do not use colored underlines except for the explicit `line` variant.
+- Do not use tab bars in the admin workspace. Page sections and policy sections use a sidebar
+  list instead.
+- Page sections open in the shared `SectionDrawer`: a left sheet, at most 360 px wide, with
+  40 px navigation rows, an icon, a short description, and an optional count badge.
+- A sheet with multiple sections uses a persistent 170 px vertical section rail on desktop and a
+  single section `Select` on narrow screens. Do not render a horizontal tab strip inside a sheet.
+- When a page would otherwise have two working columns, keep the primary content full width and
+  move the secondary column into a `SideDrawer` or `Sheet`. The drawer is opened from an
+  icon-only trigger with an accessible name.
+- The access page role list, Data Studio collection list, and media details are drawers, not
+  permanent second columns.
 
 ### Dialogs
 
@@ -196,6 +204,35 @@ Shell composition:
   render its `dialog` once per page and `await confirm({...})` before the action. Do not call
   `window.confirm` in application code.
 - Long dialogs scroll with `app-scrollbar`; the close button stays at the top right.
+
+### Sheets
+
+- Use the shared `Sheet` primitives for contextual editors that should stay
+  attached to the page, such as a collection policy. Use a `Dialog` for short
+  confirmations and compact forms.
+- A sheet enters from the right by default, is full height, and is at most 600 px
+  wide (`max-w-[600px]`). Use `side="left"` for a section or list drawer. A policy
+  editor may use 760 px so the 170 px section rail fits beside the form. The sheet
+  has a 1 px border, a 24 px body/header/footer inset, a large soft shadow, and the
+  shared overlay scrim. It does not repeat the page title or page header.
+- The header has an 18 px medium title, an optional badge or short description,
+  and a 40 px close icon at the top right with a visible accessible name.
+- The body is the only scrolling region and uses `app-scrollbar`. The footer is
+  inset with a 1 px top border and `--surface-subtle`; the primary action is on
+  the right and Cancel/Close is on the left. On narrow widths the footer stacks
+  with the primary action first.
+- Rule editors group conditions into bordered inset cards. Use compact selects
+  and inputs, keep labels selective, and put a single `type-note` at the section
+  level for security or non-obvious behavior instead of a note under every
+  control.
+- An inherited policy is read-only. Show a `Notice` that names the parent role
+  and offer a single **Override in this role** action. Do not silently edit an
+  inherited policy or imply that clearing a direct policy is the same as an empty
+  direct policy.
+- Field access uses a checklist. "Select all fields" maps to `["*"]`; an empty
+  list means the primary key only. Show required, hidden, and read-only metadata
+  as badges, not as extra prose.
+- Validation and presets sections are only rendered for create and update actions.
 
 ### Badges and status
 
@@ -226,7 +263,7 @@ Every authenticated page follows this structure:
   <PageHeader
     eyebrow="Workspace" // or "Content" / "System" / "Database"
     title="Content overview"
-    actions={<Button variant="outline">Refresh</Button>}
+    actions={<PageActions items={[{ label: "Refresh", icon: <RefreshCw />, onSelect: refresh }]} />}
   />
   {/* page sections, 24 px apart via app-page */}
 </div>
@@ -234,7 +271,9 @@ Every authenticated page follows this structure:
 
 - `PageHeader` owns the `h1`. Do not add another page-level heading.
 - Use an eyebrow for the section of the app. Use a title for the page.
-- Actions live on the right of the header and wrap on narrow widths.
+- Actions live on the right of the header as icons. A single action is an icon button; two or
+  more actions collapse into the `PageActions` overflow menu. Do not place large text buttons in
+  the page header.
 - Metadata such as an API endpoint or database path goes in a `font-mono text-xs` line or an inset
   panel, not in a hero card.
 - Start content immediately after the header; do not add `mt-4`/`mt-5` when `app-page` already
@@ -246,7 +285,7 @@ Every authenticated page follows this structure:
 - `AuthShell` owns the full-screen canvas, the 440 px card, the brand mark, the title, the
   optional description, and the private-by-default footer. Login, forgot/reset password, and
   blocked-access views use it.
-- Auth cards use the same 10 px surface radius, 1 px border, 16 px semibold labels, and 52 px
+- Auth cards use the same 10 px surface radius, 1 px border, 14 px semibold labels, and 40 px
   fields as the admin workspace.
 - The setup wizard uses a 3xl max-width card on the canvas. Steps use a neutral track; the active
   step is black, not blue. Do not add confetti, gradients, or rainbow colors.
@@ -285,6 +324,8 @@ Every authenticated page follows this structure:
 - `font-bold`, `bg-white`, `text-black`, `border-border/…`, `divide-border/…`, `ring-*`
 - page roots that miss `app-page` in the authenticated admin modules
 - required tokens and shell geometry in `globals.css` and `AdminTemplate`
+- no admin tabs, no private-API badge, and page actions use the shared icon menu
+- the shared sheet/side-drawer geometry and the policy editor's inherited/override contract
 - native `window.confirm` calls
 - legacy stylesheets and inline `<style>` blocks
 
@@ -298,7 +339,12 @@ the rendered app at 1280 px, 1440 px, and 390 px.
 - [ ] No raw palette colors, hex colors, arbitrary type sizes, or arbitrary radii.
 - [ ] Fields use `Input`/`Select`/`Textarea` and the shared focus treatment.
 - [ ] Buttons use the shared variants and sizes.
+- [ ] Page actions are icon-only or use the `PageActions` menu.
 - [ ] Cards use 1 px borders, 10 px radius, no shadow.
+- [ ] No admin tab bars; sections use a drawer or vertical rail.
+- [ ] Two-column work areas use a drawer for the secondary column.
+- [ ] Sheets use the shared primitive, the correct side, and the inset footer.
+- [ ] Inherited policies are read-only and expose the override action.
 - [ ] Labels are selective; notes are reserved for real decisions.
 - [ ] Icon-only buttons have labels and tooltips.
 - [ ] Light and dark mode both render correctly.

@@ -7,12 +7,14 @@ import {
   Database,
   FilePlus2,
   KeyRound,
+  Loader2,
   RefreshCw,
   Save,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Notice } from "@/components/app/Notice";
+import { PageActions } from "@/components/app/PageActions";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -162,10 +164,21 @@ export default function ProjectSettings({ data }: EtViewProps) {
         title="Project settings"
         description="Runtime defaults for this private CMS workspace."
         actions={
-          <BusyButton busy={saving} onClick={save}>
-            <Save className="size-4" />
-            Save settings
-          </BusyButton>
+          <PageActions
+            items={[
+              {
+                label: saving ? "Saving settings" : "Save settings",
+                icon: saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                ),
+                variant: "default",
+                disabled: saving,
+                onSelect: save,
+              },
+            ]}
+          />
         }
       />
 
@@ -215,7 +228,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
               }
             />
           </div>
-          <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
+          <label className="flex h-10 items-center gap-3 rounded-lg border border-input bg-card px-3 text-sm">
             <input
               type="checkbox"
               className="size-5 accent-foreground"

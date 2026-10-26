@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Database } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, Terminal } from "lucide-react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { useEtUi } from "@/engine/ui/EtUiProvider";
 import type { EtViewProps } from "@/engine/views-registry";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Notice } from "@/components/app/Notice";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -118,9 +119,15 @@ export default function TableList({ data }: EtViewProps) {
             : "Inspect schema and maintenance actions for the local SQLite database."
         }
         actions={
-          <Button asChild variant="outline">
-            <a href={sql_console_url}>SQL console</a>
-          </Button>
+          <PageActions
+            items={[
+              {
+                label: "SQL console",
+                icon: <Terminal className="size-4" />,
+                href: sql_console_url,
+              },
+            ]}
+          />
         }
       />
 

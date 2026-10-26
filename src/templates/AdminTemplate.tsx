@@ -10,7 +10,6 @@ import {
   WEBSITE_NAME,
 } from "@/engine/config";
 import { to_public_path } from "@/engine/url-aliases";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight,
@@ -22,7 +21,6 @@ import {
   Image as ImageIcon,
   KeyRound,
   LayoutDashboard,
-  LockKeyhole,
   LogOut,
   Menu,
   Moon,
@@ -366,10 +364,6 @@ export function AdminTemplate({
             </nav>
 
             <div className="ml-auto flex items-center gap-2">
-              <Badge variant="outline" className="hidden sm:inline-flex">
-                <LockKeyhole className="size-3" strokeWidth={1.75} />
-                Private API
-              </Badge>
               <button
                 type="button"
                 className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

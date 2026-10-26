@@ -156,7 +156,7 @@ export function FieldInput({
 
   if (field.type === "boolean") {
     return (
-      <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
+      <label className="flex h-10 items-center gap-3 rounded-lg border border-input bg-card px-3 text-sm">
         <input
           id={id}
           type="checkbox"
@@ -192,7 +192,7 @@ export function FieldInput({
       return (
         <select
           id={id}
-          className="h-13 w-full rounded-lg border border-input bg-card px-4 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]"
+          className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]"
           value={stringValue}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}

@@ -1,15 +1,16 @@
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 
 export default function Show({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
@@ -22,27 +23,33 @@ export default function Show({ data }: EtViewProps) {
         title="Administrator"
         description="Account details and sign-in status."
         actions={
-          <>
-            <Button asChild variant="outline">
-              <a href={String(data.back_url ?? "")}>Back</a>
-            </Button>
-            <Button asChild>
-              <a href={site_url(`eterc_administrators/create/${update_id}`)}>
-                Edit
-              </a>
-            </Button>
-            {is_own_account === false ? (
-              <Button asChild variant="destructive">
-                <a
-                  href={site_url(
-                    `eterc_administrators/delete_conf/${update_id}`,
-                  )}
-                >
-                  Delete
-                </a>
-              </Button>
-            ) : null}
-          </>
+          <PageActions
+            items={[
+              {
+                label: "Back to administrators",
+                icon: <ArrowLeft className="size-4" />,
+                href: String(data.back_url ?? ""),
+              },
+              {
+                label: "Edit administrator",
+                icon: <Pencil className="size-4" />,
+                href: site_url(`eterc_administrators/create/${update_id}`),
+                variant: "default",
+              },
+              ...(is_own_account === false
+                ? [
+                    {
+                      label: "Delete administrator",
+                      icon: <Trash2 className="size-4" />,
+                      href: site_url(
+                        `eterc_administrators/delete_conf/${update_id}`,
+                      ),
+                      variant: "destructive" as const,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         }
       />
 

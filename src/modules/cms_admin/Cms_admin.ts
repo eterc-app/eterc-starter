@@ -351,12 +351,19 @@ export default class Cms_admin extends Eterc {
     this.principal();
     const payload = body();
     const id = number_value(payload.id);
+    const parentRoleId =
+      payload.parent_role_id === null ||
+      payload.parent_role_id === undefined ||
+      payload.parent_role_id === ""
+        ? null
+        : number_value(payload.parent_role_id);
     const input = {
       name: text_value(payload.name),
       description: text_value(payload.description),
       app_access: bool_value(payload.app_access, true),
       api_access: bool_value(payload.api_access, true),
       admin_access: bool_value(payload.admin_access),
+      parent_role_id: parentRoleId,
     };
     return id > 0 ? update_role(id, input) : create_role(input);
   }
@@ -398,10 +405,15 @@ export default class Cms_admin extends Eterc {
       const parsed = Math.floor(new Date(rawExpiry).getTime() / 1000);
       if (Number.isFinite(parsed)) expiresAt = parsed;
     }
+    const rawUserId = payload.user_id;
+    const userId =
+      rawUserId === null || rawUserId === undefined || rawUserId === ""
+        ? null
+        : number_value(rawUserId);
     return create_api_key({
       name: text_value(payload.name),
       roleId: number_value(payload.role_id),
-      userId: payload.user_id === undefined ? null : number_value(payload.user_id),
+      userId,
       expiresAt,
     });
   }

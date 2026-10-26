@@ -366,6 +366,7 @@ export function delete_collection(name: string): void {
   sqlite().exec(`DROP TABLE IF EXISTS ${quote_identifier(name)}`);
   sqlite().prepare("DELETE FROM cms_fields WHERE collection_id = ?").run(collection.id);
   sqlite().prepare("DELETE FROM cms_collections WHERE id = ?").run(collection.id);
+  sqlite().prepare("DELETE FROM eterc_permissions WHERE collection = ?").run(name);
 }
 
 export function add_field(collectionName: string, input: CmsFieldInput): CmsField {
@@ -484,6 +485,81 @@ export function update_field(
   }
 }
 
+function strip_field_from_group(value: unknown, fieldName: string): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const group = value as { match?: unknown; conditions?: unknown };
+  if (!Array.isArray(group.conditions)) return value;
+  return {
+    ...group,
+    conditions: group.conditions.filter((condition) => {
+      if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
+        return false;
+      }
+      return String((condition as Record<string, unknown>).field ?? "") !== fieldName;
+    }),
+  };
+}
+
+/** Keep policies valid when a collection field is removed. */
+function remove_field_from_policies(collectionName: string, fieldName: string): void {
+  const rows = sqlite()
+    .prepare(
+      `SELECT id, fields, filter, validation, presets
+       FROM eterc_permissions WHERE collection = ?`
+    )
+    .all(collectionName) as Row[];
+  if (rows.length === 0) return;
+  const update = sqlite().prepare(
+    `UPDATE eterc_permissions
+     SET fields = ?, filter = ?, validation = ?, presets = ?, updated_at = ?
+     WHERE id = ?`
+  );
+  const now = nowSeconds();
+  for (const row of rows) {
+    let fields: unknown = [];
+    let filter: unknown = null;
+    let validation: unknown = null;
+    let presets: unknown = [];
+    try {
+      fields = JSON.parse(String(row.fields ?? "[]")) as unknown;
+    } catch {
+      fields = [];
+    }
+    try {
+      filter = JSON.parse(String(row.filter ?? "null")) as unknown;
+    } catch {
+      filter = null;
+    }
+    try {
+      validation = JSON.parse(String(row.validation ?? "null")) as unknown;
+    } catch {
+      validation = null;
+    }
+    try {
+      presets = JSON.parse(String(row.presets ?? "[]")) as unknown;
+    } catch {
+      presets = [];
+    }
+    const nextFields = Array.isArray(fields)
+      ? fields.map(String).filter((name) => name === "*" || name !== fieldName)
+      : [];
+    const nextPresets = Array.isArray(presets)
+      ? presets.filter((preset) => {
+          if (!preset || typeof preset !== "object" || Array.isArray(preset)) return false;
+          return String((preset as Record<string, unknown>).field ?? "") !== fieldName;
+        })
+      : [];
+    update.run(
+      JSON.stringify(nextFields),
+      JSON.stringify(strip_field_from_group(filter, fieldName)),
+      JSON.stringify(strip_field_from_group(validation, fieldName)),
+      JSON.stringify(nextPresets),
+      now,
+      row.id
+    );
+  }
+}
+
 export function delete_field(collectionName: string, fieldName: string): void {
   const { collection, fields } = require_collection(collectionName);
   if (collection.system) {
@@ -500,6 +576,7 @@ export function delete_field(collectionName: string, fieldName: string): void {
       `ALTER TABLE ${quote_identifier(collectionName)} DROP COLUMN ${quote_identifier(field.name)}`
     );
     sqlite().prepare("DELETE FROM cms_fields WHERE id = ?").run(field.id);
+    remove_field_from_policies(collectionName, field.name);
   });
   try {
     apply();
@@ -538,6 +615,134 @@ function order_field(fields: CmsField[], sort?: string): CmsField {
   return fields.find((field) => field.name === "id") ?? fields[0];
 }
 
+function build_filter_clauses(
+  fields: CmsField[],
+  filter: Record<string, unknown>,
+  byName: Map<string, CmsField>
+): { clauses: string[]; params: unknown[] } {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  for (const [key, value] of Object.entries(filter)) {
+    if (key === "_and" || key === "_or") {
+      if (!Array.isArray(value)) {
+        throw new EtHttpError(400, `Filter '${key}' must be an array.`);
+      }
+      const groups = value
+        .filter((entry): entry is Record<string, unknown> =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry)
+        )
+        .map((entry) => build_filter_clauses(fields, entry, byName));
+      if (groups.length === 0) {
+        if (key === "_or") clauses.push("1 = 0");
+        continue;
+      }
+      const joined = groups
+        .map((group) =>
+          group.clauses.length > 0 ? `(${group.clauses.join(" AND ")})` : "1 = 1"
+        )
+        .join(key === "_and" ? " AND " : " OR ");
+      clauses.push(`(${joined})`);
+      for (const group of groups) params.push(...group.params);
+      continue;
+    }
+
+    const field = byName.get(key);
+    if (!field) {
+      throw new EtHttpError(400, `Unknown filter field '${key}'.`);
+    }
+    const column = quote_identifier(field.name);
+
+    if (value === null) {
+      clauses.push(`${column} IS NULL`);
+      continue;
+    }
+    if (typeof value === "object" && !Array.isArray(value)) {
+      for (const [operator, operand] of Object.entries(value as Record<string, unknown>)) {
+        switch (operator) {
+          case "_eq":
+            if (operand === null) {
+              clauses.push(`${column} IS NULL`);
+            } else {
+              clauses.push(`${column} = ?`);
+              params.push(operand);
+            }
+            break;
+          case "_neq":
+            if (operand === null) {
+              clauses.push(`${column} IS NOT NULL`);
+            } else {
+              clauses.push(`(${column} IS NULL OR ${column} != ?)`);
+              params.push(operand);
+            }
+            break;
+          case "_contains":
+            clauses.push(`${column} LIKE ?`);
+            params.push(`%${String(operand)}%`);
+            break;
+          case "_not_contains":
+            clauses.push(`(${column} IS NULL OR ${column} NOT LIKE ?)`);
+            params.push(`%${String(operand)}%`);
+            break;
+          case "_starts_with":
+            clauses.push(`${column} LIKE ?`);
+            params.push(`${String(operand)}%`);
+            break;
+          case "_ends_with":
+            clauses.push(`${column} LIKE ?`);
+            params.push(`%${String(operand)}`);
+            break;
+          case "_gt":
+            clauses.push(`${column} > ?`);
+            params.push(operand);
+            break;
+          case "_gte":
+            clauses.push(`${column} >= ?`);
+            params.push(operand);
+            break;
+          case "_lt":
+            clauses.push(`${column} < ?`);
+            params.push(operand);
+            break;
+          case "_lte":
+            clauses.push(`${column} <= ?`);
+            params.push(operand);
+            break;
+          case "_null":
+            clauses.push(operand ? `${column} IS NULL` : `${column} IS NOT NULL`);
+            break;
+          case "_in": {
+            const values = Array.isArray(operand) ? operand : [operand];
+            if (values.length === 0) {
+              clauses.push("1 = 0");
+              break;
+            }
+            const nonNull = values.filter((value) => value !== null);
+            const parts: string[] = [];
+            if (nonNull.length !== values.length) parts.push(`${column} IS NULL`);
+            if (nonNull.length > 0) {
+              parts.push(`${column} IN (${nonNull.map(() => "?").join(", ")})`);
+              params.push(...nonNull);
+            }
+            clauses.push(parts.length === 1 ? parts[0] : `(${parts.join(" OR ")})`);
+            break;
+          }
+          default:
+            throw new EtHttpError(400, `Unsupported filter operator '${operator}'.`);
+        }
+      }
+      continue;
+    }
+    if (Array.isArray(value)) {
+      throw new EtHttpError(400, `Use the _in operator for array values on '${key}'.`);
+    }
+    clauses.push(`${column} = ?`);
+    params.push(value);
+  }
+
+  return { clauses, params };
+}
+
 function build_where(
   fields: CmsField[],
   search: string | undefined,
@@ -564,78 +769,9 @@ function build_where(
   }
 
   if (filter && typeof filter === "object") {
-    for (const [key, value] of Object.entries(filter)) {
-      if (key === "_and" || key === "_or") continue;
-      const field = byName.get(key);
-      if (!field) {
-        throw new EtHttpError(400, `Unknown filter field '${key}'.`);
-      }
-      const column = quote_identifier(field.name);
-      if (value === null) {
-        clauses.push(`${column} IS NULL`);
-        continue;
-      }
-      if (typeof value === "object" && !Array.isArray(value)) {
-        for (const [operator, operand] of Object.entries(value as Record<string, unknown>)) {
-          switch (operator) {
-            case "_eq":
-              clauses.push(`${column} = ?`);
-              params.push(operand);
-              break;
-            case "_neq":
-              clauses.push(`${column} != ?`);
-              params.push(operand);
-              break;
-            case "_contains":
-              clauses.push(`${column} LIKE ?`);
-              params.push(`%${String(operand)}%`);
-              break;
-            case "_starts_with":
-              clauses.push(`${column} LIKE ?`);
-              params.push(`${String(operand)}%`);
-              break;
-            case "_ends_with":
-              clauses.push(`${column} LIKE ?`);
-              params.push(`%${String(operand)}`);
-              break;
-            case "_gt":
-              clauses.push(`${column} > ?`);
-              params.push(operand);
-              break;
-            case "_gte":
-              clauses.push(`${column} >= ?`);
-              params.push(operand);
-              break;
-            case "_lt":
-              clauses.push(`${column} < ?`);
-              params.push(operand);
-              break;
-            case "_lte":
-              clauses.push(`${column} <= ?`);
-              params.push(operand);
-              break;
-            case "_null":
-              clauses.push(operand ? `${column} IS NULL` : `${column} IS NOT NULL`);
-              break;
-            case "_in": {
-              const values = Array.isArray(operand) ? operand : [operand];
-              if (values.length === 0) {
-                clauses.push("1 = 0");
-              } else {
-                clauses.push(`${column} IN (${values.map(() => "?").join(", ")})`);
-                params.push(...values);
-              }
-              break;
-            }
-            default:
-              throw new EtHttpError(400, `Unsupported filter operator '${operator}'.`);
-          }
-        }
-        continue;
-      }
-      clauses.push(`${column} = ?`);
-      params.push(value);
-    }
+    const built = build_filter_clauses(fields, filter, byName);
+    clauses.push(...built.clauses);
+    params.push(...built.params);
   }
 
   return {
@@ -660,7 +796,12 @@ export function list_records(
   );
   const order = order_field(fields, options.sort);
   const direction = String(options.direction ?? "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-  const where = build_where(fields, options.search, options.filter);
+  const filter = options.access_filter
+    ? options.filter
+      ? { _and: [options.filter, options.access_filter] }
+      : options.access_filter
+    : options.filter;
+  const where = build_where(fields, options.search, filter);
   const offset = (page - 1) * limit;
 
   const totalRow = sqlite()

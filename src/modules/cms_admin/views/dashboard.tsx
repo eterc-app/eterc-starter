@@ -13,6 +13,7 @@ import {
   Table2,
   Users,
 } from "lucide-react";
+import { PageActions } from "@/components/app/PageActions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EtViewProps } from "@/engine/views-registry";
@@ -33,20 +34,42 @@ export default function CmsDashboard({ data }: EtViewProps) {
         title="Content overview"
         description="Manage collections, media, and access from one private workspace."
         actions={
-          <>
-            <Button asChild variant="outline">
-              <Link href="/api-reference" target="_blank">
-                <Braces className="size-4" />
-                API reference
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/admin/data">
-                <Database className="size-4" />
-                Open Data Studio
-              </Link>
-            </Button>
-          </>
+          <PageActions
+            items={[
+              {
+                label: "Open Data Studio",
+                icon: <Database className="size-4" />,
+                href: "/admin/data",
+                variant: "default",
+              },
+              {
+                label: "API reference",
+                icon: <Braces className="size-4" />,
+                href: "/api-reference",
+                external: true,
+              },
+              {
+                label: "Create a collection",
+                icon: <Plus className="size-4" />,
+                href: "/admin/data",
+              },
+              {
+                label: "Issue an API key",
+                icon: <KeyRound className="size-4" />,
+                href: "/admin/access",
+              },
+              {
+                label: "Review project settings",
+                icon: <ShieldCheck className="size-4" />,
+                href: "/admin/settings",
+              },
+              {
+                label: "Manage users",
+                icon: <Users className="size-4" />,
+                href: "/administrators/manage",
+              },
+            ]}
+          />
         }
       />
 
@@ -96,13 +119,18 @@ export default function CmsDashboard({ data }: EtViewProps) {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-6">
         <Card>
-          <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
             <CardTitle>Collections</CardTitle>
-            <Button asChild variant="outline" size="sm">
+            <Button
+              asChild
+              variant="outline"
+              size="icon-sm"
+              aria-label="Manage collections"
+              title="Manage collections"
+            >
               <Link href="/admin/data">
-                Manage
                 <ArrowRight className="size-3.5" />
               </Link>
             </Button>
@@ -149,38 +177,6 @@ export default function CmsDashboard({ data }: EtViewProps) {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button asChild variant="outline" className="justify-start">
-              <Link href="/admin/data">
-                <Plus className="size-4" />
-                Create a collection
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="justify-start">
-              <Link href="/admin/access">
-                <KeyRound className="size-4" />
-                Issue an API key
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="justify-start">
-              <Link href="/admin/settings">
-                <ShieldCheck className="size-4" />
-                Review project settings
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="justify-start">
-              <Link href="/administrators/manage">
-                <Users className="size-4" />
-                Manage users
-              </Link>
-            </Button>
           </CardContent>
         </Card>
       </div>

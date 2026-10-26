@@ -4,20 +4,215 @@ import { Eterc_tokens, type EtercUserObj } from "@/engine/Eterc_tokens";
 import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
 import { ensure_cms_schema, make_slug, quote_identifier } from "./cms-schema";
-import { list_collections } from "./cms-store";
+import { collection_fields, list_collections } from "./cms-store";
 import {
   CMS_ACTIONS,
+  CMS_RULE_OPERATORS,
+  CMS_RULE_VARIABLES,
   type CmsApiKey,
   type CmsApiKeyWithSecret,
+  type CmsField,
   type CmsPermission,
   type CmsPermissionAction,
   type CmsPermissionInput,
   type CmsPrincipal,
   type CmsRole,
+  type CmsRuleCondition,
+  type CmsRuleGroup,
+  type CmsRuleOperator,
+  type CmsRulePreset,
   type CmsUserSummary,
 } from "./cms-types";
 
 const ADMIN_LEVEL_ID = 1;
+const MAX_RULE_CONDITIONS = 24;
+const MAX_RULE_PRESETS = 24;
+
+function empty_rule_group(): CmsRuleGroup {
+  return { match: "all", conditions: [] };
+}
+
+function parse_rule_group(value: unknown): CmsRuleGroup {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return empty_rule_group();
+    }
+  }
+  if (Array.isArray(parsed)) {
+    return {
+      match: "all",
+      conditions: parsed.filter(
+        (entry): entry is CmsRuleCondition =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry)
+      ),
+    };
+  }
+  if (!parsed || typeof parsed !== "object") return empty_rule_group();
+  const group = parsed as { match?: unknown; conditions?: unknown };
+  const conditions = Array.isArray(group.conditions)
+    ? group.conditions.filter(
+        (entry): entry is CmsRuleCondition =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry)
+      )
+    : [];
+  return {
+    match: group.match === "any" ? "any" : "all",
+    conditions: conditions.map((condition) => ({
+      field: String(condition.field ?? ""),
+      operator: String(condition.operator ?? "_eq") as CmsRuleOperator,
+      value: condition.value,
+    })),
+  };
+}
+
+function parse_presets(value: unknown): CmsRulePreset[] {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter(
+      (entry): entry is CmsRulePreset =>
+        Boolean(entry) && typeof entry === "object" && !Array.isArray(entry)
+    )
+    .map((preset) => ({
+      field: String(preset.field ?? ""),
+      value: String(preset.value ?? ""),
+    }))
+    .filter((preset) => preset.field !== "");
+}
+
+function normalize_fields(collection: string, value: unknown): string[] {
+  if (!Array.isArray(value)) return ["*"];
+  const names = value.map(String).filter(Boolean);
+  if (names.includes("*")) return ["*"];
+  if (collection === "*") return ["*"];
+  const available = new Set(collection_fields(collection).map((field) => field.name));
+  for (const name of names) {
+    if (!available.has(name)) {
+      throw new EtHttpError(400, `Field '${name}' was not found in '${collection}'.`);
+    }
+  }
+  return [...new Set(names)];
+}
+
+function normalize_rule_value(value: unknown): unknown {
+  if (typeof value === "string" && value.startsWith("$") && !value.startsWith("$$")) {
+    if (!CMS_RULE_VARIABLES.some((variable) => variable.token === value)) {
+      throw new EtHttpError(
+        400,
+        `Unknown rule variable '${value}'. Use '$$' to start a literal value with '$'.`
+      );
+    }
+  }
+  return value;
+}
+
+function normalize_rule_group(collection: string, value: unknown): CmsRuleGroup {
+  const group = parse_rule_group(value);
+  if (collection === "*") {
+    if (group.conditions.length > 0) {
+      throw new EtHttpError(400, "Wildcard permissions cannot use row conditions.");
+    }
+    return empty_rule_group();
+  }
+  if (group.conditions.length > MAX_RULE_CONDITIONS) {
+    throw new EtHttpError(
+      400,
+      `A policy can contain at most ${MAX_RULE_CONDITIONS} conditions.`
+    );
+  }
+  const fields = new Map(collection_fields(collection).map((field) => [field.name, field]));
+  const conditions = group.conditions.map((condition) => {
+    const field = fields.get(condition.field);
+    if (!field) {
+      throw new EtHttpError(
+        400,
+        `Condition field '${condition.field}' was not found in '${collection}'.`
+      );
+    }
+    if (!CMS_RULE_OPERATORS.includes(condition.operator)) {
+      throw new EtHttpError(400, `Unsupported condition operator '${condition.operator}'.`);
+    }
+    if (condition.operator === "_null") {
+      return {
+        field: condition.field,
+        operator: condition.operator,
+        value: Boolean(condition.value),
+      };
+    }
+    if (condition.operator === "_in") {
+      const values = Array.isArray(condition.value)
+        ? condition.value
+        : String(condition.value ?? "")
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+      if (values.length === 0) {
+        throw new EtHttpError(
+          400,
+          `Condition on '${condition.field}' needs at least one value.`
+        );
+      }
+      return {
+        field: condition.field,
+        operator: condition.operator,
+        value: values.slice(0, 100).map(normalize_rule_value),
+      };
+    }
+    return {
+      field: condition.field,
+      operator: condition.operator,
+      value: normalize_rule_value(condition.value ?? ""),
+    };
+  });
+  return { match: group.match, conditions };
+}
+
+function normalize_presets(collection: string, value: unknown): CmsRulePreset[] {
+  if (!Array.isArray(value)) return [];
+  if (collection === "*") {
+    if (value.length > 0) {
+      throw new EtHttpError(400, "Wildcard permissions cannot use presets.");
+    }
+    return [];
+  }
+  if (value.length > MAX_RULE_PRESETS) {
+    throw new EtHttpError(400, `A policy can contain at most ${MAX_RULE_PRESETS} presets.`);
+  }
+  const fields = new Map(collection_fields(collection).map((field) => [field.name, field]));
+  const presets: CmsRulePreset[] = [];
+  const used = new Set<string>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const preset = entry as Record<string, unknown>;
+    const fieldName = String(preset.field ?? "").trim();
+    const field = fields.get(fieldName);
+    if (!field) {
+      throw new EtHttpError(400, `Preset field '${fieldName}' was not found in '${collection}'.`);
+    }
+    if (field.readonly || field.name === "id") {
+      throw new EtHttpError(400, `Preset field '${fieldName}' is read-only.`);
+    }
+    if (used.has(fieldName)) {
+      throw new EtHttpError(400, `Preset field '${fieldName}' is used more than once.`);
+    }
+    used.add(fieldName);
+    presets.push({
+      field: fieldName,
+      value: String(normalize_rule_value(String(preset.value ?? ""))),
+    });
+  }
+  return presets;
+}
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -38,6 +233,10 @@ function roleFromRow(row: Row): CmsRole {
     api_access: bool(row.api_access),
     admin_access: bool(row.admin_access),
     is_system: bool(row.is_system),
+    parent_role_id:
+      row.parent_role_id === null || row.parent_role_id === undefined
+        ? null
+        : Number(row.parent_role_id),
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
   };
@@ -57,6 +256,9 @@ function permissionFromRow(row: Row): CmsPermission {
     collection: String(row.collection ?? ""),
     action: String(row.action ?? "read") as CmsPermissionAction,
     fields,
+    filter: parse_rule_group(row.filter),
+    validation: parse_rule_group(row.validation),
+    presets: parse_presets(row.presets),
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
   };
@@ -70,6 +272,8 @@ function apiKeyFromRow(row: Row): CmsApiKey {
     role_id: Number(row.role_id),
     role_name: String(row.role_name ?? ""),
     user_id: row.user_id === null || row.user_id === undefined ? null : Number(row.user_id),
+    user_name: String(row.user_name ?? ""),
+    user_email: String(row.user_email ?? ""),
     active: bool(row.active),
     expires_at: row.expires_at === null || row.expires_at === undefined ? null : Number(row.expires_at),
     last_used_at:
@@ -102,6 +306,29 @@ export function get_role_by_slug(slug: string): CmsRole | null {
   return row ? roleFromRow(row) : null;
 }
 
+function validate_parent_role(roleId: number | null, parentId: number | null): number | null {
+  if (parentId === null || parentId <= 0) return null;
+  if (roleId !== null && parentId === roleId) {
+    throw new EtHttpError(400, "A role cannot be its own parent.");
+  }
+  const parent = get_role_by_id(parentId);
+  if (!parent) throw new EtHttpError(400, "The parent role was not found.");
+  let cursor: CmsRole | null = parent;
+  const seen = new Set<number>();
+  while (cursor) {
+    if (roleId !== null && cursor.id === roleId) {
+      throw new EtHttpError(400, "That parent role would create a role inheritance cycle.");
+    }
+    if (seen.has(cursor.id)) {
+      throw new EtHttpError(400, "The existing role hierarchy contains a cycle.");
+    }
+    seen.add(cursor.id);
+    cursor =
+      cursor.parent_role_id === null ? null : get_role_by_id(cursor.parent_role_id);
+  }
+  return parentId;
+}
+
 export function list_roles(): Array<CmsRole & { user_count: number }> {
   ensure_cms_schema();
   const rows = sqlite()
@@ -125,6 +352,7 @@ export function create_role(input: {
   app_access?: boolean;
   api_access?: boolean;
   admin_access?: boolean;
+  parent_role_id?: number | null;
 }): CmsRole {
   ensure_cms_schema();
   const name = String(input.name ?? "").trim();
@@ -137,6 +365,7 @@ export function create_role(input: {
     .prepare("SELECT id FROM eterc_roles WHERE name = ? OR slug = ? LIMIT 1")
     .get(name, slug) as { id: number } | undefined;
   if (existing) throw new EtHttpError(409, "A role with that name already exists.");
+  const parentId = validate_parent_role(null, input.parent_role_id ?? null);
 
   const now = nowSeconds();
   const levelResult = sqlite()
@@ -146,8 +375,8 @@ export function create_role(input: {
   const result = sqlite()
     .prepare(
       `INSERT INTO eterc_roles
-        (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, parent_role_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
     )
     .run(
       levelId,
@@ -157,6 +386,7 @@ export function create_role(input: {
       input.app_access === false ? 0 : 1,
       input.api_access === false ? 0 : 1,
       input.admin_access ? 1 : 0,
+      parentId,
       now,
       now
     );
@@ -171,6 +401,7 @@ export function update_role(
     app_access?: boolean;
     api_access?: boolean;
     admin_access?: boolean;
+    parent_role_id?: number | null;
   }
 ): CmsRole {
   const role = get_role_by_id(roleId);
@@ -195,11 +426,16 @@ export function update_role(
   const appAccess = role.is_system ? true : patch.app_access ?? role.app_access;
   const apiAccess = role.is_system ? true : patch.api_access ?? role.api_access;
   const adminAccess = role.is_system ? true : patch.admin_access ?? role.admin_access;
+  const parentId = role.is_system
+    ? null
+    : patch.parent_role_id !== undefined
+      ? validate_parent_role(roleId, patch.parent_role_id)
+      : role.parent_role_id;
 
   sqlite()
     .prepare(
       `UPDATE eterc_roles
-       SET name = ?, slug = ?, description = ?, app_access = ?, api_access = ?, admin_access = ?, updated_at = ?
+       SET name = ?, slug = ?, description = ?, app_access = ?, api_access = ?, admin_access = ?, parent_role_id = ?, updated_at = ?
        WHERE id = ?`
     )
     .run(
@@ -209,6 +445,7 @@ export function update_role(
       appAccess ? 1 : 0,
       apiAccess ? 1 : 0,
       adminAccess ? 1 : 0,
+      parentId,
       nowSeconds(),
       roleId
     );
@@ -229,6 +466,12 @@ export function delete_role(roleId: number): void {
     .get(role.user_level_id) as { count: number };
   if (Number(users.count) > 0) {
     throw new EtHttpError(409, "Move the users assigned to this role before deleting it.");
+  }
+  const children = sqlite()
+    .prepare("SELECT COUNT(*) AS count FROM eterc_roles WHERE parent_role_id = ?")
+    .get(roleId) as { count: number };
+  if (Number(children.count) > 0) {
+    throw new EtHttpError(409, "Move or delete the child roles before deleting this role.");
   }
   sqlite().prepare("DELETE FROM eterc_permissions WHERE role_id = ?").run(roleId);
   sqlite().prepare("DELETE FROM eterc_roles WHERE id = ?").run(roleId);
@@ -258,9 +501,10 @@ export function replace_permissions(
     sqlite().prepare("DELETE FROM eterc_permissions WHERE role_id = ?").run(roleId);
     const insert = sqlite().prepare(
       `INSERT INTO eterc_permissions
-        (role_id, collection, action, fields, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+        (role_id, collection, action, fields, filter, validation, presets, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
+    const seen = new Set<string>();
     for (const permission of permissions) {
       const collection = String(permission.collection ?? "").trim();
       if (!collection) continue;
@@ -273,14 +517,23 @@ export function replace_permissions(
       if (!CMS_ACTIONS.includes(permission.action)) {
         throw new EtHttpError(400, `Unknown permission action '${permission.action}'.`);
       }
-      const fields = Array.isArray(permission.fields)
-        ? permission.fields.map(String).filter(Boolean)
-        : [];
+      const key = `${collection}:${permission.action}`;
+      if (seen.has(key)) {
+        throw new EtHttpError(400, `Duplicate policy for '${collection}' (${permission.action}).`);
+      }
+      seen.add(key);
+      const fields = normalize_fields(collection, permission.fields);
+      const filter = normalize_rule_group(collection, permission.filter);
+      const validation = normalize_rule_group(collection, permission.validation);
+      const presets = normalize_presets(collection, permission.presets);
       insert.run(
         roleId,
         collection,
         permission.action,
         JSON.stringify(fields),
+        JSON.stringify(filter),
+        JSON.stringify(validation),
+        JSON.stringify(presets),
         now,
         now
       );
@@ -304,21 +557,35 @@ export function set_permission(
   if (!CMS_ACTIONS.includes(input.action)) {
     throw new EtHttpError(400, "Unknown permission action.");
   }
+  if (collection !== "*") {
+    const table = sqlite()
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(collection) as { name: string } | undefined;
+    if (!table) throw new EtHttpError(400, `Collection '${collection}' was not found.`);
+  }
   if (input.enabled) {
     const now = nowSeconds();
     sqlite()
       .prepare(
         `INSERT INTO eterc_permissions
-          (role_id, collection, action, fields, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+          (role_id, collection, action, fields, filter, validation, presets, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(role_id, collection, action)
-         DO UPDATE SET fields = excluded.fields, updated_at = excluded.updated_at`
+         DO UPDATE SET
+           fields = excluded.fields,
+           filter = excluded.filter,
+           validation = excluded.validation,
+           presets = excluded.presets,
+           updated_at = excluded.updated_at`
       )
       .run(
         roleId,
         collection,
         input.action,
-        JSON.stringify(input.fields ?? []),
+        JSON.stringify(normalize_fields(collection, input.fields)),
+        JSON.stringify(normalize_rule_group(collection, input.filter)),
+        JSON.stringify(normalize_rule_group(collection, input.validation)),
+        JSON.stringify(normalize_presets(collection, input.presets)),
         now,
         now
       );
@@ -396,7 +663,11 @@ export function list_api_keys(): CmsApiKey[] {
   ensure_cms_schema();
   const rows = sqlite()
     .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name
+      `SELECT k.*, COALESCE(r.name, '') AS role_name,
+         COALESCE((SELECT a.username FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+         COALESCE((SELECT a.email FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
        FROM eterc_api_keys k
        LEFT JOIN eterc_roles r ON r.id = k.role_id
        ORDER BY k.created_at DESC, k.id DESC`
@@ -422,6 +693,16 @@ export function create_api_key(input: {
     throw new EtHttpError(403, "That role does not have API access.");
   }
 
+  let userId: number | null = null;
+  if (input.userId !== null && input.userId !== undefined) {
+    const candidate = Number(input.userId);
+    const user = sqlite()
+      .prepare("SELECT id FROM eterc_users WHERE id = ? LIMIT 1")
+      .get(candidate) as { id: number } | undefined;
+    if (!user) throw new EtHttpError(404, "The selected user was not found.");
+    userId = candidate;
+  }
+
   const prefix = crypto.randomBytes(6).toString("hex");
   const secret = crypto.randomBytes(24).toString("base64url");
   const raw = `etk_${prefix}_${secret}`;
@@ -438,13 +719,17 @@ export function create_api_key(input: {
       prefix,
       hash,
       role.id,
-      input.userId ?? null,
+      userId,
       input.expiresAt ?? null,
       now
     );
   const row = sqlite()
     .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name
+      `SELECT k.*, COALESCE(r.name, '') AS role_name,
+         COALESCE((SELECT a.username FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+         COALESCE((SELECT a.email FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
        FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
        WHERE k.id = ?`
     )
@@ -479,7 +764,11 @@ export function verify_api_key(raw: string): CmsPrincipal | null {
   const [, prefix, secret] = match;
   const row = sqlite()
     .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name
+      `SELECT k.*, COALESCE(r.name, '') AS role_name,
+         COALESCE((SELECT a.username FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+         COALESCE((SELECT a.email FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
        FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
        WHERE k.key_prefix = ? LIMIT 1`
     )
@@ -500,7 +789,9 @@ export function verify_api_key(raw: string): CmsPrincipal | null {
   return {
     kind: "api_key",
     role,
-    user_id: null,
+    user_id: row.user_id === null || row.user_id === undefined ? null : Number(row.user_id),
+    user_email: String(row.user_email ?? ""),
+    user_username: String(row.user_name ?? ""),
     api_key_id: Number(row.id),
     label: String(row.name ?? "API key"),
   };
@@ -511,10 +802,18 @@ function principal_from_user(user: EtercUserObj): CmsPrincipal {
   if (!role) {
     throw new EtHttpError(403, "Your account has no role assigned.");
   }
+  const administrator = sqlite()
+    .prepare(
+      `SELECT username, email FROM eterc_administrators
+       WHERE eterc_user_id = ? LIMIT 1`
+    )
+    .get(Number(user.eterc_user_id)) as { username: string; email: string } | undefined;
   return {
     kind: "user",
     role,
     user_id: Number(user.eterc_user_id),
+    user_email: String(administrator?.email ?? ""),
+    user_username: String(administrator?.username ?? ""),
     api_key_id: null,
     label: user.user_level ?? role.name,
   };
@@ -576,27 +875,70 @@ export function require_human_admin(): CmsPrincipal {
   return principal;
 }
 
-export function authorize(
-  principal: CmsPrincipal,
+function direct_permission(
+  roleId: number,
   collection: string,
   action: CmsPermissionAction
-): string[] {
-  if (principal.role.admin_access) return [];
-  const permission = sqlite()
+): CmsPermission | null {
+  const row = sqlite()
     .prepare(
       `SELECT * FROM eterc_permissions
        WHERE role_id = ? AND (collection = ? OR collection = '*') AND action = ?
        ORDER BY CASE WHEN collection = '*' THEN 1 ELSE 0 END
        LIMIT 1`
     )
-    .get(principal.role.id, collection, action) as Row | undefined;
+    .get(roleId, collection, action) as Row | undefined;
+  return row ? permissionFromRow(row) : null;
+}
+
+export function find_permission(
+  roleId: number,
+  collection: string,
+  action: CmsPermissionAction,
+  seen: Set<number> = new Set()
+): CmsPermission | null {
+  if (seen.has(roleId)) return null;
+  seen.add(roleId);
+  const permission = direct_permission(roleId, collection, action);
+  if (permission) return permission;
+  const role = get_role_by_id(roleId);
+  if (!role || role.parent_role_id === null) return null;
+  return find_permission(role.parent_role_id, collection, action, seen);
+}
+
+function full_permission(
+  principal: CmsPrincipal,
+  collection: string,
+  action: CmsPermissionAction
+): CmsPermission {
+  return {
+    id: 0,
+    role_id: principal.role.id,
+    collection,
+    action,
+    fields: ["*"],
+    filter: empty_rule_group(),
+    validation: empty_rule_group(),
+    presets: [],
+    created_at: 0,
+    updated_at: 0,
+  };
+}
+
+export function authorize(
+  principal: CmsPrincipal,
+  collection: string,
+  action: CmsPermissionAction
+): CmsPermission {
+  if (principal.role.admin_access) return full_permission(principal, collection, action);
+  const permission = find_permission(principal.role.id, collection, action);
   if (!permission) {
     throw new EtHttpError(
       403,
       `The role '${principal.role.name}' cannot ${action} '${collection}'.`
     );
   }
-  return permissionFromRow(permission).fields;
+  return permission;
 }
 
 export function can_use_collection(
@@ -604,14 +946,9 @@ export function can_use_collection(
   collection: string
 ): boolean {
   if (principal.role.admin_access) return true;
-  const row = sqlite()
-    .prepare(
-      `SELECT id FROM eterc_permissions
-       WHERE role_id = ? AND (collection = ? OR collection = '*')
-       LIMIT 1`
-    )
-    .get(principal.role.id, collection) as { id: number } | undefined;
-  return row !== undefined;
+  return CMS_ACTIONS.some(
+    (action) => find_permission(principal.role.id, collection, action) !== null
+  );
 }
 
 export function accessible_collections(principal: CmsPrincipal): string[] {
@@ -624,7 +961,7 @@ export function filter_fields(
   fields: string[],
   row: Record<string, unknown>
 ): Record<string, unknown> {
-  if (fields.length === 0) return row;
+  if (fields.includes("*")) return row;
   const allowed = new Set(["id", ...fields]);
   return Object.fromEntries(
     Object.entries(row).filter(([key]) => allowed.has(key))
@@ -635,19 +972,292 @@ export function assert_field_access(
   principal: CmsPrincipal,
   collection: string,
   action: CmsPermissionAction,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  policy?: CmsPermission
 ): void {
-  const fields = authorize(principal, collection, action);
-  if (fields.length === 0) return;
-  const allowed = new Set(fields);
+  const permission = policy ?? authorize(principal, collection, action);
+  if (permission.fields.includes("*")) return;
+  const allowed = new Set(permission.fields);
+  const presetFields =
+    action === "create" ? new Set(permission.presets.map((preset) => preset.field)) : new Set<string>();
   for (const key of Object.keys(input)) {
     if (key === "id") continue;
+    if (presetFields.has(key)) continue;
     if (!allowed.has(key)) {
       throw new EtHttpError(
         403,
         `The role '${principal.role.name}' cannot write the field '${key}'.`
       );
     }
+  }
+}
+
+interface ResolvedVariable {
+  ok: boolean;
+  value?: unknown;
+  message?: string;
+}
+
+function resolve_rule_variable(value: unknown, principal: CmsPrincipal): ResolvedVariable {
+  if (typeof value !== "string" || !value.startsWith("$")) {
+    return { ok: true, value };
+  }
+  if (value.startsWith("$$")) {
+    return { ok: true, value: value.slice(1) };
+  }
+  switch (value) {
+    case "$user.id":
+      if (principal.user_id === null || principal.user_id <= 0) {
+        return { ok: false, message: "This policy requires a signed-in user." };
+      }
+      return { ok: true, value: principal.user_id };
+    case "$user.email":
+      if (!principal.user_email) {
+        return {
+          ok: false,
+          message: "This policy requires a user with an email address.",
+        };
+      }
+      return { ok: true, value: principal.user_email };
+    case "$user.username":
+      if (!principal.user_username) {
+        return {
+          ok: false,
+          message: "This policy requires a user with a username.",
+        };
+      }
+      return { ok: true, value: principal.user_username };
+    case "$user.role":
+      return { ok: true, value: principal.role.name };
+    case "$user.role_slug":
+      return { ok: true, value: principal.role.slug };
+    default:
+      return {
+        ok: false,
+        message: `The policy uses an unknown variable '${value}'.`,
+      };
+  }
+}
+
+function resolve_rule_group(
+  group: CmsRuleGroup,
+  principal: CmsPrincipal,
+  collection: string
+): CmsRuleGroup {
+  if (group.conditions.length === 0) return empty_rule_group();
+  if (collection === "*") {
+    throw new EtHttpError(403, "Wildcard policies cannot evaluate row conditions.");
+  }
+  const fields = new Set(collection_fields(collection).map((field) => field.name));
+  const conditions: CmsRuleCondition[] = [];
+  for (const condition of group.conditions) {
+    if (!fields.has(condition.field)) {
+      throw new EtHttpError(
+        403,
+        `The access policy references the missing field '${condition.field}'.`
+      );
+    }
+    if (!CMS_RULE_OPERATORS.includes(condition.operator)) {
+      throw new EtHttpError(403, "The access policy uses an unsupported condition operator.");
+    }
+    if (condition.operator === "_null") {
+      conditions.push({
+        field: condition.field,
+        operator: condition.operator,
+        value: Boolean(condition.value),
+      });
+      continue;
+    }
+    if (condition.operator === "_in") {
+      const raw = Array.isArray(condition.value) ? condition.value : [condition.value];
+      const values: unknown[] = [];
+      for (const entry of raw) {
+        const resolved = resolve_rule_variable(entry, principal);
+        if (!resolved.ok) {
+          throw new EtHttpError(403, resolved.message ?? "The policy could not resolve a value.");
+        }
+        values.push(resolved.value);
+      }
+      conditions.push({
+        field: condition.field,
+        operator: condition.operator,
+        value: values,
+      });
+      continue;
+    }
+    const resolved = resolve_rule_variable(condition.value, principal);
+    if (!resolved.ok) {
+      throw new EtHttpError(403, resolved.message ?? "The policy could not resolve a value.");
+    }
+    conditions.push({
+      field: condition.field,
+      operator: condition.operator,
+      value: resolved.value,
+    });
+  }
+  return { match: group.match, conditions };
+}
+
+export function rule_group_to_filter(
+  group: CmsRuleGroup,
+  principal: CmsPrincipal,
+  collection: string
+): Record<string, unknown> | undefined {
+  const resolved = resolve_rule_group(group, principal, collection);
+  if (resolved.conditions.length === 0) return undefined;
+  const clauses = resolved.conditions.map((condition) => ({
+    [condition.field]: { [condition.operator]: condition.value },
+  }));
+  return resolved.match === "any" ? { _or: clauses } : { _and: clauses };
+}
+
+function is_empty_value(value: unknown): boolean {
+  return value === null || value === undefined;
+}
+
+function as_number(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function as_boolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "1" || value === "true") return true;
+  if (value === 0 || value === "0" || value === "false") return false;
+  return null;
+}
+
+function values_equal(left: unknown, right: unknown): boolean {
+  if (is_empty_value(left) || is_empty_value(right)) {
+    return is_empty_value(left) && is_empty_value(right);
+  }
+  if (typeof left === "boolean" || typeof right === "boolean") {
+    const leftBool = as_boolean(left);
+    const rightBool = as_boolean(right);
+    if (leftBool === null || rightBool === null) return false;
+    return leftBool === rightBool;
+  }
+  const leftNumber = as_number(left);
+  const rightNumber = as_number(right);
+  if (leftNumber !== null && rightNumber !== null) return leftNumber === rightNumber;
+  return String(left) === String(right);
+}
+
+function ordered_compare(left: unknown, right: unknown): number | null {
+  const leftNumber = as_number(left);
+  const rightNumber = as_number(right);
+  if (leftNumber !== null && rightNumber !== null) {
+    return leftNumber === rightNumber ? 0 : leftNumber < rightNumber ? -1 : 1;
+  }
+  if (is_empty_value(left) || is_empty_value(right)) return null;
+  const leftText = String(left);
+  const rightText = String(right);
+  return leftText === rightText ? 0 : leftText < rightText ? -1 : 1;
+}
+
+function condition_matches(
+  row: Record<string, unknown>,
+  condition: CmsRuleCondition
+): boolean {
+  const actual = row[condition.field];
+  const expected = condition.value;
+  switch (condition.operator) {
+    case "_eq":
+      return values_equal(actual, expected);
+    case "_neq":
+      return !values_equal(actual, expected);
+    case "_contains":
+      return !is_empty_value(actual) &&
+        String(actual).toLowerCase().includes(String(expected ?? "").toLowerCase());
+    case "_not_contains":
+      return is_empty_value(actual) ||
+        !String(actual).toLowerCase().includes(String(expected ?? "").toLowerCase());
+    case "_starts_with":
+      return !is_empty_value(actual) &&
+        String(actual).toLowerCase().startsWith(String(expected ?? "").toLowerCase());
+    case "_ends_with":
+      return !is_empty_value(actual) &&
+        String(actual).toLowerCase().endsWith(String(expected ?? "").toLowerCase());
+    case "_gt": {
+      const order = ordered_compare(actual, expected);
+      return order !== null && order > 0;
+    }
+    case "_gte": {
+      const order = ordered_compare(actual, expected);
+      return order !== null && order >= 0;
+    }
+    case "_lt": {
+      const order = ordered_compare(actual, expected);
+      return order !== null && order < 0;
+    }
+    case "_lte": {
+      const order = ordered_compare(actual, expected);
+      return order !== null && order <= 0;
+    }
+    case "_null":
+      return Boolean(expected) ? is_empty_value(actual) : !is_empty_value(actual);
+    case "_in": {
+      const values = Array.isArray(expected) ? expected : [expected];
+      return values.some((value) => values_equal(actual, value));
+    }
+    default:
+      return false;
+  }
+}
+
+export function row_matches_rule_group(
+  row: Record<string, unknown>,
+  group: CmsRuleGroup,
+  principal: CmsPrincipal,
+  collection: string
+): boolean {
+  const resolved = resolve_rule_group(group, principal, collection);
+  if (resolved.conditions.length === 0) return true;
+  const matches = resolved.conditions.map((condition) => condition_matches(row, condition));
+  return resolved.match === "any" ? matches.some(Boolean) : matches.every(Boolean);
+}
+
+export function apply_presets(
+  input: Record<string, unknown>,
+  presets: CmsRulePreset[],
+  principal: CmsPrincipal,
+  collection: string
+): Record<string, unknown> {
+  if (presets.length === 0) return { ...input };
+  const fields = new Set(collection_fields(collection).map((field) => field.name));
+  const values = { ...input };
+  for (const preset of presets) {
+    if (!fields.has(preset.field)) {
+      throw new EtHttpError(
+        403,
+        `The policy preset references the missing field '${preset.field}'.`
+      );
+    }
+    const resolved = resolve_rule_variable(preset.value, principal);
+    if (!resolved.ok) {
+      throw new EtHttpError(403, resolved.message ?? "The policy preset could not resolve a value.");
+    }
+    values[preset.field] = resolved.value;
+  }
+  return values;
+}
+
+export function assert_rule_group(
+  row: Record<string, unknown>,
+  group: CmsRuleGroup,
+  principal: CmsPrincipal,
+  collection: string,
+  label: string
+): void {
+  if (!row_matches_rule_group(row, group, principal, collection)) {
+    throw new EtHttpError(
+      403,
+      `The ${label} policy for '${collection}' rejected this record.`
+    );
   }
 }
 
@@ -661,7 +1271,11 @@ export function get_access_overview(): {
   users: CmsUserSummary[];
   api_keys: CmsApiKey[];
   permissions: Record<number, CmsPermission[]>;
-  collections: Array<{ name: string; label: string }>;
+  collections: Array<{
+    name: string;
+    label: string;
+    fields: Array<Pick<CmsField, "name" | "label" | "type" | "required" | "hidden" | "readonly">>;
+  }>;
 } {
   const roles = list_roles();
   const permissions: Record<number, CmsPermission[]> = {};
@@ -674,6 +1288,14 @@ export function get_access_overview(): {
     collections: list_collections({ include_hidden: true }).map((collection) => ({
       name: collection.name,
       label: collection.label || collection.name,
+      fields: collection.fields.map((field) => ({
+        name: field.name,
+        label: field.label || field.name,
+        type: field.type,
+        required: field.required,
+        hidden: field.hidden,
+        readonly: field.readonly,
+      })),
     })),
   };
 }

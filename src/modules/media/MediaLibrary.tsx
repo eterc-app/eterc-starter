@@ -22,14 +22,21 @@ import {
   Search,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetHeader,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { MediaItem, MediaStats } from "./media-store";
@@ -393,10 +400,16 @@ export function MediaLibrary({
         title="Media library"
         description={`${stats.count} ${stats.count === 1 ? "image" : "images"} · ${stats.total_label}`}
         actions={
-          <Button type="button" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="size-4" strokeWidth={1.75} />
-            Upload images
-          </Button>
+          <PageActions
+            items={[
+              {
+                label: "Upload images",
+                icon: <Upload className="size-4" strokeWidth={1.75} />,
+                variant: "default",
+                onSelect: () => fileInputRef.current?.click(),
+              },
+            ]}
+          />
         }
       />
 
@@ -477,12 +490,7 @@ export function MediaLibrary({
               setDragActive(false);
             }}
             onDrop={onDrop}
-            className={cn(
-              "grid gap-4",
-              selected !== null
-                ? "xl:grid-cols-[minmax(0,1fr)_340px]"
-                : "grid-cols-1"
-            )}
+            className="grid gap-4"
           >
             <div className="min-w-0">
               {filtered.length === 0 ? (
@@ -596,31 +604,26 @@ export function MediaLibrary({
               />
             </div>
 
-            {selected !== null ? (
-              <aside className="h-fit overflow-hidden rounded-xl border border-border bg-card xl:sticky xl:top-4">
-                <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">Attachment details</p>
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {selected.file}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0"
-                    aria-label="Close details"
-                    onClick={() => {
-                      setSelectedFile("");
-                      setEditing(false);
-                    }}
-                  >
-                    <X className="size-3.5" strokeWidth={1.75} />
-                  </Button>
-                </div>
+            <Sheet
+              open={selected !== null}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedFile("");
+                  setEditing(false);
+                }
+              }}
+            >
+              <SheetContent className="max-w-[480px]">
+                {selected ? (
+                  <>
+                    <SheetHeader>
+                      <DialogTitle>Attachment details</DialogTitle>
+                      <DialogDescription className="truncate font-mono text-xs">
+                        {selected.file}
+                      </DialogDescription>
+                    </SheetHeader>
 
-                <div className="space-y-4 p-4">
+                    <SheetBody className="space-y-4 p-4">
                   <div className="overflow-hidden rounded-lg border border-border bg-muted">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -749,9 +752,11 @@ export function MediaLibrary({
                       </div>
                     </>
                   )}
-                </div>
-              </aside>
-            ) : null}
+                    </SheetBody>
+                  </>
+                ) : null}
+              </SheetContent>
+            </Sheet>
           </div>
 
           {media.length > 0 && selected === null ? (

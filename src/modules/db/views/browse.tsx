@@ -1,9 +1,10 @@
-import { Database } from "lucide-react";
+import { Database, Plus, Table2, Terminal } from "lucide-react";
 import { Flashdata } from "@/engine/ui/Flashdata";
 import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { EmptyState } from "@/components/app/EmptyState";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,17 +45,26 @@ export default function Browse({ data }: EtViewProps) {
         title="Browse table"
         description="Browse and edit records in the local SQLite database."
         actions={
-          <>
-            <Button asChild>
-              <a href={forger_url}>New record</a>
-            </Button>
-            <Button asChild variant="outline">
-              <a href={String(data.sql_console_url ?? "")}>SQL console</a>
-            </Button>
-            <Button asChild variant="outline">
-              <a href={String(data.tables_url ?? "")}>Tables</a>
-            </Button>
-          </>
+          <PageActions
+            items={[
+              {
+                label: "New record",
+                icon: <Plus className="size-4" />,
+                href: forger_url,
+                variant: "default",
+              },
+              {
+                label: "SQL console",
+                icon: <Terminal className="size-4" />,
+                href: String(data.sql_console_url ?? ""),
+              },
+              {
+                label: "Database tables",
+                icon: <Table2 className="size-4" />,
+                href: String(data.tables_url ?? ""),
+              },
+            ]}
+          />
         }
       />
 

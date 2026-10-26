@@ -89,6 +89,36 @@ export interface CmsCollectionInput {
 
 export type CmsPermissionAction = "read" | "create" | "update" | "delete";
 
+export type CmsRuleOperator =
+  | "_eq"
+  | "_neq"
+  | "_contains"
+  | "_not_contains"
+  | "_starts_with"
+  | "_ends_with"
+  | "_gt"
+  | "_gte"
+  | "_lt"
+  | "_lte"
+  | "_null"
+  | "_in";
+
+export interface CmsRuleCondition {
+  field: string;
+  operator: CmsRuleOperator;
+  value?: unknown;
+}
+
+export interface CmsRuleGroup {
+  match: "all" | "any";
+  conditions: CmsRuleCondition[];
+}
+
+export interface CmsRulePreset {
+  field: string;
+  value: string;
+}
+
 export interface CmsRole {
   id: number;
   user_level_id: number;
@@ -99,6 +129,7 @@ export interface CmsRole {
   api_access: boolean;
   admin_access: boolean;
   is_system: boolean;
+  parent_role_id: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -109,6 +140,9 @@ export interface CmsPermission {
   collection: string;
   action: CmsPermissionAction;
   fields: string[];
+  filter: CmsRuleGroup;
+  validation: CmsRuleGroup;
+  presets: CmsRulePreset[];
   created_at: number;
   updated_at: number;
 }
@@ -116,7 +150,11 @@ export interface CmsPermission {
 export interface CmsPermissionInput {
   collection: string;
   action: CmsPermissionAction;
+  /** `["*"]` grants every field. An empty list grants only the primary key. */
   fields?: string[];
+  filter?: CmsRuleGroup;
+  validation?: CmsRuleGroup;
+  presets?: CmsRulePreset[];
 }
 
 export interface CmsApiKey {
@@ -126,6 +164,8 @@ export interface CmsApiKey {
   role_id: number;
   role_name: string;
   user_id: number | null;
+  user_name: string;
+  user_email: string;
   active: boolean;
   expires_at: number | null;
   last_used_at: number | null;
@@ -151,6 +191,8 @@ export interface CmsPrincipal {
   kind: "user" | "api_key";
   role: CmsRole;
   user_id: number | null;
+  user_email: string;
+  user_username: string;
   api_key_id: number | null;
   label: string;
 }
@@ -162,6 +204,8 @@ export interface CmsRecordListOptions {
   direction?: "asc" | "desc";
   search?: string;
   filter?: Record<string, unknown>;
+  /** Server-side row policy. It is combined with `filter` using AND. */
+  access_filter?: Record<string, unknown>;
 }
 
 export interface CmsRecordListResult {
@@ -207,6 +251,29 @@ export const CMS_ACTIONS: CmsPermissionAction[] = [
   "update",
   "delete",
 ];
+
+export const CMS_RULE_OPERATORS: CmsRuleOperator[] = [
+  "_eq",
+  "_neq",
+  "_contains",
+  "_not_contains",
+  "_starts_with",
+  "_ends_with",
+  "_gt",
+  "_gte",
+  "_lt",
+  "_lte",
+  "_null",
+  "_in",
+];
+
+export const CMS_RULE_VARIABLES = [
+  { token: "$user.id", label: "Current user ID" },
+  { token: "$user.email", label: "Current user email" },
+  { token: "$user.username", label: "Current username" },
+  { token: "$user.role", label: "Current role name" },
+  { token: "$user.role_slug", label: "Current role slug" },
+] as const;
 
 export const CMS_FIELD_TYPES: CmsFieldType[] = [
   "string",

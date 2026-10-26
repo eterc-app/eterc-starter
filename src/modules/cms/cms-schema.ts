@@ -12,6 +12,7 @@ const INTERNAL_TABLES = new Set([
   "password_resets",
   "cms_collections",
   "cms_fields",
+  "cms_migrations",
   "eterc_roles",
   "eterc_permissions",
   "eterc_api_keys",
@@ -21,6 +22,11 @@ const INTERNAL_TABLES = new Set([
 const SYSTEM_TABLE_PREFIXES = ["eterc_", "cms_"];
 
 const CMS_DDL = `
+CREATE TABLE IF NOT EXISTS "cms_migrations" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "applied_at" INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS "cms_collections" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" TEXT NOT NULL UNIQUE,
@@ -63,6 +69,7 @@ CREATE TABLE IF NOT EXISTS "eterc_roles" (
   "api_access" INTEGER NOT NULL DEFAULT 1,
   "admin_access" INTEGER NOT NULL DEFAULT 0,
   "is_system" INTEGER NOT NULL DEFAULT 0,
+  "parent_role_id" INTEGER,
   "created_at" INTEGER NOT NULL,
   "updated_at" INTEGER NOT NULL
 );
@@ -72,7 +79,10 @@ CREATE TABLE IF NOT EXISTS "eterc_permissions" (
   "role_id" INTEGER NOT NULL,
   "collection" TEXT NOT NULL,
   "action" TEXT NOT NULL,
-  "fields" TEXT NOT NULL DEFAULT '[]',
+  "fields" TEXT NOT NULL DEFAULT '["*"]',
+  "filter" TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}',
+  "validation" TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}',
+  "presets" TEXT NOT NULL DEFAULT '[]',
   "created_at" INTEGER NOT NULL,
   "updated_at" INTEGER NOT NULL,
   UNIQUE("role_id", "collection", "action")
@@ -112,6 +122,61 @@ let schemaReady = false;
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
+}
+
+function has_column(table: string, column: string): boolean {
+  const columns = sqlite()
+    .prepare(`PRAGMA table_info(${quote_identifier(table)})`)
+    .all() as Array<{ name: string }>;
+  return columns.some((entry) => entry.name === column);
+}
+
+function ensure_column(table: string, column: string, definition: string): void {
+  if (has_column(table, column)) return;
+  sqlite().exec(
+    `ALTER TABLE ${quote_identifier(table)} ADD COLUMN ${quote_identifier(column)} ${definition}`
+  );
+}
+
+/**
+ * Upgrade access-control tables created before row policies existed.
+ *
+ * An empty `fields` list used to mean "all fields". It now means "no fields"
+ * so a policy can deny every client field, while `["*"]` means every field.
+ * Existing rows are migrated once to preserve their original behavior.
+ */
+function migrate_access_schema(): void {
+  ensure_column("eterc_roles", "parent_role_id", "INTEGER");
+  sqlite().exec(
+    `CREATE INDEX IF NOT EXISTS "eterc_roles_parent_idx" ON "eterc_roles"("parent_role_id")`
+  );
+  ensure_column("eterc_api_keys", "user_id", "INTEGER");
+  ensure_column(
+    "eterc_permissions",
+    "filter",
+    `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
+  );
+  ensure_column(
+    "eterc_permissions",
+    "validation",
+    `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
+  );
+  ensure_column("eterc_permissions", "presets", "TEXT NOT NULL DEFAULT '[]'");
+
+  const marker = sqlite()
+    .prepare("SELECT id FROM cms_migrations WHERE id = ? LIMIT 1")
+    .get("access_fields_wildcard_v1") as { id: string } | undefined;
+  if (marker) return;
+  sqlite()
+    .prepare(
+      `UPDATE eterc_permissions
+       SET fields = '["*"]'
+       WHERE fields IS NULL OR fields = '' OR fields = '[]'`
+    )
+    .run();
+  sqlite()
+    .prepare("INSERT INTO cms_migrations (id, applied_at) VALUES (?, ?)")
+    .run("access_fields_wildcard_v1", nowSeconds());
 }
 
 function humanize(value: string): string {
@@ -158,6 +223,7 @@ function inferInterface(name: string, type: CmsFieldType): CmsFieldInterface {
 export function ensure_cms_schema(): void {
   if (schemaReady) return;
   sqlite().exec(CMS_DDL);
+  migrate_access_schema();
   seed_roles();
   sync_collections();
   schemaReady = true;

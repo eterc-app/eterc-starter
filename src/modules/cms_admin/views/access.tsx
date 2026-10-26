@@ -2,9 +2,25 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, KeyRound, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import {
+  Check,
+  CornerDownRight,
+  Database,
+  GitBranch,
+  KeyRound,
+  PanelLeft,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
+import { Notice } from "@/components/app/Notice";
+import { PageActions } from "@/components/app/PageActions";
+import { SectionDrawer, SideDrawer } from "@/components/app/SideDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,16 +41,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { EtViewProps } from "@/engine/views-registry";
 import type {
   CmsApiKey,
   CmsApiKeyWithSecret,
   CmsPermission,
   CmsPermissionAction,
+  CmsPermissionInput,
   CmsRole,
   CmsUserSummary,
 } from "@/modules/cms/cms-types";
+import {
+  ACTION_LABELS,
+  RuleSheet,
+  draft_from_permission,
+  empty_draft,
+  has_advanced_rules,
+  permission_input_from_draft,
+  type AccessCollection,
+  type PermissionDraft,
+} from "./access/RuleSheet";
 import {
   BusyButton,
   CopyButton,
@@ -50,7 +77,7 @@ interface Overview {
   users: CmsUserSummary[];
   api_keys: CmsApiKey[];
   permissions: Record<number, CmsPermission[]>;
-  collections: Array<{ name: string; label: string }>;
+  collections: AccessCollection[];
 }
 
 interface AccessState {
@@ -64,11 +91,13 @@ interface RoleForm {
   app_access: boolean;
   api_access: boolean;
   admin_access: boolean;
+  parent_role_id: string;
 }
 
 interface KeyForm {
   name: string;
   role_id: string;
+  user_id: string;
   expires_at: string;
 }
 
@@ -79,6 +108,8 @@ const ACTIONS: Array<{ key: CmsPermissionAction; label: string }> = [
   { key: "delete", label: "Delete" },
 ];
 
+type AccessSection = "roles" | "users" | "keys";
+
 function emptyRole(): RoleForm {
   return {
     id: 0,
@@ -87,25 +118,12 @@ function emptyRole(): RoleForm {
     app_access: true,
     api_access: true,
     admin_access: false,
+    parent_role_id: "",
   };
 }
 
 function emptyKey(): KeyForm {
-  return { name: "", role_id: "", expires_at: "" };
-}
-
-function matrix_from_permissions(permissions: CmsPermission[]): Record<string, Record<CmsPermissionAction, boolean>> {
-  const matrix: Record<string, Record<CmsPermissionAction, boolean>> = {};
-  for (const permission of permissions) {
-    matrix[permission.collection] ??= {
-      read: false,
-      create: false,
-      update: false,
-      delete: false,
-    };
-    matrix[permission.collection][permission.action] = true;
-  }
-  return matrix;
+  return { name: "", role_id: "", user_id: "none", expires_at: "" };
 }
 
 function roleBadges(role: CmsRole) {
@@ -113,28 +131,104 @@ function roleBadges(role: CmsRole) {
     <>
       {role.is_system ? <Badge variant="outline">System</Badge> : null}
       {role.admin_access ? <Badge>Admin area</Badge> : null}
-      {role.app_access ? <Badge variant="secondary">App</Badge> : <Badge variant="outline">No app</Badge>}
-      {role.api_access ? <Badge variant="secondary">API</Badge> : <Badge variant="outline">No API</Badge>}
+      {role.app_access ? (
+        <Badge variant="secondary">App</Badge>
+      ) : (
+        <Badge variant="outline">No app</Badge>
+      )}
+      {role.api_access ? (
+        <Badge variant="secondary">API</Badge>
+      ) : (
+        <Badge variant="outline">No API</Badge>
+      )}
     </>
   );
+}
+
+function permission_key(collection: string, action: CmsPermissionAction): string {
+  return `${collection}:${action}`;
+}
+
+function direct_permission(
+  permissions: CmsPermission[],
+  collection: string,
+  action: CmsPermissionAction
+): CmsPermission | null {
+  return (
+    permissions.find(
+      (permission) =>
+        permission.collection === collection && permission.action === action
+    ) ?? null
+  );
+}
+
+function effective_permission(
+  roles: CmsRole[],
+  permissions: Record<number, CmsPermission[]>,
+  roleId: number,
+  collection: string,
+  action: CmsPermissionAction
+): { permission: CmsPermission; source: CmsRole; inherited: boolean } | null {
+  let current = roles.find((role) => role.id === roleId) ?? null;
+  const seen = new Set<number>();
+  while (current) {
+    if (seen.has(current.id)) return null;
+    seen.add(current.id);
+    const list = permissions[current.id] ?? [];
+    const permission =
+      direct_permission(list, collection, action) ??
+      direct_permission(list, "*", action);
+    if (permission) {
+      return {
+        permission,
+        source: current,
+        inherited: current.id !== roleId,
+      };
+    }
+    current = current.parent_role_id
+      ? roles.find((role) => role.id === current?.parent_role_id) ?? null
+      : null;
+  }
+  return null;
+}
+
+function descendant_role_ids(roles: CmsRole[], roleId: number): Set<number> {
+  const descendants = new Set<number>();
+  if (roleId <= 0) return descendants;
+  const queue = [roleId];
+  while (queue.length > 0) {
+    const parent = queue.shift() as number;
+    for (const role of roles) {
+      if (role.parent_role_id === parent && !descendants.has(role.id)) {
+        descendants.add(role.id);
+        queue.push(role.id);
+      }
+    }
+  }
+  return descendants;
 }
 
 export default function AccessStudio({ data }: EtViewProps) {
   const initial = data.overview as Overview;
   const [overview, setOverview] = useState<Overview>(initial);
-  const [tab, setTab] = useState("roles");
+  const [section, setSection] = useState<AccessSection>("roles");
+  const [sectionDrawerOpen, setSectionDrawerOpen] = useState(false);
+  const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
   const { confirm, dialog: confirm_dialog } = useConfirm();
 
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleForm, setRoleForm] = useState<RoleForm>(emptyRole());
   const [roleSaving, setRoleSaving] = useState(false);
 
-  const firstEditable = initial.roles.find((role) => !role.is_system) ?? initial.roles[0];
-  const [selectedRoleId, setSelectedRoleId] = useState<number>(firstEditable?.id ?? 0);
-  const [matrix, setMatrix] = useState<Record<string, Record<CmsPermissionAction, boolean>>>(
-    matrix_from_permissions(initial.permissions[firstEditable?.id ?? 0] ?? [])
+  const firstEditable =
+    initial.roles.find((role) => !role.is_system) ?? initial.roles[0];
+  const [selectedRoleId, setSelectedRoleId] = useState<number>(
+    firstEditable?.id ?? 0
   );
-  const [permissionSaving, setPermissionSaving] = useState(false);
+
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [ruleDraft, setRuleDraft] = useState<PermissionDraft | null>(null);
+  const [ruleSaving, setRuleSaving] = useState(false);
 
   const [keyOpen, setKeyOpen] = useState(false);
   const [keyForm, setKeyForm] = useState<KeyForm>(emptyKey());
@@ -145,6 +239,29 @@ export default function AccessStudio({ data }: EtViewProps) {
     () => overview.roles.find((role) => role.id === selectedRoleId) ?? null,
     [overview.roles, selectedRoleId]
   );
+  const selectedPermissions = useMemo(
+    () => overview.permissions[selectedRoleId] ?? [],
+    [overview.permissions, selectedRoleId]
+  );
+  const parentRole = useMemo(
+    () =>
+      selectedRole?.parent_role_id
+        ? overview.roles.find((role) => role.id === selectedRole.parent_role_id) ??
+          null
+        : null,
+    [overview.roles, selectedRole]
+  );
+  const selectedCollection = useMemo(
+    () =>
+      ruleDraft
+        ? overview.collections.find(
+            (collection) => collection.name === ruleDraft.collection
+          ) ?? null
+        : null,
+    [overview.collections, ruleDraft]
+  );
+  const apiRoles = overview.roles.filter((role) => role.api_access);
+  const keyUsers = overview.users.filter((user) => user.eterc_user_id !== null);
 
   const refresh = useCallback(async () => {
     try {
@@ -154,22 +271,17 @@ export default function AccessStudio({ data }: EtViewProps) {
         state.overview.roles.find((role) => role.id === selectedRoleId) ??
         state.overview.roles.find((role) => !role.is_system) ??
         state.overview.roles[0];
-      if (nextRole) {
-        setSelectedRoleId(nextRole.id);
-        setMatrix(matrix_from_permissions(state.overview.permissions[nextRole.id] ?? []));
-      }
+      if (nextRole) setSelectedRoleId(nextRole.id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not refresh access settings.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not refresh access settings."
+      );
     }
   }, [selectedRoleId]);
 
-  const selectRole = useCallback(
-    (role: CmsRole) => {
-      setSelectedRoleId(role.id);
-      setMatrix(matrix_from_permissions(overview.permissions[role.id] ?? []));
-    },
-    [overview.permissions]
-  );
+  const selectRole = useCallback((role: CmsRole) => {
+    setSelectedRoleId(role.id);
+  }, []);
 
   const openCreateRole = useCallback(() => {
     setRoleForm(emptyRole());
@@ -184,9 +296,17 @@ export default function AccessStudio({ data }: EtViewProps) {
       app_access: role.app_access,
       api_access: role.api_access,
       admin_access: role.admin_access,
+      parent_role_id: role.parent_role_id ? String(role.parent_role_id) : "",
     });
     setRoleOpen(true);
   }, []);
+
+  const parentOptions = useMemo(() => {
+    const blocked = descendant_role_ids(overview.roles, roleForm.id);
+    return overview.roles.filter(
+      (role) => role.id !== roleForm.id && !blocked.has(role.id)
+    );
+  }, [overview.roles, roleForm.id]);
 
   const saveRole = useCallback(async () => {
     setRoleSaving(true);
@@ -198,6 +318,9 @@ export default function AccessStudio({ data }: EtViewProps) {
         app_access: roleForm.app_access,
         api_access: roleForm.api_access,
         admin_access: roleForm.admin_access,
+        parent_role_id: roleForm.parent_role_id
+          ? Number(roleForm.parent_role_id)
+          : null,
       });
       toast.success(roleForm.id ? "Role updated." : "Role created.");
       setRoleOpen(false);
@@ -217,7 +340,7 @@ export default function AccessStudio({ data }: EtViewProps) {
           <>
             The role{" "}
             <span className="font-mono text-foreground">{role.name}</span> will
-            be permanently removed. Users assigned to it must be moved first.
+            be permanently removed. Users and child roles must be moved first.
             This cannot be undone.
           </>
         ),
@@ -229,58 +352,114 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.success("Role deleted.");
         await refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not delete the role.");
+        toast.error(
+          error instanceof Error ? error.message : "Could not delete the role."
+        );
       }
     },
     [confirm, refresh]
   );
 
-  const togglePermission = useCallback(
-    (collection: string, action: CmsPermissionAction) => {
-      setMatrix((current) => {
-        const row = current[collection] ?? {
-          read: false,
-          create: false,
-          update: false,
-          delete: false,
-        };
-        return {
-          ...current,
-          [collection]: { ...row, [action]: !row[action] },
-        };
-      });
+  const openRule = useCallback(
+    (collection: AccessCollection, action: CmsPermissionAction) => {
+      if (!selectedRole || selectedRole.is_system) return;
+      const direct = direct_permission(selectedPermissions, collection.name, action);
+      if (direct) {
+        setRuleDraft(draft_from_permission(direct, { existing: true }));
+        setRuleOpen(true);
+        return;
+      }
+      const effective = effective_permission(
+        overview.roles,
+        overview.permissions,
+        selectedRole.id,
+        collection.name,
+        action
+      );
+      if (effective) {
+        const wildcard = effective.permission.collection === "*";
+        const inheritedFrom = wildcard
+          ? "All collections"
+          : effective.source.name;
+        const permission = wildcard
+          ? { ...effective.permission, collection: collection.name }
+          : effective.permission;
+        setRuleDraft(
+          draft_from_permission(permission, {
+            existing: false,
+            inheritedFrom,
+            readOnly: true,
+          })
+        );
+        setRuleOpen(true);
+        return;
+      }
+      setRuleDraft(empty_draft(collection.name, action));
+      setRuleOpen(true);
     },
-    []
+    [overview.permissions, overview.roles, selectedPermissions, selectedRole]
   );
 
-  const savePermissions = useCallback(async () => {
-    if (!selectedRole) return;
-    setPermissionSaving(true);
-    try {
-      const permissions: Array<{
-        collection: string;
-        action: CmsPermissionAction;
-        fields: string[];
-      }> = [];
-      for (const [collection, actions] of Object.entries(matrix)) {
-        for (const action of ACTIONS) {
-          if (actions[action.key]) {
-            permissions.push({ collection, action: action.key, fields: [] });
-          }
-        }
+  const saveRule = useCallback(
+    async (draft: PermissionDraft) => {
+      if (!selectedRole || selectedRole.is_system || draft.readOnly) return;
+      if (!draft.allow) {
+        const confirmed = await confirm({
+          title: "Remove policy?",
+          description: (
+            <>
+              The {ACTION_LABELS[draft.action].toLowerCase()} policy for{" "}
+              <span className="font-mono text-foreground">{draft.collection}</span>{" "}
+              will be removed from{" "}
+              <span className="font-semibold">{selectedRole.name}</span>. Access
+              may still be inherited from a parent role. This cannot be undone.
+            </>
+          ),
+          confirmLabel: "Remove policy",
+        });
+        if (!confirmed) return;
       }
-      await cms_call("access_permissions_save", {
-        role_id: selectedRole.id,
-        permissions,
-      });
-      toast.success(`Permissions saved for ${selectedRole.name}.`);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save permissions.");
-    } finally {
-      setPermissionSaving(false);
-    }
-  }, [matrix, refresh, selectedRole]);
+
+      setRuleSaving(true);
+      try {
+        const map = new Map<string, CmsPermissionInput>();
+        for (const permission of selectedPermissions) {
+          map.set(permission_key(permission.collection, permission.action), {
+            collection: permission.collection,
+            action: permission.action,
+            fields: permission.fields,
+            filter: permission.filter,
+            validation: permission.validation,
+            presets: permission.presets,
+          });
+        }
+        const key = permission_key(draft.collection, draft.action);
+        if (draft.allow) {
+          map.set(key, permission_input_from_draft(draft));
+        } else {
+          map.delete(key);
+        }
+        await cms_call("access_permissions_save", {
+          role_id: selectedRole.id,
+          permissions: [...map.values()],
+        });
+        toast.success(
+          draft.allow
+            ? `Policy saved for ${selectedRole.name}.`
+            : `Policy removed from ${selectedRole.name}.`
+        );
+        setRuleOpen(false);
+        await refresh();
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not save the policy."
+        );
+      } finally {
+        setRuleSaving(false);
+      }
+    },
+    [confirm, refresh, selectedPermissions, selectedRole]
+  );
 
   const changeUserRole = useCallback(
     async (user: CmsUserSummary, roleId: string) => {
@@ -292,7 +471,9 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.success("User role updated.");
         await refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not update the user role.");
+        toast.error(
+          error instanceof Error ? error.message : "Could not update the user role."
+        );
       }
     },
     [refresh]
@@ -302,7 +483,10 @@ export default function AccessStudio({ data }: EtViewProps) {
     const defaultRole =
       overview.roles.find((role) => role.api_access && !role.is_system) ??
       overview.roles.find((role) => role.api_access);
-    setKeyForm({ ...emptyKey(), role_id: defaultRole ? String(defaultRole.id) : "" });
+    setKeyForm({
+      ...emptyKey(),
+      role_id: defaultRole ? String(defaultRole.id) : "",
+    });
     setKeyOpen(true);
   }, [overview.roles]);
 
@@ -312,6 +496,7 @@ export default function AccessStudio({ data }: EtViewProps) {
       const created = await cms_call<CmsApiKeyWithSecret>("access_key_create", {
         name: keyForm.name,
         role_id: Number(keyForm.role_id),
+        user_id: keyForm.user_id === "none" ? null : Number(keyForm.user_id),
         expires_at: keyForm.expires_at || null,
       });
       setCreatedKey(created);
@@ -319,7 +504,9 @@ export default function AccessStudio({ data }: EtViewProps) {
       toast.success("API key created. Copy it now; it will not be shown again.");
       await refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create the API key.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not create the API key."
+      );
     } finally {
       setKeySaving(false);
     }
@@ -345,7 +532,9 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.success("API key revoked.");
         await refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not revoke the API key.");
+        toast.error(
+          error instanceof Error ? error.message : "Could not revoke the API key."
+        );
       }
     },
     [confirm, refresh]
@@ -370,94 +559,173 @@ export default function AccessStudio({ data }: EtViewProps) {
         toast.success("API key deleted.");
         await refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not delete the API key.");
+        toast.error(
+          error instanceof Error ? error.message : "Could not delete the API key."
+        );
       }
     },
     [confirm, refresh]
   );
 
-  const collectionsForMatrix = useMemo(
-    () => [
-      { name: "*", label: "All collections" },
-      ...overview.collections.filter((collection) => collection.name !== "*"),
-    ],
-    [overview.collections]
-  );
+  const roleIsSystem = roleForm.id > 0 && selectedRole?.is_system === true;
 
-  const apiRoles = overview.roles.filter((role) => role.api_access);
+  const renderRoleButtons = (close?: () => void) =>
+    overview.roles.map((role) => {
+      const parent = role.parent_role_id
+        ? overview.roles.find(
+            (candidate) => candidate.id === role.parent_role_id
+          )
+        : null;
+      return (
+        <button
+          key={role.id}
+          type="button"
+          onClick={() => {
+            selectRole(role);
+            close?.();
+          }}
+          className={cn(
+            "w-full rounded-lg border p-3 text-left transition-colors",
+            role.id === selectedRoleId
+              ? "border-foreground/30 bg-muted"
+              : "border-border hover:bg-surface-subtle"
+          )}
+        >
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-semibold">{role.name}</span>
+            <span className="text-xs text-muted-foreground">
+              {role.user_count} user{role.user_count === 1 ? "" : "s"}
+            </span>
+          </span>
+          <span className="mt-2 flex flex-wrap gap-1">{roleBadges(role)}</span>
+          {parent ? (
+            <span className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+              <GitBranch className="size-3" />
+              Inherits {parent.name}
+            </span>
+          ) : null}
+        </button>
+      );
+    });
 
   return (
     <div className="app-page">
       <PageHeader
         eyebrow="System"
-        title="Access & API keys"
-        description="Roles, user assignments, and private API credentials."
+        title="Access control"
+        description="Roles, row-level policies, field access, and scoped API credentials."
         actions={
           <>
-            <Button asChild variant="outline">
-              <Link href="/administrators/manage">
-                <Users className="size-4" />
-                Manage users
-              </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Access sections"
+              title="Access sections"
+              onClick={() => setSectionDrawerOpen(true)}
+            >
+              <PanelLeft className="size-4" />
             </Button>
-            <Button onClick={openCreateRole}>
-              <Plus className="size-4" />
-              New role
-            </Button>
+            <PageActions
+              items={[
+                {
+                  label: "New role",
+                  icon: <Plus className="size-4" />,
+                  variant: "default",
+                  onSelect: openCreateRole,
+                },
+              ]}
+            />
           </>
         }
       />
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="roles">Roles & permissions</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="keys">API keys</TabsTrigger>
-        </TabsList>
+      <SectionDrawer
+        open={sectionDrawerOpen}
+        onOpenChange={setSectionDrawerOpen}
+        title="Access sections"
+        description="Switch between roles, people, and API credentials."
+        value={section}
+        onSelect={(value) => {
+          setSection(value as AccessSection);
+          setSectionDrawerOpen(false);
+        }}
+        items={[
+          {
+            value: "roles",
+            label: "Roles",
+            description: "Policies, inheritance, and field access.",
+            icon: <ShieldCheck className="size-4" />,
+            badge: <Badge variant="outline">{overview.roles.length}</Badge>,
+          },
+          {
+            value: "users",
+            label: "Users",
+            description: "Assign people to a role.",
+            icon: <Users className="size-4" />,
+            badge: <Badge variant="outline">{overview.users.length}</Badge>,
+          },
+          {
+            value: "keys",
+            label: "API keys",
+            description: "Scoped credentials and user binding.",
+            icon: <KeyRound className="size-4" />,
+            badge: <Badge variant="outline">{overview.api_keys.length}</Badge>,
+          },
+        ]}
+      />
 
-        <TabsContent value="roles" className="mt-6">
-          <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-            <Card className="h-fit">
-              <CardHeader className="border-b border-border">
-                <CardTitle>Roles</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 p-2">
-                {overview.roles.map((role) => (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => selectRole(role)}
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                      role.id === selectedRoleId
-                        ? "border-foreground/30 bg-muted"
-                        : "border-border hover:bg-surface-subtle"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold">{role.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {role.user_count} user{role.user_count === 1 ? "" : "s"}
-                      </span>
-                    </span>
-                    <span className="mt-2 flex flex-wrap gap-1">{roleBadges(role)}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
+      <SideDrawer
+        open={roleDrawerOpen}
+        onOpenChange={setRoleDrawerOpen}
+        title="Roles"
+        description="Choose the role whose policies you want to manage."
+      >
+        <div className="space-y-2">
+          {renderRoleButtons(() => setRoleDrawerOpen(false))}
+        </div>
+      </SideDrawer>
 
+      {section === "roles" ? (
+        <div className="grid gap-6">
             <Card>
-              <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
-                <CardTitle>{selectedRole ? selectedRole.name : "Select a role"}</CardTitle>
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
+                <div className="min-w-0">
+                  <CardTitle>
+                    {selectedRole ? selectedRole.name : "Select a role"}
+                  </CardTitle>
+                  {selectedRole?.description ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {selectedRole.description}
+                    </p>
+                  ) : null}
+                  {selectedRole ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {roleBadges(selectedRole)}
+                    </div>
+                  ) : null}
+                </div>
                 {selectedRole ? (
                   <div className="flex gap-1">
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="icon-sm"
+                      aria-label="Browse roles"
+                      title="Browse roles"
+                      onClick={() => setRoleDrawerOpen(true)}
+                    >
+                      <Users className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Edit role"
+                      title="Edit role"
                       onClick={() => openEditRole(selectedRole)}
                     >
                       <Pencil className="size-3.5" />
-                      Edit role
                     </Button>
                     {!selectedRole.is_system ? (
                       <Button
@@ -481,76 +749,172 @@ export default function AccessStudio({ data }: EtViewProps) {
                     action={<Button onClick={openCreateRole}>New role</Button>}
                   />
                 ) : selectedRole.is_system ? (
-                  <div className="rounded-lg border border-border bg-surface-subtle p-4 text-sm">
-                    <p className="flex items-center gap-2 font-semibold">
-                      <ShieldCheck className="size-4" strokeWidth={1.75} />
-                      Full access
-                    </p>
-                  </div>
+                  <Notice icon={ShieldCheck}>
+                    Full access. The Administrator role bypasses every collection
+                    policy, including row filters and field restrictions.
+                  </Notice>
                 ) : (
                   <div className="space-y-4">
-                    <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
-                      <table className="w-full min-w-[560px] text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-surface-subtle text-left">
-                            <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Collection</th>
-                            {ACTIONS.map((action) => (
-                              <th
-                                key={action.key}
-                                className="h-11 px-3 text-center text-xs font-semibold text-muted-foreground"
-                              >
-                                {action.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {collectionsForMatrix.map((collection) => {
-                            const row = matrix[collection.name] ?? {
-                              read: false,
-                              create: false,
-                              update: false,
-                              delete: false,
-                            };
-                            return (
-                              <tr key={collection.name} className="border-b border-border last:border-b-0">
-                                <td className="px-3 py-3">
-                                  <span className="font-semibold">{collection.label}</span>
-                                  <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                    {collection.name}
-                                  </span>
-                                </td>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
+                        <p className="type-headline">Parent role</p>
+                        <p className="mt-1 text-sm font-medium">
+                          {parentRole?.name ?? "None"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
+                        <p className="type-headline">Direct policies</p>
+                        <p className="mt-1 text-sm font-medium">
+                          {selectedPermissions.length}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
+                        <p className="type-headline">Users</p>
+                        <p className="mt-1 text-sm font-medium">
+                          {selectedRole.user_count}
+                        </p>
+                      </div>
+                    </div>
+
+                    {parentRole ? (
+                      <Notice icon={GitBranch}>
+                        Actions without a direct policy inherit from{" "}
+                        <span className="font-semibold">{parentRole.name}</span>.
+                        A direct policy overrides the parent for that action.
+                      </Notice>
+                    ) : null}
+
+                    {overview.collections.length === 0 ? (
+                      <EmptyState
+                        icon={<Database className="size-5" />}
+                        title="No collections yet"
+                        action={
+                          <Button asChild variant="outline">
+                            <Link href="/admin/data">Open Data Studio</Link>
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <>
+                        <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
+                          <table className="w-full min-w-[640px] text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-surface-subtle text-left">
+                                <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                                  Collection
+                                </th>
                                 {ACTIONS.map((action) => (
-                                  <td key={action.key} className="px-3 py-3 text-center">
-                                    <Checkbox
-                                      checked={row[action.key]}
-                                      onCheckedChange={() =>
-                                        togglePermission(collection.name, action.key)
-                                      }
-                                      aria-label={`${action.label} ${collection.label}`}
-                                    />
-                                  </td>
+                                  <th
+                                    key={action.key}
+                                    className="h-11 px-3 text-center text-xs font-semibold text-muted-foreground"
+                                  >
+                                    {action.label}
+                                  </th>
                                 ))}
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <BusyButton type="button" busy={permissionSaving} onClick={savePermissions}>
-                        <Check className="size-4" />
-                        Save permissions
-                      </BusyButton>
-                    </div>
+                            </thead>
+                            <tbody>
+                              {overview.collections.map((collection) => (
+                                <tr
+                                  key={collection.name}
+                                  className="border-b border-border last:border-b-0"
+                                >
+                                  <td className="px-3 py-3">
+                                    <span className="font-semibold">
+                                      {collection.label}
+                                    </span>
+                                    <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                      {collection.name}
+                                    </span>
+                                  </td>
+                                  {ACTIONS.map((action) => {
+                                    const direct = direct_permission(
+                                      selectedPermissions,
+                                      collection.name,
+                                      action.key
+                                    );
+                                    const effective = effective_permission(
+                                      overview.roles,
+                                      overview.permissions,
+                                      selectedRole.id,
+                                      collection.name,
+                                      action.key
+                                    );
+                                    const inherited = effective
+                                      ? !direct
+                                      : false;
+                                    const title = effective
+                                      ? inherited
+                                        ? `Inherited from ${
+                                            effective.permission.collection === "*"
+                                              ? "All collections"
+                                              : effective.source.name
+                                          }`
+                                        : has_advanced_rules(effective.permission)
+                                          ? "Direct policy with rules"
+                                          : "Direct policy"
+                                      : "No policy. Click to configure.";
+                                    return (
+                                      <td
+                                        key={action.key}
+                                        className="px-3 py-3 text-center"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openRule(collection, action.key)
+                                          }
+                                          title={title}
+                                          aria-label={`${
+                                            effective ? "Edit" : "Add"
+                                          } ${ACTION_LABELS[action.key]} policy for ${
+                                            collection.label
+                                          }`}
+                                          className={cn(
+                                            "mx-auto flex h-9 min-w-9 items-center justify-center gap-1 rounded-md border px-2 transition-colors",
+                                            effective
+                                              ? inherited
+                                                ? "border-dashed border-border bg-card text-muted-foreground hover:bg-muted"
+                                                : "border-primary bg-primary text-primary-foreground hover:bg-primary/85"
+                                              : "border-input bg-card text-muted-foreground hover:bg-muted"
+                                          )}
+                                        >
+                                          {effective ? (
+                                            <Check className="size-4" />
+                                          ) : (
+                                            <span className="size-2 rounded-full bg-border" />
+                                          )}
+                                          {effective &&
+                                          has_advanced_rules(effective.permission) ? (
+                                            <SlidersHorizontal className="size-3" />
+                                          ) : null}
+                                          {inherited ? (
+                                            <CornerDownRight className="size-3" />
+                                          ) : null}
+                                        </button>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="type-note">
+                          Click an action to edit row rules, field access,
+                          validation, and presets. Inherited actions use a dashed
+                          indicator.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="users" className="mt-6">
+      {section === "users" ? (
           <Card>
             <CardHeader className="border-b border-border">
               <CardTitle>Users and roles</CardTitle>
@@ -571,28 +935,48 @@ export default function AccessStudio({ data }: EtViewProps) {
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-left">
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">User</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Email</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Role</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Status</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          User
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Email
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Role
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Status
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {overview.users.map((user) => (
-                        <tr key={user.id} className="border-b border-border last:border-b-0">
-                          <td className="px-3 py-3 font-semibold">{user.username || `#${user.id}`}</td>
-                          <td className="px-3 py-3 text-muted-foreground">{user.email || "—"}</td>
+                        <tr
+                          key={user.id}
+                          className="border-b border-border last:border-b-0"
+                        >
+                          <td className="px-3 py-3 font-semibold">
+                            {user.username || `#${user.id}`}
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {user.email || "—"}
+                          </td>
                           <td className="px-3 py-3">
                             <Select
                               value={user.role_id ? String(user.role_id) : ""}
-                              onValueChange={(value) => changeUserRole(user, value)}
+                              onValueChange={(value) =>
+                                changeUserRole(user, value)
+                              }
                             >
                               <SelectTrigger className="w-[190px]" size="sm">
                                 <SelectValue placeholder="Unassigned" />
                               </SelectTrigger>
                               <SelectContent>
                                 {overview.roles.map((role) => (
-                                  <SelectItem key={role.id} value={String(role.id)}>
+                                  <SelectItem
+                                    key={role.id}
+                                    value={String(role.id)}
+                                  >
                                     {role.name}
                                   </SelectItem>
                                 ))}
@@ -600,7 +984,9 @@ export default function AccessStudio({ data }: EtViewProps) {
                             </Select>
                           </td>
                           <td className="px-3 py-3">
-                            <Badge variant={user.active ? "success" : "outline"}>
+                            <Badge
+                              variant={user.active ? "success" : "outline"}
+                            >
                               {user.active ? "Active" : "Inactive"}
                             </Badge>
                           </td>
@@ -612,12 +998,18 @@ export default function AccessStudio({ data }: EtViewProps) {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+      ) : null}
 
-        <TabsContent value="keys" className="mt-6">
+      {section === "keys" ? (
           <Card>
-            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
-              <CardTitle>API keys</CardTitle>
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
+              <div>
+                <CardTitle>API keys</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Keys inherit a role. Bind a user to evaluate{" "}
+                  <span className="font-mono text-xs">$user</span> rules.
+                </p>
+              </div>
               <Button onClick={openCreateKey}>
                 <Plus className="size-4" />
                 Create API key
@@ -632,15 +1024,30 @@ export default function AccessStudio({ data }: EtViewProps) {
                 />
               ) : (
                 <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[780px] text-sm">
+                  <table className="w-full min-w-[900px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-left">
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Name</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Key</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Role</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Last used</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Expires</th>
-                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">Status</th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Name
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Key
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Role
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Acts as
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Last used
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Expires
+                        </th>
+                        <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
+                          Status
+                        </th>
                         <th className="h-11 px-3 text-right text-xs font-semibold text-muted-foreground">
                           Actions
                         </th>
@@ -648,20 +1055,47 @@ export default function AccessStudio({ data }: EtViewProps) {
                     </thead>
                     <tbody>
                       {overview.api_keys.map((key) => (
-                        <tr key={key.id} className="border-b border-border last:border-b-0">
+                        <tr
+                          key={key.id}
+                          className="border-b border-border last:border-b-0"
+                        >
                           <td className="px-3 py-3 font-semibold">{key.name}</td>
                           <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
                             etk_{key.key_prefix}_…
                           </td>
-                          <td className="px-3 py-3">{key.role_name || `#${key.role_id}`}</td>
+                          <td className="px-3 py-3">
+                            {key.role_name || `#${key.role_id}`}
+                          </td>
+                          <td className="px-3 py-3">
+                            {key.user_id ? (
+                              <span className="block">
+                                <span className="block font-medium">
+                                  {key.user_name || `#${key.user_id}`}
+                                </span>
+                                {key.user_email ? (
+                                  <span className="block text-xs text-muted-foreground">
+                                    {key.user_email}
+                                  </span>
+                                ) : null}
+                              </span>
+                            ) : (
+                              <Badge variant="outline">Service key</Badge>
+                            )}
+                          </td>
                           <td className="px-3 py-3 text-muted-foreground">
                             {format_relative(key.last_used_at)}
                           </td>
                           <td className="px-3 py-3 text-muted-foreground">
-                            {key.expires_at ? format_datetime(key.expires_at * 1000) : "Never"}
+                            {key.expires_at
+                              ? format_datetime(
+                                  new Date(key.expires_at * 1000).toISOString()
+                                )
+                              : "Never"}
                           </td>
                           <td className="px-3 py-3">
-                            <Badge variant={key.active ? "success" : "outline"}>
+                            <Badge
+                              variant={key.active ? "success" : "outline"}
+                            >
                               {key.active ? "Active" : "Revoked"}
                             </Badge>
                           </td>
@@ -697,8 +1131,7 @@ export default function AccessStudio({ data }: EtViewProps) {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+      ) : null}
 
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
         <DialogContent aria-describedby={undefined}>
@@ -712,7 +1145,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 id="role-name"
                 value={roleForm.name}
                 placeholder="Editor"
-                disabled={roleForm.id > 0 && selectedRole?.is_system === true}
+                disabled={roleIsSystem}
                 onChange={(event) =>
                   setRoleForm((form) => ({ ...form, name: event.target.value }))
                 }
@@ -724,43 +1157,111 @@ export default function AccessStudio({ data }: EtViewProps) {
                 id="role-description"
                 value={roleForm.description}
                 placeholder="Can edit posts but cannot manage access."
+                disabled={roleIsSystem}
                 onChange={(event) =>
-                  setRoleForm((form) => ({ ...form, description: event.target.value }))
+                  setRoleForm((form) => ({
+                    ...form,
+                    description: event.target.value,
+                  }))
                 }
               />
             </div>
+            <div className="space-y-2">
+              <Label>Parent role</Label>
+              <Select
+                value={roleForm.parent_role_id || "none"}
+                onValueChange={(value) =>
+                  setRoleForm((form) => ({
+                    ...form,
+                    parent_role_id: value === "none" ? "" : value,
+                  }))
+                }
+                disabled={roleIsSystem}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No parent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No parent</SelectItem>
+                  {parentOptions.map((role) => (
+                    <SelectItem key={role.id} value={String(role.id)}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="type-note">
+                Actions without a direct policy inherit from the parent role.
+              </p>
+            </div>
             <div className="space-y-3 rounded-lg border border-border p-4">
-              <label className="flex items-center gap-3 text-sm">
+              <label className="flex items-start gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.app_access}
                   onCheckedChange={(checked) =>
-                    setRoleForm((form) => ({ ...form, app_access: checked === true }))
+                    setRoleForm((form) => ({
+                      ...form,
+                      app_access: checked === true,
+                    }))
                   }
+                  disabled={roleIsSystem}
                 />
-                <span className="font-medium">App access</span>
+                <span>
+                  <span className="block font-medium">App access</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Use the application interface.
+                  </span>
+                </span>
               </label>
-              <label className="flex items-center gap-3 text-sm">
+              <label className="flex items-start gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.api_access}
                   onCheckedChange={(checked) =>
-                    setRoleForm((form) => ({ ...form, api_access: checked === true }))
+                    setRoleForm((form) => ({
+                      ...form,
+                      api_access: checked === true,
+                    }))
                   }
+                  disabled={roleIsSystem}
                 />
-                <span className="font-medium">API access</span>
+                <span>
+                  <span className="block font-medium">API access</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Authenticate API requests and API keys.
+                  </span>
+                </span>
               </label>
-              <label className="flex items-center gap-3 text-sm">
+              <label className="flex items-start gap-3 text-sm">
                 <Checkbox
                   checked={roleForm.admin_access}
                   onCheckedChange={(checked) =>
-                    setRoleForm((form) => ({ ...form, admin_access: checked === true }))
+                    setRoleForm((form) => ({
+                      ...form,
+                      admin_access: checked === true,
+                    }))
                   }
+                  disabled={roleIsSystem}
                 />
-                <span className="font-medium">Admin area</span>
+                <span>
+                  <span className="block font-medium">Admin area</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Manage schema, users, and access. Bypasses collection policies.
+                  </span>
+                </span>
               </label>
             </div>
+            {roleIsSystem ? (
+              <Notice icon={ShieldCheck}>
+                The Administrator role always has app, API, and admin access.
+              </Notice>
+            ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRoleOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRoleOpen(false)}
+            >
               Cancel
             </Button>
             <BusyButton
@@ -796,7 +1297,9 @@ export default function AccessStudio({ data }: EtViewProps) {
               <Label>Role</Label>
               <Select
                 value={keyForm.role_id}
-                onValueChange={(value) => setKeyForm((form) => ({ ...form, role_id: value }))}
+                onValueChange={(value) =>
+                  setKeyForm((form) => ({ ...form, role_id: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a role" />
@@ -816,19 +1319,56 @@ export default function AccessStudio({ data }: EtViewProps) {
               ) : null}
             </div>
             <div className="space-y-2">
+              <Label>Acts as</Label>
+              <Select
+                value={keyForm.user_id}
+                onValueChange={(value) =>
+                  setKeyForm((form) => ({ ...form, user_id: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Service key" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Service key (no user)</SelectItem>
+                  {keyUsers.map((user) => (
+                    <SelectItem
+                      key={user.eterc_user_id}
+                      value={String(user.eterc_user_id)}
+                    >
+                      {user.username || `#${user.id}`}
+                      {user.email ? ` · ${user.email}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="type-note">
+                Bind a user when policies use{" "}
+                <span className="font-mono text-xs">$user.id</span> or{" "}
+                <span className="font-mono text-xs">$user.email</span>.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="key-expiry">Expires</Label>
               <Input
                 id="key-expiry"
                 type="date"
                 value={keyForm.expires_at}
                 onChange={(event) =>
-                  setKeyForm((form) => ({ ...form, expires_at: event.target.value }))
+                  setKeyForm((form) => ({
+                    ...form,
+                    expires_at: event.target.value,
+                  }))
                 }
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setKeyOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setKeyOpen(false)}
+            >
               Cancel
             </Button>
             <BusyButton
@@ -843,7 +1383,10 @@ export default function AccessStudio({ data }: EtViewProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createdKey !== null} onOpenChange={(open) => !open && setCreatedKey(null)}>
+      <Dialog
+        open={createdKey !== null}
+        onOpenChange={(open) => !open && setCreatedKey(null)}
+      >
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>API key created</DialogTitle>
@@ -860,7 +1403,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                   variant="outline"
                   onClick={() => {
                     setCreatedKey(null);
-                    setTab("keys");
+                    setSection("keys");
                   }}
                 >
                   Done
@@ -870,6 +1413,19 @@ export default function AccessStudio({ data }: EtViewProps) {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {ruleOpen && ruleDraft && selectedCollection ? (
+        <RuleSheet
+          key={`${ruleDraft.collection}:${ruleDraft.action}:${ruleDraft.readOnly}`}
+          open={ruleOpen}
+          onOpenChange={setRuleOpen}
+          initialDraft={ruleDraft}
+          collection={selectedCollection}
+          roleName={selectedRole?.name ?? "Role"}
+          saving={ruleSaving}
+          onSave={saveRule}
+        />
+      ) : null}
 
       {confirm_dialog}
     </div>

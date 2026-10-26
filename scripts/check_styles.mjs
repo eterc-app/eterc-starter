@@ -143,7 +143,7 @@ for (const token of [
   "--surface-subtle: #f5f5f5;",
   "--destructive: #a51d2d;",
   "--radius-surface: 0.625rem;",
-  "--field-height: 3.25rem;",
+  "--field-height: 2.5rem;",
   "--sidebar-width: 17.5rem;",
   "--header-height: 4rem;",
   ".app-page",
@@ -169,6 +169,9 @@ for (const token of [
     problems.push(`AdminTemplate missing shell contract: ${token}`);
   }
 }
+if (shell.includes("Private API")) {
+  problems.push("AdminTemplate must not render the Private API badge");
+}
 
 const pageRoots = [
   "src/modules/cms_admin/views/dashboard.tsx",
@@ -193,6 +196,90 @@ for (const relative of pageRoots) {
   if (!read(relative).includes("app-page")) {
     problems.push(`authenticated page root missing app-page: ${relative}`);
   }
+}
+
+const sheet = read("src/components/ui/sheet.tsx");
+for (const token of [
+  'data-slot="sheet-content"',
+  "max-w-[600px]",
+  "border-l border-border",
+  "border-r border-border",
+  'side?: "left" | "right"',
+  "slide-in-from-left",
+  "bg-popover",
+  "app-scrollbar",
+  "bg-surface-subtle",
+  "flex-col-reverse",
+]) {
+  if (!sheet.includes(token)) {
+    problems.push(`Sheet missing surface contract: ${token}`);
+  }
+}
+
+const pageActions = read("src/components/app/PageActions.tsx");
+for (const token of [
+  "DropdownMenuTrigger",
+  'aria-label={label}',
+  "MoreHorizontal",
+  "destructive",
+]) {
+  if (!pageActions.includes(token)) {
+    problems.push(`PageActions missing action-menu contract: ${token}`);
+  }
+}
+
+const sideDrawer = read("src/components/app/SideDrawer.tsx");
+for (const token of [
+  "SheetContent",
+  'side = "left"',
+  "aria-current",
+  "max-w-[360px]",
+  "SectionDrawer",
+]) {
+  if (!sideDrawer.includes(token)) {
+    problems.push(`SideDrawer missing drawer contract: ${token}`);
+  }
+}
+
+const ruleSheet = read("src/modules/cms_admin/views/access/RuleSheet.tsx");
+for (const token of [
+  "SheetContent",
+  "SheetBody",
+  'aria-label="Policy sections"',
+  "Policy section",
+  "Override in this role",
+  "Notice",
+  "Inherited",
+  'label="Insert a user variable"',
+]) {
+  if (!ruleSheet.includes(token)) {
+    problems.push(`RuleSheet missing policy-editor contract: ${token}`);
+  }
+}
+if (ruleSheet.includes("TabsList")) {
+  problems.push("RuleSheet must use a section rail, not tabs");
+}
+
+const accessPage = read("src/modules/cms_admin/views/access.tsx");
+for (const token of ["SectionDrawer", "SideDrawer", "PageActions", "Browse roles"]) {
+  if (!accessPage.includes(token)) {
+    problems.push(`Access page missing drawer/action contract: ${token}`);
+  }
+}
+if (accessPage.includes("TabsList")) {
+  problems.push("Access page must use a section drawer, not tabs");
+}
+
+for (const relative of [
+  "src/components/ui/input.tsx",
+  "src/components/ui/input-group.tsx",
+]) {
+  if (!read(relative).includes("h-10")) {
+    problems.push(`${relative} must use the 40 px field height`);
+  }
+}
+if (!read("src/components/ui/select.tsx").includes("data-[size=default]:h-10")) {
+  problems.push("Select must use the 40 px default field height");
 }
 
 const authShell = read("src/modules/login/views/AuthShell.tsx");

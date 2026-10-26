@@ -3,6 +3,7 @@ import { Flashdata } from "@/engine/ui/Flashdata";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { EmptyState } from "@/components/app/EmptyState";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { PerPageSelect } from "./PerPageSelect";
 
 export default function Manage({ data }: EtViewProps) {
@@ -40,9 +41,16 @@ export default function Manage({ data }: EtViewProps) {
         title="Manage administrators"
         description="Accounts that can sign in to Eterc."
         actions={
-          <Button asChild>
-            <a href={`${base}administrators/create`}>Create administrator</a>
-          </Button>
+          <PageActions
+            items={[
+              {
+                label: "Create administrator",
+                icon: <Plus className="size-4" />,
+                href: `${base}administrators/create`,
+                variant: "default",
+              },
+            ]}
+          />
         }
       />
 

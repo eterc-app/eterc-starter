@@ -50,9 +50,9 @@
   /* Geometry */
   --radius: 0.5rem;
   --radius-surface: 0.625rem;
-  --field-height: 3.25rem;
-  --field-height-lg: 3.75rem;
-  --field-padding: 1rem;
+  --field-height: 2.5rem;
+  --field-height-lg: 3rem;
+  --field-padding: 0.75rem;
   --header-height: 4rem;
   --sidebar-width: 17.5rem;
   --content-padding: 2rem;

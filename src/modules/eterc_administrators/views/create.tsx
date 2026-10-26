@@ -1,6 +1,7 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
+import { PageActions } from "@/components/app/PageActions";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { KeyRound } from "lucide-react";
 
 export default function Create({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
@@ -24,11 +26,15 @@ export default function Create({ data }: EtViewProps) {
         description="Set the account username and whether it can sign in."
         actions={
           is_update ? (
-            <Button asChild variant="outline">
-              <a href={String(data.update_password_url ?? "")}>
-                Update password
-              </a>
-            </Button>
+            <PageActions
+              items={[
+                {
+                  label: "Update password",
+                  icon: <KeyRound className="size-4" />,
+                  href: String(data.update_password_url ?? ""),
+                },
+              ]}
+            />
           ) : null
         }
       />
@@ -56,7 +62,7 @@ export default function Create({ data }: EtViewProps) {
               />
             </div>
 
-            <label className="flex h-13 items-center gap-3 rounded-lg border border-input bg-card px-4 text-sm">
+            <label className="flex h-10 items-center gap-3 rounded-lg border border-input bg-card px-3 text-sm">
               <input
                 type="checkbox"
                 name="active"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Braces,
   ChevronLeft,
@@ -9,6 +8,7 @@ import {
   Database,
   FilePlus2,
   Loader2,
+  PanelLeft,
   Pencil,
   Plus,
   RefreshCw,
@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
+import { PageActions } from "@/components/app/PageActions";
+import { SideDrawer } from "@/components/app/SideDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -201,6 +203,7 @@ export default function DataStudio({ data }: EtViewProps) {
   const [busy, setBusy] = useState(false);
   const { confirm, dialog: confirm_dialog } = useConfirm();
 
+  const [collectionDrawerOpen, setCollectionDrawerOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [collectionMode, setCollectionMode] = useState<"create" | "edit">("create");
   const [collectionForm, setCollectionForm] = useState<CollectionForm>(emptyCollectionForm());
@@ -577,66 +580,90 @@ export default function DataStudio({ data }: EtViewProps) {
         description="Model collections and edit records against the private API."
         actions={
           <>
-            <Button asChild variant="outline">
-              <Link href="/api-reference" target="_blank">
-                <Braces className="size-4" />
-                API reference
-              </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Browse collections"
+              title="Browse collections"
+              onClick={() => setCollectionDrawerOpen(true)}
+            >
+              <PanelLeft className="size-4" />
             </Button>
-            <Button onClick={openCreateCollection}>
-              <Plus className="size-4" />
-              New collection
-            </Button>
+            <PageActions
+              items={[
+                {
+                  label: "New collection",
+                  icon: <Plus className="size-4" />,
+                  variant: "default",
+                  onSelect: openCreateCollection,
+                },
+                {
+                  label: "API reference",
+                  icon: <Braces className="size-4" />,
+                  href: "/api-reference",
+                  external: true,
+                },
+              ]}
+            />
           </>
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <Card className="h-fit">
-          <CardHeader className="border-b border-border">
-            <CardTitle>Collections</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 p-2">
-            {collections.length === 0 ? null : (
-              collections.map((collection) => {
-                const active = collection.name === selected?.name;
-                return (
-                  <button
-                    key={collection.name}
-                    type="button"
-                    onClick={() => selectCollection(collection.name)}
-                    className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
-                      active
-                        ? "bg-muted font-semibold text-foreground"
-                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                    }`}
-                  >
-                    <Table2 className="size-4 shrink-0" strokeWidth={1.75} />
-                    <span className="min-w-0 flex-1 truncate">
-                      {collection.label || collection.name}
-                    </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {collection.item_count}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-            <div className="mt-2 border-t border-border pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={refreshSchema}
-                disabled={busy}
-              >
-                <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
-                Refresh schema
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <SideDrawer
+        open={collectionDrawerOpen}
+        onOpenChange={setCollectionDrawerOpen}
+        title="Collections"
+        description="Choose a collection to edit its records."
+      >
+        <div className="space-y-1">
+          {collections.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted-foreground">
+              No collections yet.
+            </p>
+          ) : (
+            collections.map((collection) => {
+              const active = collection.name === selected?.name;
+              return (
+                <button
+                  key={collection.name}
+                  type="button"
+                  onClick={() => {
+                    void selectCollection(collection.name);
+                    setCollectionDrawerOpen(false);
+                  }}
+                  className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
+                    active
+                      ? "bg-muted font-semibold text-foreground"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  }`}
+                >
+                  <Table2 className="size-4 shrink-0" strokeWidth={1.75} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {collection.label || collection.name}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {collection.item_count}
+                  </span>
+                </button>
+              );
+            })
+          )}
+          <div className="mt-2 border-t border-border pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={refreshSchema}
+              disabled={busy}
+            >
+              <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
+              Refresh schema
+            </Button>
+          </div>
+        </div>
+      </SideDrawer>
 
         <div className="min-w-0">
           {!selected ? (
@@ -671,13 +698,25 @@ export default function DataStudio({ data }: EtViewProps) {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={openEditCollection}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Collection settings"
+                      title="Collection settings"
+                      onClick={openEditCollection}
+                    >
                       <Settings2 className="size-3.5" />
-                      Collection settings
                     </Button>
-                    <Button size="sm" onClick={openCreateRecord} disabled={editableFields.length === 0}>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      aria-label="New record"
+                      title="New record"
+                      onClick={openCreateRecord}
+                      disabled={editableFields.length === 0}
+                    >
                       <Plus className="size-3.5" />
-                      New record
                     </Button>
                   </div>
                 </div>
@@ -847,7 +886,6 @@ export default function DataStudio({ data }: EtViewProps) {
             </Card>
           )}
         </div>
-      </div>
 
       <Dialog open={collectionOpen} onOpenChange={setCollectionOpen}>
         <DialogContent

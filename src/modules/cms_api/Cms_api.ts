@@ -4,13 +4,16 @@ import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
 import {
   accessible_collections,
+  apply_presets,
   assert_field_access,
+  assert_rule_group,
   authorize,
   create_api_key,
   create_role,
   delete_api_key,
   delete_role,
   filter_fields,
+  find_permission,
   get_access_overview,
   list_api_keys,
   list_permissions,
@@ -20,6 +23,8 @@ import {
   require_human_admin,
   resolve_principal,
   revoke_api_key,
+  row_matches_rule_group,
+  rule_group_to_filter,
   set_user_role,
   update_role,
 } from "@/modules/cms/cms-access";
@@ -114,17 +119,46 @@ function parse_filter(): Record<string, unknown> | undefined {
   }
 }
 
-function filter_row(principal: CmsPrincipal, collection: string, row: Record<string, unknown>) {
-  const fields = authorize(principal, collection, "read");
-  return filter_fields(fields, row);
+function response_fields(
+  principal: CmsPrincipal,
+  collection: string,
+  fallback: string[]
+): string[] {
+  if (principal.role.admin_access) return ["*"];
+  const read = find_permission(principal.role.id, collection, "read");
+  return read ? read.fields : fallback;
+}
+
+function filter_row(
+  principal: CmsPrincipal,
+  collection: string,
+  row: Record<string, unknown>,
+  fallbackFields: string[] = ["*"]
+) {
+  return filter_fields(response_fields(principal, collection, fallbackFields), row);
+}
+
+function readable_field_names(
+  principal: CmsPrincipal,
+  collection: string
+): Set<string> | null {
+  if (principal.role.admin_access) return null;
+  const read = find_permission(principal.role.id, collection, "read");
+  if (!read || read.fields.includes("*")) return null;
+  return new Set(["id", ...read.fields]);
 }
 
 function collection_payload(principal: CmsPrincipal, name: string) {
   const collection = get_collection(name);
+  const readable = readable_field_names(principal, name);
   const fields =
     principal.role.admin_access
       ? collection.fields
-      : collection.fields.filter((field) => !field.hidden || field.name === "id");
+      : collection.fields.filter(
+          (field) =>
+            (!field.hidden || field.name === "id") &&
+            (readable === null || readable.has(field.name))
+        );
   return { ...collection, fields };
 }
 
@@ -188,25 +222,32 @@ export default class Cms_api extends Eterc {
       return api_response({
         data: all
           .filter((collection) => allowed.has(collection.name))
-          .map((collection) => ({
-            name: collection.name,
-            label: collection.label,
-            icon: collection.icon,
-            note: collection.note,
-            singleton: collection.singleton,
-            item_count: collection.item_count,
-            fields: collection.fields
-              .filter((field) => principal.role.admin_access || !field.hidden || field.name === "id")
-              .map((field) => ({
-                name: field.name,
-                label: field.label,
-                type: field.type,
-                interface: field.interface,
-                required: field.required,
-                hidden: field.hidden,
-                readonly: field.readonly,
-              })),
-          })),
+          .map((collection) => {
+            const readable = readable_field_names(principal, collection.name);
+            return {
+              name: collection.name,
+              label: collection.label,
+              icon: collection.icon,
+              note: collection.note,
+              singleton: collection.singleton,
+              item_count: collection.item_count,
+              fields: collection.fields
+                .filter(
+                  (field) =>
+                    (!field.hidden || field.name === "id") &&
+                    (readable === null || readable.has(field.name))
+                )
+                .map((field) => ({
+                  name: field.name,
+                  label: field.label,
+                  type: field.type,
+                  interface: field.interface,
+                  required: field.required,
+                  hidden: field.hidden,
+                  readonly: field.readonly,
+                })),
+            };
+          }),
       });
     }
 
@@ -299,7 +340,8 @@ export default class Cms_api extends Eterc {
     const verb = method();
 
     if (verb === "GET" && id === null) {
-      authorize(principal, collection, "read");
+      const policy = authorize(principal, collection, "read");
+      const access_filter = rule_group_to_filter(policy.filter, principal, collection);
       const result = list_records(collection, {
         page: parse_int(query_value("page"), 1),
         limit: parse_int(query_value("limit"), 25),
@@ -307,11 +349,12 @@ export default class Cms_api extends Eterc {
         direction: query_value("direction") === "asc" ? "asc" : "desc",
         search: query_value("search"),
         filter: parse_filter(),
+        access_filter,
       });
       return api_response({
         data: result.rows
           .map((row) => format_record_for_api(row, collection_fields(collection)))
-          .map((row) => filter_row(principal, collection, row)),
+          .map((row) => filter_fields(policy.fields, row)),
         meta: {
           total: result.total,
           page: result.page,
@@ -322,37 +365,56 @@ export default class Cms_api extends Eterc {
     }
 
     if (verb === "GET" && id !== null) {
-      authorize(principal, collection, "read");
+      const policy = authorize(principal, collection, "read");
       const row = format_record_for_api(
         get_record(collection, id),
         collection_fields(collection)
       );
-      return api_response({ data: filter_row(principal, collection, row) });
+      if (!row_matches_rule_group(row, policy.filter, principal, collection)) {
+        throw new EtHttpError(403, "This record is outside the role's read policy.");
+      }
+      return api_response({ data: filter_fields(policy.fields, row) });
     }
 
     if (verb === "POST" && id === null) {
-      authorize(principal, collection, "create");
+      const policy = authorize(principal, collection, "create");
       const payload = require_body();
-      assert_field_access(principal, collection, "create", payload);
-      const row = create_record(collection, payload);
+      assert_field_access(principal, collection, "create", payload, policy);
+      const values = apply_presets(payload, policy.presets, principal, collection);
+      assert_rule_group(values, policy.filter, principal, collection, "create");
+      assert_rule_group(values, policy.validation, principal, collection, "field validation");
+      const row = create_record(collection, values);
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response(
-        { data: filter_row(principal, collection, formatted) },
+        { data: filter_row(principal, collection, formatted, policy.fields) },
         201
       );
     }
 
     if ((verb === "PATCH" || verb === "PUT") && id !== null) {
-      authorize(principal, collection, "update");
+      const policy = authorize(principal, collection, "update");
+      const existing = get_record(collection, id);
+      if (!row_matches_rule_group(existing, policy.filter, principal, collection)) {
+        throw new EtHttpError(403, "This record is outside the role's update policy.");
+      }
       const payload = require_body();
-      assert_field_access(principal, collection, "update", payload);
+      assert_field_access(principal, collection, "update", payload, policy);
+      const merged = { ...existing, ...payload };
+      assert_rule_group(merged, policy.filter, principal, collection, "update");
+      assert_rule_group(merged, policy.validation, principal, collection, "field validation");
       const row = update_record(collection, id, payload);
       const formatted = format_record_for_api(row, collection_fields(collection));
-      return api_response({ data: filter_row(principal, collection, formatted) });
+      return api_response({
+        data: filter_row(principal, collection, formatted, policy.fields),
+      });
     }
 
     if (verb === "DELETE" && id !== null) {
-      authorize(principal, collection, "delete");
+      const policy = authorize(principal, collection, "delete");
+      const existing = get_record(collection, id);
+      if (!row_matches_rule_group(existing, policy.filter, principal, collection)) {
+        throw new EtHttpError(403, "This record is outside the role's delete policy.");
+      }
       delete_record(collection, id);
       return api_response({ data: { deleted: true } });
     }
@@ -377,6 +439,10 @@ export default class Cms_api extends Eterc {
             app_access: typeof payload.app_access === "boolean" ? payload.app_access : undefined,
             api_access: typeof payload.api_access === "boolean" ? payload.api_access : undefined,
             admin_access: typeof payload.admin_access === "boolean" ? payload.admin_access : undefined,
+            parent_role_id:
+              payload.parent_role_id === null || payload.parent_role_id === undefined
+                ? null
+                : Number(payload.parent_role_id),
           }),
         },
         201
@@ -394,6 +460,12 @@ export default class Cms_api extends Eterc {
           app_access: typeof payload.app_access === "boolean" ? payload.app_access : undefined,
           api_access: typeof payload.api_access === "boolean" ? payload.api_access : undefined,
           admin_access: typeof payload.admin_access === "boolean" ? payload.admin_access : undefined,
+          parent_role_id:
+            payload.parent_role_id === undefined
+              ? undefined
+              : payload.parent_role_id === null
+                ? null
+                : Number(payload.parent_role_id),
         }),
       });
     }
