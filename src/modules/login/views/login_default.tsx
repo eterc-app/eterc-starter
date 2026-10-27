@@ -138,7 +138,7 @@ export function LoginDefault({ data }: EtViewProps) {
               className="mt-6 space-y-5"
               autoComplete="on"
             >
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label htmlFor="identifier">{identifierLabel}</Label>
                 <Input
                   id="identifier"
@@ -149,7 +149,7 @@ export function LoginDefault({ data }: EtViewProps) {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label htmlFor="password">{passwordLabel}</Label>
                 <Input
                   id="password"
@@ -222,7 +222,7 @@ export function LoginDefault({ data }: EtViewProps) {
             ) : null}
 
             <div className="mt-8 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>{signedOut ? "You have been signed out." : "Private by default"}</span>
+              <span>{signedOut ? "You have been signed out." : ""}</span>
               {siteHost ? <span className="lg:hidden">{siteHost}</span> : null}
             </div>
           </div>

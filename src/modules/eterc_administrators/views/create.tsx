@@ -51,7 +51,7 @@ export default function Create({ data }: EtViewProps) {
             params={[update_id]}
             className="space-y-5"
           >
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"

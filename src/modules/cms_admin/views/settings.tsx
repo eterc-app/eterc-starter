@@ -215,7 +215,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="max-page-size">Maximum page size</Label>
             <Input
               id="max-page-size"

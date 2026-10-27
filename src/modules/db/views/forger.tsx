@@ -49,7 +49,7 @@ export default function Forger({ data }: EtViewProps) {
             className="space-y-5"
           >
             {fields.map((field) => (
-              <div key={field.name} className="space-y-2">
+              <div key={field.name} className="space-y-3">
                 <Label htmlFor={`field-${field.name}`}>
                   {field.label}
                   {field.required ? " *" : ""}

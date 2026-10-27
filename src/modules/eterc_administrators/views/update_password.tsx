@@ -35,7 +35,7 @@ export default function UpdatePassword({ data }: EtViewProps) {
             params={[update_id]}
             className="space-y-5"
           >
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="password">New password</Label>
               <Input
                 id="password"
@@ -47,7 +47,7 @@ export default function UpdatePassword({ data }: EtViewProps) {
               <p className="type-note">Use at least 8 characters.</p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="confirm_password">Confirm password</Label>
               <Input
                 id="confirm_password"

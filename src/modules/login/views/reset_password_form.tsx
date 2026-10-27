@@ -49,7 +49,7 @@ export function ResetPasswordForm({ data }: EtViewProps) {
         hidden={{ token }}
         className="space-y-5"
       >
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Label htmlFor="password">New password</Label>
           <Input
             id="password"
@@ -61,7 +61,7 @@ export function ResetPasswordForm({ data }: EtViewProps) {
           <p className="type-note">Use at least 8 characters.</p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Label htmlFor="confirm_password">Confirm new password</Label>
           <Input
             id="confirm_password"

@@ -900,7 +900,7 @@ export default function DataStudio({ data }: EtViewProps) {
 
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <Label htmlFor="collection-name">Table name</Label>
                 <Input
                   id="collection-name"
@@ -920,7 +920,7 @@ export default function DataStudio({ data }: EtViewProps) {
                   }
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <Label htmlFor="collection-label">Label</Label>
                 <Input
                   id="collection-label"
@@ -933,7 +933,7 @@ export default function DataStudio({ data }: EtViewProps) {
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               <Label htmlFor="collection-note">Description</Label>
               <Textarea
                 id="collection-note"
@@ -1160,7 +1160,7 @@ export default function DataStudio({ data }: EtViewProps) {
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <Label htmlFor="field-name">Column name</Label>
                 <Input
                   id="field-name"
@@ -1172,7 +1172,7 @@ export default function DataStudio({ data }: EtViewProps) {
                   }
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <Label htmlFor="field-label">Label</Label>
                 <Input
                   id="field-label"
@@ -1184,7 +1184,7 @@ export default function DataStudio({ data }: EtViewProps) {
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               <Label htmlFor="field-type">Type</Label>
               <Select
                 value={fieldForm.type}
@@ -1205,7 +1205,7 @@ export default function DataStudio({ data }: EtViewProps) {
               </Select>
             </div>
             {fieldForm.type === "select" ? (
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 <Label htmlFor="field-choices">Choices</Label>
                 <Input
                   id="field-choices"
@@ -1217,7 +1217,7 @@ export default function DataStudio({ data }: EtViewProps) {
                 />
               </div>
             ) : null}
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               <Label htmlFor="field-default">Default value</Label>
               <Input
                 id="field-default"
@@ -1293,7 +1293,7 @@ export default function DataStudio({ data }: EtViewProps) {
           </DialogHeader>
           <div className="space-y-4">
             {editableFields.map((field) => (
-              <div key={field.name} className="space-y-1.5">
+              <div key={field.name} className="space-y-3">
                 <FieldLabel field={field} />
                 <FieldInput
                   field={field}

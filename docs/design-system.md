@@ -153,7 +153,7 @@ Shell composition:
   `focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]`. Do not use a
   colored outer ring on fields.
 - Placeholders are muted and never replace a label.
-- Labels are 14 px semibold. Keep the label and control in an 8 px vertical stack.
+- Labels are 14 px semibold. Keep the label and control in a 12 px vertical stack.
 - Helper text is 13 px italic muted and appears only when it changes a decision.
 - Form grids use two columns at `sm` and larger, 32 px column gap, 24 px row gap. Long text fields
   span both columns.
@@ -364,6 +364,7 @@ the rendered app at 1280 px, 1440 px, and 390 px.
 - [ ] Sheets use the shared primitive, the correct side, and the inset footer.
 - [ ] Inherited policies are read-only and expose the override action.
 - [ ] Labels are selective; notes are reserved for real decisions.
+- [ ] Field labels sit 12 px above their controls.
 - [ ] Icon-only buttons have labels and tooltips.
 - [ ] Light and dark mode both render correctly.
 - [ ] `npm run typecheck` passes.

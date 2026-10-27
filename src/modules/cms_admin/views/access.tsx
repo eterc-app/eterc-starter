@@ -1139,7 +1139,7 @@ export default function AccessStudio({ data }: EtViewProps) {
             <DialogTitle>{roleForm.id ? "Edit role" : "New role"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="role-name">Name</Label>
               <Input
                 id="role-name"
@@ -1151,7 +1151,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="role-description">Description</Label>
               <Input
                 id="role-description"
@@ -1166,7 +1166,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Parent role</Label>
               <Select
                 value={roleForm.parent_role_id || "none"}
@@ -1282,7 +1282,7 @@ export default function AccessStudio({ data }: EtViewProps) {
             <DialogTitle>Create API key</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="key-name">Name</Label>
               <Input
                 id="key-name"
@@ -1293,7 +1293,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 }
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Role</Label>
               <Select
                 value={keyForm.role_id}
@@ -1318,7 +1318,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 </p>
               ) : null}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Acts as</Label>
               <Select
                 value={keyForm.user_id}
@@ -1348,7 +1348,7 @@ export default function AccessStudio({ data }: EtViewProps) {
                 <span className="font-mono text-xs">$user.email</span>.
               </p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="key-expiry">Expires</Label>
               <Input
                 id="key-expiry"

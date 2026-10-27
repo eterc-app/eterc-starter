@@ -635,7 +635,7 @@ export function MediaLibrary({
 
                   {editing ? (
                     <div className="space-y-4">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label htmlFor="media-title">Title</Label>
                         <Input
                           id="media-title"
@@ -643,7 +643,7 @@ export function MediaLibrary({
                           onChange={(event) => setDraftTitle(event.target.value)}
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label htmlFor="media-alt">Alternative text</Label>
                         <Textarea
                           id="media-alt"
@@ -677,7 +677,7 @@ export function MediaLibrary({
                         </p>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label>File URL</Label>
                         <div className="flex gap-2">
                           <Input
