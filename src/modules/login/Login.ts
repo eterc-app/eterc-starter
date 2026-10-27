@@ -2,10 +2,19 @@ import type { ReactNode } from "react";
 import { Eterc } from "@/engine/controller";
 import { BASE_URL, ENV } from "@/engine/config";
 import { post } from "@/engine/post";
-import { get_last_segment, redirect, segment, site_url } from "@/engine/Url";
+import {
+  current_url_with_query,
+  get_last_segment,
+  redirect,
+  segment,
+  site_url,
+} from "@/engine/Url";
+import { get_context } from "@/engine/request-context";
+import { rotate_session_id } from "@/engine/session";
 import { EtHttpError } from "@/engine/signals";
 import type { Eterc_tokens } from "@/engine/Eterc_tokens";
 import { Login_model } from "./Login_model";
+import { get_public_login_settings } from "./login-settings";
 import Forgot_password from "./forgot_password/Forgot_password";
 export default class Login extends Eterc {
   constructor(moduleName?: string | null) {
@@ -103,6 +112,18 @@ export default class Login extends Eterc {
     const config = this.loginModel().get_level_config(user_level_id);
     const level_slug = this.loginModel().get_login_url(user_level_id);
     const view_file = config.view_file || "login_default";
+    const public_settings = get_public_login_settings();
+    const context = get_context();
+    const login_error =
+      typeof context.query.login_error === "string" ? context.query.login_error : "";
+    const signed_out = context.query.signed_out === "1";
+
+    const social_providers = public_settings.providers.map((provider) => ({
+      ...provider,
+      href: `${site_url(`api/auth/oauth/${provider.id}`)}?level=${encodeURIComponent(
+        level_slug
+      )}`,
+    }));
 
     const data: Record<string, unknown> = {
       form_location: site_url(`login/submit_login/${level_slug}`),
@@ -113,6 +134,14 @@ export default class Login extends Eterc {
       allow_remember: config.allow_remember ?? 0,
       view_module: this.module_name,
       view_file,
+      brand: public_settings.brand,
+      background: public_settings.background,
+      social_providers,
+      site_host: new URL(current_url_with_query()).host,
+      login_error_message: login_error
+        ? LOGIN_ERROR_MESSAGES[login_error] ?? LOGIN_ERROR_MESSAGES.oauth_failed
+        : null,
+      signed_out,
     };
 
     if (config.enable_forgot_password) {
@@ -147,7 +176,10 @@ export default class Login extends Eterc {
     await this.validation.set_rules("password", "password", "required");
 
     if ((await this.validation.run()) === true) {
-      // Credentials are valid — log the user in.
+      // Credentials are valid — rotate the session before creating the token
+      // so a pre-set session cookie cannot be reused after authentication.
+      rotate_session_id();
+
       const remember = to_boolean(post("remember")) ? 1 : 0;
       const token = this.loginModel().log_user_in(identifier, user_level_id, remember);
 
@@ -226,8 +258,14 @@ export default class Login extends Eterc {
       }
     }
 
-    // Destroy all tokens.
+    // Destroy all tokens and rotate the session so the signed-out browser
+    // cannot keep using the previous session identifier.
     this.tokens().destroy();
+    rotate_session_id();
+
+    if (redirect_target !== BASE_URL) {
+      redirect_target += redirect_target.includes("?") ? "&signed_out=1" : "?signed_out=1";
+    }
 
     redirect(redirect_target);
   }
@@ -363,3 +401,17 @@ function to_boolean(value: unknown): boolean {
   if (typeof value === "number") return value !== 0;
   return Boolean(value);
 }
+
+/**
+ * Fixed copy for post-redirect OAuth failures. Redirects carry an enum, never
+ * arbitrary provider or exception text.
+ */
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  oauth_unavailable: "Social sign-in is not configured for this workspace.",
+  oauth_state: "The sign-in request expired. Start again.",
+  oauth_denied: "Sign-in was cancelled.",
+  oauth_email: "The provider did not return a verified email address.",
+  oauth_no_account: "No active account is linked to that provider account.",
+  oauth_identity: "That provider account is already linked to another user.",
+  oauth_failed: "Sign-in could not be completed. Try again.",
+};

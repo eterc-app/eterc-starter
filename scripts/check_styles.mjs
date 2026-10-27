@@ -289,6 +289,43 @@ for (const token of ["bg-background", "max-w-[440px]", "rounded-lg"]) {
   }
 }
 
+const loginDefault = read("src/modules/login/views/login_default.tsx");
+for (const token of [
+  "lg:grid-cols-2",
+  "bg-card",
+  "style={background_style(background)}",
+  "social_providers",
+  "login_error_message",
+  "site_host",
+]) {
+  if (!loginDefault.includes(token)) {
+    problems.push(`login_default missing split-login contract: ${token}`);
+  }
+}
+if (loginDefault.includes("AuthShell")) {
+  problems.push("login_default must use the split surface, not AuthShell");
+}
+if (/client[_-]?secret/i.test(loginDefault)) {
+  problems.push("login_default must not receive OAuth client secrets");
+}
+for (const relative of [
+  "src/modules/login/views/forgot_password_form.tsx",
+  "src/modules/login/views/reset_password_form.tsx",
+]) {
+  if (!read(relative).includes("AuthShell")) {
+    problems.push(`${relative} must keep the shared AuthShell surface`);
+  }
+}
+if (!read("src/modules/login/Login.ts").includes("get_public_login_settings")) {
+  problems.push("Login controller must pass only public login settings to the view");
+}
+if (!read(".gitignore").includes("/data/settings/login.secrets.json")) {
+  problems.push("OAuth client secrets must be gitignored");
+}
+if (!read("data/settings/login.json").includes('"version": 1')) {
+  problems.push("data/settings/login.json must contain the versioned defaults");
+}
+
 const setup = read("src/modules/setup/SetupWizard.tsx");
 for (const token of ["bg-background", "type-title", "max-w-3xl"]) {
   if (!setup.includes(token)) {

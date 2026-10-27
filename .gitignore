@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# desktop-managed OAuth client secrets (never commit)
+/data/settings/login.secrets.json
+
 # vercel
 .vercel
 

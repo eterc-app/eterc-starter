@@ -232,6 +232,7 @@ export class Eterc_tokens {
             sameSite: "lax",
             path: "/",
             maxAge: expiryDate - Math.floor(Date.now() / 1000),
+            secure: ctx.url.toLowerCase().startsWith("https://"),
           },
         });
       }

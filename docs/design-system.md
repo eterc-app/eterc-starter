@@ -128,7 +128,8 @@ Shell composition:
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
-- Auth and setup pages are full-screen canvas surfaces with a single white card. Public pages
+- Auth and setup pages are full-screen canvas surfaces. The active login is a split screen;
+  forgot/reset and blocked-access pages keep the single white `AuthShell` card. Public pages
   use the same canvas and card hierarchy.
 
 ## 5. Components
@@ -282,11 +283,26 @@ Every authenticated page follows this structure:
 
 ## 7. Auth, setup, and public pages
 
-- `AuthShell` owns the full-screen canvas, the 440 px card, the brand mark, the title, the
-  optional description, and the private-by-default footer. Login, forgot/reset password, and
-  blocked-access views use it.
+- `login_default` is the active split-screen login. The left half is the white sign-in surface:
+  brand mark and name, a 380 px form column, selective labels, one black primary action, optional
+  social buttons, and a small private-by-default/signed-out footer. The right half is the
+  configurable workspace panel and is hidden below the `lg` breakpoint.
+- The right panel may be a solid color, a two-stop gradient, or a project image with an optional
+  color overlay. It carries only the domain badge; do not put form fields or explanatory copy
+  there. Image previews are project-local public paths, never remote URLs.
+- Login branding, the right panel, and GitHub/Google social buttons are configured from the
+  desktop app only. The web admin has no login customization screen. Non-secret settings live in
+  `data/settings/login.json`; OAuth client secrets live in the gitignored
+  `data/settings/login.secrets.json` and are never passed to the login view.
+- Social buttons appear only when a provider is enabled and has a client ID and secret. Provider
+  errors use fixed `login_error` enum copy; do not render arbitrary redirect text. Keep the
+  forgot-password link conditional on the level configuration.
+- `AuthShell` still owns forgot/reset password, blocked-access, and alternate login views. It is
+  a full-screen canvas with a 440 px card, brand mark, title, optional description, and the
+  private-by-default footer.
 - Auth cards use the same 10 px surface radius, 1 px border, 14 px semibold labels, and 40 px
-  fields as the admin workspace.
+  fields as the admin workspace. Login may use a 44 px brand mark and the standard 40 px
+  primary button.
 - The setup wizard uses a 3xl max-width card on the canvas. Steps use a neutral track; the active
   step is black, not blue. Do not add confetti, gradients, or rainbow colors.
 - Public pages use the neutral canvas, a white card, and black primary actions. They do not use
@@ -326,6 +342,7 @@ Every authenticated page follows this structure:
 - required tokens and shell geometry in `globals.css` and `AdminTemplate`
 - no admin tabs, no private-API badge, and page actions use the shared icon menu
 - the shared sheet/side-drawer geometry and the policy editor's inherited/override contract
+- the split login surface, its social/error hooks, and the `AuthShell` fallback for reset pages
 - native `window.confirm` calls
 - legacy stylesheets and inline `<style>` blocks
 
@@ -343,6 +360,7 @@ the rendered app at 1280 px, 1440 px, and 390 px.
 - [ ] Cards use 1 px borders, 10 px radius, no shadow.
 - [ ] No admin tab bars; sections use a drawer or vertical rail.
 - [ ] Two-column work areas use a drawer for the secondary column.
+- [ ] Login keeps the split surface, conditional social/forgot controls, and no client secrets.
 - [ ] Sheets use the shared primitive, the correct side, and the inset footer.
 - [ ] Inherited policies are read-only and expose the override action.
 - [ ] Labels are selective; notes are reserved for real decisions.

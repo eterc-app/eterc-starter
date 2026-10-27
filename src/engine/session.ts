@@ -54,6 +54,20 @@ export function get_session_id(): string | null {
   return ctx.cookies[SESSION_COOKIE] ?? null;
 }
 
+function newSessionId(): string {
+  return crypto.randomBytes(24).toString("hex");
+}
+
+function sessionCookieOptions(): Record<string, unknown> {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_TTL,
+    secure: get_context().url.toLowerCase().startsWith("https://"),
+  };
+}
+
 /**
  * Ensure a session exists, creating one when possible. During a GET render the
  * response cannot set cookies; callers that need persistence must run inside a
@@ -64,20 +78,45 @@ export function ensure_session_id(): string {
   const existing = ctx.cookies[SESSION_COOKIE];
   if (existing) return existing;
 
-  const id = crypto.randomBytes(24).toString("hex");
+  const id = newSessionId();
   transientSessions().set(id, {});
   if (ctx.canSetCookies) {
     ctx.responseCookies.push({
       name: SESSION_COOKIE,
       value: id,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: SESSION_TTL,
-      },
+      options: sessionCookieOptions(),
     });
   }
+  return id;
+}
+
+/**
+ * Rotate the session after a successful authentication.
+ *
+ * The old server-side record is deleted and the browser receives a new
+ * HttpOnly session id. This prevents session fixation when a visitor arrives
+ * with a pre-set session cookie. Call only where response cookies are allowed
+ * (server actions and route handlers).
+ */
+export function rotate_session_id(): string {
+  const ctx = get_context();
+  if (!ctx.canSetCookies) return ensure_session_id();
+
+  ensureTable();
+  const previous = ctx.cookies[SESSION_COOKIE];
+  if (previous) {
+    sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(previous);
+    transientSessions().delete(previous);
+  }
+
+  const id = newSessionId();
+  transientSessions().set(id, {});
+  ctx.cookies[SESSION_COOKIE] = id;
+  ctx.responseCookies.push({
+    name: SESSION_COOKIE,
+    value: id,
+    options: sessionCookieOptions(),
+  });
   return id;
 }
 

@@ -135,6 +135,36 @@ export class Login_model extends Model {
   }
 
   /**
+   * Find an account by a verified email address.
+   *
+   * Only an unambiguous match is accepted. OAuth account linking uses this
+   * instead of the broader login identifier lookup so a provider email can
+   * never match a username by accident.
+   */
+  find_user_by_email(email: string, user_level_id: number): Row | false {
+    const normalized = email.trim();
+
+    if (!normalized) return false;
+
+    const config = this.get_level_config(user_level_id);
+    const email_column = Object.values(config.fields.identifiers).find(
+      (identifier) => identifier.column.toLowerCase() === "email"
+    )?.column;
+
+    if (!email_column) return false;
+
+    const rows = this.db.query_bind(
+      `SELECT * FROM ${quote_id(config.target_table)}
+        WHERE LOWER(${quote_id(email_column)}) = LOWER(:email)
+        LIMIT 2`,
+      { email: normalized },
+      "object"
+    ) as Row[];
+
+    return rows.length === 1 ? rows[0] : false;
+  }
+
+  /**
    * Timing-safe bcrypt hash: the first stored password hash in the table, or a
    * freshly generated dummy hash when the table has no hashes yet.
    */
@@ -285,16 +315,31 @@ export class Login_model extends Model {
     user_level_id: number,
     remember = 0
   ): string | false {
-    const config = this.get_level_config(user_level_id);
     const user = this.find_user(identifier, user_level_id);
 
     if (user === false) {
       return false;
     }
 
+    return this.login_user_row(user, user_level_id, remember);
+  }
+
+  /**
+   * Create an authentication token for an already resolved account row.
+   *
+   * Used by password login after credential validation and by the OAuth
+   * callback after its own account/linking checks. It deliberately does not
+   * accept an identifier, so callers cannot skip those checks accidentally.
+   */
+  login_user_row(user: Row, user_level_id: number, remember = 0): string | false {
+    const config = this.get_level_config(user_level_id);
     const eterc_user_id = this.get_user_ref_id(user, config);
 
     if (eterc_user_id <= 0) {
+      return false;
+    }
+
+    if (Number(user.active ?? 1) !== 1) {
       return false;
     }
 

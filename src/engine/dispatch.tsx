@@ -42,8 +42,14 @@ export async function build_request(options: EtRequestOptions): Promise<EtReques
     cookieMap[cookie.name] = cookie.value;
   }
 
-  const host = headerStore.get("host") ?? "localhost";
-  const proto = headerStore.get("x-forwarded-proto") ?? "http";
+  const forwardedHost = headerStore.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || headerStore.get("host") || "localhost";
+  const forwardedProto = headerStore
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  const proto = forwardedProto === "https" ? "https" : "http";
   const publicSegments = options.publicSegments ?? options.segments;
   const pathname = "/" + publicSegments.map(encodeURIComponent).join("/");
 
