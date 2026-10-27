@@ -26,7 +26,7 @@ export function LoginCompact({ data }: EtViewProps) {
         className="space-y-5"
         id="loginForm"
       >
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="identifier">{identifierLabel}</Label>
           <Input
             id="identifier"
@@ -37,7 +37,7 @@ export function LoginCompact({ data }: EtViewProps) {
           />
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="password">{passwordLabel}</Label>
           <Input
             id="password"

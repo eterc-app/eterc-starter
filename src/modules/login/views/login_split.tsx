@@ -29,7 +29,7 @@ export function LoginSplit({ data }: EtViewProps) {
           <ValidationErrors />
 
           <EtForm action="login/submit_login" params={[loginUrl]} className="mt-6 space-y-5">
-            <div className="space-y-3">
+            <div className="grid gap-3">
               <Label htmlFor="identifier">{identifierLabel}</Label>
               <Input
                 id="identifier"
@@ -40,7 +40,7 @@ export function LoginSplit({ data }: EtViewProps) {
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="grid gap-3">
               <Label htmlFor="password">{passwordLabel}</Label>
               <Input
                 id="password"

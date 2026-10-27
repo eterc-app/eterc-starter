@@ -23,7 +23,7 @@ export function ForgotPasswordForm({ data }: EtViewProps) {
         params={[loginUrl]}
         className="space-y-5"
       >
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="identifier">{identifierLabel}</Label>
           <Input
             id="identifier"

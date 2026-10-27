@@ -138,7 +138,7 @@ export function LoginDefault({ data }: EtViewProps) {
               className="mt-6 space-y-5"
               autoComplete="on"
             >
-              <div className="space-y-3">
+              <div className="grid gap-3">
                 <Label htmlFor="identifier">{identifierLabel}</Label>
                 <Input
                   id="identifier"
@@ -149,7 +149,7 @@ export function LoginDefault({ data }: EtViewProps) {
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="grid gap-3">
                 <Label htmlFor="password">{passwordLabel}</Label>
                 <Input
                   id="password"

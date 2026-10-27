@@ -153,7 +153,7 @@ Shell composition:
   `focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]`. Do not use a
   colored outer ring on fields.
 - Placeholders are muted and never replace a label.
-- Labels are 14 px semibold. Keep the label and control in a 12 px vertical stack.
+- Labels are 14 px semibold. Keep the label and control in a 12 px vertical stack using `grid gap-3`; the label's `m-0` overrides `space-y-*` margins.
 - Helper text is 13 px italic muted and appears only when it changes a decision.
 - Form grids use two columns at `sm` and larger, 32 px column gap, 24 px row gap. Long text fields
   span both columns.

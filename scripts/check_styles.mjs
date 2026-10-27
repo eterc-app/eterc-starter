@@ -79,6 +79,18 @@ for (const file of sourceFiles) {
     problems.push(`Tailwind palette color in ${relative}: ${paletteMatches[0]}`);
   }
 
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    if (!/\bspace-y-/.test(lines[index])) continue;
+    let next = index + 1;
+    while (next < lines.length && lines[next].trim() === "") next += 1;
+    if (next < lines.length && /^<(?:Label|FieldLabel)\b/.test(lines[next].trim())) {
+      problems.push(
+        `field spacing in ${relative}:${index + 1}; use grid gap-3 because Label m-0 overrides space-y-*`,
+      );
+    }
+  }
+
   const arbitrary = [
     [/\btext-\[[^\]]+\]/g, "arbitrary text size"],
     [/\btracking-\[[^\]]+\]/g, "arbitrary tracking"],

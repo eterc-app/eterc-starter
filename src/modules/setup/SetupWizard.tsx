@@ -259,7 +259,7 @@ function DatabaseStep({
         </Notice>
       ) : null}
 
-      <div className="space-y-3">
+      <div className="grid gap-3">
         <Label htmlFor="database-file">Database file</Label>
         <Input
           type="text"
@@ -325,7 +325,7 @@ function AdminStep({
       <StepsIndicator current={2} />
 
       <form className="space-y-5" onSubmit={onSubmit}>
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="username">Username</Label>
           <Input
             type="text"
@@ -337,7 +337,7 @@ function AdminStep({
           <FieldErrors field="username" errors={errors} />
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="email">Email address</Label>
           <Input
             type="email"
@@ -349,7 +349,7 @@ function AdminStep({
           <FieldErrors field="email" errors={errors} />
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="password">Password</Label>
           <Input
             type="password"
@@ -362,7 +362,7 @@ function AdminStep({
           <FieldErrors field="password" errors={errors} />
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-3">
           <Label htmlFor="confirm_password">Confirm password</Label>
           <Input
             type="password"
