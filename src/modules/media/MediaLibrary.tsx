@@ -27,7 +27,6 @@ import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -408,11 +407,6 @@ export function MediaLibrary({
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Content"
-        title="Media library"
-        description={`${stats.count} ${stats.count === 1 ? "image" : "images"} · ${stats.total_label}`}
-      />
 
       <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">

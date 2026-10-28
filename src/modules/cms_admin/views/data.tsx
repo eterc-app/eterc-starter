@@ -54,7 +54,6 @@ import {
   EmptyState,
   FieldInput,
   FieldLabel,
-  PageHeader,
   cms_call,
   format_datetime,
 } from "./ui";
@@ -605,11 +604,6 @@ export default function DataStudio({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Content"
-        title="Data Studio"
-        description="Model collections and edit records against the private API."
-      />
 
       <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">
         <ContentSidebar

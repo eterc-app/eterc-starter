@@ -5,7 +5,6 @@ import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,11 +48,6 @@ export default function Manage({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Content"
-        title="Manage administrators"
-        description="Accounts that can sign in to Eterc."
-      />
 
       <Flashdata />
 

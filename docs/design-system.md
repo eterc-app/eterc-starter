@@ -24,9 +24,9 @@ authentication, roles, API keys, media, database, or routing behavior.
 6. Use labels selectively. A field label is required when the value is not self-evident. A
    description is reserved for destructive actions, security, non-obvious defaults, and
    validation. Do not repeat the label in helper text.
-7. The top bar is global workspace chrome. The page title belongs in `PageHeader`; the current
-   page's actions belong in the top-bar action slot. Do not render the same page title or page
-   actions in both places.
+7. The top bar is global workspace chrome. The breadcrumb identifies the current page; primary
+   workspace pages do not repeat the title in a `PageHeader`. When a page does use `PageHeader`,
+   it owns the `h1`. Page actions belong in the top-bar action slot, never in the page header.
 8. Every authenticated page root uses `app-page`. Auth, setup, and public pages use their own
    full-screen surface but the same tokens and type scale.
 9. Run `npm run typecheck`, `npm run styles:check`, `npm run lint`, and `npm run build` before
@@ -76,7 +76,7 @@ stack; do not switch to a runtime font CDN.
 | --- | --- | --- | --- |
 | Body | default | 14 / 22 | 500 |
 | Label | `Label` / `type-label` | 16 / 19 | 600 |
-| Page title | `PageHeader` / `type-title` | 18 / 24 | 500 |
+| Page title | `PageHeader` (secondary) / `type-title` | 18 / 24 | 500 |
 | Section title | `h2` / `text-base font-semibold` | 16 / 22 | 600 |
 | Card title | `CardTitle` | 16 / 22 | 600 |
 | Note | `type-note` | 13 / 18 italic | 500 |
@@ -129,8 +129,9 @@ Shell composition:
   page's action icons, and the theme toggle. It does not repeat the page title or carry status
   badges.
 - Page actions are dynamic. Each route portals its action icons into the top-bar slot immediately
-  before the theme toggle; the slot is empty on routes without actions. The page header carries
-  the title and description only. Never add a separate page-action row in the content area.
+  before the theme toggle; the slot is empty on routes without actions. When a page uses
+  `PageHeader`, it carries the title and description only; primary workspace pages rely on the
+  breadcrumb instead. Never add a separate page-action row in the content area.
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
@@ -293,7 +294,7 @@ Shell composition:
 
 ## 6. Page composition
 
-Every authenticated page follows this structure:
+Primary workspace pages use the top-bar breadcrumb as their page identity and start with content:
 
 ```tsx
 <div className="app-page">
@@ -302,23 +303,20 @@ Every authenticated page follows this structure:
       items={[{ label: "Refresh", icon: <RefreshCw />, onSelect: refresh }]}
     />
   </PageActionsPortal>
-  <PageHeader
-    eyebrow="Workspace" // or "Content" / "System" / "Database"
-    title="Content overview"
-  />
   {/* page sections, 24 px apart via app-page */}
 </div>
 ```
 
-- `PageHeader` owns the `h1`. Do not add another page-level heading.
-- Use an eyebrow for the section of the app. Use a title for the page.
+- Do not restore `PageHeader` on Content overview, Data Studio, Media library, Access & API,
+  Project settings, or Manage users. Their breadcrumb is the page title.
+- Secondary pages may use `PageHeader` when a local title adds context. It owns the `h1`; do not
+  add another page-level heading. Use an eyebrow for the app section and a title for the page.
 - Actions live in the top-bar action slot, not the page header. `PageActions` renders a single
   action as an icon button and multiple items as the shared overflow menu. Page-specific icon
   buttons may sit beside it. Do not place large text buttons in the top bar or page header.
 - Metadata such as an API endpoint or database path goes in a `font-mono text-xs` line or an inset
   panel, not in a hero card.
-- Start content immediately after the header; do not add `mt-4`/`mt-5` when `app-page` already
-  provides the gap.
+- Start content immediately; do not add `mt-4`/`mt-5` when `app-page` already provides the gap.
 - Content overview is a collection browser, not a dashboard. Use collection cards with label,
   machine name, item count, and collection state. Do not add aggregate stat cards, an API-mode
   summary, or a second collection list.
@@ -395,7 +393,8 @@ the rendered app at 1280 px, 1440 px, and 390 px.
 
 ## 11. Change checklist
 
-- [ ] The page uses `app-page` and `PageHeader` (or the appropriate auth/setup/public surface).
+- [ ] The page uses `app-page` and either the top-bar breadcrumb (primary workspace pages) or
+      `PageHeader` (secondary pages), or the appropriate auth/setup/public surface.
 - [ ] No duplicate page title in the top bar.
 - [ ] No raw palette colors, hex colors, arbitrary type sizes, or arbitrary radii.
 - [ ] Fields use `Input`/`Select`/`Textarea` and the shared focus treatment.

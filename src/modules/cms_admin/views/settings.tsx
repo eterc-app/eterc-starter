@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EtViewProps } from "@/engine/views-registry";
 import type { CmsRuntimeConfig } from "@/modules/cms/cms-types";
-import { BusyButton, PageHeader, cms_call } from "./ui";
+import { BusyButton, cms_call } from "./ui";
 
 function StatusPill({ status }: { status?: string }) {
   if (status === "verified") {
@@ -177,11 +177,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="System"
-        title="Project settings"
-        description="Runtime defaults for this private CMS workspace."
-      />
 
       <Card>
         <CardHeader>

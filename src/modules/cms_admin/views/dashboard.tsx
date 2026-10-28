@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { EtViewProps } from "@/engine/views-registry";
 import type { CmsCollectionWithFields } from "@/modules/cms/cms-types";
 import { ContentSidebar } from "./ContentSidebar";
-import { EmptyState, PageHeader } from "./ui";
+import { EmptyState } from "./ui";
 
 export default function CmsDashboard({ data }: EtViewProps) {
   const collections = (data.collections ?? []) as CmsCollectionWithFields[];
@@ -59,11 +59,6 @@ export default function CmsDashboard({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Workspace"
-        title="Content overview"
-        description="Manage collections, media, and access from one private workspace."
-      />
 
       <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">
         <ContentSidebar

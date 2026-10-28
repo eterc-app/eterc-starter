@@ -292,6 +292,21 @@ if (pageHeader.includes("actions")) {
   problems.push("PageHeader must not render page actions; use PageActionsPortal");
 }
 
+for (const relative of [
+  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/data.tsx",
+  "src/modules/cms_admin/views/access.tsx",
+  "src/modules/cms_admin/views/settings.tsx",
+  "src/modules/eterc_administrators/views/manage.tsx",
+  "src/modules/media/MediaLibrary.tsx",
+]) {
+  if (read(relative).includes("PageHeader")) {
+    problems.push(
+      `primary workspace page must use the top-bar breadcrumb, not PageHeader: ${relative}`,
+    );
+  }
+}
+
 const pageActionsSlot = read("src/components/app/PageActionsSlot.tsx");
 for (const token of [
   "PageActionsProvider",

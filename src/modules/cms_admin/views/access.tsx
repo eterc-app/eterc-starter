@@ -67,7 +67,6 @@ import {
   BusyButton,
   CopyButton,
   EmptyState,
-  PageHeader,
   cms_call,
   format_datetime,
   format_relative,
@@ -633,11 +632,6 @@ export default function AccessStudio({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="System"
-        title="Access control"
-        description="Roles, row-level policies, field access, and scoped API credentials."
-      />
 
       <SectionDrawer
         open={sectionDrawerOpen}
@@ -754,26 +748,33 @@ export default function AccessStudio({ data }: EtViewProps) {
                   </Notice>
                 ) : (
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
-                        <p className="type-headline">Parent role</p>
-                        <p className="mt-1 text-sm font-medium">
+                    <dl
+                      aria-label="Role summary"
+                      className="divide-y divide-border overflow-hidden rounded-lg border border-border"
+                    >
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
+                        <dt className="text-sm text-muted-foreground">
+                          Parent role
+                        </dt>
+                        <dd className="text-right text-sm font-medium">
                           {parentRole?.name ?? "None"}
-                        </p>
+                        </dd>
                       </div>
-                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
-                        <p className="type-headline">Direct policies</p>
-                        <p className="mt-1 text-sm font-medium">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
+                        <dt className="text-sm text-muted-foreground">
+                          Direct policies
+                        </dt>
+                        <dd className="text-right text-sm font-medium tabular-nums">
                           {selectedPermissions.length}
-                        </p>
+                        </dd>
                       </div>
-                      <div className="rounded-lg border border-border bg-surface-subtle p-3">
-                        <p className="type-headline">Users</p>
-                        <p className="mt-1 text-sm font-medium">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
+                        <dt className="text-sm text-muted-foreground">Users</dt>
+                        <dd className="text-right text-sm font-medium tabular-nums">
                           {selectedRole.user_count}
-                        </p>
+                        </dd>
                       </div>
-                    </div>
+                    </dl>
 
                     {parentRole ? (
                       <Notice icon={GitBranch}>
