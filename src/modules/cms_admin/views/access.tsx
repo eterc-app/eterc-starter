@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { SectionDrawer, SideDrawer } from "@/components/app/SideDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -610,34 +611,32 @@ export default function AccessStudio({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Access sections"
+          title="Access sections"
+          onClick={() => setSectionDrawerOpen(true)}
+        >
+          <PanelLeft className="size-4" />
+        </Button>
+        <PageActions
+          items={[
+            {
+              label: "New role",
+              icon: <Plus className="size-4" />,
+              variant: "default",
+              onSelect: openCreateRole,
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="System"
         title="Access control"
         description="Roles, row-level policies, field access, and scoped API credentials."
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Access sections"
-              title="Access sections"
-              onClick={() => setSectionDrawerOpen(true)}
-            >
-              <PanelLeft className="size-4" />
-            </Button>
-            <PageActions
-              items={[
-                {
-                  label: "New role",
-                  icon: <Plus className="size-4" />,
-                  variant: "default",
-                  onSelect: openCreateRole,
-                },
-              ]}
-            />
-          </>
-        }
       />
 
       <SectionDrawer

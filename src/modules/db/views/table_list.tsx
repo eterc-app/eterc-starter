@@ -9,6 +9,7 @@ import { useConfirm } from "@/components/app/ConfirmDialog";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +111,17 @@ export default function TableList({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "SQL console",
+              icon: <Terminal className="size-4" />,
+              href: sql_console_url,
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Database"
         title="Database tables"
@@ -117,17 +129,6 @@ export default function TableList({ data }: EtViewProps) {
           data.subheading
             ? String(data.subheading)
             : "Inspect schema and maintenance actions for the local SQLite database."
-        }
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "SQL console",
-                icon: <Terminal className="size-4" />,
-                href: sql_console_url,
-              },
-            ]}
-          />
         }
       />
 

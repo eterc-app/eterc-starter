@@ -2,6 +2,7 @@ import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,23 +21,23 @@ export default function Create({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
+      {is_update ? (
+        <PageActionsPortal>
+          <PageActions
+            items={[
+              {
+                label: "Update password",
+                icon: <KeyRound className="size-4" />,
+                href: String(data.update_password_url ?? ""),
+              },
+            ]}
+          />
+        </PageActionsPortal>
+      ) : null}
       <PageHeader
         eyebrow="Content"
         title={is_update ? "Update administrator" : "Create administrator"}
         description="Set the account username and whether it can sign in."
-        actions={
-          is_update ? (
-            <PageActions
-              items={[
-                {
-                  label: "Update password",
-                  icon: <KeyRound className="size-4" />,
-                  href: String(data.update_password_url ?? ""),
-                },
-              ]}
-            />
-          ) : null
-        }
       />
 
       <ValidationErrors />

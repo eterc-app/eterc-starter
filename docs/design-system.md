@@ -24,8 +24,9 @@ authentication, roles, API keys, media, database, or routing behavior.
 6. Use labels selectively. A field label is required when the value is not self-evident. A
    description is reserved for destructive actions, security, non-obvious defaults, and
    validation. Do not repeat the label in helper text.
-7. The top bar is global workspace chrome. The page title belongs in `PageHeader`. Do not render
-   the same page title in both places.
+7. The top bar is global workspace chrome. The page title belongs in `PageHeader`; the current
+   page's actions belong in the top-bar action slot. Do not render the same page title or page
+   actions in both places.
 8. Every authenticated page root uses `app-page`. Auth, setup, and public pages use their own
    full-screen surface but the same tokens and type scale.
 9. Run `npm run typecheck`, `npm run styles:check`, `npm run lint`, and `npm run build` before
@@ -124,8 +125,12 @@ Shell composition:
   bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
 - The sidebar has 12 px horizontal padding, 40 px navigation rows, and 12 px sentence-case
   section labels. The active row uses `--muted` and semibold text.
-- The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, and the theme
-  toggle. It does not repeat the page title or carry status badges.
+- The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, the current
+  page's action icons, and the theme toggle. It does not repeat the page title or carry status
+  badges.
+- Page actions are dynamic. Each route portals its action icons into the top-bar slot immediately
+  before the theme toggle; the slot is empty on routes without actions. The page header carries
+  the title and description only. Never add a separate page-action row in the content area.
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
@@ -148,6 +153,16 @@ Shell composition:
   dialog uses `variant="destructive"`. Do not use solid red for normal buttons.
 - Icon buttons are 40 px with a visible `aria-label` and, when useful, a tooltip.
 - Never add page-level shadows to buttons. Focus is the shared 2 px outline with 2 px offset.
+
+### Page actions
+
+- Page actions live in the top bar, immediately before the theme toggle. Use `PageActionsPortal`
+  with the shared `PageActions` menu; do not pass an `actions` prop to `PageHeader`.
+- A single action is an icon-only button with an accessible name. Multiple actions use the shared
+  `PageActions` menu. Page-specific icon buttons, such as **Access sections**, may sit beside the
+  menu in the same slot.
+- The slot is route-owned: the current page mounts its actions and the previous page's actions
+  disappear on navigation. Do not duplicate the action set in the page body.
 
 ### Fields
 
@@ -282,10 +297,14 @@ Every authenticated page follows this structure:
 
 ```tsx
 <div className="app-page">
+  <PageActionsPortal>
+    <PageActions
+      items={[{ label: "Refresh", icon: <RefreshCw />, onSelect: refresh }]}
+    />
+  </PageActionsPortal>
   <PageHeader
     eyebrow="Workspace" // or "Content" / "System" / "Database"
     title="Content overview"
-    actions={<PageActions items={[{ label: "Refresh", icon: <RefreshCw />, onSelect: refresh }]} />}
   />
   {/* page sections, 24 px apart via app-page */}
 </div>
@@ -293,9 +312,9 @@ Every authenticated page follows this structure:
 
 - `PageHeader` owns the `h1`. Do not add another page-level heading.
 - Use an eyebrow for the section of the app. Use a title for the page.
-- Actions live on the right of the header as icons. A single action is an icon button; two or
-  more actions collapse into the `PageActions` overflow menu. Do not place large text buttons in
-  the page header.
+- Actions live in the top-bar action slot, not the page header. `PageActions` renders a single
+  action as an icon button and multiple items as the shared overflow menu. Page-specific icon
+  buttons may sit beside it. Do not place large text buttons in the top bar or page header.
 - Metadata such as an API endpoint or database path goes in a `font-mono text-xs` line or an inset
   panel, not in a hero card.
 - Start content immediately after the header; do not add `mt-4`/`mt-5` when `app-page` already

@@ -176,6 +176,8 @@ for (const token of [
   "bg-sidebar",
   "bg-overlay",
   "type-headline",
+  "PageActionsProvider",
+  "PageActionsSlot",
 ]) {
   if (!shell.includes(token)) {
     problems.push(`AdminTemplate missing shell contract: ${token}`);
@@ -282,6 +284,42 @@ for (const token of [
 ]) {
   if (!pageActions.includes(token)) {
     problems.push(`PageActions missing action-menu contract: ${token}`);
+  }
+}
+
+const pageHeader = read("src/components/app/PageHeader.tsx");
+if (pageHeader.includes("actions")) {
+  problems.push("PageHeader must not render page actions; use PageActionsPortal");
+}
+
+const pageActionsSlot = read("src/components/app/PageActionsSlot.tsx");
+for (const token of [
+  "PageActionsProvider",
+  "PageActionsSlot",
+  "PageActionsPortal",
+  "createPortal",
+  'data-testid="topbar-page-actions"',
+]) {
+  if (!pageActionsSlot.includes(token)) {
+    problems.push(`PageActionsSlot missing top-bar action contract: ${token}`);
+  }
+}
+
+for (const relative of [
+  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/data.tsx",
+  "src/modules/cms_admin/views/access.tsx",
+  "src/modules/cms_admin/views/settings.tsx",
+  "src/modules/eterc_administrators/views/manage.tsx",
+  "src/modules/eterc_administrators/views/create.tsx",
+  "src/modules/eterc_administrators/views/show.tsx",
+  "src/modules/db/views/table_list.tsx",
+  "src/modules/db/views/browse.tsx",
+  "src/modules/db/views/sql_console.tsx",
+  "src/modules/media/MediaLibrary.tsx",
+]) {
+  if (!read(relative).includes("PageActionsPortal")) {
+    problems.push(`page actions must render in the top bar: ${relative}`);
   }
 }
 

@@ -26,6 +26,7 @@ import {
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -395,22 +396,22 @@ export function MediaLibrary({
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "Upload images",
+              icon: <Upload className="size-4" strokeWidth={1.75} />,
+              variant: "default",
+              onSelect: () => fileInputRef.current?.click(),
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Content"
         title="Media library"
         description={`${stats.count} ${stats.count === 1 ? "image" : "images"} · ${stats.total_label}`}
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "Upload images",
-                icon: <Upload className="size-4" strokeWidth={1.75} />,
-                variant: "default",
-                onSelect: () => fileInputRef.current?.click(),
-              },
-            ]}
-          />
-        }
       />
 
       <div className="space-y-4">

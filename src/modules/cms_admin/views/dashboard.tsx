@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,43 +26,43 @@ export default function CmsDashboard({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "Open Data Studio",
+              icon: <Database className="size-4" />,
+              href: "/admin/data",
+              variant: "default",
+            },
+            {
+              label: "API reference",
+              icon: <Braces className="size-4" />,
+              href: "/api-reference",
+              external: true,
+            },
+            {
+              label: "Issue an API key",
+              icon: <KeyRound className="size-4" />,
+              href: "/admin/access",
+            },
+            {
+              label: "Review project settings",
+              icon: <ShieldCheck className="size-4" />,
+              href: "/admin/settings",
+            },
+            {
+              label: "Manage users",
+              icon: <Users className="size-4" />,
+              href: "/administrators/manage",
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Workspace"
         title="Content overview"
         description="Manage collections, media, and access from one private workspace."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "Open Data Studio",
-                icon: <Database className="size-4" />,
-                href: "/admin/data",
-                variant: "default",
-              },
-              {
-                label: "API reference",
-                icon: <Braces className="size-4" />,
-                href: "/api-reference",
-                external: true,
-              },
-              {
-                label: "Issue an API key",
-                icon: <KeyRound className="size-4" />,
-                href: "/admin/access",
-              },
-              {
-                label: "Review project settings",
-                icon: <ShieldCheck className="size-4" />,
-                href: "/admin/settings",
-              },
-              {
-                label: "Manage users",
-                icon: <Users className="size-4" />,
-                href: "/administrators/manage",
-              },
-            ]}
-          />
-        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">

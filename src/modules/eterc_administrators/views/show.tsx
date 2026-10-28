@@ -2,6 +2,7 @@ import { Flashdata } from "@/engine/ui/Flashdata";
 import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,39 +19,39 @@ export default function Show({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "Back to administrators",
+              icon: <ArrowLeft className="size-4" />,
+              href: String(data.back_url ?? ""),
+            },
+            {
+              label: "Edit administrator",
+              icon: <Pencil className="size-4" />,
+              href: site_url(`eterc_administrators/create/${update_id}`),
+              variant: "default",
+            },
+            ...(is_own_account === false
+              ? [
+                  {
+                    label: "Delete administrator",
+                    icon: <Trash2 className="size-4" />,
+                    href: site_url(
+                      `eterc_administrators/delete_conf/${update_id}`,
+                    ),
+                    variant: "destructive" as const,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Content"
         title="Administrator"
         description="Account details and sign-in status."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "Back to administrators",
-                icon: <ArrowLeft className="size-4" />,
-                href: String(data.back_url ?? ""),
-              },
-              {
-                label: "Edit administrator",
-                icon: <Pencil className="size-4" />,
-                href: site_url(`eterc_administrators/create/${update_id}`),
-                variant: "default",
-              },
-              ...(is_own_account === false
-                ? [
-                    {
-                      label: "Delete administrator",
-                      icon: <Trash2 className="size-4" />,
-                      href: site_url(
-                        `eterc_administrators/delete_conf/${update_id}`,
-                      ),
-                      variant: "destructive" as const,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        }
       />
 
       <Flashdata />

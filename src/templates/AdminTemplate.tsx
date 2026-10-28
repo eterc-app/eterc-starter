@@ -10,6 +10,10 @@ import {
   WEBSITE_NAME,
 } from "@/engine/config";
 import { to_public_path } from "@/engine/url-aliases";
+import {
+  PageActionsProvider,
+  PageActionsSlot,
+} from "@/components/app/PageActionsSlot";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight,
@@ -315,88 +319,91 @@ export function AdminTemplate({
   );
 
   return (
-    <div
-      data-theme={theme}
-      className="min-h-screen bg-background text-foreground"
-      onClick={() => setAccountOpen(false)}
-    >
-      <div className="flex min-h-screen">
-        {!sidebarCollapsed ? (
-          <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-border bg-sidebar md:flex">
-            {render_sidebar(false)}
-          </aside>
-        ) : null}
+    <PageActionsProvider>
+      <div
+        data-theme={theme}
+        className="min-h-screen bg-background text-foreground"
+        onClick={() => setAccountOpen(false)}
+      >
+        <div className="flex min-h-screen">
+          {!sidebarCollapsed ? (
+            <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-border bg-sidebar md:flex">
+              {render_sidebar(false)}
+            </aside>
+          ) : null}
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6 lg:px-8">
-            <button
-              type="button"
-              className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-              aria-label="Open navigation"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="size-4" strokeWidth={1.75} />
-            </button>
-            <button
-              type="button"
-              className="hidden size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
-              aria-label={
-                sidebarCollapsed ? "Show navigation" : "Hide navigation"
-              }
-              aria-expanded={!sidebarCollapsed}
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-            >
-              <PanelLeft className="size-4" strokeWidth={1.75} />
-            </button>
-            <span className="hidden h-5 w-px bg-border md:block" />
-            <nav
-              aria-label="Breadcrumb"
-              className="flex min-w-0 items-center gap-2 text-xs"
-            >
-              <span className="truncate text-muted-foreground">{section}</span>
-              <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground"
-                strokeWidth={1.75}
-              />
-              <span className="truncate font-semibold text-foreground">
-                {current}
-              </span>
-            </nav>
-
-            <div className="ml-auto flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6 lg:px-8">
               <button
                 type="button"
-                className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Switch theme"
-                title="Switch theme"
-                onClick={() => setTheme(dark ? "light" : "dark")}
+                className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                aria-label="Open navigation"
+                onClick={() => setMobileOpen(true)}
               >
-                {dark ? (
-                  <Sun className="size-4" strokeWidth={1.75} />
-                ) : (
-                  <Moon className="size-4" strokeWidth={1.75} />
-                )}
+                <Menu className="size-4" strokeWidth={1.75} />
               </button>
-            </div>
-          </header>
+              <button
+                type="button"
+                className="hidden size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
+                aria-label={
+                  sidebarCollapsed ? "Show navigation" : "Hide navigation"
+                }
+                aria-expanded={!sidebarCollapsed}
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              >
+                <PanelLeft className="size-4" strokeWidth={1.75} />
+              </button>
+              <span className="hidden h-5 w-px bg-border md:block" />
+              <nav
+                aria-label="Breadcrumb"
+                className="flex min-w-0 items-center gap-2 text-xs"
+              >
+                <span className="truncate text-muted-foreground">{section}</span>
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  strokeWidth={1.75}
+                />
+                <span className="truncate font-semibold text-foreground">
+                  {current}
+                </span>
+              </nav>
 
-          <main className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <div className="mx-auto w-full max-w-[1560px]">{children}</div>
-          </main>
+              <div className="ml-auto flex items-center gap-2">
+                <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
+                <button
+                  type="button"
+                  className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Switch theme"
+                  title="Switch theme"
+                  onClick={() => setTheme(dark ? "light" : "dark")}
+                >
+                  {dark ? (
+                    <Sun className="size-4" strokeWidth={1.75} />
+                  ) : (
+                    <Moon className="size-4" strokeWidth={1.75} />
+                  )}
+                </button>
+              </div>
+            </header>
+
+            <main className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+              <div className="mx-auto w-full max-w-[1560px]">{children}</div>
+            </main>
+          </div>
         </div>
+
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-50 md:hidden" onClick={close_mobile}>
+            <div className="absolute inset-0 bg-overlay" />
+            <aside
+              className="relative flex h-full w-[280px] flex-col border-r border-border bg-sidebar shadow-[0_24px_64px_-24px_rgb(0_0_0/0.45)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {render_sidebar(true)}
+            </aside>
+          </div>
+        ) : null}
       </div>
-
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden" onClick={close_mobile}>
-          <div className="absolute inset-0 bg-overlay" />
-          <aside
-            className="relative flex h-full w-[280px] flex-col border-r border-border bg-sidebar shadow-[0_24px_64px_-24px_rgb(0_0_0/0.45)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {render_sidebar(true)}
-          </aside>
-        </div>
-      ) : null}
-    </div>
+    </PageActionsProvider>
   );
 }

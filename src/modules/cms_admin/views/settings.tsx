@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -159,27 +160,27 @@ export default function ProjectSettings({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-4xl">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: saving ? "Saving settings" : "Save settings",
+              icon: saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              ),
+              variant: "default",
+              disabled: saving,
+              onSelect: save,
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="System"
         title="Project settings"
         description="Runtime defaults for this private CMS workspace."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: saving ? "Saving settings" : "Save settings",
-                icon: saving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Save className="size-4" />
-                ),
-                variant: "default",
-                disabled: saving,
-                onSelect: save,
-              },
-            ]}
-          />
-        }
       />
 
       <Card>

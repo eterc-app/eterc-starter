@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -586,28 +587,28 @@ export default function DataStudio({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "New collection",
+              icon: <Plus className="size-4" />,
+              variant: "default",
+              onSelect: openCreateCollection,
+            },
+            {
+              label: "API reference",
+              icon: <Braces className="size-4" />,
+              href: "/api-reference",
+              external: true,
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Content"
         title="Data Studio"
         description="Model collections and edit records against the private API."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "New collection",
-                icon: <Plus className="size-4" />,
-                variant: "default",
-                onSelect: openCreateCollection,
-              },
-              {
-                label: "API reference",
-                icon: <Braces className="size-4" />,
-                href: "/api-reference",
-                external: true,
-              },
-            ]}
-          />
-        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">

@@ -5,6 +5,7 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,32 +41,32 @@ export default function Browse({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "New record",
+              icon: <Plus className="size-4" />,
+              href: forger_url,
+              variant: "default",
+            },
+            {
+              label: "SQL console",
+              icon: <Terminal className="size-4" />,
+              href: String(data.sql_console_url ?? ""),
+            },
+            {
+              label: "Database tables",
+              icon: <Table2 className="size-4" />,
+              href: String(data.tables_url ?? ""),
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Database"
         title="Browse table"
         description="Browse and edit records in the local SQLite database."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "New record",
-                icon: <Plus className="size-4" />,
-                href: forger_url,
-                variant: "default",
-              },
-              {
-                label: "SQL console",
-                icon: <Terminal className="size-4" />,
-                href: String(data.sql_console_url ?? ""),
-              },
-              {
-                label: "Database tables",
-                icon: <Table2 className="size-4" />,
-                href: String(data.tables_url ?? ""),
-              },
-            ]}
-          />
-        }
       />
 
       <Flashdata />

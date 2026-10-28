@@ -4,6 +4,7 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Pagination } from "@/modules/pagination/PaginationRenderer";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,22 +37,22 @@ export default function Manage({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "Create administrator",
+              icon: <Plus className="size-4" />,
+              href: `${base}administrators/create`,
+              variant: "default",
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Content"
         title="Manage administrators"
         description="Accounts that can sign in to Eterc."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "Create administrator",
-                icon: <Plus className="size-4" />,
-                href: `${base}administrators/create`,
-                variant: "default",
-              },
-            ]}
-          />
-        }
       />
 
       <Flashdata />

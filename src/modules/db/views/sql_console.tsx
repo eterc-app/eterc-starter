@@ -7,6 +7,7 @@ import { useEtUi } from "@/engine/ui/EtUiProvider";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
+import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,21 +83,21 @@ export default function SqlConsole({ data }: EtViewProps) {
 
   return (
     <div className="app-page">
+      <PageActionsPortal>
+        <PageActions
+          items={[
+            {
+              label: "Database tables",
+              icon: <Database className="size-4" />,
+              href: String(data.tables_url ?? ""),
+            },
+          ]}
+        />
+      </PageActionsPortal>
       <PageHeader
         eyebrow="Database"
         title="SQL console"
         description="Run read or write statements against the local SQLite database."
-        actions={
-          <PageActions
-            items={[
-              {
-                label: "Database tables",
-                icon: <Database className="size-4" />,
-                href: String(data.tables_url ?? ""),
-              },
-            ]}
-          />
-        }
       />
 
       <Flashdata />
