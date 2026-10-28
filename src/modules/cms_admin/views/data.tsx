@@ -8,20 +8,17 @@ import {
   Database,
   FilePlus2,
   Loader2,
-  PanelLeft,
   Pencil,
   Plus,
   RefreshCw,
   Search,
   Settings2,
-  Table2,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { PageActions } from "@/components/app/PageActions";
-import { SideDrawer } from "@/components/app/SideDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +46,7 @@ import type {
   CmsField,
   CmsFieldType,
 } from "@/modules/cms/cms-types";
+import { ContentSidebar } from "./ContentSidebar";
 import {
   BusyButton,
   CopyButton,
@@ -70,6 +68,7 @@ interface Snapshot {
   pages: number;
   limit: number;
   search: string;
+  create?: boolean;
 }
 
 interface DraftField {
@@ -203,9 +202,16 @@ export default function DataStudio({ data }: EtViewProps) {
   const [busy, setBusy] = useState(false);
   const { confirm, dialog: confirm_dialog } = useConfirm();
 
-  const [collectionDrawerOpen, setCollectionDrawerOpen] = useState(false);
-  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(Boolean(initial.create));
   const [collectionMode, setCollectionMode] = useState<"create" | "edit">("create");
+  const setCollectionDialogOpen = useCallback((open: boolean) => {
+    setCollectionOpen(open);
+    if (!open && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
   const [collectionForm, setCollectionForm] = useState<CollectionForm>(emptyCollectionForm());
   const [collectionSaving, setCollectionSaving] = useState(false);
 
@@ -253,6 +259,12 @@ export default function DataStudio({ data }: EtViewProps) {
   const selectCollection = useCallback(
     async (name: string) => {
       await refresh(name, 1, "");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("collection", name);
+        url.searchParams.delete("new");
+        window.history.replaceState(null, "", url);
+      }
     },
     [refresh]
   );
@@ -268,8 +280,8 @@ export default function DataStudio({ data }: EtViewProps) {
   const openCreateCollection = useCallback(() => {
     setCollectionMode("create");
     setCollectionForm(emptyCollectionForm());
-    setCollectionOpen(true);
-  }, []);
+    setCollectionDialogOpen(true);
+  }, [setCollectionDialogOpen]);
 
   const openEditCollection = useCallback(() => {
     if (!selected) return;
@@ -283,8 +295,8 @@ export default function DataStudio({ data }: EtViewProps) {
       hidden: selected.hidden,
       fields: [],
     });
-    setCollectionOpen(true);
-  }, [selected]);
+    setCollectionDialogOpen(true);
+  }, [selected, setCollectionDialogOpen]);
 
   const saveCollection = useCallback(async () => {
     setCollectionSaving(true);
@@ -306,7 +318,7 @@ export default function DataStudio({ data }: EtViewProps) {
             })),
         });
         toast.success(`Collection '${created.label || created.name}' created.`);
-        setCollectionOpen(false);
+        setCollectionDialogOpen(false);
         await refresh(created.name, 1, "");
       } else {
         await cms_call("data_collection_update", {
@@ -318,7 +330,7 @@ export default function DataStudio({ data }: EtViewProps) {
           hidden: collectionForm.hidden,
         });
         toast.success("Collection settings saved.");
-        setCollectionOpen(false);
+        setCollectionDialogOpen(false);
         await refresh(collectionForm.name, page, search);
       }
     } catch (error) {
@@ -326,7 +338,7 @@ export default function DataStudio({ data }: EtViewProps) {
     } finally {
       setCollectionSaving(false);
     }
-  }, [collectionForm, collectionMode, page, refresh, search]);
+  }, [collectionForm, collectionMode, page, refresh, search, setCollectionDialogOpen]);
 
   const deleteCollection = useCallback(async () => {
     if (!selected) return;
@@ -348,12 +360,12 @@ export default function DataStudio({ data }: EtViewProps) {
     try {
       await cms_call("data_collection_delete", { name: selected.name });
       toast.success("Collection deleted.");
-      setCollectionOpen(false);
+      setCollectionDialogOpen(false);
       await refresh(undefined, 1, "");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete the collection.");
     }
-  }, [confirm, refresh, selected]);
+  }, [confirm, refresh, selected, setCollectionDialogOpen]);
 
   const openCreateField = useCallback(() => {
     setEditingField(null);
@@ -579,91 +591,34 @@ export default function DataStudio({ data }: EtViewProps) {
         title="Data Studio"
         description="Model collections and edit records against the private API."
         actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Browse collections"
-              title="Browse collections"
-              onClick={() => setCollectionDrawerOpen(true)}
-            >
-              <PanelLeft className="size-4" />
-            </Button>
-            <PageActions
-              items={[
-                {
-                  label: "New collection",
-                  icon: <Plus className="size-4" />,
-                  variant: "default",
-                  onSelect: openCreateCollection,
-                },
-                {
-                  label: "API reference",
-                  icon: <Braces className="size-4" />,
-                  href: "/api-reference",
-                  external: true,
-                },
-              ]}
-            />
-          </>
+          <PageActions
+            items={[
+              {
+                label: "New collection",
+                icon: <Plus className="size-4" />,
+                variant: "default",
+                onSelect: openCreateCollection,
+              },
+              {
+                label: "API reference",
+                icon: <Braces className="size-4" />,
+                href: "/api-reference",
+                external: true,
+              },
+            ]}
+          />
         }
       />
 
-      <SideDrawer
-        open={collectionDrawerOpen}
-        onOpenChange={setCollectionDrawerOpen}
-        title="Collections"
-        description="Choose a collection to edit its records."
-      >
-        <div className="space-y-1">
-          {collections.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground">
-              No collections yet.
-            </p>
-          ) : (
-            collections.map((collection) => {
-              const active = collection.name === selected?.name;
-              return (
-                <button
-                  key={collection.name}
-                  type="button"
-                  onClick={() => {
-                    void selectCollection(collection.name);
-                    setCollectionDrawerOpen(false);
-                  }}
-                  className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
-                    active
-                      ? "bg-muted font-semibold text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  }`}
-                >
-                  <Table2 className="size-4 shrink-0" strokeWidth={1.75} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {collection.label || collection.name}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {collection.item_count}
-                  </span>
-                </button>
-              );
-            })
-          )}
-          <div className="mt-2 border-t border-border pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
-              onClick={refreshSchema}
-              disabled={busy}
-            >
-              <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
-              Refresh schema
-            </Button>
-          </div>
-        </div>
-      </SideDrawer>
+      <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">
+        <ContentSidebar
+          collections={collections}
+          activeName={selected?.name}
+          onSelect={selectCollection}
+          onCreate={openCreateCollection}
+          onRefresh={refreshSchema}
+          busy={busy}
+        />
 
         <div className="min-w-0">
           {!selected ? (
@@ -886,8 +841,9 @@ export default function DataStudio({ data }: EtViewProps) {
             </Card>
           )}
         </div>
+      </div>
 
-      <Dialog open={collectionOpen} onOpenChange={setCollectionOpen}>
+      <Dialog open={collectionOpen} onOpenChange={setCollectionDialogOpen}>
         <DialogContent
           aria-describedby={undefined}
           className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
@@ -1137,7 +1093,7 @@ export default function DataStudio({ data }: EtViewProps) {
               <span />
             )}
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setCollectionOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setCollectionDialogOpen(false)}>
                 Cancel
               </Button>
               <BusyButton

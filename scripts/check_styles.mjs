@@ -210,6 +210,51 @@ for (const relative of pageRoots) {
   }
 }
 
+const contentSidebar = read("src/modules/cms_admin/views/ContentSidebar.tsx");
+for (const token of [
+  "Search collections",
+  'aria-label="Collections"',
+  "New collection",
+  "lg:sticky",
+  "h-10",
+]) {
+  if (!contentSidebar.includes(token)) {
+    problems.push(`ContentSidebar missing collection-rail contract: ${token}`);
+  }
+}
+
+for (const relative of [
+  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/data.tsx",
+]) {
+  const page = read(relative);
+  for (const token of [
+    "ContentSidebar",
+    "lg:grid-cols-[248px_minmax(0,1fr)]",
+  ]) {
+    if (!page.includes(token)) {
+      problems.push(`content page missing collection-rail contract: ${relative} (${token})`);
+    }
+  }
+}
+
+const dashboardPage = read("src/modules/cms_admin/views/dashboard.tsx");
+for (const forbidden of ["API mode", "Private by default", "fieldCount"]) {
+  if (dashboardPage.includes(forbidden)) {
+    problems.push(`Content overview must not render overview stat content: ${forbidden}`);
+  }
+}
+if (!dashboardPage.includes("sm:grid-cols-2 xl:grid-cols-3")) {
+  problems.push("Content overview must use a collection card grid");
+}
+
+const dataPage = read("src/modules/cms_admin/views/data.tsx");
+for (const forbidden of ["Browse collections", "SideDrawer"]) {
+  if (dataPage.includes(forbidden)) {
+    problems.push(`Data Studio must use the collection rail, not a drawer: ${forbidden}`);
+  }
+}
+
 const sheet = read("src/components/ui/sheet.tsx");
 for (const token of [
   'data-slot="sheet-content"',

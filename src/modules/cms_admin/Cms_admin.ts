@@ -198,6 +198,7 @@ export default class Cms_admin extends Eterc {
     return this.admin_view("data", "Data Studio", {
       principal,
       apiBase: `${this.origin()}/api/v1/cms`,
+      create: query_string("new") === "1",
       ...snapshot,
     });
   }
