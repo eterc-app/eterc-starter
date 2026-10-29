@@ -44,7 +44,7 @@ export default function UpdatePassword({ data }: EtViewProps) {
                 defaultValue=""
                 autoComplete="new-password"
               />
-              <p className="type-note">Use at least 8 characters.</p>
+              <p className="type-note">Use at least 12 characters.</p>
             </div>
 
             <div className="grid gap-3">

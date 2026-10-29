@@ -125,7 +125,14 @@ Open `/admin` after signing in.
   and `admin_access`.
 - **API keys** use the format `etk_<prefix>_<secret>`. Only a SHA-256 hash is
   stored, and the secret is shown once. Send a key as
-  `Authorization: Bearer etk_...` or `x-api-key`.
+  `Authorization: Bearer etk_...` or `x-api-key`. Signed-in users can create and
+  revoke their own keys at `/admin/profile`; those keys inherit the user's current
+  role and policies.
+- **Manage users** creates the linked `eterc_users` row and administrator account
+  together. It collects first and last name, email, username, job title, role,
+  status, and a confirmed password. Passwords are bcrypt-hashed server-side and
+  never returned to the view. Suspending or deleting an account revokes its
+  sessions; changing someone else's password also revokes their sessions.
 - **Project settings** manages API defaults and schema utilities. Database and
   auth provider selection happens in Eterc Desktop during project creation;
   `/admin` shows the active runtime read-only.

@@ -29,6 +29,9 @@ model EtercAdministrator {
   id                   Int     @id @default(autoincrement())
   username             String?
   email                String?
+  first_name           String  @default("")
+  last_name            String  @default("")
+  title                String  @default("")
   password             String?
   eterc_user_id     Int?
   active               Int     @default(0)

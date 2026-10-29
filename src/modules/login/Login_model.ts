@@ -119,10 +119,19 @@ export class Login_model extends Model {
     const config = this.get_level_config(user_level_id);
     const table = config.target_table;
 
+    const normalized = identifier.trim();
+    if (!normalized) return false;
+
     for (const column of this.get_identifier_columns(user_level_id)) {
-      const row = this.db.get_one_where(column, identifier, table);
-      if (row !== false) {
-        return row;
+      const rows = this.db.query_bind(
+        `SELECT * FROM ${quote_id(table)}
+          WHERE LOWER(${quote_id(column)}) = LOWER(:identifier)
+          LIMIT 1`,
+        { identifier: normalized },
+        "object"
+      ) as Row[];
+      if (rows.length > 0) {
+        return rows[0];
       }
     }
 

@@ -192,6 +192,7 @@ const pageRoots = [
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",
+  "src/modules/cms_admin/views/profile.tsx",
   "src/modules/eterc_administrators/views/manage.tsx",
   "src/modules/eterc_administrators/views/create.tsx",
   "src/modules/eterc_administrators/views/show.tsx",
@@ -297,7 +298,9 @@ for (const relative of [
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",
+  "src/modules/cms_admin/views/profile.tsx",
   "src/modules/eterc_administrators/views/manage.tsx",
+  "src/modules/eterc_administrators/views/create.tsx",
   "src/modules/media/MediaLibrary.tsx",
 ]) {
   if (read(relative).includes("PageHeader")) {
@@ -305,6 +308,10 @@ for (const relative of [
       `primary workspace page must use the top-bar breadcrumb, not PageHeader: ${relative}`,
     );
   }
+}
+
+if (read("src/modules/eterc_administrators/views/create.tsx").includes("max-w-3xl")) {
+  problems.push("Create user must use the full content width, not max-w-3xl");
 }
 
 const pageActionsSlot = read("src/components/app/PageActionsSlot.tsx");
@@ -325,6 +332,7 @@ for (const relative of [
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",
+  "src/modules/cms_admin/views/profile.tsx",
   "src/modules/eterc_administrators/views/manage.tsx",
   "src/modules/eterc_administrators/views/create.tsx",
   "src/modules/eterc_administrators/views/show.tsx",
@@ -378,6 +386,33 @@ for (const token of ["SectionDrawer", "SideDrawer", "PageActions", "Browse roles
 }
 if (accessPage.includes("TabsList")) {
   problems.push("Access page must use a section drawer, not tabs");
+}
+
+const profilePage = read("src/modules/cms_admin/views/profile.tsx");
+for (const token of [
+  "PageActionsPortal",
+  'aria-label="API keys"',
+  "profile_key_create",
+  "profile_key_revoke",
+  "Create API key",
+]) {
+  if (!profilePage.includes(token)) {
+    problems.push(`Profile page missing API-key contract: ${token}`);
+  }
+}
+
+const createUserPage = read("src/modules/eterc_administrators/views/create.tsx");
+for (const token of [
+  "first_name",
+  "last_name",
+  "email",
+  "role_id",
+  "confirm_password",
+  "ShieldCheck",
+]) {
+  if (!createUserPage.includes(token)) {
+    problems.push(`Create user page missing account-field contract: ${token}`);
+  }
 }
 
 for (const relative of [

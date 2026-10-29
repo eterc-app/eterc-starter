@@ -7,16 +7,20 @@ import { redirect, site_url } from "@/engine/Url";
 import {
   create_api_key,
   create_role,
+  create_self_api_key,
   delete_api_key,
   delete_role,
   get_access_overview,
+  get_profile_overview,
   list_api_keys,
   list_permissions,
   list_roles,
   list_users,
   replace_permissions,
   require_admin_user,
+  require_human_user,
   revoke_api_key,
+  revoke_self_api_key,
   set_user_role,
   update_role,
 } from "@/modules/cms/cms-access";
@@ -91,6 +95,18 @@ function array_value<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+/** Parse an API-key expiry from a date input or Unix-seconds value. */
+function expiry_value(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Math.floor(new Date(value).getTime() / 1000);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 /**
  * Production CMS administration area.
  *
@@ -103,6 +119,18 @@ export default class Cms_admin extends Eterc {
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in with an administrator account.");
+        redirect(admin_login_path());
+      }
+      throw error;
+    }
+  }
+
+  private app_principal(): CmsPrincipal {
+    try {
+      return require_human_user({ requireAppAccess: true });
+    } catch (error) {
+      if (error instanceof EtHttpError && error.status === 401) {
+        set_flashdata("Please sign in to open your profile.");
         redirect(admin_login_path());
       }
       throw error;
@@ -398,14 +426,7 @@ export default class Cms_admin extends Eterc {
   access_key_create() {
     this.principal();
     const payload = body();
-    const rawExpiry = payload.expires_at;
-    let expiresAt: number | null = null;
-    if (typeof rawExpiry === "number" && Number.isFinite(rawExpiry)) {
-      expiresAt = rawExpiry;
-    } else if (typeof rawExpiry === "string" && rawExpiry.trim() !== "") {
-      const parsed = Math.floor(new Date(rawExpiry).getTime() / 1000);
-      if (Number.isFinite(parsed)) expiresAt = parsed;
-    }
+    const expiresAt = expiry_value(payload.expires_at);
     const rawUserId = payload.user_id;
     const userId =
       rawUserId === null || rawUserId === undefined || rawUserId === ""
@@ -429,6 +450,45 @@ export default class Cms_admin extends Eterc {
     this.principal();
     delete_api_key(number_value(body().id));
     return { deleted: true };
+  }
+
+  // -------------------------------------------------------------------------
+  // Self-service profile
+  // -------------------------------------------------------------------------
+
+  async profile() {
+    const principal = this.app_principal();
+    const overview = get_profile_overview(principal);
+    return this.admin_view("profile", "Profile & API keys", {
+      overview,
+      api_base: `${this.origin()}/api/v1/cms`,
+      update_password_url: site_url(
+        `eterc_administrators/update_password/${overview.account.id}`
+      ),
+    });
+  }
+
+  profile_state() {
+    const principal = this.app_principal();
+    return {
+      overview: get_profile_overview(principal),
+      api_base: `${this.origin()}/api/v1/cms`,
+    };
+  }
+
+  profile_key_create() {
+    const principal = this.app_principal();
+    const payload = body();
+    return create_self_api_key(principal, {
+      name: text_value(payload.name),
+      expiresAt: expiry_value(payload.expires_at),
+    });
+  }
+
+  profile_key_revoke() {
+    const principal = this.app_principal();
+    revoke_self_api_key(principal, number_value(body().id));
+    return { revoked: true };
   }
 
   // -------------------------------------------------------------------------

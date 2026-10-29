@@ -308,7 +308,11 @@ Primary workspace pages use the top-bar breadcrumb as their page identity and st
 ```
 
 - Do not restore `PageHeader` on Content overview, Data Studio, Media library, Access & API,
-  Project settings, or Manage users. Their breadcrumb is the page title.
+  Project settings, Manage users, Create user, or Profile & API keys. Their breadcrumb is the
+  page title.
+- Create user uses the full content width: identity and credentials on the left, access and
+  security guidance on the right. Do not cap it with `max-w-3xl`; the account form is not a
+  narrow dialog.
 - Secondary pages may use `PageHeader` when a local title adds context. It owns the `h1`; do not
   add another page-level heading. Use an eyebrow for the app section and a title for the page.
 - Actions live in the top-bar action slot, not the page header. `PageActions` renders a single
@@ -316,6 +320,9 @@ Primary workspace pages use the top-bar breadcrumb as their page identity and st
   buttons may sit beside it. Do not place large text buttons in the top bar or page header.
 - Metadata such as an API endpoint or database path goes in a `font-mono text-xs` line or an inset
   panel, not in a hero card.
+- Profile & API keys is a self-service page. Show the account, role and policy boundary, then
+  the user's keys. A key secret is displayed once in a dialog with a copy action; never render a
+  secret in the list or in a toast. Use the profile's current role for new keys, not a role picker.
 - Start content immediately; do not add `mt-4`/`mt-5` when `app-page` already provides the gap.
 - Content overview is a collection browser, not a dashboard. Use collection cards with label,
   machine name, item count, and collection state. Do not add aggregate stat cards, an API-mode

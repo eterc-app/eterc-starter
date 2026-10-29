@@ -3,6 +3,7 @@ import { sqlite, type Row } from "@/engine/db";
 import { Eterc_tokens, type EtercUserObj } from "@/engine/Eterc_tokens";
 import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
+import { ensure_administrator_schema } from "@/modules/eterc_administrators/administrator-schema";
 import { ensure_cms_schema, make_slug, quote_identifier } from "./cms-schema";
 import { collection_fields, list_collections } from "./cms-store";
 import {
@@ -16,6 +17,7 @@ import {
   type CmsPermissionAction,
   type CmsPermissionInput,
   type CmsPrincipal,
+  type CmsProfileOverview,
   type CmsRole,
   type CmsRuleCondition,
   type CmsRuleGroup,
@@ -676,6 +678,25 @@ export function list_api_keys(): CmsApiKey[] {
   return rows.map(apiKeyFromRow);
 }
 
+export function list_api_keys_for_user(userId: number): CmsApiKey[] {
+  ensure_cms_schema();
+  ensure_administrator_schema();
+  const rows = sqlite()
+    .prepare(
+      `SELECT k.*, COALESCE(r.name, '') AS role_name,
+         COALESCE((SELECT a.username FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+         COALESCE((SELECT a.email FROM eterc_administrators a
+                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
+       FROM eterc_api_keys k
+       LEFT JOIN eterc_roles r ON r.id = k.role_id
+       WHERE k.user_id = ?
+       ORDER BY k.created_at DESC, k.id DESC`
+    )
+    .all(userId) as Row[];
+  return rows.map(apiKeyFromRow);
+}
+
 export function create_api_key(input: {
   name: string;
   roleId: number;
@@ -691,6 +712,16 @@ export function create_api_key(input: {
   if (!role) throw new EtHttpError(404, "Role not found.");
   if (!role.api_access) {
     throw new EtHttpError(403, "That role does not have API access.");
+  }
+
+  const expiresAt = input.expiresAt ?? null;
+  if (expiresAt !== null) {
+    if (!Number.isFinite(expiresAt)) {
+      throw new EtHttpError(400, "The API key expiry date is invalid.");
+    }
+    if (expiresAt <= nowSeconds()) {
+      throw new EtHttpError(400, "The API key expiry date must be in the future.");
+    }
   }
 
   let userId: number | null = null;
@@ -720,7 +751,7 @@ export function create_api_key(input: {
       hash,
       role.id,
       userId,
-      input.expiresAt ?? null,
+      expiresAt,
       now
     );
   const row = sqlite()
@@ -735,6 +766,44 @@ export function create_api_key(input: {
     )
     .get(result.lastInsertRowid) as Row;
   return { ...apiKeyFromRow(row), secret: raw };
+}
+
+/**
+ * Create a key for the signed-in user. The key inherits the user's current
+ * role; callers cannot choose a different role or bind another account.
+ */
+export function create_self_api_key(
+  principal: CmsPrincipal,
+  input: { name: string; expiresAt?: number | null }
+): CmsApiKeyWithSecret {
+  if (principal.kind !== "user" || principal.user_id === null) {
+    throw new EtHttpError(403, "API keys cannot create other API keys.");
+  }
+  if (!principal.role.api_access) {
+    throw new EtHttpError(403, "Your role does not have API access.");
+  }
+  return create_api_key({
+    name: input.name,
+    roleId: principal.role.id,
+    userId: principal.user_id,
+    expiresAt: input.expiresAt ?? null,
+  });
+}
+
+/** Revoke one key, but only when it belongs to the signed-in user. */
+export function revoke_self_api_key(principal: CmsPrincipal, keyId: number): void {
+  if (principal.kind !== "user" || principal.user_id === null) {
+    throw new EtHttpError(403, "API keys cannot revoke profile keys.");
+  }
+  ensure_cms_schema();
+  const row = sqlite()
+    .prepare("SELECT user_id FROM eterc_api_keys WHERE id = ? LIMIT 1")
+    .get(keyId) as Row | undefined;
+  if (!row) throw new EtHttpError(404, "API key not found.");
+  if (Number(row.user_id ?? 0) !== principal.user_id) {
+    throw new EtHttpError(404, "API key not found.");
+  }
+  revoke_api_key(keyId);
 }
 
 export function revoke_api_key(keyId: number): void {
@@ -862,6 +931,21 @@ export function require_admin_user(): CmsPrincipal {
   const principal = resolve_principal({ requireApiAccess: false });
   if (!principal.role.admin_access) {
     throw new EtHttpError(403, "You need the Admin role to open this area.");
+  }
+  return principal;
+}
+
+/**
+ * Require a signed-in person (not an API key) for self-service account work.
+ * App access is checked separately so an API-only role cannot open profile.
+ */
+export function require_human_user(options: { requireAppAccess?: boolean } = {}): CmsPrincipal {
+  const principal = resolve_principal({ requireApiAccess: false });
+  if (principal.kind !== "user" || principal.user_id === null) {
+    throw new EtHttpError(403, "API keys cannot manage profile settings.");
+  }
+  if (options.requireAppAccess !== false && !principal.role.app_access) {
+    throw new EtHttpError(403, "Your role does not have app access.");
   }
   return principal;
 }
@@ -1264,6 +1348,49 @@ export function assert_rule_group(
 export function app_access_for_user_level(levelId: number): boolean {
   const role = get_role_by_level_id(levelId);
   return role ? role.app_access : false;
+}
+
+/** Account, role, policies, and keys for the signed-in user's profile page. */
+export function get_profile_overview(principal: CmsPrincipal): CmsProfileOverview {
+  ensure_cms_schema();
+  ensure_administrator_schema();
+  if (principal.kind !== "user" || principal.user_id === null) {
+    throw new EtHttpError(403, "Profile data is only available to signed-in users.");
+  }
+
+  const row = sqlite()
+    .prepare(
+      `SELECT id, username, email, first_name, last_name, title, active, eterc_user_id
+         FROM eterc_administrators
+        WHERE eterc_user_id = ?
+        LIMIT 1`
+    )
+    .get(principal.user_id) as Row | undefined;
+  if (!row) throw new EtHttpError(404, "Your account was not found.");
+
+  const parent = principal.role.parent_role_id
+    ? get_role_by_id(principal.role.parent_role_id)
+    : null;
+
+  return {
+    account: {
+      id: Number(row.id),
+      username: String(row.username ?? ""),
+      email: String(row.email ?? ""),
+      first_name: String(row.first_name ?? ""),
+      last_name: String(row.last_name ?? ""),
+      title: String(row.title ?? ""),
+      active: bool(row.active),
+      eterc_user_id:
+        row.eterc_user_id === null || row.eterc_user_id === undefined
+          ? null
+          : Number(row.eterc_user_id),
+    },
+    role: principal.role,
+    parent_role_name: parent ? parent.name : null,
+    permissions: list_permissions(principal.role.id),
+    api_keys: list_api_keys_for_user(principal.user_id),
+  };
 }
 
 export function get_access_overview(): {

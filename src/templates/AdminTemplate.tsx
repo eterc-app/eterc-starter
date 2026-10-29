@@ -101,6 +101,7 @@ function breadcrumb_items(
       "/admin/data": "Data Studio",
       "/admin/media": "Media library",
       "/admin/access": "Access & API",
+      "/admin/profile": "Profile & API keys",
       "/admin/settings": "Project settings",
     };
     return ["Content", labels[pathname] ?? pageTitle];
@@ -295,12 +296,12 @@ export function AdminTemplate({
             >
               <a
                 role="menuitem"
-                href="/administrators/update_your_details"
+                href="/admin/profile"
                 onClick={mobile ? close_mobile : undefined}
                 className="flex h-9 items-center gap-2 rounded-md px-3 text-sm hover:bg-muted"
               >
                 <UserRound className="size-4" strokeWidth={1.75} />
-                Update details
+                Profile & API keys
               </a>
               <a
                 role="menuitem"

@@ -3,6 +3,7 @@ import { sqlite } from "@/engine/db";
 import { make_rand_str } from "@/engine/String_service";
 import { DB_FILE, ensure_dir } from "@/engine/paths";
 import { ensure_cms_schema } from "@/modules/cms/cms-schema";
+import { ensure_administrator_schema } from "@/modules/eterc_administrators/administrator-schema";
 import { hashSync } from "bcryptjs";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -30,6 +31,9 @@ CREATE TABLE IF NOT EXISTS "eterc_administrators" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "username" TEXT,
   "email" TEXT,
+  "first_name" TEXT NOT NULL DEFAULT '',
+  "last_name" TEXT NOT NULL DEFAULT '',
+  "title" TEXT NOT NULL DEFAULT '',
   "password" TEXT,
   "eterc_user_id" INTEGER,
   "active" INTEGER NOT NULL DEFAULT 0,
@@ -86,6 +90,7 @@ export class Setup_model extends Model {
   initialize_database(): { ok: boolean; message?: string } {
     try {
       sqlite().exec(SETUP_SQL);
+      ensure_administrator_schema();
       ensure_cms_schema();
       return { ok: true };
     } catch (error) {

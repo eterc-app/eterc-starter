@@ -197,6 +197,27 @@ export interface CmsPrincipal {
   label: string;
 }
 
+/** The signed-in administrator's own account summary. */
+export interface CmsProfileAccount {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  title: string;
+  active: boolean;
+  eterc_user_id: number | null;
+}
+
+/** Self-service profile data. API keys are scoped to the current user. */
+export interface CmsProfileOverview {
+  account: CmsProfileAccount;
+  role: CmsRole;
+  parent_role_name: string | null;
+  permissions: CmsPermission[];
+  api_keys: CmsApiKey[];
+}
+
 export interface CmsRecordListOptions {
   page?: number;
   limit?: number;

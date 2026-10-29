@@ -34,6 +34,13 @@ SHA-256 hash is stored.
 API keys cannot manage collections, roles, permissions, or other API keys.
 Those operations require a signed-in human administrator.
 
+The signed-in user can manage their own keys at `/admin/profile`. The profile
+page only accepts a human session (never an API key), requires `app_access`, and
+lists only keys bound to that user. New keys inherit the user's current role and
+policies; the caller cannot choose another role or bind another account. Revoking
+a profile key checks ownership before changing it. An API key with `user_id` set
+therefore keeps the same `$user` values as its owner.
+
 ## Rule variables
 
 Rule values can be literals or request-time variables:

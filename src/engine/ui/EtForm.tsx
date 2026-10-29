@@ -53,6 +53,12 @@ export function EtForm({
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as
+      | (HTMLElement & { name?: string; value?: string })
+      | null;
+    if (submitter?.name) {
+      formData.set(submitter.name, submitter.value ?? "");
+    }
     formData.set("_et_action", action);
     formData.set("_et_params", JSON.stringify(params));
     formData.set("_et_query", JSON.stringify(queryFromLocation()));

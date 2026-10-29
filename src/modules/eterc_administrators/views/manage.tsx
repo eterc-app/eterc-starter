@@ -79,20 +79,35 @@ export default function Manage({ data }: EtViewProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="px-4">Username</TableHead>
-                    <TableHead>User ID</TableHead>
-                    <TableHead>Active</TableHead>
+                    <TableHead className="px-4">User</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="w-24 px-4 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={String(row.id)}>
-                      <TableCell className="px-4 font-mono text-xs font-semibold">
-                        {String(row.username ?? "")}
+                      <TableCell className="px-4">
+                        <a
+                          href={`${base}administrators/show/${row.id}`}
+                          className="block font-semibold hover:underline"
+                        >
+                          {String(row.display_name ?? row.username ?? "")}
+                        </a>
+                        <span className="block font-mono text-xs text-muted-foreground">
+                          {"@"}
+                          {String(row.username ?? "")}
+                        </span>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {String(row.eterc_user_id ?? "")}
+                      <TableCell className="text-muted-foreground">
+                        {String(row.email ?? "") || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {String(row.role_name ?? "Unassigned")}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge

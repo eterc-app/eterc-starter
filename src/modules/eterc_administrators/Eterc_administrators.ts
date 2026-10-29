@@ -8,6 +8,7 @@ import { EtHttpError } from "@/engine/signals";
 import type { EtTemplateData } from "@/engine/Templates";
 import type { Eterc_tokens, EtercUserObj } from "@/engine/Eterc_tokens";
 import { previous_url, redirect, segment } from "@/engine/Url";
+import { list_roles } from "@/modules/cms/cms-access";
 import type { Eterc_security } from "@/modules/eterc_security/Eterc_security";
 import { Eterc_administrators_model } from "./Eterc_administrators_model";
 export default class Eterc_administrators extends Eterc {
@@ -75,9 +76,15 @@ export default class Eterc_administrators extends Eterc {
 
     const is_own_account = update_id === logged_in_id ? true : false;
 
+    const role_id = this.adminModel().get_role_id_for_admin(update_id);
+    const role = role_id > 0 ? this.adminModel().get_role_by_id(role_id) : false;
+
     const data: EtTemplateData = {
       ...this.adminModel().prepare_for_display({ ...record_data }),
       update_id: update_id,
+      role_id: role_id || null,
+      role_name: role === false ? "Unassigned" : String(role.name ?? "Unassigned"),
+      role_admin_access: role === false ? false : Number(role.admin_access ?? 0) === 1,
       headline: is_own_account ? "Your Account Details" : "Record Details",
       is_own_account: is_own_account,
       back_url: this.getBackUrl(),
@@ -90,13 +97,11 @@ export default class Eterc_administrators extends Eterc {
   }
 
   /**
-   * Redirect user to their own profile/show page.
+   * Redirect the signed-in user to the self-service profile.
    */
   async update_your_details() {
-    const user_obj = this.securityService().make_sure_allowed();
-    const logged_in_id = this.loggedInUserId(user_obj);
-    const target_url = `${this.module_name}/show/${logged_in_id}`;
-    redirect(target_url);
+    this.securityService().make_sure_allowed();
+    redirect("admin/profile");
   }
 
   /**
@@ -171,7 +176,7 @@ export default class Eterc_administrators extends Eterc {
       redirect(`${this.module_name}/show/${update_id}`);
     }
 
-    await this.validation.set_rules("password", "password", "required|min_length[8]");
+    await this.validation.set_rules("password", "password", "required|min_length[12]");
     await this.validation.set_rules(
       "confirm_password",
       "password confirmation",
@@ -204,6 +209,12 @@ export default class Eterc_administrators extends Eterc {
 
     const password = String(post("password", true) ?? "");
     this.adminModel().update_password(update_id, password);
+
+    // Changing someone else's password must end their existing sessions.
+    const logged_in_id = this.loggedInUserId(user_obj);
+    if (update_id !== logged_in_id) {
+      this.adminModel().revoke_user_sessions(Number(record_data.eterc_user_id ?? 0));
+    }
 
     set_flashdata("Password updated successfully");
     redirect(`${this.module_name}/show/${update_id}`);
@@ -238,7 +249,7 @@ export default class Eterc_administrators extends Eterc {
    * Handle form submission for creating/updating records.
    */
   async submit() {
-    this.securityService().make_sure_allowed();
+    const user_obj = this.securityService().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -246,14 +257,43 @@ export default class Eterc_administrators extends Eterc {
       redirect(`${this.module_name}/manage`);
     }
 
+    let update_id = Number(segment(3, "int"));
+    const is_update = update_id > 0;
+    const password = String(post("password", true) ?? "");
+
     await this.validation.set_rules(
       "username",
       "username",
-      "required|min_length[2]|max_length[50]|callback_username_check"
+      "required|min_length[2]|max_length[50]|callback_username_format_check|callback_username_check"
+    );
+    await this.validation.set_rules(
+      "email",
+      "email",
+      "required|valid_email|max_length[190]|callback_email_check"
+    );
+    await this.validation.set_rules("first_name", "first name", "max_length[80]");
+    await this.validation.set_rules("last_name", "last name", "max_length[80]");
+    await this.validation.set_rules("title", "job title", "max_length[120]");
+    await this.validation.set_rules(
+      "role_id",
+      "role",
+      "required|integer|callback_role_check"
     );
 
+    if (!is_update || password !== "") {
+      await this.validation.set_rules(
+        "password",
+        "password",
+        "required|min_length[12]|max_length[200]"
+      );
+      await this.validation.set_rules(
+        "confirm_password",
+        "password confirmation",
+        "required|matches[password]"
+      );
+    }
+
     if ((await this.validation.run()) !== true) {
-      const update_id = Number(segment(3, "int"));
       const data = this.loadCreateData(update_id);
 
       if (data === false) {
@@ -266,26 +306,74 @@ export default class Eterc_administrators extends Eterc {
       );
     }
 
-    let update_id = Number(segment(3, "int"));
-
     // Get raw POST data and convert for the database.
     const post_data = this.adminModel().get_data_from_post();
+    const role_id = Number(post_data.role_id ?? 0);
     const db_data = this.adminModel().convert_posted_data_for_db(post_data);
 
     let flash_msg: string;
 
-    if (update_id > 0) {
+    if (is_update) {
       // Verify record exists before updating.
       const existing_record = this.adminModel().get_data_from_db(update_id);
       if (existing_record === false) {
         redirect(`${this.module_name}/manage`);
       }
 
-      this.adminModel().update(update_id, db_data);
-      flash_msg = "Record updated successfully";
+      const existing_role_id = this.adminModel().get_role_id_for_admin(update_id);
+      const existing_role =
+        existing_role_id > 0
+          ? this.adminModel().get_role_by_id(existing_role_id)
+          : false;
+      const next_role = this.adminModel().get_role_by_id(role_id);
+      const logged_in_id = this.loggedInUserId(user_obj);
+
+      // Do not allow a signed-in administrator to lock themselves out.
+      if (update_id === logged_in_id) {
+        if (Number(db_data.active ?? 0) !== 1) {
+          set_flashdata("You cannot suspend your own account");
+          redirect(`${this.module_name}/show/${update_id}`);
+        }
+        if (next_role === false || Number(next_role.admin_access ?? 0) !== 1) {
+          set_flashdata("You cannot remove your own admin access");
+          redirect(`${this.module_name}/show/${update_id}`);
+        }
+      }
+
+      // Keep at least one active account that can open the admin area.
+      const was_active_admin =
+        Number(existing_record.active ?? 0) === 1 &&
+        existing_role !== false &&
+        Number(existing_role.admin_access ?? 0) === 1;
+      const will_be_active_admin =
+        Number(db_data.active ?? 0) === 1 &&
+        next_role !== false &&
+        Number(next_role.admin_access ?? 0) === 1;
+
+      if (
+        was_active_admin &&
+        !will_be_active_admin &&
+        this.adminModel().count_active_admins() <= 1
+      ) {
+        set_flashdata("At least one active administrator is required");
+        redirect(`${this.module_name}/show/${update_id}`);
+      }
+
+      this.adminModel().update_record(
+        update_id,
+        db_data,
+        role_id,
+        password !== "" ? password : undefined,
+        update_id !== logged_in_id
+      );
+      flash_msg = "User updated successfully";
     } else {
-      update_id = this.adminModel().create_new_record(db_data);
-      flash_msg = "Record created successfully";
+      update_id = this.adminModel().create_new_record(
+        db_data,
+        role_id,
+        password
+      );
+      flash_msg = "User created successfully";
     }
 
     set_flashdata(flash_msg);
@@ -434,6 +522,60 @@ export default class Eterc_administrators extends Eterc {
     return true;
   }
 
+  /**
+   * Keep usernames portable across URL, API, and CLI surfaces.
+   */
+  username_format_check(str: string): string | true {
+    this.assertNotDirectCall("username_format_check");
+
+    if (!/^[A-Za-z0-9_]+$/.test(str)) {
+      return "The {label} may only contain letters, numbers, and underscores.";
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate that an email address is not already used by another account.
+   */
+  email_check(str: string): string | true {
+    this.assertNotDirectCall("email_check");
+
+    if (str === "") {
+      return true;
+    }
+
+    const update_id = Number(segment(3, "int"));
+    const is_available = this.adminModel().is_email_available(str, update_id);
+
+    if (is_available === false) {
+      return update_id === 0
+        ? "The {label} is already registered. Please use another address."
+        : "The {label} is already in use by another account.";
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate that the submitted role exists and has a user level.
+   */
+  role_check(str: string): string | true {
+    this.assertNotDirectCall("role_check");
+
+    const role_id = Number(str);
+    if (!Number.isFinite(role_id) || role_id <= 0) {
+      return "Choose a role for this account.";
+    }
+
+    const role = this.adminModel().get_role_by_id(role_id);
+    if (role === false) {
+      return "The selected role no longer exists.";
+    }
+
+    return true;
+  }
+
   private assertNotDirectCall(method: string): void {
     const ctx = get_context();
     const module_segment = (ctx.segments[0] ?? "").toLowerCase();
@@ -507,7 +649,7 @@ export default class Eterc_administrators extends Eterc {
       if (record === false) {
         return false;
       }
-      return { ...record };
+      return this.adminModel().prepare_for_display({ ...record });
     }
 
     return this.adminModel().get_data_from_post();
@@ -516,9 +658,23 @@ export default class Eterc_administrators extends Eterc {
     data: Record<string, unknown>,
     update_id: number
   ): EtTemplateData {
+    const roles = list_roles();
+    const default_role =
+      roles.find((role) => role.is_system) ??
+      roles.find((role) => role.admin_access) ??
+      roles[0] ??
+      null;
+    const role_id =
+      update_id > 0
+        ? this.adminModel().get_role_id_for_admin(update_id)
+        : Number(data.role_id ?? 0);
+    const selected_role_id = role_id > 0 ? role_id : (default_role?.id ?? 0);
+
     return {
       ...data,
-      headline: update_id > 0 ? "Update Record" : "Create New Record",
+      roles,
+      role_id: selected_role_id,
+      headline: update_id > 0 ? "Update user" : "Create user",
       update_id: update_id,
       cancel_url:
         update_id > 0
