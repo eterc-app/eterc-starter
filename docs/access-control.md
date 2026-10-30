@@ -15,6 +15,51 @@ The visual editor lives at `/admin/access`. It exposes the same policy model tha
 the API uses, so a rule configured in the UI is enforced by the API without a
 second interpretation layer.
 
+## Bootstrapping database tables
+
+Tables can be created outside Data Studio, for example in Eterc Desktop's SQL
+console. They are not exposed by the CMS API until they are registered as
+collections:
+
+1. Create or change the table in Eterc Desktop or with any SQLite client.
+2. Open **Data Studio → Bootstrap database**. The desktop Database page has a
+   **Bootstrap CMS** button that opens this flow directly.
+3. Review the scan, then register the new or changed tables.
+4. Open **Access & API keys** to grant a role read, create, update, or delete
+   policies for the new collection.
+
+The scan accepts ordinary tables with one primary-key column. An
+`INTEGER PRIMARY KEY` column is treated as a generated key. Other primary keys
+(such as text or UUID) must be supplied by the client unless the column has a
+database default. Tables without a primary key, tables with composite primary
+keys, views, and platform tables prefixed with `eterc_`, `cms_`, `et_`,
+`login_`, `password_`, or `sqlite_` are skipped.
+
+Columns named `created_at` or `updated_at` that are nullable or have a database
+default are treated as system timestamps: their inferred interface is datetime
+and they are hidden and read-only, like the timestamps on a native collection.
+
+Bootstrap writes the same `cms_collections` and `cms_fields` metadata that Data
+Studio uses for a collection created in the app. It preserves collection labels,
+icons, field labels, interfaces, options, and existing policies. On a re-scan it
+adds new columns, fixes primary-key metadata, and removes metadata for columns
+that no longer exist (including references to those fields in policies).
+
+The resulting endpoint is:
+
+```text
+GET    /api/v1/cms/items/{table}
+POST   /api/v1/cms/items/{table}
+GET    /api/v1/cms/items/{table}/{primary-key}
+PATCH  /api/v1/cms/items/{table}/{primary-key}
+DELETE /api/v1/cms/items/{table}/{primary-key}
+```
+
+Like Supabase/PostgREST, the database schema is the source of truth and the API
+is generated from introspection. Unlike a direct PostgREST setup, Eterc keeps
+its explicit CMS metadata layer so labels, field interfaces, roles, row rules,
+and API keys continue to work exactly as they do for native collections.
+
 ## Principals
 
 A request is resolved to one principal before a CMS API operation runs.
@@ -100,8 +145,9 @@ Each policy has a field list:
 - `["*"]` means every field in the collection.
 - `[]` means no client-writable fields and only the primary key in responses.
 - A named list limits reads and writes to those fields.
-- The primary key `id` is always included in read responses, even when it is not
-  listed.
+- The collection's primary key column is always included in read responses, even
+  when it is not listed. Native collections use `id`; bootstrapped tables may use
+  another single-column primary key such as `uuid`.
 
 Field access is enforced in two places:
 

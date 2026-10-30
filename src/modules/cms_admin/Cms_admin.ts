@@ -42,7 +42,11 @@ import {
   update_field,
   update_record,
 } from "@/modules/cms/cms-store";
-import { refresh_cms_schema } from "@/modules/cms/cms-schema";
+import {
+  bootstrap_database,
+  refresh_cms_schema,
+  scan_database_schema,
+} from "@/modules/cms/cms-schema";
 import type {
   CmsCollectionInput,
   CmsFieldInput,
@@ -83,6 +87,14 @@ function bool_value(value: unknown, fallback = false): boolean {
 
 function text_value(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+/** Preserve UUID/text primary keys while keeping numeric keys numeric. */
+function record_id_value(value: unknown): string | number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) throw new EtHttpError(400, "A record id is required.");
+  return text;
 }
 
 function object_value(value: unknown): Record<string, unknown> {
@@ -181,7 +193,7 @@ export default class Cms_admin extends Eterc {
       page,
       limit: 20,
       search: search.trim() || undefined,
-      sort: "id",
+      sort: selected.primary_key,
       direction: "desc",
     });
     return {
@@ -341,7 +353,7 @@ export default class Cms_admin extends Eterc {
     const payload = body();
     return update_record(
       text_value(payload.collection),
-      number_value(payload.id),
+      record_id_value(payload.id),
       object_value(payload.values)
     );
   }
@@ -349,13 +361,23 @@ export default class Cms_admin extends Eterc {
   data_record_delete() {
     this.principal();
     const payload = body();
-    delete_record(text_value(payload.collection), number_value(payload.id));
+    delete_record(text_value(payload.collection), record_id_value(payload.id));
     return { deleted: true };
   }
 
   data_bootstrap() {
     this.principal();
     return create_starter_collection();
+  }
+
+  data_bootstrap_scan() {
+    this.principal();
+    return scan_database_schema();
+  }
+
+  data_bootstrap_apply() {
+    this.principal();
+    return bootstrap_database();
   }
 
   data_refresh() {

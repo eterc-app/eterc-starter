@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Braces,
   ChevronLeft,
@@ -43,6 +43,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { EtViewProps } from "@/engine/views-registry";
 import type {
+  CmsBootstrapReport,
   CmsCollectionWithFields,
   CmsField,
   CmsFieldType,
@@ -224,6 +225,11 @@ export default function DataStudio({ data }: EtViewProps) {
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
   const [recordValues, setRecordValues] = useState<Record<string, unknown>>({});
   const [recordSaving, setRecordSaving] = useState(false);
+
+  const [bootstrapOpen, setBootstrapOpen] = useState(false);
+  const [bootstrapReport, setBootstrapReport] = useState<CmsBootstrapReport | null>(null);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [bootstrapApplying, setBootstrapApplying] = useState(false);
 
   const applySnapshot = useCallback((snapshot: Snapshot) => {
     setCollections(snapshot.collections ?? []);
@@ -480,15 +486,15 @@ export default function DataStudio({ data }: EtViewProps) {
     try {
       const values: Record<string, unknown> = {};
       for (const field of fields) {
-        if (field.readonly || field.hidden || field.name === "id") continue;
-        if (field.name === "created_at" || field.name === "updated_at") continue;
+        if (field.readonly || field.hidden) continue;
+        if (editingRecord && field.name === selected.primary_key) continue;
         const value = recordValues[field.name];
         if (value !== undefined) values[field.name] = value;
       }
       if (editingRecord) {
         await cms_call("data_record_update", {
           collection: selected.name,
-          id: editingRecord.id,
+          id: editingRecord[selected.primary_key],
           values,
         });
         toast.success("Record updated.");
@@ -526,7 +532,7 @@ export default function DataStudio({ data }: EtViewProps) {
       try {
         await cms_call("data_record_delete", {
           collection: selected.name,
-          id: record.id,
+          id: record[selected.primary_key],
         });
         toast.success("Record deleted.");
         await refresh(selected.name, page, search);
@@ -563,22 +569,80 @@ export default function DataStudio({ data }: EtViewProps) {
     }
   }, [applySnapshot]);
 
+  const openBootstrap = useCallback(async () => {
+    setBootstrapOpen(true);
+    setBootstrapLoading(true);
+    setBootstrapReport(null);
+    try {
+      const report = await cms_call<CmsBootstrapReport>("data_bootstrap_scan");
+      setBootstrapReport(report);
+    } catch (error) {
+      setBootstrapOpen(false);
+      toast.error(
+        error instanceof Error ? error.message : "Could not scan the database."
+      );
+    } finally {
+      setBootstrapLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("bootstrap") !== "1") return;
+    url.searchParams.delete("bootstrap");
+    window.history.replaceState(null, "", url);
+    const timer = window.setTimeout(() => {
+      void openBootstrap();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [openBootstrap]);
+
+  const applyBootstrap = useCallback(async () => {
+    setBootstrapApplying(true);
+    try {
+      const report = await cms_call<CmsBootstrapReport>("data_bootstrap_apply");
+      setBootstrapReport(report);
+      const changed = report.summary.new + report.summary.update;
+      const skipped = report.summary.skipped;
+      toast.success(
+        changed > 0
+          ? `Registered or updated ${changed} table${changed === 1 ? "" : "s"}${
+              skipped > 0 ? `; ${skipped} skipped` : ""
+            }.`
+          : "The database schema is already registered."
+      );
+      setBootstrapOpen(false);
+      await refresh(undefined, 1, "");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not bootstrap the database."
+      );
+    } finally {
+      setBootstrapApplying(false);
+    }
+  }, [refresh]);
+
   const visibleFields = useMemo(
     () => fields.filter((field) => !field.hidden),
     [fields]
   );
-  const tableFields = useMemo(() => visibleFields.slice(0, 8), [visibleFields]);
+  const tableFields = useMemo(
+    () =>
+      visibleFields
+        .filter((field) => field.name !== selected?.primary_key)
+        .slice(0, 8),
+    [selected?.primary_key, visibleFields]
+  );
   const editableFields = useMemo(
     () =>
       fields.filter(
         (field) =>
           !field.hidden &&
           !field.readonly &&
-          field.name !== "id" &&
-          field.name !== "created_at" &&
-          field.name !== "updated_at"
+          (!editingRecord || field.name !== selected?.primary_key)
       ),
-    [fields]
+    [editingRecord, fields, selected?.primary_key]
   );
   const endpoint = selected
     ? `/api/v1/cms/items/${selected.name}`
@@ -594,6 +658,11 @@ export default function DataStudio({ data }: EtViewProps) {
               icon: <Plus className="size-4" />,
               variant: "default",
               onSelect: openCreateCollection,
+            },
+            {
+              label: "Bootstrap database",
+              icon: <Database className="size-4" />,
+              onSelect: openBootstrap,
             },
             {
               label: "API reference",
@@ -627,6 +696,10 @@ export default function DataStudio({ data }: EtViewProps) {
                       <Button onClick={openCreateCollection}>
                         <Plus className="size-4" />
                         New collection
+                      </Button>
+                      <Button variant="outline" onClick={openBootstrap} disabled={busy}>
+                        <Database className="size-4" />
+                        Bootstrap database
                       </Button>
                       <Button variant="outline" onClick={bootstrap} disabled={busy}>
                         <FilePlus2 className="size-4" />
@@ -733,7 +806,9 @@ export default function DataStudio({ data }: EtViewProps) {
                     <table className="w-full min-w-[640px] border-collapse text-sm">
                       <thead>
                         <tr className="border-b border-border bg-surface-subtle text-left">
-                          <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">ID</th>
+                          <th className="h-11 px-3 font-mono text-xs font-semibold text-muted-foreground">
+                            {selected.primary_key}
+                          </th>
                           {tableFields.map((field) => (
                             <th
                               key={field.name}
@@ -750,11 +825,11 @@ export default function DataStudio({ data }: EtViewProps) {
                       <tbody>
                         {records.map((record, index) => (
                           <tr
-                            key={String(record.id ?? index)}
+                            key={String(record[selected.primary_key] ?? index)}
                             className="border-b border-border transition-colors last:border-b-0 hover:bg-surface-subtle"
                           >
                             <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
-                              {String(record.id ?? "—")}
+                              {String(record[selected.primary_key] ?? "—")}
                             </td>
                             {tableFields.map((field) => {
                               const value = record[field.name];
@@ -1057,7 +1132,7 @@ export default function DataStudio({ data }: EtViewProps) {
                         size="icon-sm"
                         aria-label="Edit field"
                         onClick={() => openEditField(field)}
-                        disabled={field.name === "id"}
+                        disabled={field.name === selected?.primary_key}
                       >
                         <Pencil className="size-3.5" />
                       </Button>
@@ -1067,7 +1142,7 @@ export default function DataStudio({ data }: EtViewProps) {
                         size="icon-sm"
                         aria-label="Delete field"
                         onClick={() => deleteField(field)}
-                        disabled={field.name === "id" || field.readonly}
+                        disabled={field.name === selected?.primary_key || field.readonly}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -1268,6 +1343,158 @@ export default function DataStudio({ data }: EtViewProps) {
             >
               {editingRecord ? "Save record" : "Create record"}
             </BusyButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bootstrapOpen}
+        onOpenChange={(open) => {
+          if (!bootstrapApplying) setBootstrapOpen(open);
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        >
+          <DialogHeader>
+            <DialogTitle>Bootstrap database</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Scan the SQLite database for user tables and register them as CMS
+              collections. Each table needs a single-column primary key. Existing
+              labels, field settings, roles and policies are preserved.
+            </p>
+
+            {bootstrapLoading ? (
+              <div className="flex items-center justify-center rounded-lg border border-border py-10 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Scanning database…
+              </div>
+            ) : bootstrapReport ? (
+              <>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="default">
+                    {bootstrapReport.summary.new} new
+                  </Badge>
+                  <Badge variant="secondary">
+                    {bootstrapReport.summary.update} update
+                  </Badge>
+                  <Badge variant="outline">
+                    {bootstrapReport.summary.ready} ready
+                  </Badge>
+                  {bootstrapReport.summary.skipped > 0 ? (
+                    <Badge variant="outline">
+                      {bootstrapReport.summary.skipped} skipped
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <div className="app-scrollbar max-h-[360px] space-y-2 overflow-y-auto rounded-lg border border-border p-2">
+                  {bootstrapReport.tables.length === 0 ? (
+                    <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No user tables were found.
+                    </p>
+                  ) : (
+                    bootstrapReport.tables.map((table) => {
+                      const changes = [
+                        ...table.added_fields.map((name) => `+ ${name}`),
+                        ...table.updated_fields.map((name) => `~ ${name}`),
+                        ...table.removed_fields.map((name) => `- ${name}`),
+                      ];
+                      return (
+                        <div
+                          key={table.name}
+                          className="rounded-lg border border-border px-3 py-2"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {table.label || table.name}
+                              </p>
+                              <p className="font-mono text-xs text-muted-foreground">
+                                {table.name}
+                                {table.primary_key
+                                  ? ` · ${table.primary_key}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={
+                                table.status === "skipped"
+                                  ? "outline"
+                                  : table.status === "ready"
+                                    ? "secondary"
+                                    : "default"
+                              }
+                            >
+                              {table.status === "new"
+                                ? "New"
+                                : table.status === "update"
+                                  ? "Update"
+                                  : table.status === "ready"
+                                    ? "Ready"
+                                    : "Skipped"}
+                            </Badge>
+                          </div>
+                          {table.reason ? (
+                            <p className="type-note mt-1">{table.reason}</p>
+                          ) : null}
+                          {changes.length > 0 ? (
+                            <p className="mt-1 font-mono text-xs text-muted-foreground">
+                              {changes.join(" · ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {bootstrapReport.summary.skipped > 0 ? (
+                  <p className="type-note">
+                    Skipped tables stay in the database but are not exposed by
+                    the CMS API. Add a single-column primary key and scan again.
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBootstrapOpen(false)}
+              disabled={bootstrapApplying}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void applyBootstrap()}
+              disabled={
+                bootstrapLoading ||
+                bootstrapApplying ||
+                !bootstrapReport ||
+                bootstrapReport.summary.new + bootstrapReport.summary.update === 0
+              }
+            >
+              {bootstrapApplying ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Database className="size-4" />
+              )}
+              {bootstrapReport
+                ? `Register ${bootstrapReport.summary.new + bootstrapReport.summary.update} table${
+                    bootstrapReport.summary.new + bootstrapReport.summary.update === 1
+                      ? ""
+                      : "s"
+                  }`
+                : "Scanning"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

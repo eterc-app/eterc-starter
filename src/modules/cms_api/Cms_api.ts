@@ -89,9 +89,9 @@ function body(): JsonObject {
   return {};
 }
 
-function require_body(): JsonObject {
+function require_body(allow_empty = false): JsonObject {
   const value = body();
-  if (Object.keys(value).length === 0) {
+  if (!allow_empty && Object.keys(value).length === 0) {
     throw new EtHttpError(400, "A JSON object body is required.");
   }
   return value;
@@ -135,7 +135,11 @@ function filter_row(
   row: Record<string, unknown>,
   fallbackFields: string[] = ["*"]
 ) {
-  return filter_fields(response_fields(principal, collection, fallbackFields), row);
+  return filter_fields(
+    response_fields(principal, collection, fallbackFields),
+    row,
+    get_collection(collection).primary_key
+  );
 }
 
 function readable_field_names(
@@ -145,7 +149,7 @@ function readable_field_names(
   if (principal.role.admin_access) return null;
   const read = find_permission(principal.role.id, collection, "read");
   if (!read || read.fields.includes("*")) return null;
-  return new Set(["id", ...read.fields]);
+  return new Set([get_collection(collection).primary_key, ...read.fields]);
 }
 
 function collection_payload(principal: CmsPrincipal, name: string) {
@@ -156,7 +160,7 @@ function collection_payload(principal: CmsPrincipal, name: string) {
       ? collection.fields
       : collection.fields.filter(
           (field) =>
-            (!field.hidden || field.name === "id") &&
+            (!field.hidden || field.name === collection.primary_key) &&
             (readable === null || readable.has(field.name))
         );
   return { ...collection, fields };
@@ -336,7 +340,8 @@ export default class Cms_api extends Eterc {
     const parts = params();
     const collection = parts[0];
     if (!collection) not_found();
-    const id = parts[1] ? Number(parts[1]) : null;
+    const primaryKey = get_collection(collection).primary_key;
+    const id = parts[1] ?? null;
     const verb = method();
 
     if (verb === "GET" && id === null) {
@@ -354,7 +359,7 @@ export default class Cms_api extends Eterc {
       return api_response({
         data: result.rows
           .map((row) => format_record_for_api(row, collection_fields(collection)))
-          .map((row) => filter_fields(policy.fields, row)),
+          .map((row) => filter_fields(policy.fields, row, primaryKey)),
         meta: {
           total: result.total,
           page: result.page,
@@ -373,12 +378,12 @@ export default class Cms_api extends Eterc {
       if (!row_matches_rule_group(row, policy.filter, principal, collection)) {
         throw new EtHttpError(403, "This record is outside the role's read policy.");
       }
-      return api_response({ data: filter_fields(policy.fields, row) });
+      return api_response({ data: filter_fields(policy.fields, row, primaryKey) });
     }
 
     if (verb === "POST" && id === null) {
       const policy = authorize(principal, collection, "create");
-      const payload = require_body();
+      const payload = require_body(true);
       assert_field_access(principal, collection, "create", payload, policy);
       const values = apply_presets(payload, policy.presets, principal, collection);
       assert_rule_group(values, policy.filter, principal, collection, "create");

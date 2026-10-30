@@ -218,6 +218,33 @@ export interface CmsProfileOverview {
   api_keys: CmsApiKey[];
 }
 
+export type CmsBootstrapTableStatus = "new" | "update" | "ready" | "skipped";
+
+export interface CmsBootstrapTable {
+  name: string;
+  label: string;
+  status: CmsBootstrapTableStatus;
+  reason: string | null;
+  primary_key: string | null;
+  field_count: number;
+  added_fields: string[];
+  updated_fields: string[];
+  removed_fields: string[];
+}
+
+export interface CmsBootstrapReport {
+  /** True when the report describes a bootstrap that has already been applied. */
+  applied: boolean;
+  tables: CmsBootstrapTable[];
+  summary: {
+    scanned: number;
+    new: number;
+    update: number;
+    ready: number;
+    skipped: number;
+  };
+}
+
 export interface CmsRecordListOptions {
   page?: number;
   limit?: number;

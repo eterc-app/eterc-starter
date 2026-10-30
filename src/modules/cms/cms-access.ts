@@ -5,7 +5,7 @@ import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
 import { ensure_administrator_schema } from "@/modules/eterc_administrators/administrator-schema";
 import { ensure_cms_schema, make_slug, quote_identifier } from "./cms-schema";
-import { collection_fields, list_collections } from "./cms-store";
+import { collection_fields, get_collection, list_collections } from "./cms-store";
 import {
   CMS_ACTIONS,
   CMS_RULE_OPERATORS,
@@ -1043,10 +1043,11 @@ export function accessible_collections(principal: CmsPrincipal): string[] {
 
 export function filter_fields(
   fields: string[],
-  row: Record<string, unknown>
+  row: Record<string, unknown>,
+  primaryKey = "id"
 ): Record<string, unknown> {
   if (fields.includes("*")) return row;
-  const allowed = new Set(["id", ...fields]);
+  const allowed = new Set([primaryKey, ...fields]);
   return Object.fromEntries(
     Object.entries(row).filter(([key]) => allowed.has(key))
   );
@@ -1061,11 +1062,12 @@ export function assert_field_access(
 ): void {
   const permission = policy ?? authorize(principal, collection, action);
   if (permission.fields.includes("*")) return;
+  const primaryKey = get_collection(collection).primary_key;
   const allowed = new Set(permission.fields);
   const presetFields =
     action === "create" ? new Set(permission.presets.map((preset) => preset.field)) : new Set<string>();
   for (const key of Object.keys(input)) {
-    if (key === "id") continue;
+    if (key === primaryKey) continue;
     if (presetFields.has(key)) continue;
     if (!allowed.has(key)) {
       throw new EtHttpError(

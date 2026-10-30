@@ -20,6 +20,7 @@ import {
   is_system_table,
   make_slug,
   quote_identifier,
+  remove_field_from_policies,
 } from "./cms-schema";
 import { get_runtime_config } from "./cms-runtime";
 
@@ -485,81 +486,6 @@ export function update_field(
   }
 }
 
-function strip_field_from_group(value: unknown, fieldName: string): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const group = value as { match?: unknown; conditions?: unknown };
-  if (!Array.isArray(group.conditions)) return value;
-  return {
-    ...group,
-    conditions: group.conditions.filter((condition) => {
-      if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
-        return false;
-      }
-      return String((condition as Record<string, unknown>).field ?? "") !== fieldName;
-    }),
-  };
-}
-
-/** Keep policies valid when a collection field is removed. */
-function remove_field_from_policies(collectionName: string, fieldName: string): void {
-  const rows = sqlite()
-    .prepare(
-      `SELECT id, fields, filter, validation, presets
-       FROM eterc_permissions WHERE collection = ?`
-    )
-    .all(collectionName) as Row[];
-  if (rows.length === 0) return;
-  const update = sqlite().prepare(
-    `UPDATE eterc_permissions
-     SET fields = ?, filter = ?, validation = ?, presets = ?, updated_at = ?
-     WHERE id = ?`
-  );
-  const now = nowSeconds();
-  for (const row of rows) {
-    let fields: unknown = [];
-    let filter: unknown = null;
-    let validation: unknown = null;
-    let presets: unknown = [];
-    try {
-      fields = JSON.parse(String(row.fields ?? "[]")) as unknown;
-    } catch {
-      fields = [];
-    }
-    try {
-      filter = JSON.parse(String(row.filter ?? "null")) as unknown;
-    } catch {
-      filter = null;
-    }
-    try {
-      validation = JSON.parse(String(row.validation ?? "null")) as unknown;
-    } catch {
-      validation = null;
-    }
-    try {
-      presets = JSON.parse(String(row.presets ?? "[]")) as unknown;
-    } catch {
-      presets = [];
-    }
-    const nextFields = Array.isArray(fields)
-      ? fields.map(String).filter((name) => name === "*" || name !== fieldName)
-      : [];
-    const nextPresets = Array.isArray(presets)
-      ? presets.filter((preset) => {
-          if (!preset || typeof preset !== "object" || Array.isArray(preset)) return false;
-          return String((preset as Record<string, unknown>).field ?? "") !== fieldName;
-        })
-      : [];
-    update.run(
-      JSON.stringify(nextFields),
-      JSON.stringify(strip_field_from_group(filter, fieldName)),
-      JSON.stringify(strip_field_from_group(validation, fieldName)),
-      JSON.stringify(nextPresets),
-      now,
-      row.id
-    );
-  }
-}
-
 export function delete_field(collectionName: string, fieldName: string): void {
   const { collection, fields } = require_collection(collectionName);
   if (collection.system) {
@@ -609,10 +535,18 @@ function visible_fields(fields: CmsField[], includeHidden = true): CmsField[] {
   return includeHidden ? fields : fields.filter((field) => !field.hidden);
 }
 
-function order_field(fields: CmsField[], sort?: string): CmsField {
+function order_field(
+  fields: CmsField[],
+  sort?: string,
+  primaryKey = "id"
+): CmsField {
   const requested = sort ? fields.find((field) => field.name === sort) : undefined;
   if (requested) return requested;
-  return fields.find((field) => field.name === "id") ?? fields[0];
+  return (
+    fields.find((field) => field.name === primaryKey) ??
+    fields.find((field) => field.name === "id") ??
+    fields[0]
+  );
 }
 
 function build_filter_clauses(
@@ -784,7 +718,7 @@ export function list_records(
   collectionName: string,
   options: CmsRecordListOptions = {}
 ): CmsRecordListResult {
-  const { fields } = require_collection(collectionName);
+  const { collection, fields } = require_collection(collectionName);
   const page = Math.max(1, Number(options.page ?? 1) || 1);
   const configuredMax = Math.min(
     500,
@@ -794,7 +728,7 @@ export function list_records(
     configuredMax,
     Math.max(1, Number(options.limit ?? DEFAULT_LIMIT) || DEFAULT_LIMIT)
   );
-  const order = order_field(fields, options.sort);
+  const order = order_field(fields, options.sort, collection.primary_key);
   const direction = String(options.direction ?? "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
   const filter = options.access_filter
     ? options.filter
@@ -829,7 +763,10 @@ export function list_records(
   };
 }
 
-export function get_record(collectionName: string, id: number): Record<string, unknown> {
+export function get_record(
+  collectionName: string,
+  id: string | number
+): Record<string, unknown> {
   const { collection } = require_collection(collectionName);
   const row = sqlite()
     .prepare(
@@ -846,20 +783,23 @@ export function create_record(
   collectionName: string,
   input: Record<string, unknown>
 ): Record<string, unknown> {
-  const { fields } = require_collection(collectionName);
-  const values = prepare_write_values(fields, input, false);
+  const { collection, fields } = require_collection(collectionName);
+  const values = prepare_write_values(fields, input, false, collection.primary_key);
   const columns = Object.keys(values);
-  if (columns.length === 0) {
-    throw new EtHttpError(400, "At least one writable field is required.");
-  }
-  const sql = `INSERT INTO ${quote_identifier(collectionName)}
-    (${columns.map(quote_identifier).join(", ")})
-    VALUES (${columns.map(() => "?").join(", ")})`;
+  const sql =
+    columns.length === 0
+      ? `INSERT INTO ${quote_identifier(collectionName)} DEFAULT VALUES`
+      : `INSERT INTO ${quote_identifier(collectionName)}
+        (${columns.map(quote_identifier).join(", ")})
+        VALUES (${columns.map(() => "?").join(", ")})`;
   try {
-    const result = sqlite()
-      .prepare(sql)
-      .run(...columns.map((column) => values[column]));
-    return get_record(collectionName, Number(result.lastInsertRowid));
+    const row = sqlite()
+      .prepare(`${sql} RETURNING *`)
+      .get(...columns.map((column) => values[column])) as Row | undefined;
+    if (!row) {
+      throw new EtHttpError(500, "The record was created but could not be read back.");
+    }
+    return sanitize_row(row);
   } catch (error) {
     throw database_error(error);
   }
@@ -867,11 +807,11 @@ export function create_record(
 
 export function update_record(
   collectionName: string,
-  id: number,
+  id: string | number,
   input: Record<string, unknown>
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
-  const values = prepare_write_values(fields, input, true);
+  const values = prepare_write_values(fields, input, true, collection.primary_key);
   if (Object.keys(values).length === 0) {
     return get_record(collectionName, id);
   }
@@ -913,7 +853,7 @@ function database_error(error: unknown): EtHttpError {
   );
 }
 
-export function delete_record(collectionName: string, id: number): void {
+export function delete_record(collectionName: string, id: string | number): void {
   const { collection } = require_collection(collectionName);
   const result = sqlite()
     .prepare(
@@ -929,7 +869,8 @@ export function delete_record(collectionName: string, id: number): void {
 function prepare_write_values(
   fields: CmsField[],
   input: Record<string, unknown>,
-  updating: boolean
+  updating: boolean,
+  primaryKey = "id"
 ): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new EtHttpError(400, "A JSON object is required.");
@@ -942,14 +883,15 @@ function prepare_write_values(
     if (!field) {
       throw new EtHttpError(400, `Unknown field '${key}'.`);
     }
-    if (field.readonly || field.name === "id") {
-      if (!updating && raw !== undefined) {
+    if (field.readonly || (updating && field.name === primaryKey)) {
+      if (!updating && field.readonly && raw !== undefined) {
         throw new EtHttpError(400, `Field '${key}' is read-only.`);
       }
       continue;
     }
     if (raw === undefined) continue;
     if (raw === null || raw === "") {
+      if (raw === "" && !updating && !field.required) continue;
       if (field.required && !updating) {
         throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
       }
@@ -961,7 +903,7 @@ function prepare_write_values(
 
   if (!updating) {
     for (const field of fields) {
-      if (field.readonly || field.name === "id" || !field.required) continue;
+      if (field.readonly || !field.required) continue;
       if (values[field.name] === undefined || values[field.name] === null) {
         throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
       }

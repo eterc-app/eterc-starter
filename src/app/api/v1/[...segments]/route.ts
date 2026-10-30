@@ -43,7 +43,9 @@ async function read_body(
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     try {
-      return { json: await request.json() };
+      const text = await request.text();
+      if (!text || !text.trim()) return {};
+      return { json: JSON.parse(text) };
     } catch {
       throw new EtHttpError(400, "The request body is not valid JSON.");
     }
