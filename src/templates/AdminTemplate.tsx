@@ -46,6 +46,7 @@ interface NavItem {
 
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/admin", label: "Content overview", icon: LayoutDashboard },
+  { href: "/api-reference", label: "API Explorer", icon: Braces },
   { href: "/admin/data", label: "Data Studio", icon: Database },
   { href: "/admin/media", label: "Media library", icon: ImageIcon },
   { href: "/admin/access", label: "Access & API", icon: KeyRound },
@@ -54,12 +55,6 @@ const WORKSPACE_NAV: NavItem[] = [
 ];
 
 const RESOURCE_NAV = [
-  {
-    href: "/api-reference",
-    label: "API reference",
-    icon: Braces,
-    external: false,
-  },
   {
     href: ETERC_DOCS_URL,
     label: "Documentation",

@@ -1,66 +1,76 @@
+import fs from "node:fs";
+import path from "node:path";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
-import { ArrowLeft, FileJson2 } from "lucide-react";
 import "@scalar/api-reference-react/style.css";
 import { build_openapi_document } from "@/engine/api";
-import { ScalarReference } from "./ScalarReference";
+import { list_collections } from "@/modules/cms/cms-store";
+import { get_access_overview } from "@/modules/cms/cms-access";
+import { ApiWorkbench } from "./ApiWorkbench";
 
 export const metadata: Metadata = {
-  title: "API Reference | Eterc",
-  description:
-    "Browse and test the JSON API for this Eterc project with Scalar.",
+  title: "API Explorer | Eterc",
+  description: "Browse, test, and audit the REST API, access policies, and collections.",
 };
 
-const linkClasses =
-  "inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-
 async function ApiReferenceContent() {
-  // API specs are read from the project on each request so newly generated or
-  // edited modules appear without rebuilding the page.
   await connection();
   const openapi = build_openapi_document();
-  return <ScalarReference document={openapi} />;
+  const appDir = path.join(process.cwd(), "src", "app");
+
+  const rawCollections = list_collections({ include_hidden: true });
+  const collections = rawCollections.map((col) => {
+    const hasUiRoute = fs.existsSync(path.join(appDir, col.name, "page.tsx"));
+    return {
+      id: col.id,
+      name: col.name,
+      label: col.label || col.name,
+      icon: col.icon || "database",
+      primary_key: col.primary_key,
+      singleton: Boolean(col.singleton),
+      hidden: Boolean(col.hidden),
+      system: Boolean(col.system),
+      item_count: col.item_count,
+      hasUiRoute,
+      uiRoutePath: hasUiRoute ? `/${col.name}` : null,
+      adminDataPath: `/admin/data?collection=${encodeURIComponent(col.name)}`,
+      fields: col.fields.map((f) => ({
+        name: f.name,
+        label: f.label || f.name,
+        type: f.type,
+        interface: f.interface,
+        required: Boolean(f.required),
+        unique: Boolean(f.unique),
+        hidden: Boolean(f.hidden),
+        readonly: Boolean(f.readonly),
+      })),
+    };
+  });
+
+  const access = get_access_overview();
+
+  return (
+    <ApiWorkbench
+      collections={collections}
+      roles={access.roles}
+      permissions={access.permissions}
+      apiKeys={access.api_keys}
+      openapiDocument={openapi}
+    />
+  );
 }
 
 export default function ApiReferencePage() {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
-        <Link href="/admin" className={linkClasses}>
-          <ArrowLeft className="size-4" strokeWidth={1.75} />
-          CMS admin
-        </Link>
-        <span aria-hidden="true" className="h-5 w-px bg-border" />
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-sm font-semibold">API reference</span>
-          <span className="hidden text-xs text-muted-foreground md:inline">
-            Generated from API fragments
-          </span>
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
+          Loading API Explorer…
         </div>
-        <a
-          href="/api/openapi"
-          target="_blank"
-          rel="noreferrer"
-          className={`${linkClasses} ml-auto`}
-        >
-          <FileJson2 className="size-4" strokeWidth={1.75} />
-          OpenAPI JSON
-        </a>
-      </header>
-
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <Suspense
-          fallback={
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Loading API reference…
-            </div>
-          }
-        >
-          <ApiReferenceContent />
-        </Suspense>
-      </main>
-    </div>
+      }
+    >
+      <ApiReferenceContent />
+    </Suspense>
   );
 }
