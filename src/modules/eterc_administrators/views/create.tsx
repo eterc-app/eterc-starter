@@ -9,13 +9,6 @@ import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Notice } from "@/components/app/Notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -111,17 +104,17 @@ export default function Create({ data }: EtViewProps) {
       <EtForm
         action="eterc_administrators/submit"
         params={[update_id]}
-        className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]"
+        className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]"
       >
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader className="border-b border-border">
-              <CardTitle>Identity</CardTitle>
-              <CardDescription>
+        <div className="grid gap-8">
+          <div className="space-y-4">
+            <div className="border-b border-border pb-3">
+              <h3 className="text-base font-semibold text-foreground">Identity</h3>
+              <p className="text-xs text-muted-foreground">
                 The person, sign-in name, and contact address for this account.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-5 pt-6">
+              </p>
+            </div>
+            <div className="grid gap-5">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-3">
                   <Label htmlFor="first_name">First name</Label>
@@ -199,19 +192,19 @@ export default function Create({ data }: EtViewProps) {
                   placeholder="Content editor"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="border-b border-border">
-              <CardTitle>Credentials</CardTitle>
-              <CardDescription>
+          <div className="space-y-4">
+            <div className="border-b border-border pb-3">
+              <h3 className="text-base font-semibold text-foreground">Credentials</h3>
+              <p className="text-xs text-muted-foreground">
                 {is_update
                   ? "Leave both password fields blank to keep the current password."
                   : "Set an initial password and share it over a secure channel."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-5 pt-6">
+              </p>
+            </div>
+            <div className="grid gap-5">
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label htmlFor="password">
@@ -274,20 +267,20 @@ export default function Create({ data }: EtViewProps) {
                   required={!is_update || password !== ""}
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
-        <div className="grid content-start gap-6">
-          <Card>
-            <CardHeader className="border-b border-border">
-              <CardTitle>Access</CardTitle>
-              <CardDescription>
+        <div className="grid content-start gap-8">
+          <div className="space-y-4">
+            <div className="border-b border-border pb-3">
+              <h3 className="text-base font-semibold text-foreground">Access</h3>
+              <p className="text-xs text-muted-foreground">
                 Role and sign-in status. API keys use the same policies as the
                 role.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-5 pt-6">
+              </p>
+            </div>
+            <div className="grid gap-5">
               <div className="grid gap-3">
                 <Label htmlFor="role_id">Role</Label>
                 <Select
@@ -347,21 +340,21 @@ export default function Create({ data }: EtViewProps) {
                   Manage roles and policies
                 </a>
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="border-b border-border">
-              <CardTitle>Security</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="border-b border-border pb-3">
+              <h3 className="text-base font-semibold text-foreground">Security</h3>
+            </div>
+            <div>
               <Notice icon={ShieldCheck}>
                 Passwords are hashed before they reach the database. Share the
                 initial password through a secure channel and ask the user to
                 change it after signing in.
               </Notice>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row xl:col-span-2">

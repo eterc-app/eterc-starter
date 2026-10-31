@@ -3,12 +3,6 @@ import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -25,11 +19,11 @@ export default function UpdatePassword({ data }: EtViewProps) {
 
       <ValidationErrors />
 
-      <Card>
-        <CardHeader className="border-b border-border">
-          <CardTitle>Update password</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
+      <div className="space-y-4">
+        <div className="border-b border-border pb-3">
+          <h2 className="text-base font-semibold text-foreground">Update password</h2>
+        </div>
+        <div>
           <EtForm
             action="eterc_administrators/submit_update_password"
             params={[update_id]}
@@ -67,8 +61,8 @@ export default function UpdatePassword({ data }: EtViewProps) {
               </Button>
             </div>
           </EtForm>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

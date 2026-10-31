@@ -35,8 +35,10 @@ export function PageActions({
 }) {
   if (items.length === 0) return null;
 
-  if (items.length === 1) {
-    const item = items[0];
+  const primaryItem = items.find((item) => item.variant === "default" && !item.href);
+  const dropdownItems = primaryItem ? items.filter((item) => item !== primaryItem) : items;
+
+  const renderSingleButton = (item: PageAction) => {
     const variant = action_variant(item.variant);
     const icon = item.icon;
 
@@ -44,9 +46,11 @@ export function PageActions({
       const absolute = /^https?:\/\//.test(item.href);
       return (
         <Button
+          key={item.label}
           asChild
           variant={variant}
           size="icon"
+          className="rounded-full"
           title={item.label}
           aria-label={item.label}
           aria-disabled={item.disabled || undefined}
@@ -68,9 +72,11 @@ export function PageActions({
 
     return (
       <Button
+        key={item.label}
         type="button"
         variant={variant}
         size="icon"
+        className="rounded-full"
         title={item.label}
         aria-label={item.label}
         disabled={item.disabled}
@@ -79,67 +85,77 @@ export function PageActions({
         {icon}
       </Button>
     );
+  };
+
+  if (items.length === 1) {
+    return renderSingleButton(items[0]);
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          title={label}
-          aria-label={label}
-        >
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-52">
-        {items.map((item) => {
-          const content = (
-            <>
-              {item.icon}
-              {item.label}
-            </>
-          );
-          const variant = item.variant === "destructive" ? "destructive" : "default";
-
-          if (item.href) {
-            const absolute = /^https?:\/\//.test(item.href);
-            return (
-              <DropdownMenuItem
-                key={item.label}
-                asChild
-                variant={variant}
-                disabled={item.disabled}
-              >
-                {item.external || absolute ? (
-                  <a
-                    href={item.href}
-                    target={item.external ? "_blank" : undefined}
-                    rel={item.external ? "noreferrer" : undefined}
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <Link href={item.href}>{content}</Link>
-                )}
-              </DropdownMenuItem>
-            );
-          }
-
-          return (
-            <DropdownMenuItem
-              key={item.label}
-              variant={variant}
-              disabled={item.disabled}
-              onSelect={item.onSelect}
+    <div className="flex items-center gap-2">
+      {primaryItem ? renderSingleButton(primaryItem) : null}
+      {dropdownItems.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              title={label}
+              aria-label={label}
             >
-              {content}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-52">
+            {dropdownItems.map((item) => {
+              const content = (
+                <>
+                  {item.icon}
+                  {item.label}
+                </>
+              );
+              const variant = item.variant === "destructive" ? "destructive" : "default";
+
+              if (item.href) {
+                const absolute = /^https?:\/\//.test(item.href);
+                return (
+                  <DropdownMenuItem
+                    key={item.label}
+                    asChild
+                    variant={variant}
+                    disabled={item.disabled}
+                  >
+                    {item.external || absolute ? (
+                      <a
+                        href={item.href}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noreferrer" : undefined}
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <Link href={item.href}>{content}</Link>
+                    )}
+                  </DropdownMenuItem>
+                );
+              }
+
+              return (
+                <DropdownMenuItem
+                  key={item.label}
+                  variant={variant}
+                  disabled={item.disabled}
+                  onSelect={item.onSelect}
+                >
+                  {content}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </div>
   );
 }

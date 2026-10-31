@@ -493,7 +493,7 @@ export function MediaLibrary({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    "flex min-h-[340px] w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center transition-colors hover:border-foreground/30 hover:bg-surface-subtle",
+                    "flex min-h-[340px] w-full flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-border bg-surface-subtle/30 px-6 py-16 text-center transition-colors hover:border-foreground/30 hover:bg-surface-subtle",
                     dragActive && "border-foreground bg-muted"
                   )}
                 >
@@ -553,7 +553,7 @@ export function MediaLibrary({
                   ))}
                 </div>
               ) : (
-                <div className="app-scrollbar overflow-hidden rounded-xl border border-border bg-card">
+                <div className="app-scrollbar overflow-hidden rounded-2xl border border-border">
                   {filtered.map((item) => (
                     <button
                       key={item.file}

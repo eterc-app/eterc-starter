@@ -225,7 +225,7 @@ Shell composition:
 - Collection rows use a small icon well, the collection label, and the item count. The active
   row uses `--muted` and semibold text. Keep the machine name in the row title or in the
   collection card, not as a second line in the rail.
-- Content overview is a collection browser: a card grid with label, machine name, item count,
+- Content overview is a collection browser: a single-column row list (never a 2-column or 3-column grid, and no white card background or elevation; keep bg-transparent, border-border, space-y-2) with label, machine name, item count,
   and singleton/hidden state. Do not add aggregate stat cards, an API-mode summary, or a
   duplicate collection list below the grid.
 
@@ -324,7 +324,7 @@ Primary workspace pages use the top-bar breadcrumb as their page identity and st
   the user's keys. A key secret is displayed once in a dialog with a copy action; never render a
   secret in the list or in a toast. Use the profile's current role for new keys, not a role picker.
 - Start content immediately; do not add `mt-4`/`mt-5` when `app-page` already provides the gap.
-- Content overview is a collection browser, not a dashboard. Use collection cards with label,
+- Content overview is a collection browser, not a dashboard. Use a single-column row list (no 3-column grid, no white cards or elevation) with label,
   machine name, item count, and collection state. Do not add aggregate stat cards, an API-mode
   summary, or a second collection list.
 

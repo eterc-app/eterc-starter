@@ -4,12 +4,6 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Notice } from "@/components/app/Notice";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function DeleteConf({ data }: EtViewProps) {
   const update_id = Number(data.update_id ?? 0);
@@ -22,11 +16,11 @@ export default function DeleteConf({ data }: EtViewProps) {
         description="This action permanently removes the administrator account."
       />
 
-      <Card>
-        <CardHeader className="border-b border-border">
-          <CardTitle>Confirmation required</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-6">
+      <div className="space-y-4">
+        <div className="border-b border-border pb-3">
+          <h2 className="text-base font-semibold text-foreground">Confirmation required</h2>
+        </div>
+        <div className="space-y-4">
           <Notice icon={AlertTriangle} tone="destructive">
             You are about to delete this administrator. This cannot be undone.
           </Notice>
@@ -44,8 +38,8 @@ export default function DeleteConf({ data }: EtViewProps) {
               </Button>
             </div>
           </EtForm>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

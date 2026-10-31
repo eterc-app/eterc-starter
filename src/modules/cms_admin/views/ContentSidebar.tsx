@@ -4,15 +4,32 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
+  Folder,
+  GraduationCap,
+  Layers,
   Plus,
   RefreshCw,
   Search,
   Table2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { CmsCollectionWithFields } from "@/modules/cms/cms-types";
+
+function get_collection_icon(name: string, customIcon?: string) {
+  if (customIcon === "users" || name.includes("user") || name.includes("member")) {
+    return Users;
+  }
+  if (name.includes("class") || name.includes("student") || name.includes("exam")) {
+    return GraduationCap;
+  }
+  if (name.includes("setting") || name.includes("config")) {
+    return Layers;
+  }
+  return Table2;
+}
 
 export function ContentSidebar({
   collections,
@@ -35,6 +52,7 @@ export function ContentSidebar({
 }) {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(true);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -49,14 +67,14 @@ export function ContentSidebar({
       type="button"
       variant="outline"
       size="sm"
-      className="w-full justify-start"
+      className="w-full justify-start rounded-lg"
       onClick={onCreate}
     >
       <Plus className="size-3.5" />
       New collection
     </Button>
   ) : createHref ? (
-    <Button asChild variant="outline" size="sm" className="w-full justify-start">
+    <Button asChild variant="outline" size="sm" className="w-full justify-start rounded-lg">
       <Link href={createHref}>
         <Plus className="size-3.5" />
         New collection
@@ -66,7 +84,7 @@ export function ContentSidebar({
 
   return (
     <aside className={cn("min-w-0 lg:self-start", className)}>
-      <div className="overflow-hidden rounded-xl border border-border bg-card lg:sticky lg:top-6">
+      <div className="overflow-hidden rounded-2xl border border-border lg:border-none lg:bg-transparent lg:sticky lg:top-6">
         <button
           type="button"
           className="flex w-full items-center gap-2 px-3 py-3 text-left lg:hidden"
@@ -110,13 +128,13 @@ export function ContentSidebar({
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search collections"
                 aria-label="Search collections"
-                className="pl-9"
+                className="h-10 pl-9 rounded-lg"
               />
             </div>
           </div>
 
           <nav
-            className="app-scrollbar max-h-[min(46vh,420px)] overflow-y-auto border-t border-border p-2"
+            className="app-scrollbar max-h-[min(56vh,520px)] overflow-y-auto border-t border-border p-2"
             aria-label="Collections"
           >
             {filtered.length === 0 ? (
@@ -126,54 +144,74 @@ export function ContentSidebar({
                   : "No collections match."}
               </p>
             ) : (
-              <div className="space-y-1">
-                {filtered.map((collection) => {
-                  const active = collection.name === activeName;
-                  const content = (
-                    <>
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
-                        <Table2 className="size-3.5" strokeWidth={1.75} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {collection.label || collection.name}
-                      </span>
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {collection.item_count}
-                      </span>
-                    </>
-                  );
-                  const rowClass = cn(
-                    "flex h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors",
-                    active
-                      ? "bg-muted font-semibold text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                  );
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setGroupOpen((o) => !o)}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <Folder className="size-3.5" />
+                  <span className="flex-1 text-left">V1</span>
+                  <ChevronDown
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      !groupOpen && "-rotate-90",
+                    )}
+                  />
+                </button>
 
-                  return onSelect ? (
-                    <button
-                      key={collection.name}
-                      type="button"
-                      title={`${collection.label || collection.name} (${collection.name})`}
-                      aria-current={active ? "page" : undefined}
-                      className={rowClass}
-                      onClick={() => {
-                        setMobileOpen(false);
-                        onSelect(collection.name);
-                      }}
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <Link
-                      key={collection.name}
-                      href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
-                      title={`${collection.label || collection.name} (${collection.name})`}
-                      className={rowClass}
-                    >
-                      {content}
-                    </Link>
-                  );
-                })}
+                {groupOpen ? (
+                  <div className="mt-1 space-y-1 pl-2">
+                    {filtered.map((collection) => {
+                      const active = collection.name === activeName;
+                      const Icon = get_collection_icon(collection.name, collection.icon);
+                      const content = (
+                        <>
+                          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-surface-subtle text-muted-foreground">
+                            <Icon className="size-3.5" strokeWidth={1.75} />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {collection.label || collection.name}
+                          </span>
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {collection.item_count}
+                          </span>
+                        </>
+                      );
+                      const rowClass = cn(
+                        "flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors",
+                        active
+                          ? "bg-muted font-semibold text-foreground"
+                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                      );
+
+                      return onSelect ? (
+                        <button
+                          key={collection.name}
+                          type="button"
+                          title={`${collection.label || collection.name} (${collection.name})`}
+                          aria-current={active ? "page" : undefined}
+                          className={rowClass}
+                          onClick={() => {
+                            setMobileOpen(false);
+                            onSelect(collection.name);
+                          }}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <Link
+                          key={collection.name}
+                          href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
+                          title={`${collection.label || collection.name} (${collection.name})`}
+                          className={rowClass}
+                        >
+                          {content}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             )}
           </nav>
@@ -186,7 +224,7 @@ export function ContentSidebar({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-lg"
                   onClick={onRefresh}
                   disabled={busy}
                 >

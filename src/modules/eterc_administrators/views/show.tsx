@@ -5,12 +5,6 @@ import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { ArrowLeft, KeyRound, Pencil, Trash2 } from "lucide-react";
 
 export default function Show({ data }: EtViewProps) {
@@ -65,12 +59,12 @@ export default function Show({ data }: EtViewProps) {
 
       <Flashdata />
 
-      <Card>
-        <CardHeader className="border-b border-border">
-          <CardTitle>Account details</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <dl className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+      <div className="space-y-4">
+        <div className="border-b border-border pb-3">
+          <h2 className="text-base font-semibold text-foreground">Account details</h2>
+        </div>
+        <div>
+          <dl className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-4">
               <dt className="text-sm text-muted-foreground">Name</dt>
               <dd className="text-right font-semibold">
@@ -124,8 +118,8 @@ export default function Show({ data }: EtViewProps) {
               </dd>
             </div>
           </dl>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

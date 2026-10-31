@@ -3,27 +3,33 @@
 import { useCallback, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  Box,
+  Check,
   CheckCircle2,
+  ChevronDown,
   Database,
+  Edit3,
   FilePlus2,
+  GripHorizontal,
   KeyRound,
+  Link as LinkIcon,
   Loader2,
+  Pencil,
   RefreshCw,
-  Save,
+  Settings2,
+  Type,
+  Users,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
-import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  PageActionsPortal,
+  useSetNavbarMeta,
+} from "@/components/app/PageActionsSlot";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EtViewProps } from "@/engine/views-registry";
@@ -69,9 +75,9 @@ function RuntimeRow({
   message?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-subtle text-muted-foreground border border-border">
           {icon}
         </span>
         <div className="min-w-0">
@@ -94,6 +100,18 @@ function RuntimeRow({
 export default function ProjectSettings({ data }: EtViewProps) {
   const initialRuntime = data.runtime as CmsRuntimeConfig;
   const [runtime, setRuntime] = useState<CmsRuntimeConfig>(initialRuntime);
+  const [projectName, setProjectName] = useState("ETERC APP");
+  const [projectDescriptor, setProjectDescriptor] = useState("ercent.com backend");
+  const [projectUrl, setProjectUrl] = useState("https://eterc.app");
+  const [defaultLanguage, setDefaultLanguage] = useState("en-US");
+  const [projectOwner, setProjectOwner] = useState("isghanson@gmail.com");
+
+  const [modules, setModules] = useState([
+    { id: "content", name: "Content", route: "/content", icon: Box, enabled: true },
+    { id: "visual", name: "Visual Editor", route: "/visual", icon: Edit3, enabled: false },
+    { id: "users", name: "User Directory", route: "/users", icon: Users, enabled: true },
+  ]);
+
   const [maxPageSize, setMaxPageSize] = useState(
     initialRuntime.cms.max_page_size
   );
@@ -102,6 +120,12 @@ export default function ProjectSettings({ data }: EtViewProps) {
   );
   const [saving, setSaving] = useState(false);
   const [utilityBusy, setUtilityBusy] = useState(false);
+
+  useSetNavbarMeta({
+    section: "Settings",
+    title: "Settings",
+    icon: <Settings2 className="size-4" strokeWidth={1.75} />,
+  });
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -159,7 +183,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
   }, []);
 
   return (
-    <div className="app-page max-w-4xl">
+    <div className="app-page max-w-5xl space-y-8">
       <PageActionsPortal>
         <PageActions
           items={[
@@ -168,7 +192,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
               icon: saving ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Save className="size-4" />
+                <Check className="size-4" strokeWidth={2.5} />
               ),
               variant: "default",
               disabled: saving,
@@ -178,14 +202,154 @@ export default function ProjectSettings({ data }: EtViewProps) {
         />
       </PageActionsPortal>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Runtime</CardTitle>
-          <CardDescription>
+      {/* DIRECTUS-STYLE PROJECT SETTINGS (Image 3 & 4) */}
+      <div className="space-y-6">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-3">
+            <Label htmlFor="project-name" className="text-sm font-semibold">
+              Project Name
+            </Label>
+            <div className="relative">
+              <Input
+                id="project-name"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                className="h-11 rounded-xl bg-card border-input pr-10"
+              />
+              <Type className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <Label htmlFor="project-descriptor" className="text-sm font-semibold">
+              Project Descriptor
+            </Label>
+            <div className="relative">
+              <Input
+                id="project-descriptor"
+                value={projectDescriptor}
+                onChange={(e) => setProjectDescriptor(e.target.value)}
+                className="h-11 rounded-xl bg-card border-input pr-10"
+              />
+              <Type className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-3">
+            <Label htmlFor="project-url" className="text-sm font-semibold">
+              Project URL
+            </Label>
+            <div className="relative">
+              <Input
+                id="project-url"
+                value={projectUrl}
+                onChange={(e) => setProjectUrl(e.target.value)}
+                className="h-11 rounded-xl bg-card border-input pr-10"
+              />
+              <LinkIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <Label htmlFor="default-lang" className="text-sm font-semibold">
+              Default Language
+            </Label>
+            <div className="relative">
+              <select
+                id="default-lang"
+                value={defaultLanguage}
+                onChange={(e) => setDefaultLanguage(e.target.value)}
+                className="h-11 w-full appearance-none rounded-xl border border-input bg-card px-4 text-sm text-foreground outline-none"
+              >
+                <option value="en-US">English (United States)</option>
+                <option value="en-GB">English (United Kingdom)</option>
+                <option value="fr-FR">Français</option>
+                <option value="de-DE">Deutsch</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-3">
+            <Label htmlFor="project-owner" className="text-sm font-semibold">
+              Project Owner
+            </Label>
+            <div className="relative">
+              <Input
+                id="project-owner"
+                value={projectOwner}
+                onChange={(e) => setProjectOwner(e.target.value)}
+                className="h-11 rounded-xl bg-card border-input pr-10"
+              />
+              <Pencil className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </div>
+
+        {/* MODULES SECTION (Image 3 & 4) */}
+        <div className="pt-6 border-t border-border space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-foreground">≡ Modules</span>
+          </div>
+
+          <p className="text-xs font-semibold text-muted-foreground">Module Bar</p>
+
+          <div className="space-y-2">
+            {modules.map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <div
+                  key={mod.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-foreground/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="cursor-grab text-muted-foreground">
+                      <GripHorizontal className="size-4" />
+                    </span>
+                    <span className="grid size-8 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
+                      <Icon className="size-4" />
+                    </span>
+                    <div>
+                      <span className="block text-sm font-semibold text-foreground">
+                        {mod.name}
+                      </span>
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {mod.route}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Checkbox
+                    checked={mod.enabled}
+                    onCheckedChange={(checked) =>
+                      setModules((prev) =>
+                        prev.map((m) =>
+                          m.id === mod.id ? { ...m, enabled: checked === true } : m
+                        )
+                      )
+                    }
+                    aria-label={`Toggle module ${mod.name}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* RUNTIME SECTION */}
+      <div className="pt-6 border-t border-border space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Runtime</h3>
+          <p className="text-xs text-muted-foreground">
             Providers currently active for this installation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+          </p>
+        </div>
+        <div className="space-y-2">
           <RuntimeRow
             icon={<Database className="size-4" strokeWidth={1.75} />}
             label="Database"
@@ -200,55 +364,64 @@ export default function ProjectSettings({ data }: EtViewProps) {
             status={runtime.auth.status}
             message={runtime.auth.message}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>API defaults</CardTitle>
-          <CardDescription>
+      {/* API DEFAULTS SECTION */}
+      <div className="pt-6 border-t border-border space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">API defaults</h3>
+          <p className="text-xs text-muted-foreground">
             Limits applied to every private API response.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-3">
-            <Label htmlFor="max-page-size">Maximum page size</Label>
+            <Label htmlFor="max-page-size" className="text-sm font-semibold">
+              Maximum page size
+            </Label>
             <Input
               id="max-page-size"
               type="number"
               min={1}
               max={500}
               value={maxPageSize}
+              className="h-11 rounded-xl bg-card border-input"
               onChange={(event) =>
                 setMaxPageSize(Number(event.target.value) || 200)
               }
             />
           </div>
-          <label className="flex h-10 items-center gap-3 rounded-lg border border-input bg-card px-3 text-sm">
-            <input
-              type="checkbox"
-              className="size-5 accent-foreground"
-              checked={seedMemberRole}
-              onChange={(event) => setSeedMemberRole(event.target.checked)}
-            />
-            <span className="font-semibold">Keep the Member role</span>
-          </label>
-        </CardContent>
-      </Card>
+          <div className="grid gap-3">
+            <Label className="text-sm font-semibold">Roles</Label>
+            <label className="flex h-11 items-center gap-3 rounded-xl border border-input bg-card px-4 text-sm cursor-pointer transition-colors hover:border-foreground/30">
+              <input
+                type="checkbox"
+                className="size-5 accent-foreground rounded"
+                checked={seedMemberRole}
+                onChange={(event) => setSeedMemberRole(event.target.checked)}
+              />
+              <span className="font-semibold text-foreground">Keep the Member role</span>
+            </label>
+          </div>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Utilities</CardTitle>
-          <CardDescription>
+      {/* UTILITIES SECTION */}
+      <div className="pt-6 border-t border-border space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Utilities</h3>
+          <p className="text-xs text-muted-foreground">
             Maintenance tasks for the current schema.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <BusyButton
             type="button"
             variant="outline"
             busy={utilityBusy}
             onClick={createStarter}
+            className="rounded-lg"
           >
             <FilePlus2 className="size-4" />
             Create starter Posts collection
@@ -258,12 +431,13 @@ export default function ProjectSettings({ data }: EtViewProps) {
             variant="outline"
             busy={utilityBusy}
             onClick={refreshSchema}
+            className="rounded-lg"
           >
             <RefreshCw className="size-4" />
             Refresh schema
           </BusyButton>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Notice icon={AlertTriangle}>
         SQLite and built-in accounts stay active in this build. Provider changes

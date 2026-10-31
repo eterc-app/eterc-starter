@@ -24,7 +24,6 @@ import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { SectionDrawer, SideDrawer } from "@/components/app/SideDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -681,60 +680,63 @@ export default function AccessStudio({ data }: EtViewProps) {
 
       {section === "roles" ? (
         <div className="grid gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
-                <div className="min-w-0">
-                  <CardTitle>
-                    {selectedRole ? selectedRole.name : "Select a role"}
-                  </CardTitle>
-                  {selectedRole?.description ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {selectedRole.description}
-                    </p>
-                  ) : null}
-                  {selectedRole ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {roleBadges(selectedRole)}
-                    </div>
-                  ) : null}
-                </div>
+          <div className="space-y-6">
+            <div className="flex flex-row items-start justify-between gap-3 border-b border-border pb-4">
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                  {selectedRole ? selectedRole.name : "Select a role"}
+                </h2>
+                {selectedRole?.description ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedRole.description}
+                  </p>
+                ) : null}
                 {selectedRole ? (
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Browse roles"
-                      title="Browse roles"
-                      onClick={() => setRoleDrawerOpen(true)}
-                    >
-                      <Users className="size-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Edit role"
-                      title="Edit role"
-                      onClick={() => openEditRole(selectedRole)}
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    {!selectedRole.is_system ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Delete role"
-                        onClick={() => deleteRole(selectedRole)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {roleBadges(selectedRole)}
                   </div>
                 ) : null}
-              </CardHeader>
-              <CardContent>
+              </div>
+              {selectedRole ? (
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="size-8 rounded-full"
+                    aria-label="Browse roles"
+                    title="Browse roles"
+                    onClick={() => setRoleDrawerOpen(true)}
+                  >
+                    <Users className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="size-8 rounded-full"
+                    aria-label="Edit role"
+                    title="Edit role"
+                    onClick={() => openEditRole(selectedRole)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  {!selectedRole.is_system ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-8 rounded-full"
+                      aria-label="Delete role"
+                      onClick={() => deleteRole(selectedRole)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div>
                 {!selectedRole ? (
                   <EmptyState
                     icon={<ShieldCheck className="size-5" />}
@@ -909,30 +911,30 @@ export default function AccessStudio({ data }: EtViewProps) {
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </div>
+          </div>
         </div>
       ) : null}
 
       {section === "users" ? (
-          <Card>
-            <CardHeader className="border-b border-border">
-              <CardTitle>Users and roles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {overview.users.length === 0 ? (
-                <EmptyState
-                  icon={<Users className="size-5" />}
-                  title="No users yet"
-                  action={
-                    <Button asChild>
-                      <Link href="/administrators/manage">Manage users</Link>
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[640px] text-sm">
+        <div className="space-y-4">
+          <div className="border-b border-border pb-3">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">Users and roles</h2>
+          </div>
+          <div>
+            {overview.users.length === 0 ? (
+              <EmptyState
+                icon={<Users className="size-5" />}
+                title="No users yet"
+                action={
+                  <Button asChild>
+                    <Link href="/administrators/manage">Manage users</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="app-scrollbar overflow-x-auto rounded-2xl border border-border">
+                <table className="w-full min-w-[640px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-left">
                         <th className="h-11 px-3 text-xs font-semibold text-muted-foreground">
@@ -994,36 +996,36 @@ export default function AccessStudio({ data }: EtViewProps) {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
+        </div>
       ) : null}
 
       {section === "keys" ? (
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border">
-              <div>
-                <CardTitle>API keys</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Keys inherit a role. Bind a user to evaluate{" "}
-                  <span className="font-mono text-xs">$user</span> rules.
-                </p>
-              </div>
-              <Button onClick={openCreateKey}>
-                <Plus className="size-4" />
-                Create API key
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {overview.api_keys.length === 0 ? (
-                <EmptyState
-                  icon={<KeyRound className="size-5" />}
-                  title="No API keys yet"
-                  action={<Button onClick={openCreateKey}>Create API key</Button>}
-                />
-              ) : (
-                <div className="app-scrollbar overflow-x-auto rounded-lg border border-border">
+        <div className="space-y-4">
+          <div className="flex flex-row items-start justify-between gap-3 border-b border-border pb-3">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">API keys</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Keys inherit a role. Bind a user to evaluate{" "}
+                <span className="font-mono text-xs">$user</span> rules.
+              </p>
+            </div>
+            <Button onClick={openCreateKey} className="rounded-full">
+              <Plus className="size-4" />
+              Create API key
+            </Button>
+          </div>
+          <div>
+            {overview.api_keys.length === 0 ? (
+              <EmptyState
+                icon={<KeyRound className="size-5" />}
+                title="No API keys yet"
+                action={<Button onClick={openCreateKey}>Create API key</Button>}
+              />
+            ) : (
+              <div className="app-scrollbar overflow-x-auto rounded-2xl border border-border">
                   <table className="w-full min-w-[900px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-left">
@@ -1129,8 +1131,8 @@ export default function AccessStudio({ data }: EtViewProps) {
                   </table>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
       ) : null}
 
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>

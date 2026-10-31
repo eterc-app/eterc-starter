@@ -13,13 +13,14 @@ import { to_public_path } from "@/engine/url-aliases";
 import {
   PageActionsProvider,
   PageActionsSlot,
+  usePageNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { cn } from "@/lib/utils";
 import {
+  ArrowLeft,
   ArrowUpRight,
   BookOpen,
   Braces,
-  ChevronRight,
   ChevronsUpDown,
   Database,
   Image as ImageIcon,
@@ -46,7 +47,6 @@ interface NavItem {
 
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/admin", label: "Content overview", icon: LayoutDashboard },
-  { href: "/api-reference", label: "API Explorer", icon: Braces },
   { href: "/admin/data", label: "Data Studio", icon: Database },
   { href: "/admin/media", label: "Media library", icon: ImageIcon },
   { href: "/admin/access", label: "Access & API", icon: KeyRound },
@@ -55,6 +55,12 @@ const WORKSPACE_NAV: NavItem[] = [
 ];
 
 const RESOURCE_NAV = [
+  {
+    href: "/api-reference",
+    label: "API reference",
+    icon: Braces,
+    external: false,
+  },
   {
     href: ETERC_DOCS_URL,
     label: "Documentation",
@@ -114,6 +120,104 @@ function breadcrumb_items(
   ];
 }
 
+function TopHeader({
+  section,
+  current,
+  sidebarCollapsed,
+  setSidebarCollapsed,
+  setMobileOpen,
+  dark,
+  setTheme,
+}: {
+  section: string;
+  current: string;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  setMobileOpen: (open: boolean) => void;
+  dark: boolean;
+  setTheme: (theme: string) => void;
+}) {
+  const navbarMeta = usePageNavbarMeta();
+  const displaySection = navbarMeta?.section ?? section;
+  const displayTitle = navbarMeta?.title ?? current;
+
+  return (
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background px-4 sm:px-6 lg:px-8">
+      <button
+        type="button"
+        className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+        aria-label="Open navigation"
+        onClick={() => setMobileOpen(true)}
+      >
+        <Menu className="size-4" strokeWidth={1.75} />
+      </button>
+
+      {sidebarCollapsed ? (
+        <button
+          type="button"
+          className="hidden size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
+          aria-label="Show navigation"
+          aria-expanded={false}
+          onClick={() => setSidebarCollapsed(false)}
+        >
+          <PanelLeft className="size-4" strokeWidth={1.75} />
+        </button>
+      ) : null}
+
+      {sidebarCollapsed ? (
+        <span className="hidden h-5 w-px bg-border md:block" />
+      ) : null}
+
+      <div className="flex min-w-0 items-center gap-3">
+        {navbarMeta?.onBack ? (
+          <button
+            type="button"
+            onClick={navbarMeta.onBack}
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Go back"
+            title="Go back"
+          >
+            <ArrowLeft className="size-4" strokeWidth={2} />
+          </button>
+        ) : (
+          <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
+            {navbarMeta?.icon ?? <LayoutDashboard className="size-4" strokeWidth={1.75} />}
+          </span>
+        )}
+
+        <div className="flex min-w-0 flex-col justify-center">
+          <span className="truncate text-xs font-medium text-muted-foreground leading-tight">
+            {displaySection}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="truncate text-base font-semibold tracking-tight text-foreground leading-tight">
+              {displayTitle}
+            </span>
+            {navbarMeta?.badge}
+          </div>
+        </div>
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
+        <button
+          type="button"
+          className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Switch theme"
+          title="Switch theme"
+          onClick={() => setTheme(dark ? "light" : "dark")}
+        >
+          {dark ? (
+            <Sun className="size-4" strokeWidth={1.75} />
+          ) : (
+            <Moon className="size-4" strokeWidth={1.75} />
+          )}
+        </button>
+      </div>
+    </header>
+  );
+}
+
 export function AdminTemplate({
   children,
   pageTitle = "Admin Panel",
@@ -149,7 +253,7 @@ export function AdminTemplate({
 
   const render_sidebar = (mobile: boolean) => (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 px-5 py-5">
+      <div className="flex items-center gap-3 px-4 py-4">
         <NextImage
           src="/company-logo.png"
           alt=""
@@ -159,11 +263,11 @@ export function AdminTemplate({
           priority
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold leading-5">
+          <span className="block truncate text-sm font-semibold uppercase tracking-wider leading-5">
             {WEBSITE_NAME}
           </span>
           <span className="block truncate text-xs leading-4 text-muted-foreground">
-            CMS workspace
+            ercent.com backend
           </span>
         </span>
         {mobile ? (
@@ -175,7 +279,17 @@ export function AdminTemplate({
           >
             <X className="size-4" strokeWidth={1.75} />
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Hide navigation"
+            title="Hide navigation"
+            onClick={() => setSidebarCollapsed(true)}
+          >
+            <PanelLeft className="size-4" strokeWidth={1.75} />
+          </button>
+        )}
       </div>
 
       <nav
@@ -329,58 +443,15 @@ export function AdminTemplate({
           ) : null}
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6 lg:px-8">
-              <button
-                type="button"
-                className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-                aria-label="Open navigation"
-                onClick={() => setMobileOpen(true)}
-              >
-                <Menu className="size-4" strokeWidth={1.75} />
-              </button>
-              <button
-                type="button"
-                className="hidden size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
-                aria-label={
-                  sidebarCollapsed ? "Show navigation" : "Hide navigation"
-                }
-                aria-expanded={!sidebarCollapsed}
-                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              >
-                <PanelLeft className="size-4" strokeWidth={1.75} />
-              </button>
-              <span className="hidden h-5 w-px bg-border md:block" />
-              <nav
-                aria-label="Breadcrumb"
-                className="flex min-w-0 items-center gap-2 text-xs"
-              >
-                <span className="truncate text-muted-foreground">{section}</span>
-                <ChevronRight
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                  strokeWidth={1.75}
-                />
-                <span className="truncate font-semibold text-foreground">
-                  {current}
-                </span>
-              </nav>
-
-              <div className="ml-auto flex items-center gap-2">
-                <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
-                <button
-                  type="button"
-                  className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label="Switch theme"
-                  title="Switch theme"
-                  onClick={() => setTheme(dark ? "light" : "dark")}
-                >
-                  {dark ? (
-                    <Sun className="size-4" strokeWidth={1.75} />
-                  ) : (
-                    <Moon className="size-4" strokeWidth={1.75} />
-                  )}
-                </button>
-              </div>
-            </header>
+            <TopHeader
+              section={section}
+              current={current}
+              sidebarCollapsed={sidebarCollapsed}
+              setSidebarCollapsed={setSidebarCollapsed}
+              setMobileOpen={setMobileOpen}
+              dark={dark}
+              setTheme={setTheme}
+            />
 
             <main className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-[1560px]">{children}</div>

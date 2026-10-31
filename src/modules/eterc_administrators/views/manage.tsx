@@ -8,12 +8,6 @@ import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -63,77 +57,75 @@ export default function Manage({ data }: EtViewProps) {
           }
         />
       ) : (
-        <>
-          <Card className="overflow-hidden p-0">
-            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border px-4 py-3">
-              <CardTitle>Administrators</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                Records per page
-                <PerPageSelect
-                  options={per_page_options}
-                  selected={selected_per_page}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="px-4">User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-24 px-4 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={String(row.id)}>
-                      <TableCell className="px-4">
-                        <a
-                          href={`${base}administrators/show/${row.id}`}
-                          className="block font-semibold hover:underline"
-                        >
-                          {String(row.display_name ?? row.username ?? "")}
+        <div className="space-y-4">
+          <div className="flex flex-row items-center justify-between gap-3 px-1">
+            <h2 className="text-base font-semibold text-foreground">Administrators</h2>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              Records per page
+              <PerPageSelect
+                options={per_page_options}
+                selected={selected_per_page}
+              />
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-4">User</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-24 px-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={String(row.id)}>
+                    <TableCell className="px-4">
+                      <a
+                        href={`${base}administrators/show/${row.id}`}
+                        className="block font-semibold hover:underline"
+                      >
+                        {String(row.display_name ?? row.username ?? "")}
+                      </a>
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {"@"}
+                        {String(row.username ?? "")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {String(row.email ?? "") || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {String(row.role_name ?? "Unassigned")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          String(row.active_formatted ?? "").toLowerCase() ===
+                          "active"
+                            ? "success"
+                            : "outline"
+                        }
+                      >
+                        {String(row.active_formatted ?? "")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <a href={`${base}administrators/show/${row.id}`}>
+                          View
                         </a>
-                        <span className="block font-mono text-xs text-muted-foreground">
-                          {"@"}
-                          {String(row.username ?? "")}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {String(row.email ?? "") || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {String(row.role_name ?? "Unassigned")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            String(row.active_formatted ?? "").toLowerCase() ===
-                            "active"
-                              ? "success"
-                              : "outline"
-                          }
-                        >
-                          {String(row.active_formatted ?? "")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <a href={`${base}administrators/show/${row.id}`}>
-                            View
-                          </a>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           {has_pagination ? (
             <div className="flex justify-end">
@@ -142,7 +134,7 @@ export default function Manage({ data }: EtViewProps) {
               />
             </div>
           ) : null}
-        </>
+        </div>
       )}
     </div>
   );

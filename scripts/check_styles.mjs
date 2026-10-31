@@ -247,8 +247,15 @@ for (const forbidden of ["API mode", "Private by default", "fieldCount"]) {
     problems.push(`Content overview must not render overview stat content: ${forbidden}`);
   }
 }
-if (!dashboardPage.includes("sm:grid-cols-2 xl:grid-cols-3")) {
-  problems.push("Content overview must use a collection card grid");
+for (const forbidden of ["grid-cols-2", "grid-cols-3", "xl:grid-cols-3", "bg-card"]) {
+  if (dashboardPage.includes(forbidden)) {
+    problems.push(
+      `Content overview must remain a single-column list without white card backgrounds (forbidden: ${forbidden}). Do not revert to 2 or 3 columns or elevated cards.`,
+    );
+  }
+}
+if (!dashboardPage.includes("space-y-2")) {
+  problems.push("Content overview collections must use a single-column row list (space-y-2), not a multi-column card grid.");
 }
 
 const dataPage = read("src/modules/cms_admin/views/data.tsx");

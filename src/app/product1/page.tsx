@@ -6,7 +6,6 @@ import { ArrowLeft, Database, Loader2, Plus, RefreshCw, Search, Trash2 } from "l
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -41,8 +40,20 @@ export default function Product1Page() {
   }, []);
 
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+    let ignore = false;
+    fetch("/api/v1/cms/items/product1")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!ignore && Array.isArray(json.data)) setItems(json.data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,9 +142,8 @@ export default function Product1Page() {
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Id</TableHead>
@@ -186,8 +196,7 @@ export default function Product1Page() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+      </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">

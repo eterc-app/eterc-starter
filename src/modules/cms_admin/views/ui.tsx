@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
-import { Check, Clipboard, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Loader2, Plus } from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -121,7 +121,7 @@ export function FieldLabel({
   children?: ReactNode;
 }) {
   return (
-    <Label className="flex items-center gap-1.5">
+    <Label className="flex items-center gap-1.5 font-semibold text-sm text-foreground">
       <span>{field.label || field.name}</span>
       {field.required ? <span className="text-destructive">*</span> : null}
       {children}
@@ -156,17 +156,41 @@ export function FieldInput({
 
   if (field.type === "boolean") {
     return (
-      <label className="flex h-10 items-center gap-3 rounded-lg border border-input bg-card px-3 text-sm">
+      <label className="flex h-11 items-center gap-3 rounded-xl border border-input bg-card px-4 text-sm cursor-pointer transition-colors hover:border-foreground/30">
         <input
           id={id}
           type="checkbox"
-          className="size-5 accent-foreground"
+          className="size-5 accent-foreground rounded"
           checked={value === true || value === 1 || value === "1"}
           disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
         />
-        <span>{value === true || value === 1 || value === "1" ? "Enabled" : "Disabled"}</span>
+        <span className="font-medium text-foreground">
+          {value === true || value === 1 || value === "1" ? "Enabled" : "Disabled"}
+        </span>
       </label>
+    );
+  }
+
+  if (field.type === "relation") {
+    return (
+      <div className="relative">
+        <div className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-card px-4 text-sm text-muted-foreground transition-colors hover:border-foreground/30 focus-within:border-ring">
+          <input
+            id={id}
+            type="text"
+            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            placeholder="Select an item..."
+            value={stringValue}
+            disabled={disabled}
+            onChange={(event) => onChange(coerce_input_value(field, event.target.value))}
+          />
+          <div className="flex items-center gap-2 pl-2 text-muted-foreground">
+            <Plus className="size-4 shrink-0" strokeWidth={1.75} />
+            <ChevronDown className="size-4 shrink-0" strokeWidth={1.75} />
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -178,7 +202,7 @@ export function FieldInput({
         disabled={disabled}
         rows={field.type === "json" ? 6 : 4}
         placeholder={String(field.options.placeholder ?? "")}
-        className={field.type === "json" ? "font-mono text-xs" : undefined}
+        className={cn("rounded-xl bg-card border-input", field.type === "json" && "font-mono text-xs")}
         onChange={(event) => onChange(coerce_input_value(field, event.target.value))}
       />
     );
@@ -188,24 +212,27 @@ export function FieldInput({
     const choices = Array.isArray(field.options.choices)
       ? field.options.choices.map(String)
       : [];
-    if (choices.length > 0) {
-      return (
+    return (
+      <div className="relative">
         <select
           id={id}
-          className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]"
+          className="h-11 w-full appearance-none rounded-xl border border-input bg-card px-4 pr-10 text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]"
           value={stringValue}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
         >
-          <option value="">—</option>
+          <option value="">Select an item...</option>
           {choices.map((choice) => (
             <option key={choice} value={choice}>
               {choice}
             </option>
           ))}
         </select>
-      );
-    }
+        <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-muted-foreground">
+          <ChevronDown className="size-4" strokeWidth={1.75} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -228,6 +255,7 @@ export function FieldInput({
       }
       disabled={disabled}
       placeholder={String(field.options.placeholder ?? "")}
+      className="h-11 rounded-xl bg-card border-input"
       onChange={(event) => onChange(coerce_input_value(field, event.target.value))}
     />
   );

@@ -15,7 +15,6 @@ import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import type { EtViewProps } from "@/engine/views-registry";
 import type { CmsCollectionWithFields } from "@/modules/cms/cms-types";
 import { ContentSidebar } from "./ContentSidebar";
@@ -94,41 +93,48 @@ export default function CmsDashboard({ data }: EtViewProps) {
               }
             />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-2">
+              {/* INSTRUCTION FOR AI AGENTS & DEVELOPERS:
+                  Keep this collections section strictly as a SINGLE-COLUMN LIST (space-y-2).
+                  DO NOT revert to multi-column grids (never 2 or 3 columns).
+                  DO NOT use white card backgrounds or card elevation (keep bg-transparent, border-border, no shadow).
+              */}
               {collections.map((collection) => (
                 <Link
                   key={collection.name}
                   href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
                   className="group block"
                 >
-                  <Card className="h-full transition-colors group-hover:bg-surface-subtle">
-                    <CardContent className="flex items-start gap-3">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-transparent px-4 py-3 transition-colors hover:border-foreground/30 hover:bg-surface-subtle">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
                         <Table2 className="size-4" strokeWidth={1.75} />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {collection.label || collection.name}
-                        </span>
-                        <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
-                          {collection.name}
-                        </span>
-                        <span className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span className="tabular-nums">
-                            {collection.item_count}{" "}
-                            {collection.item_count === 1 ? "item" : "items"}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-foreground">
+                            {collection.label || collection.name}
                           </span>
-                          {collection.singleton ? (
-                            <Badge variant="outline">Singleton</Badge>
-                          ) : null}
-                          {collection.hidden ? (
-                            <Badge variant="outline">Hidden</Badge>
-                          ) : null}
-                        </span>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {collection.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {collection.item_count}{" "}
+                        {collection.item_count === 1 ? "item" : "items"}
                       </span>
-                      <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                    </CardContent>
-                  </Card>
+                      {collection.singleton ? (
+                        <Badge variant="outline">Singleton</Badge>
+                      ) : null}
+                      {collection.hidden ? (
+                        <Badge variant="outline">Hidden</Badge>
+                      ) : null}
+                      <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
