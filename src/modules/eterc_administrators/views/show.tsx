@@ -3,7 +3,6 @@ import { site_url } from "@/engine/Url";
 import type { EtViewProps } from "@/engine/views-registry";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, KeyRound, Pencil, Trash2 } from "lucide-react";
 
@@ -29,34 +28,28 @@ export default function Show({ data }: EtViewProps) {
             },
             ...(is_own_account
               ? [
-                  {
-                    label: "Profile & API keys",
-                    icon: <KeyRound className="size-4" />,
-                    href: site_url("admin/profile"),
-                  },
-                ]
+                {
+                  label: "Profile & API keys",
+                  icon: <KeyRound className="size-4" />,
+                  href: site_url("admin/profile"),
+                },
+              ]
               : []),
             ...(is_own_account === false
               ? [
-                  {
-                    label: "Delete administrator",
-                    icon: <Trash2 className="size-4" />,
-                    href: site_url(
-                      `eterc_administrators/delete_conf/${update_id}`,
-                    ),
-                    variant: "destructive" as const,
-                  },
-                ]
+                {
+                  label: "Delete administrator",
+                  icon: <Trash2 className="size-4" />,
+                  href: site_url(
+                    `eterc_administrators/delete_conf/${update_id}`,
+                  ),
+                  variant: "destructive" as const,
+                },
+              ]
               : []),
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Content"
-        title="User details"
-        description="Account details, role, and sign-in status."
-      />
-
       <Flashdata />
 
       <div className="space-y-4">
@@ -102,7 +95,7 @@ export default function Show({ data }: EtViewProps) {
                 <Badge
                   variant={
                     String(data.active_formatted ?? "").toLowerCase() ===
-                    "active"
+                      "active"
                       ? "success"
                       : "outline"
                   }

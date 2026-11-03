@@ -8,7 +8,6 @@ import type { EtViewProps } from "@/engine/views-registry";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,12 +93,6 @@ export default function SqlConsole({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Database"
-        title="SQL console"
-        description="Run read or write statements against the local SQLite database."
-      />
-
       <Flashdata />
 
       <Card>

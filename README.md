@@ -16,7 +16,7 @@ TypeScript from end to end.
 | --------- | --------------------------------------------------------------- |
 | Framework | Next.js 16.4 (App Router), React 19.3, TypeScript               |
 | Database  | SQLite (`prisma/dev.db`)                                        |
-| DB access | `better-sqlite3` behind the `Db` class; Prisma for schema       |
+| DB access | `better-sqlite3` behind the `Db` class; raw SQL, no ORM         |
 | Passwords | bcryptjs (cost 11)                                              |
 | Images    | sharp                                                           |
 | Email     | nodemailer                                                      |
@@ -26,7 +26,6 @@ TypeScript from end to end.
 
 ```bash
 npm install
-npx prisma generate   # after schema edits
 npm run dev
 ```
 
@@ -49,10 +48,10 @@ ET_SECRET=<64-char hex>     # HMAC key for CSRF tokens
 # ET_BASE_URL="/"                 # only when served under a sub-path
 ```
 
-For a VPS, keep the SQLite file on a persistent disk. For serverless hosting,
-select a managed database provider while creating the project in Eterc Desktop
-and enable its deployment adapter; the bundled SQLite runtime is intended for a
-persistent filesystem.
+The bundled runtime is local-only. Keep the SQLite file and
+`public/uploads` on a persistent disk. Eterc Desktop emits a local Dockerfile;
+serverless hosting and managed cloud providers are not supported in this
+release.
 
 ## Routing
 
@@ -153,11 +152,12 @@ Useful content endpoints:
 Collection, field, role, permission, user and API-key management require a
 signed-in administrator. API keys cannot change schema or access control.
 
-The bundled runtime uses SQLite and built-in accounts. Eterc Desktop supports
-provider selection and connection tests for Neon, Supabase, PostgreSQL, Turso,
-MySQL, Firebase, Clerk, Auth0 and Supabase Auth. External runtime adapters are
-deployment work: this build keeps SQLite and built-in accounts active while the
-selected provider configuration is saved.
+The bundled runtime uses SQLite, built-in accounts, an in-memory cache,
+immediate jobs, local disk storage, and a local Docker deployment. Eterc
+Desktop only lists these verified adapters. Unsupported cloud providers are
+removed from the catalog rather than saved as inactive configuration. The
+unauthenticated runtime probe is `GET /api/health`; it checks SQLite, storage,
+cache, and jobs without returning secrets.
 
 Add a resource with a normal module plus a controller class ending in `_api`:
 
@@ -238,7 +238,8 @@ modules.
 - The forgot-password entry point falls back to the only configured user level
   when the URL has no level segment.
 - The media library stores files under `public/uploads/media` and metadata under
-  `data/settings/media_library/index.json`.
+  `data/settings/media_library/index.json`. Uploads require the local storage
+  adapter and reject any other `ET_STORAGE_PROVIDER` value.
 
 ## Checks
 

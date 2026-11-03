@@ -10,7 +10,6 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -93,9 +92,9 @@ export default function TableList({ data }: EtViewProps) {
         json.status === "ok" && json.data
           ? json.data
           : {
-              ok: false,
-              message: json.message ?? "The request could not be completed.",
-            };
+            ok: false,
+            message: json.message ?? "The request could not be completed.",
+          };
 
       if (result.ok) {
         setNotice(result.message);
@@ -122,15 +121,6 @@ export default function TableList({ data }: EtViewProps) {
           ]}
         />
       </PageActionsPortal>
-      <PageHeader
-        eyebrow="Database"
-        title="Database tables"
-        description={
-          data.subheading
-            ? String(data.subheading)
-            : "Inspect schema and maintenance actions for the local SQLite database."
-        }
-      />
 
       <Flashdata />
 

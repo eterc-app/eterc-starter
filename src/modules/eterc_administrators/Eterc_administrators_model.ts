@@ -1,6 +1,6 @@
 import { hashSync } from "bcryptjs";
 import { sqlite, type Row } from "@/engine/db";
-import { eterc_tokens } from "@/engine/Eterc_tokens";
+import { eterc_tokens, hashAuthToken } from "@/engine/Eterc_tokens";
 import { Model } from "@/engine/model";
 import { post } from "@/engine/post";
 import { session_set } from "@/engine/session";
@@ -137,7 +137,7 @@ export class Eterc_administrators_model extends Model {
                     ${this.table_name}.eterc_user_id = eterc_tokens.user_id
                   WHERE
                     eterc_tokens.token = :token`;
-    const rows = this.db.query_bind(sql, { token }) as Row[];
+    const rows = this.db.query_bind(sql, { token: hashAuthToken(token) }) as Row[];
     return rows.length > 0 ? rows[0] : false;
   }
 

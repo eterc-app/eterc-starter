@@ -28,6 +28,21 @@ export const MEDIA_INDEX_PATH = path.join(
 export const MAX_MEDIA_BYTES = 12 * 1024 * 1024;
 export const MAX_MEDIA_DIMENSION = 12000;
 
+/**
+ * Media thumbnailing needs a local filesystem path, so this release only
+ * supports the local disk adapter. The stack catalog exposes no cloud storage
+ * provider; this guard also rejects a hand-edited env that claims one.
+ */
+export function assertLocalMediaStorage(): void {
+  const provider = process.env.ET_STORAGE_PROVIDER?.trim();
+  if (provider && provider !== "local") {
+    throw new Error(
+      "Media uploads require the local storage adapter in this release. " +
+        "Re-apply the local stack before uploading files."
+    );
+  }
+}
+
 const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
 
 export interface MediaItem {

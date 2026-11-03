@@ -37,15 +37,14 @@ yarn-error.log*
 # desktop-managed OAuth client secrets (never commit)
 /data/settings/login.secrets.json
 
-# vercel
-.vercel
+# desktop-managed runtime state
+/data/settings/runtime.json
+/.eterc/
+/public/uploads/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# generated Prisma client (recreated by `npm install` / `prisma generate`)
-/src/generated/
 
 # local SQLite runtime artifacts
 /prisma/dev.db-shm

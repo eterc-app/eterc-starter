@@ -15,5 +15,8 @@ export interface ICacheProvider {
 
   /** Flushes all stored cache entries. */
   flush(): Promise<void>;
+
+  /** Optional runtime health probe used by /api/health. */
+  healthCheck?(): Promise<{ ok: boolean; message: string }>;
 }
 

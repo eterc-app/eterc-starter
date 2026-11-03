@@ -33,5 +33,8 @@ export interface IAuthProvider {
 
   /** Generates a sign-in or authorization URL when using redirect-based OAuth / SSO. */
   generateAuthUrl?(options?: { returnTo?: string }): Promise<string>;
+
+  /** Optional runtime health probe used by /api/health. */
+  healthCheck?(): Promise<{ ok: boolean; message: string }>;
 }
 

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { db } from "./db";
 import { get_context } from "./request-context";
 import { session_get, session_set, session_unset } from "./session";
@@ -22,9 +23,41 @@ export interface EtercUserObj {
 }
 
 const DEFAULT_TOKEN_LIFESPAN = 86400; // 24 hours
+const HASHED_TOKEN = /^[a-f0-9]{64}$/;
+
+/** Store only a SHA-256 digest; the raw bearer token never touches the database. */
+export function hashAuthToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+let tokenMigrationDone = false;
+
+function migrateLegacyTokenHashes(): void {
+  if (tokenMigrationDone) return;
+  try {
+    const rows = db.query_bind("SELECT id, token FROM eterc_tokens", {}) as Array<{
+      id: number;
+      token: string | null;
+    }>;
+    for (const row of rows) {
+      if (!row.token || HASHED_TOKEN.test(row.token)) continue;
+      db.query_bind("UPDATE eterc_tokens SET token = :token WHERE id = :id", {
+        token: hashAuthToken(row.token),
+        id: row.id,
+      });
+    }
+    tokenMigrationDone = true;
+  } catch {
+    // The table may not exist yet during first-run setup. Retry next time.
+  }
+}
 
 export class Eterc_tokens {
   readonly moduleName = "eterc_tokens";
+
+  constructor() {
+    migrateLegacyTokenHashes();
+  }
 
   /** Gather candidate tokens from header, cookie and session. */
   gather_user_tokens(): string[] {
@@ -68,9 +101,9 @@ export class Eterc_tokens {
           WHERE eterc_tokens.token = :token
             AND eterc_users.user_level_id = :level
             AND expiry_date > :now`,
-        { token, level: userLevel, now: Math.floor(Date.now() / 1000) }
+        { token: hashAuthToken(token), level: userLevel, now: Math.floor(Date.now() / 1000) }
       ) as Array<{ token: string }>;
-      if (row.length > 0) return row[0].token;
+      if (row.length > 0) return token;
     }
     return false;
   }
@@ -96,9 +129,9 @@ export class Eterc_tokens {
           WHERE eterc_tokens.token = :token
             AND (${levels.conditions.join(" OR ")})
             AND expiry_date > :now`,
-        { token, now: Math.floor(Date.now() / 1000), ...levels.params }
+        { token: hashAuthToken(token), now: Math.floor(Date.now() / 1000), ...levels.params }
       ) as Array<{ token: string }>;
-      if (row.length > 0) return row[0].token;
+      if (row.length > 0) return token;
     }
     return false;
   }
@@ -108,9 +141,9 @@ export class Eterc_tokens {
     for (const token of userTokens) {
       const rows = db.query_bind(
         `SELECT token FROM eterc_tokens WHERE token = :token AND expiry_date > :now`,
-        { token, now: Math.floor(Date.now() / 1000) }
+        { token: hashAuthToken(token), now: Math.floor(Date.now() / 1000) }
       ) as Array<{ token: string }>;
-      if (rows.length > 0) return rows[0].token;
+      if (rows.length > 0) return token;
     }
     return false;
   }
@@ -118,7 +151,9 @@ export class Eterc_tokens {
   /** Delete specific tokens. */
   delete_tokens(tokens: string[]): void {
     for (const token of tokens) {
-      db.query_bind("DELETE FROM eterc_tokens WHERE token = :token", { token });
+      db.query_bind("DELETE FROM eterc_tokens WHERE token = :token", {
+        token: hashAuthToken(token),
+      });
     }
   }
 
@@ -141,7 +176,7 @@ export class Eterc_tokens {
     if (tokens.length === 0) return false;
     for (const value of tokens) {
       const rows = db.query_bind("SELECT user_id FROM eterc_tokens WHERE token = :token", {
-        token: value,
+        token: hashAuthToken(value),
       }) as Array<{ user_id: number }>;
       if (rows.length > 0) return Number(rows[0].user_id);
     }
@@ -159,14 +194,14 @@ export class Eterc_tokens {
             u.code as eterc_user_code,
             u.user_level_id as user_level_id,
             ul.level_title as user_level,
-            t.token as token,
+            :raw_token as token,
             t.user_id as eterc_user_id,
             t.expiry_date as expiry_date
           FROM eterc_tokens t
           INNER JOIN eterc_users u ON t.user_id = u.id
           INNER JOIN eterc_user_levels ul ON u.user_level_id = ul.id
           WHERE t.token = :token`,
-        { token: value }
+        { token: hashAuthToken(value), raw_token: value }
       ) as EtercUserObj[];
       if (rows.length > 0) return rows[0];
     }
@@ -215,7 +250,7 @@ export class Eterc_tokens {
     const dbData: Record<string, unknown> = {
       user_id: data.user_id,
       expiry_date: expiryDate,
-      token,
+      token: hashAuthToken(token),
     };
     if (data.code !== undefined) {
       dbData.code = data.code;
@@ -246,12 +281,16 @@ export class Eterc_tokens {
   /** Regenerate (rotate) an existing token with a new expiry date. */
   regenerate_token(oldToken: string, expiryDate: number): string | false {
     const rows = db.query_bind("SELECT * FROM eterc_tokens WHERE token = :token LIMIT 1", {
-      token: oldToken,
+      token: hashAuthToken(oldToken),
     }) as TokenRow[];
     if (rows.length === 0) return false;
 
     const newToken = make_rand_str(32);
-    db.update(rows[0].id, { expiry_date: expiryDate, token: newToken }, "eterc_tokens");
+    db.update(
+      rows[0].id,
+      { expiry_date: expiryDate, token: hashAuthToken(newToken) },
+      "eterc_tokens"
+    );
     return newToken;
   }
 

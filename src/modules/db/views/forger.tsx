@@ -1,7 +1,6 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,15 +25,7 @@ export default function Forger({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
-      <PageHeader
-        eyebrow="Database"
-        title={update_id > 0 ? "Edit record" : "New record"}
-        description={
-          update_id > 0
-            ? `Edit record #${update_id} in ${table}.`
-            : `Create a new record in ${table}.`
-        }
-      />
+
 
       <ValidationErrors />
 

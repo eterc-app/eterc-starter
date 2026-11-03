@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "framework": {
+    "provider": "nextjs",
+    "values": {}
+  },
+  "auth": {
+    "provider": "builtin",
+    "values": {}
+  },
+  "database": {
+    "provider": "sqlite",
+    "values": {
+      "file": "prisma/dev.db"
+    }
+  },
+  "orm": {
+    "provider": "raw-sql",
+    "values": {}
+  },
+  "cache": {
+    "provider": "memory",
+    "values": {}
+  },
+  "jobs": {
+    "provider": "immediate",
+    "values": {}
+  },
+  "storage": {
+    "provider": "local",
+    "values": {}
+  },
+  "deployment": {
+    "provider": "local",
+    "values": {}
+  }
+}

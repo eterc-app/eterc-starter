@@ -11,28 +11,25 @@ export class ImmediateJobQueueProvider implements IJobQueueProvider {
   async enqueue<T = unknown>(jobName: string, payload: T, options?: JobOptions): Promise<string> {
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const handler = this.handlers.get(jobName);
+    if (!handler) return jobId;
 
-    if (handler) {
-      if (options?.delaySeconds && options.delaySeconds > 0) {
-        setTimeout(() => {
-          void handler(payload).catch((err) => {
-            console.error(`[Queue] Job ${jobName} (${jobId}) failed:`, err);
-          });
-        }, options.delaySeconds * 1000);
-      } else {
-        queueMicrotask(() => {
-          void handler(payload).catch((err) => {
-            console.error(`[Queue] Job ${jobName} (${jobId}) failed:`, err);
-          });
-        });
-      }
+    const run = () => {
+      void handler(payload).catch((error) => {
+        console.error(`[Queue] Job ${jobName} (${jobId}) failed:`, error);
+      });
+    };
+
+    if (options?.delaySeconds && options.delaySeconds > 0) {
+      setTimeout(run, options.delaySeconds * 1000);
     } else {
-      console.warn(`[Queue] No handler registered for job "${jobName}" (${jobId})`);
+      queueMicrotask(run);
     }
-
     return jobId;
+  }
+
+  async healthCheck(): Promise<{ ok: boolean; message: string }> {
+    return { ok: true, message: "Immediate job queue is available." };
   }
 }
 
 export const activeQueueProvider: IJobQueueProvider = new ImmediateJobQueueProvider();
-

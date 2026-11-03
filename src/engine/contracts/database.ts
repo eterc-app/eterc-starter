@@ -24,5 +24,8 @@ export interface IDatabaseAdapter {
 
   /** Closes any active connection pools. */
   close(): Promise<void>;
+
+  /** Optional runtime health probe used by /api/health. */
+  healthCheck?(): Promise<{ ok: boolean; message: string }>;
 }
 

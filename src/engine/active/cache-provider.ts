@@ -29,14 +29,16 @@ export class MemoryCacheProvider implements ICacheProvider {
   }
 
   async has(key: string): Promise<boolean> {
-    const val = await this.get(key);
-    return val !== null;
+    return (await this.get(key)) !== null;
   }
 
   async flush(): Promise<void> {
     this.store.clear();
   }
+
+  async healthCheck(): Promise<{ ok: boolean; message: string }> {
+    return { ok: true, message: "In-memory cache is available." };
+  }
 }
 
 export const activeCacheProvider: ICacheProvider = new MemoryCacheProvider();
-

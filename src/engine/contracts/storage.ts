@@ -26,5 +26,8 @@ export interface IStorageProvider {
 
   /** Checks if an object exists. */
   exists(key: string): Promise<boolean>;
+
+  /** Optional runtime health probe used by /api/health. */
+  healthCheck?(): Promise<{ ok: boolean; message: string }>;
 }
 

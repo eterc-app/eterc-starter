@@ -14,5 +14,8 @@ export interface IJobQueueProvider {
 
   /** Registers a worker handler for a given job name. */
   registerHandler<T = unknown>(jobName: string, handler: JobHandler<T>): void;
+
+  /** Optional runtime health probe used by /api/health. */
+  healthCheck?(): Promise<{ ok: boolean; message: string }>;
 }
 

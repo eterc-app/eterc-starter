@@ -36,11 +36,45 @@ function ensure_dir(): void {
   fs.mkdirSync(path.dirname(RUNTIME_FILE), { recursive: true });
 }
 
+function sanitize_runtime(config: CmsRuntimeConfig): CmsRuntimeConfig {
+  // The local runtime never needs cloud credentials in runtime.json. Keep only
+  // the non-secret SQLite path so old onboarding data cannot leak through the
+  // web admin or a committed file.
+  return {
+    ...config,
+    database: {
+      ...config.database,
+      provider: "sqlite",
+      label: "SQLite",
+      values: {
+        file: String(config.database.values.file ?? "prisma/dev.db"),
+      },
+    },
+    auth: {
+      ...config.auth,
+      provider: "builtin",
+      label: "Built-in accounts",
+      values: {},
+    },
+  };
+}
+
+function write_runtime(config: CmsRuntimeConfig): void {
+  ensure_dir();
+  const sanitized = sanitize_runtime(config);
+  const temp = `${RUNTIME_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(sanitized, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  fs.renameSync(temp, RUNTIME_FILE);
+}
+
 function read_raw(): CmsRuntimeConfig {
   ensure_dir();
   if (!fs.existsSync(RUNTIME_FILE)) {
     const initial = defaults();
-    fs.writeFileSync(RUNTIME_FILE, JSON.stringify(initial, null, 2), "utf8");
+    write_runtime(initial);
     return initial;
   }
   try {
@@ -48,7 +82,7 @@ function read_raw(): CmsRuntimeConfig {
       fs.readFileSync(RUNTIME_FILE, "utf8")
     ) as Partial<CmsRuntimeConfig>;
     const base = defaults();
-    return {
+    return sanitize_runtime({
       database: {
         ...base.database,
         ...(parsed.database ?? {}),
@@ -71,7 +105,7 @@ function read_raw(): CmsRuntimeConfig {
         api_private: true,
       },
       updated_at: Number(parsed.updated_at ?? base.updated_at),
-    };
+    });
   } catch {
     return defaults();
   }
@@ -121,7 +155,6 @@ export function save_cms_settings(
     },
     updated_at: Math.floor(Date.now() / 1000),
   };
-  ensure_dir();
-  fs.writeFileSync(RUNTIME_FILE, JSON.stringify(next, null, 2), "utf8");
+  write_runtime(next);
   return next;
 }

@@ -2,7 +2,6 @@ import { AlertTriangle } from "lucide-react";
 import { EtForm } from "@/engine/ui/EtForm";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Notice } from "@/components/app/Notice";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,11 +17,6 @@ export default function DeleteConf({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
-      <PageHeader
-        eyebrow="Database"
-        title="Delete record"
-        description={`Delete record #${update_id} from ${table}.`}
-      />
 
       <Card>
         <CardHeader className="border-b border-border">

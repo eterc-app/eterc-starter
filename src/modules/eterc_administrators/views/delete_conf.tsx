@@ -2,7 +2,6 @@ import { AlertTriangle } from "lucide-react";
 import { EtForm } from "@/engine/ui/EtForm";
 import type { EtViewProps } from "@/engine/views-registry";
 import { Notice } from "@/components/app/Notice";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 
 export default function DeleteConf({ data }: EtViewProps) {
@@ -10,11 +9,6 @@ export default function DeleteConf({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
-      <PageHeader
-        eyebrow="Content"
-        title="Delete administrator"
-        description="This action permanently removes the administrator account."
-      />
 
       <div className="space-y-4">
         <div className="border-b border-border pb-3">

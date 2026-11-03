@@ -1,7 +1,6 @@
 import { EtForm } from "@/engine/ui/EtForm";
 import { ValidationErrors } from "@/engine/ui/ValidationErrors";
 import type { EtViewProps } from "@/engine/views-registry";
-import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +10,6 @@ export default function UpdatePassword({ data }: EtViewProps) {
 
   return (
     <div className="app-page max-w-3xl">
-      <PageHeader
-        eyebrow="Content"
-        title="Update password"
-        description="Choose a new password for this administrator."
-      />
-
       <ValidationErrors />
 
       <div className="space-y-4">

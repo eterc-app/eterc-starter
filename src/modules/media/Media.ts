@@ -12,6 +12,7 @@ import type { CmsPrincipal } from "@/modules/cms/cms-types";
 import Image from "@/modules/image/Image";
 import {
   MAX_MEDIA_BYTES,
+  assertLocalMediaStorage,
   deleteMedia,
   getMedia,
   listMedia,
@@ -75,6 +76,7 @@ export default class Media extends Eterc {
   async upload_media(): Promise<Record<string, unknown>> {
     this.principal();
     this.assertCsrf();
+    assertLocalMediaStorage();
 
     const files = await uploaded_files();
     const uploaded = Object.values(files)[0];
