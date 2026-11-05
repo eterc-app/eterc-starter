@@ -86,22 +86,15 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { href: "/admin/settings", label: "Settings", ariaLabel: "Project settings", icon: SlidersHorizontal },
       { href: "#", label: "Appearance", icon: Palette },
-      { href: "#", label: "Bookmarks", icon: Bookmark },
-      { href: "#", label: "Translations", icon: Languages },
-      { href: "#", label: "AI", icon: Bot },
-    ],
-  },
-  {
-    id: "ecosystem",
-    items: [
-      { href: "#", label: "Marketplace", icon: Store },
-      { href: "#", label: "Extensions", icon: Shapes },
+      /**   { href: "#", label: "Bookmarks", icon: Bookmark },
+         { href: "#", label: "Translations", icon: Languages },
+         { href: "#", label: "AI", icon: Bot }, */
     ],
   },
   {
     id: "system-support",
     items: [
-      { href: "/api-reference", label: "System Logs", ariaLabel: "API reference", icon: SquareTerminal },
+      { href: "/api-reference", label: "System Logs", ariaLabel: "System logs", icon: SquareTerminal },
       { href: `${ETERC_GITHUB_URL}/issues`, label: "Report Bug", icon: Bug, external: true },
       { href: `${ETERC_GITHUB_URL}/discussions`, label: "Request Feature", icon: BadgeCheck, external: true },
     ],
@@ -524,12 +517,6 @@ export function AdminTemplate({
               </a>
             </div>
           ) : null}
-        </div>
-
-        {/* Exact match Directus badge from attached image */}
-        <div className="mt-1 flex items-center gap-2.5 px-2 py-1.5 text-xs text-muted-foreground">
-          <Rabbit className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-          <span className="font-medium">Directus 11.15.4</span>
         </div>
       </div>
     </div>

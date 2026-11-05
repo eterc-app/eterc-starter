@@ -54,7 +54,8 @@
   --field-height-lg: 3rem;
   --field-padding: 0.75rem;
   --header-height: 4rem;
-  --sidebar-width: 15rem; /* --sidebar-width: 11.25rem; */
+  --sidebar-width: 12rem;
+  /* --sidebar-width: 11.25rem; */
   --sidebar-font-size: 0.7875rem;
   --sidebar-brand-font-size: 0.8125rem;
   --sidebar-subtitle-font-size: 0.75rem;
