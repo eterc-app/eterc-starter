@@ -65,6 +65,8 @@ function collectionFromRow(row: Row): CmsCollection {
     name: String(row.name),
     label: String(row.label ?? ""),
     icon: String(row.icon ?? "table"),
+    color: String(row.color ?? ""),
+    display_template: String(row.display_template ?? ""),
     note: String(row.note ?? ""),
     primary_key: String(row.primary_key ?? "id"),
     singleton: bool(row.singleton),
@@ -204,9 +206,53 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     throw new EtHttpError(400, `Primary key '${primaryKey}' uses a reserved prefix.`);
   }
   const primaryKeyType =
-    input.primary_key_type === "uuid" || input.primary_key_type === "string"
+    input.primary_key_type === "uuid" ||
+    input.primary_key_type === "string" ||
+    input.primary_key_type === "bigInteger"
       ? input.primary_key_type
       : "integer";
+
+  // Optional fields config
+  const opt = input.optional_fields || {};
+  const statusField = opt.status?.enabled
+    ? {
+        name: opt.status.name.trim() || "status",
+        label: humanize_name(opt.status.name.trim() || "status"),
+        type: "select" as const,
+        interface: "select" as const,
+        options: { choices: ["draft", "published", "archived"] },
+        required: true,
+        defaultSql: "'draft'",
+      }
+    : null;
+
+  const sortField = opt.sort?.enabled
+    ? {
+        name: opt.sort.name.trim() || "sort",
+        label: humanize_name(opt.sort.name.trim() || "sort"),
+        type: "integer" as const,
+        interface: "number" as const,
+        options: {},
+        required: false,
+        defaultSql: "NULL",
+      }
+    : null;
+
+  const createdOnName = opt.date_created?.enabled
+    ? (opt.date_created.name.trim() || "date_created")
+    : null;
+
+  const createdByName = opt.user_created?.enabled
+    ? (opt.user_created.name.trim() || "user_created")
+    : null;
+
+  const updatedOnName = opt.date_updated?.enabled
+    ? (opt.date_updated.name.trim() || "date_updated")
+    : null;
+
+  const updatedByName = opt.user_updated?.enabled
+    ? (opt.user_updated.name.trim() || "user_updated")
+    : null;
 
   const requested = (input.fields ?? [])
     .map((field) => ({ ...field, name: String(field.name ?? "").trim() }))
@@ -223,11 +269,27 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     }
   }
 
-  const hasCreated = names.has("created_at");
-  const hasUpdated = names.has("updated_at");
+  // Check optional fields naming collisions
+  const optionalFieldEntries = [
+    statusField?.name,
+    sortField?.name,
+    createdOnName,
+    createdByName,
+    updatedOnName,
+    updatedByName,
+  ].filter(Boolean) as string[];
+
+  for (const optName of optionalFieldEntries) {
+    assert_identifier(optName, "Optional field name");
+    if (names.has(optName)) {
+      throw new EtHttpError(400, `Field '${optName}' is listed more than once.`);
+    }
+    names.add(optName);
+  }
+
   const normalizedFields = requested.map(normalize_field);
   const primaryColumn =
-    primaryKeyType === "integer"
+    primaryKeyType === "integer" || primaryKeyType === "bigInteger"
       ? `${quote_identifier(primaryKey)} INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`
       : primaryKeyType === "uuid"
         ? `${quote_identifier(primaryKey)} TEXT NOT NULL PRIMARY KEY DEFAULT ${UUID_DEFAULT_SQL}`
@@ -236,11 +298,28 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   for (const field of normalizedFields) {
     columns.push(default_field_sql(field, false));
   }
-  if (!hasCreated) {
+
+  if (statusField) {
+    columns.push(`${quote_identifier(statusField.name)} TEXT NOT NULL DEFAULT ${statusField.defaultSql}`);
+  }
+  if (sortField) {
+    columns.push(`${quote_identifier(sortField.name)} INTEGER`);
+  }
+  if (createdOnName) {
+    columns.push(`${quote_identifier(createdOnName)} TEXT NOT NULL DEFAULT (datetime('now'))`);
+  } else if (!names.has("created_at") && !input.optional_fields) {
     columns.push("`created_at` TEXT NOT NULL DEFAULT (datetime('now'))");
   }
-  if (!hasUpdated) {
+  if (createdByName) {
+    columns.push(`${quote_identifier(createdByName)} TEXT`);
+  }
+  if (updatedOnName) {
+    columns.push(`${quote_identifier(updatedOnName)} TEXT NOT NULL DEFAULT (datetime('now'))`);
+  } else if (!names.has("updated_at") && !input.optional_fields) {
     columns.push("`updated_at` TEXT NOT NULL DEFAULT (datetime('now'))");
+  }
+  if (updatedByName) {
+    columns.push(`${quote_identifier(updatedByName)} TEXT`);
   }
 
   const now = nowSeconds();
@@ -254,13 +333,15 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   const result = sqlite()
     .prepare(
       `INSERT INTO cms_collections
-        (name, label, icon, note, primary_key, singleton, hidden, system, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        (name, label, icon, color, display_template, note, primary_key, singleton, hidden, system, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
     )
     .run(
       name,
       String(input.label ?? humanize_name(name)),
       String(input.icon ?? "table"),
+      String(input.color ?? ""),
+      String(input.display_template ?? ""),
       String(input.note ?? ""),
       primaryKey,
       input.singleton ? 1 : 0,
@@ -280,12 +361,12 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     collectionId,
     primaryKey,
     primaryKey === "id" ? "ID" : humanize_name(primaryKey),
-    primaryKeyType === "integer" ? "integer" : "string",
-    primaryKeyType === "integer" ? "number" : "input",
+    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? "integer" : "string",
+    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? "number" : "input",
     "{}",
     1,
     1,
-    primaryKeyType === "integer" ? 1 : 0,
+    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? 1 : 0,
     primaryKeyType === "string" ? 0 : 1,
     0,
     now,
@@ -313,7 +394,57 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     sort += 1;
   }
 
-  if (!hasCreated) {
+  if (statusField) {
+    insertField.run(
+      collectionId,
+      statusField.name,
+      statusField.label,
+      statusField.type,
+      statusField.interface,
+      JSON.stringify(statusField.options),
+      1,
+      0,
+      0,
+      0,
+      sort++,
+      now,
+      now
+    );
+  }
+  if (sortField) {
+    insertField.run(
+      collectionId,
+      sortField.name,
+      sortField.label,
+      sortField.type,
+      sortField.interface,
+      "{}",
+      0,
+      0,
+      0,
+      0,
+      sort++,
+      now,
+      now
+    );
+  }
+  if (createdOnName) {
+    insertField.run(
+      collectionId,
+      createdOnName,
+      humanize_name(createdOnName),
+      "datetime",
+      "datetime",
+      "{}",
+      0,
+      0,
+      1,
+      1,
+      sort++,
+      now,
+      now
+    );
+  } else if (!names.has("created_at") && !input.optional_fields) {
     insertField.run(
       collectionId,
       "created_at",
@@ -330,7 +461,40 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       now
     );
   }
-  if (!hasUpdated) {
+  if (createdByName) {
+    insertField.run(
+      collectionId,
+      createdByName,
+      humanize_name(createdByName),
+      "string",
+      "input",
+      "{}",
+      0,
+      0,
+      0,
+      1,
+      sort++,
+      now,
+      now
+    );
+  }
+  if (updatedOnName) {
+    insertField.run(
+      collectionId,
+      updatedOnName,
+      humanize_name(updatedOnName),
+      "datetime",
+      "datetime",
+      "{}",
+      0,
+      0,
+      1,
+      1,
+      sort++,
+      now,
+      now
+    );
+  } else if (!names.has("updated_at") && !input.optional_fields) {
     insertField.run(
       collectionId,
       "updated_at",
@@ -347,6 +511,23 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       now
     );
   }
+  if (updatedByName) {
+    insertField.run(
+      collectionId,
+      updatedByName,
+      humanize_name(updatedByName),
+      "string",
+      "input",
+      "{}",
+      0,
+      0,
+      0,
+      1,
+      sort++,
+      now,
+      now
+    );
+  }
 
   return get_collection(name);
   });
@@ -355,7 +536,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
 
 export function update_collection(
   name: string,
-  patch: Partial<Pick<CmsCollection, "label" | "icon" | "note" | "singleton" | "hidden">>
+  patch: Partial<Pick<CmsCollection, "label" | "icon" | "color" | "display_template" | "note" | "singleton" | "hidden">>
 ): CmsCollectionWithFields {
   const { collection } = require_collection(name);
   if (collection.system) {
@@ -366,12 +547,14 @@ export function update_collection(
   sqlite()
     .prepare(
       `UPDATE cms_collections
-       SET label = ?, icon = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
+       SET label = ?, icon = ?, color = ?, display_template = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
        WHERE id = ?`
     )
     .run(
       patch.label ?? collection.label,
       patch.icon ?? collection.icon,
+      patch.color ?? collection.color ?? "",
+      patch.display_template ?? collection.display_template ?? "",
       patch.note ?? collection.note,
       (patch.singleton ?? collection.singleton) ? 1 : 0,
       (patch.hidden ?? collection.hidden) ? 1 : 0,

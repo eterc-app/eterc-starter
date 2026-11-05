@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS "cms_collections" (
   "name" TEXT NOT NULL UNIQUE,
   "label" TEXT NOT NULL DEFAULT '',
   "icon" TEXT NOT NULL DEFAULT 'table',
+  "color" TEXT NOT NULL DEFAULT '',
+  "display_template" TEXT NOT NULL DEFAULT '',
   "note" TEXT NOT NULL DEFAULT '',
   "primary_key" TEXT NOT NULL DEFAULT 'id',
   "singleton" INTEGER NOT NULL DEFAULT 0,
@@ -156,6 +158,8 @@ function ensure_column(table: string, column: string, definition: string): void 
  * Existing rows are migrated once to preserve their original behavior.
  */
 function migrate_access_schema(): void {
+  ensure_column("cms_collections", "color", "TEXT NOT NULL DEFAULT ''");
+  ensure_column("cms_collections", "display_template", "TEXT NOT NULL DEFAULT ''");
   ensure_column("eterc_roles", "parent_role_id", "INTEGER");
   sqlite().exec(
     `CREATE INDEX IF NOT EXISTS "eterc_roles_parent_idx" ON "eterc_roles"("parent_role_id")`

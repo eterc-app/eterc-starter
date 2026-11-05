@@ -47,6 +47,7 @@ import type {
 } from "@/modules/cms/cms-types";
 import { CollectionDialog } from "./CollectionDialog";
 import { ContentSidebar } from "./ContentSidebar";
+import { FieldDrawer, type FieldFormState } from "./FieldDrawer";
 import {
   BusyButton,
   EmptyState,
@@ -60,37 +61,28 @@ interface Snapshot {
   fields?: CmsField[];
 }
 
-interface FieldForm {
-  name: string;
-  label: string;
-  type: CmsFieldType;
-  required: boolean;
-  unique: boolean;
-  hidden: boolean;
-  readonly: boolean;
-  choices: string;
-  defaultValue: string;
-}
-
-function emptyFieldForm(): FieldForm {
+function emptyFieldForm(): FieldFormState {
   return {
     name: "",
     label: "",
     type: "string",
+    interface: "input",
     required: false,
     unique: false,
     hidden: false,
     readonly: false,
     choices: "",
     defaultValue: "",
+    options: {},
   };
 }
 
-function formFromField(field: CmsField): FieldForm {
+function formFromField(field: CmsField): FieldFormState {
   return {
     name: field.name,
     label: field.label,
     type: field.type,
+    interface: field.interface,
     required: field.required,
     unique: field.unique,
     hidden: field.hidden,
@@ -100,6 +92,7 @@ function formFromField(field: CmsField): FieldForm {
       : "",
     defaultValue:
       field.options.default === undefined ? "" : String(field.options.default),
+    options: field.options ?? {},
   };
 }
 
@@ -131,7 +124,7 @@ export default function DataStudio({ data }: EtViewProps) {
   // Field modal states
   const [fieldOpen, setFieldOpen] = useState(false);
   const [editingField, setEditingField] = useState<CmsField | null>(null);
-  const [fieldForm, setFieldForm] = useState<FieldForm>(emptyFieldForm());
+  const [fieldForm, setFieldForm] = useState<FieldFormState>(emptyFieldForm());
   const [fieldSaving, setFieldSaving] = useState(false);
 
   // Bootstrap Dialog states
@@ -227,12 +220,19 @@ export default function DataStudio({ data }: EtViewProps) {
     if (!selected) return;
     setFieldSaving(true);
     try {
-      const options: Record<string, unknown> = {};
-      if (fieldForm.type === "select") {
-        options.choices = fieldForm.choices
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
+      const options: Record<string, unknown> = { ...(fieldForm.options ?? {}) };
+      if (
+        fieldForm.type === "select" ||
+        fieldForm.interface === "dropdown" ||
+        fieldForm.interface === "radio" ||
+        fieldForm.interface === "checkboxes"
+      ) {
+        if (fieldForm.choices) {
+          options.choices = fieldForm.choices
+            .split(",")
+            .map((c) => c.trim())
+            .filter(Boolean);
+        }
       }
       if (fieldForm.defaultValue) {
         options.default = fieldForm.defaultValue;
@@ -244,6 +244,7 @@ export default function DataStudio({ data }: EtViewProps) {
           name: editingField.name,
           label: fieldForm.label,
           type: fieldForm.type,
+          interface: fieldForm.interface,
           options,
           required: fieldForm.required,
           unique: fieldForm.unique,
@@ -257,6 +258,7 @@ export default function DataStudio({ data }: EtViewProps) {
           name: fieldForm.name,
           label: fieldForm.label,
           type: fieldForm.type,
+          interface: fieldForm.interface,
           options,
           required: fieldForm.required,
           unique: fieldForm.unique,
@@ -674,155 +676,18 @@ export default function DataStudio({ data }: EtViewProps) {
         }}
       />
 
-      {/* FIELD CREATE / EDIT DIALOG */}
-      <Dialog open={fieldOpen} onOpenChange={setFieldOpen}>
-        <DialogContent aria-describedby={undefined} className="rounded-xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-muted-foreground">
-              {editingField ? "Edit field" : "Add field"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Configure column properties, data type, and validation constraints.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-2">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-3">
-                <Label htmlFor="field-name" className="text-sm font-semibold">
-                  Column name
-                </Label>
-                <Input
-                  id="field-name"
-                  value={fieldForm.name}
-                  disabled={editingField !== null}
-                  placeholder="e.g. published_at"
-                  className="h-10 rounded-lg bg-card border-input font-mono text-sm"
-                  onChange={(event) =>
-                    setFieldForm((form) => ({ ...form, name: slugify(event.target.value) }))
-                  }
-                />
-              </div>
-              <div className="grid gap-3">
-                <Label htmlFor="field-label" className="text-sm font-semibold">
-                  Label
-                </Label>
-                <Input
-                  id="field-label"
-                  value={fieldForm.label}
-                  placeholder="Published at"
-                  className="h-10 rounded-lg bg-card border-input"
-                  onChange={(event) =>
-                    setFieldForm((form) => ({ ...form, label: event.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              <Label htmlFor="field-type" className="text-sm font-semibold">
-                Type
-              </Label>
-              <div className="relative">
-                <select
-                  id="field-type"
-                  value={fieldForm.type}
-                  onChange={(event) =>
-                    setFieldForm((form) => ({
-                      ...form,
-                      type: event.target.value as CmsFieldType,
-                    }))
-                  }
-                  className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none"
-                >
-                  {FIELD_TYPE_OPTIONS.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              </div>
-            </div>
-
-            {fieldForm.type === "select" ? (
-              <div className="grid gap-3">
-                <Label htmlFor="field-choices" className="text-sm font-semibold">
-                  Choices (comma separated)
-                </Label>
-                <Input
-                  id="field-choices"
-                  value={fieldForm.choices}
-                  placeholder="draft, published, archived"
-                  className="h-10 rounded-lg bg-card border-input"
-                  onChange={(event) =>
-                    setFieldForm((form) => ({ ...form, choices: event.target.value }))
-                  }
-                />
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap gap-4 pt-2 text-sm">
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <Checkbox
-                  checked={fieldForm.required}
-                  onCheckedChange={(checked) =>
-                    setFieldForm((form) => ({ ...form, required: checked === true }))
-                  }
-                />
-                Required
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <Checkbox
-                  checked={fieldForm.unique}
-                  onCheckedChange={(checked) =>
-                    setFieldForm((form) => ({ ...form, unique: checked === true }))
-                  }
-                />
-                Unique
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <Checkbox
-                  checked={fieldForm.hidden}
-                  onCheckedChange={(checked) =>
-                    setFieldForm((form) => ({ ...form, hidden: checked === true }))
-                  }
-                />
-                Hidden
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <Checkbox
-                  checked={fieldForm.readonly}
-                  onCheckedChange={(checked) =>
-                    setFieldForm((form) => ({ ...form, readonly: checked === true }))
-                  }
-                />
-                Read only
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-4 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-lg"
-              onClick={() => setFieldOpen(false)}
-            >
-              Cancel
-            </Button>
-            <BusyButton
-              type="button"
-              busy={fieldSaving}
-              disabled={!fieldForm.name}
-              className="rounded-lg"
-              onClick={saveField}
-            >
-              {editingField ? "Save field" : "Add field"}
-            </BusyButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* FIELD DRAWER (Directus Style) */}
+      <FieldDrawer
+        open={fieldOpen}
+        onOpenChange={setFieldOpen}
+        collectionName={selected?.label || selected?.name || ""}
+        collections={collections}
+        editingField={editingField}
+        form={fieldForm}
+        setForm={setFieldForm}
+        saving={fieldSaving}
+        onSave={saveField}
+      />
 
       {/* BOOTSTRAP DATABASE DIALOG */}
       <Dialog open={bootstrapOpen} onOpenChange={setBootstrapOpen}>

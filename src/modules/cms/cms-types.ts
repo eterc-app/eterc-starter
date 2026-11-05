@@ -21,13 +21,47 @@ export type CmsFieldType =
 
 export type CmsFieldInterface =
   | "input"
+  | "input_autocomplete_api"
+  | "block_editor"
+  | "code"
   | "textarea"
-  | "number"
+  | "wysiwyg"
+  | "markdown"
+  | "tags"
   | "toggle"
   | "datetime"
+  | "repeater"
+  | "map"
+  | "color"
+  | "dropdown"
+  | "icon"
+  | "checkboxes"
+  | "checkboxes_tree"
+  | "dropdown_multiselect"
+  | "radio"
+  | "file"
+  | "image"
+  | "files"
+  | "builder_m2a"
+  | "many_to_many"
+  | "one_to_many"
+  | "tree_view"
+  | "many_to_one"
+  | "translations"
+  | "header"
+  | "divider"
+  | "buttons"
+  | "notice"
+  | "accordion"
+  | "detail_group"
+  | "raw_group"
+  | "collection_item_dropdown"
+  | "collection_item_dropdown_multiple"
+  | "hash"
+  | "slider"
+  | "number"
   | "json"
   | "select"
-  | "image"
   | "relation";
 
 export interface CmsField {
@@ -52,6 +86,8 @@ export interface CmsCollection {
   name: string;
   label: string;
   icon: string;
+  color?: string;
+  display_template?: string;
   note: string;
   primary_key: string;
   singleton: boolean;
@@ -78,18 +114,30 @@ export interface CmsFieldInput {
   readonly?: boolean;
 }
 
-export type CmsPrimaryKeyType = "integer" | "uuid" | "string";
+export type CmsPrimaryKeyType = "integer" | "bigInteger" | "uuid" | "string";
+
+export interface CmsOptionalFieldsConfig {
+  status?: { enabled: boolean; name: string };
+  sort?: { enabled: boolean; name: string };
+  date_created?: { enabled: boolean; name: string };
+  user_created?: { enabled: boolean; name: string };
+  date_updated?: { enabled: boolean; name: string };
+  user_updated?: { enabled: boolean; name: string };
+}
 
 export interface CmsCollectionInput {
   name: string;
   label?: string;
   icon?: string;
+  color?: string;
+  display_template?: string;
   note?: string;
   singleton?: boolean;
   hidden?: boolean;
   primary_key?: string;
   primary_key_type?: CmsPrimaryKeyType;
   fields?: CmsFieldInput[];
+  optional_fields?: CmsOptionalFieldsConfig;
 }
 
 export type CmsPermissionAction = "read" | "create" | "update" | "delete";

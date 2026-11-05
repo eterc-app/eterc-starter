@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { CmsField, CmsFieldType } from "@/modules/cms/cms-types";
@@ -607,25 +608,45 @@ export function FieldInput({
         ? JSON.stringify(value, null, 2)
         : String(value);
 
-  if (field.type === "boolean") {
+  const iface = field.interface || (field.type === "boolean" ? "toggle" : field.type === "select" ? "dropdown" : "input");
+
+  if (iface === "divider" || iface === "header") {
+    const title = String(field.options.title || field.label || field.name || "");
     return (
-      <label className="flex h-11 items-center gap-3 rounded-xl border border-input bg-card px-4 text-sm cursor-pointer transition-colors hover:border-foreground/30">
-        <input
-          id={id}
-          type="checkbox"
-          className="size-5 accent-foreground rounded"
-          checked={value === true || value === 1 || value === "1"}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <span className="font-medium text-foreground">
-          {value === true || value === 1 || value === "1" ? "Enabled" : "Disabled"}
+      <div className="my-2 border-b border-border py-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
         </span>
-      </label>
+      </div>
     );
   }
 
-  if (field.type === "image") {
+  if (iface === "notice") {
+    return (
+      <div className="rounded-xl border border-border bg-surface-subtle p-3 text-xs text-muted-foreground">
+        {String(field.options.text || field.label || "")}
+      </div>
+    );
+  }
+
+  if (field.type === "boolean" || iface === "toggle") {
+    const isChecked = value === true || value === 1 || value === "1";
+    return (
+      <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4 transition-colors">
+        <span className="font-medium text-sm text-foreground">
+          {isChecked ? "Enabled" : "Disabled"}
+        </span>
+        <Switch
+          id={id}
+          checked={isChecked}
+          disabled={disabled}
+          onCheckedChange={(checked) => onChange(checked)}
+        />
+      </div>
+    );
+  }
+
+  if (field.type === "image" || iface === "image") {
     return (
       <ImageFieldInput
         field={field}
@@ -637,7 +658,64 @@ export function FieldInput({
     );
   }
 
-  if (field.type === "relation") {
+  if (iface === "hash") {
+    return (
+      <Input
+        id={id}
+        type="password"
+        value={stringValue}
+        disabled={disabled}
+        placeholder={String(field.options.placeholder ?? "••••••••")}
+        className="h-11 rounded-xl bg-card border-input font-mono"
+        onChange={(event) => onChange(coerce_input_value(field, event.target.value))}
+      />
+    );
+  }
+
+  if (iface === "color") {
+    return (
+      <div className="flex items-center gap-3">
+        <input
+          type="color"
+          id={id}
+          disabled={disabled}
+          value={stringValue.startsWith("#") ? stringValue : ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="size-11 rounded-xl border border-input cursor-pointer bg-card p-1"
+        />
+        <Input
+          value={stringValue}
+          disabled={disabled}
+          placeholder="color code or name"
+          className="h-11 rounded-xl bg-card border-input font-mono"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
+  }
+
+  if (iface === "slider") {
+    const numVal = Number(value) || 0;
+    return (
+      <div className="flex items-center gap-4">
+        <input
+          id={id}
+          type="range"
+          min={0}
+          max={100}
+          value={numVal}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="flex-1 accent-foreground"
+        />
+        <span className="font-mono text-sm tabular-nums text-muted-foreground w-12 text-right">
+          {numVal}
+        </span>
+      </div>
+    );
+  }
+
+  if (field.type === "relation" || iface === "many_to_one" || iface === "collection_item_dropdown") {
     return (
       <div className="relative">
         <div className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-card px-4 text-sm text-muted-foreground transition-colors hover:border-foreground/30 focus-within:border-ring">
@@ -659,21 +737,32 @@ export function FieldInput({
     );
   }
 
-  if (field.type === "text" || field.type === "json") {
+  if (
+    field.type === "text" ||
+    field.type === "json" ||
+    iface === "textarea" ||
+    iface === "wysiwyg" ||
+    iface === "markdown" ||
+    iface === "block_editor" ||
+    iface === "code"
+  ) {
     return (
       <Textarea
         id={id}
         value={stringValue}
         disabled={disabled}
-        rows={field.type === "json" ? 6 : 4}
+        rows={field.type === "json" || iface === "code" ? 6 : 4}
         placeholder={String(field.options.placeholder ?? "")}
-        className={cn("rounded-xl bg-card border-input", field.type === "json" && "font-mono text-xs")}
+        className={cn(
+          "rounded-xl bg-card border-input",
+          (field.type === "json" || iface === "code") && "font-mono text-xs"
+        )}
         onChange={(event) => onChange(coerce_input_value(field, event.target.value))}
       />
     );
   }
 
-  if (field.type === "select") {
+  if (field.type === "select" || iface === "dropdown" || iface === "radio") {
     const choices = Array.isArray(field.options.choices)
       ? field.options.choices.map(String)
       : [];

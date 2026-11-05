@@ -306,10 +306,16 @@ export default class Cms_admin extends Eterc {
       hidden: bool_value(payload.hidden),
       primary_key: text_value(payload.primary_key) || undefined,
       primary_key_type:
-        payload.primary_key_type === "uuid" || payload.primary_key_type === "string"
+        payload.primary_key_type === "uuid" ||
+        payload.primary_key_type === "string" ||
+        payload.primary_key_type === "bigInteger"
           ? payload.primary_key_type
           : "integer",
       fields: array_value<CmsFieldInput>(payload.fields),
+      optional_fields:
+        payload.optional_fields && typeof payload.optional_fields === "object"
+          ? (payload.optional_fields as any)
+          : undefined,
     });
   }
 
@@ -335,6 +341,12 @@ export default class Cms_admin extends Eterc {
   }
 
   data_field_create() {
+    this.principal();
+    const payload = body();
+    return add_field(text_value(payload.collection), payload as unknown as CmsFieldInput);
+  }
+
+  data_field_add() {
     this.principal();
     const payload = body();
     return add_field(text_value(payload.collection), payload as unknown as CmsFieldInput);
