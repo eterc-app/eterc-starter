@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -13,7 +13,9 @@ import {
   Pencil,
   Plus,
   Search,
+  RefreshCw,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageActions } from "@/components/app/PageActions";
@@ -83,6 +85,84 @@ function record_defaults(fields: CmsField[]): Record<string, unknown> {
     else values[field.name] = "";
   }
   return values;
+}
+
+function ExpandableSearch({
+  value,
+  onChange,
+  onSubmit,
+  onClear,
+  placeholder,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  onSubmit: (e?: React.FormEvent) => void;
+  onClear: () => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(Boolean(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+    }
+  }, [open]);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8 rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        title="Search"
+        aria-label="Search"
+        onClick={() => setOpen(true)}
+      >
+        <Search className="size-3.5" strokeWidth={1.75} />
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(e);
+      }}
+      className="relative flex items-center"
+    >
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            if (!value) {
+              setOpen(false);
+            } else {
+              onClear();
+            }
+          }
+        }}
+        placeholder={placeholder}
+        className="h-8 w-44 sm:w-60 pl-8 pr-7 rounded-full bg-surface-subtle border-border text-xs"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          if (value) onClear();
+          setOpen(false);
+        }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        aria-label="Close search"
+      >
+        <X className="size-3" />
+      </button>
+    </form>
+  );
 }
 
 export default function ContentManager({ data }: EtViewProps) {
@@ -290,17 +370,20 @@ export default function ContentManager({ data }: EtViewProps) {
     [editingRecord, fields, selected?.primary_key]
   );
 
+  const clearSearch = useCallback(() => {
+    setSearchInput("");
+    void refresh(selected?.name, 1, "");
+  }, [refresh, selected?.name]);
+
   const navbarMeta = useMemo(() => {
-    const searchForm = selected ? (
-      <form onSubmit={submitSearch} className="relative w-full">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder={`Search ${selected.label || selected.name}...`}
-          className="h-9 w-full pl-9 rounded-lg bg-surface-subtle border-border"
-        />
-      </form>
+    const searchControl = selected ? (
+      <ExpandableSearch
+        value={searchInput}
+        onChange={setSearchInput}
+        onSubmit={submitSearch}
+        onClear={clearSearch}
+        placeholder={`Search ${selected.label || selected.name}...`}
+      />
     ) : null;
 
     if (!selected) {
@@ -322,9 +405,9 @@ export default function ContentManager({ data }: EtViewProps) {
     return {
       section: "Content",
       title: selected.label || selected.name,
-      search: searchForm,
+      search: searchControl,
     };
-  }, [editingRecord, searchInput, selected, submitSearch, viewMode]);
+  }, [clearSearch, editingRecord, searchInput, selected, submitSearch, viewMode]);
 
   useSetNavbarMeta(navbarMeta);
 
@@ -395,6 +478,18 @@ export default function ContentManager({ data }: EtViewProps) {
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              title="Refresh"
+              aria-label="Refresh"
+              disabled={busy}
+              onClick={() => refresh(selected?.name, page, search)}
+            >
+              <RefreshCw className={cn("size-4", busy && "animate-spin")} />
+            </Button>
             {selected && editableFields.length > 0 ? (
               <Button
                 type="button"
@@ -413,12 +508,11 @@ export default function ContentManager({ data }: EtViewProps) {
       </PageActionsPortal>
 
       <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-        {/* Content Sidebar: NO collection creation allowed here */}
+        {/* Content Sidebar */}
         <ContentSidebar
           collections={collections}
           activeName={selected?.name}
           onSelect={selectCollection}
-          onRefresh={() => refresh(selected?.name, page, search)}
           busy={busy}
         />
 
@@ -458,7 +552,7 @@ export default function ContentManager({ data }: EtViewProps) {
                     <ArrowLeft className="size-4" />
                     Back to records
                   </Button>
-                  <h2 className="text-base font-semibold text-foreground">
+                  <h2 className="text-sm font-semibold text-muted-foreground">
                     {editingRecord
                       ? `Edit record #${String(editingRecord[selected.primary_key] ?? "")}`
                       : `New ${selected.label || selected.name} record`}
@@ -541,41 +635,23 @@ export default function ContentManager({ data }: EtViewProps) {
           ) : (
             /* TABLE WORKING AREA */
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base font-semibold text-foreground">
-                    {selected.label || selected.name}
-                  </h2>
+              {selectedRowIds.size > 0 ? (
+                <div className="flex items-center justify-between gap-3">
                   <Badge variant="outline" className="tabular-nums">
                     {total} {total === 1 ? "record" : "records"}
                   </Badge>
-                  {selectedRowIds.size > 0 ? (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="rounded-lg"
-                      onClick={deleteSelected}
-                    >
-                      <Trash2 className="size-3.5" />
-                      Delete ({selectedRowIds.size})
-                    </Button>
-                  ) : null}
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={deleteSelected}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete ({selectedRowIds.size})
+                  </Button>
                 </div>
-
-                {/* Mobile search bar fallback when navbar search is hidden */}
-                <div className="block sm:hidden w-full">
-                  <form onSubmit={submitSearch} className="relative w-full">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Search records..."
-                      className="h-9 w-full pl-9 rounded-lg"
-                    />
-                  </form>
-                </div>
-              </div>
+              ) : null}
 
               {/* Data Table */}
               <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -611,7 +687,7 @@ export default function ContentManager({ data }: EtViewProps) {
                             className="py-12 text-center"
                           >
                             <div className="flex flex-col items-center justify-center gap-2">
-                              <p className="text-sm font-semibold text-foreground">
+                              <p className="text-sm font-semibold text-muted-foreground">
                                 {search ? "No records match your search" : "No records yet"}
                               </p>
                               <p className="text-xs text-muted-foreground">
@@ -704,7 +780,7 @@ export default function ContentManager({ data }: EtViewProps) {
                                         </span>
                                       </div>
                                     ) : (
-                                      <span className="line-clamp-2 break-words">
+                                      <span className="line-clamp-2 break-words text-muted-foreground">
                                         {cell_value(value)}
                                       </span>
                                     )}

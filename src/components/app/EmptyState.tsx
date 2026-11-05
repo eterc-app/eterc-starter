@@ -24,7 +24,7 @@ export function EmptyState({
       <div className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
         {icon}
       </div>
-      <h2 className="mt-4 text-base font-semibold">{title}</h2>
+      <h2 className="mt-4 text-sm font-semibold text-muted-foreground">{title}</h2>
       {description ? (
         <p className="mt-1 max-w-md text-sm text-muted-foreground">
           {description}

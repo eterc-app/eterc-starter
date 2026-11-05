@@ -59,7 +59,7 @@ export default function Manage({ data }: EtViewProps) {
       ) : (
         <div className="space-y-4">
           <div className="flex flex-row items-center justify-between gap-3 px-1">
-            <h2 className="text-base font-semibold text-foreground">Administrators</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground">Administrators</h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               Records per page
               <PerPageSelect
@@ -68,7 +68,7 @@ export default function Manage({ data }: EtViewProps) {
               />
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-border">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -85,7 +85,7 @@ export default function Manage({ data }: EtViewProps) {
                     <TableCell className="px-4">
                       <a
                         href={`${base}administrators/show/${row.id}`}
-                        className="block font-semibold hover:underline"
+                        className="block font-semibold text-muted-foreground hover:underline"
                       >
                         {String(row.display_name ?? row.username ?? "")}
                       </a>

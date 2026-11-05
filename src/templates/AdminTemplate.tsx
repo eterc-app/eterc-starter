@@ -178,83 +178,84 @@ function TopHeader({
   const displayTitle = navbarMeta?.title ?? current;
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background px-4 sm:px-6 lg:px-8">
-      <button
-        type="button"
-        className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-        aria-label="Open navigation"
-        onClick={() => setMobileOpen(true)}
-      >
-        <Menu className="size-4" strokeWidth={1.75} />
-      </button>
-
-      {sidebarCollapsed ? (
+    <header className="flex h-14 sm:h-16 shrink-0 items-center border-b border-border bg-background px-4 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1560px] items-center gap-3">
         <button
           type="button"
-          className="hidden size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
-          aria-label="Show navigation"
-          aria-expanded={false}
-          onClick={() => setSidebarCollapsed(false)}
+          className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+          aria-label="Open navigation"
+          onClick={() => setMobileOpen(true)}
         >
-          <PanelLeft className="size-4" strokeWidth={1.75} />
+          <Menu className="size-4" strokeWidth={1.75} />
         </button>
-      ) : null}
 
-      {sidebarCollapsed ? (
-        <span className="hidden h-5 w-px bg-border md:block" />
-      ) : null}
-
-      <div className="flex min-w-0 items-center gap-3">
-        {navbarMeta?.onBack ? (
+        {sidebarCollapsed ? (
           <button
             type="button"
-            onClick={navbarMeta.onBack}
-            className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Go back"
-            title="Go back"
+            className="hidden size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
+            aria-label="Show navigation"
+            aria-expanded={false}
+            onClick={() => setSidebarCollapsed(false)}
           >
-            <ArrowLeft className="size-4" strokeWidth={2} />
+            <PanelLeft className="size-4" strokeWidth={1.75} />
           </button>
-        ) : (
-          <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
-            {navbarMeta?.icon ?? <LayoutDashboard className="size-4" strokeWidth={1.75} />}
-          </span>
-        )}
+        ) : null}
 
-        <div className="flex min-w-0 flex-col justify-center">
-          <span className="type-headline truncate text-xs font-medium text-muted-foreground leading-tight">
-            {displaySection}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="truncate text-base font-semibold tracking-tight text-foreground leading-tight">
-              {displayTitle}
+        {sidebarCollapsed ? (
+          <span className="hidden h-5 w-px bg-border md:block" />
+        ) : null}
+
+        <div className="flex min-w-0 items-center gap-3">
+          {navbarMeta?.onBack ? (
+            <button
+              type="button"
+              onClick={navbarMeta.onBack}
+              className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Go back"
+              title="Go back"
+            >
+              <ArrowLeft className="size-4" strokeWidth={2} />
+            </button>
+          ) : (
+            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
+              {navbarMeta?.icon ?? <LayoutDashboard className="size-4" strokeWidth={1.75} />}
             </span>
-            {navbarMeta?.badge}
+          )}
+
+          <div className="flex min-w-0 flex-col justify-center">
+            <span className="type-headline truncate text-xs font-medium text-muted-foreground leading-tight">
+              {displaySection}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold tracking-tight text-muted-foreground leading-tight">
+                {displayTitle}
+              </span>
+              {navbarMeta?.badge}
+            </div>
           </div>
         </div>
-      </div>
 
-      {navbarMeta?.search ? (
-        <div className="hidden min-w-0 flex-1 max-w-sm sm:block sm:ml-4">
-          {navbarMeta.search}
+        <div className="ml-auto flex items-center gap-2">
+          {navbarMeta?.search ? (
+            <div className="flex items-center">
+              {navbarMeta.search}
+            </div>
+          ) : null}
+          <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
+          <button
+            type="button"
+            className="grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Switch theme"
+            title="Switch theme"
+            onClick={() => setTheme(dark ? "light" : "dark")}
+          >
+            {dark ? (
+              <Sun className="size-4" strokeWidth={1.75} />
+            ) : (
+              <Moon className="size-4" strokeWidth={1.75} />
+            )}
+          </button>
         </div>
-      ) : null}
-
-      <div className="ml-auto flex items-center gap-2">
-        <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
-        <button
-          type="button"
-          className="grid size-10 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Switch theme"
-          title="Switch theme"
-          onClick={() => setTheme(dark ? "light" : "dark")}
-        >
-          {dark ? (
-            <Sun className="size-4" strokeWidth={1.75} />
-          ) : (
-            <Moon className="size-4" strokeWidth={1.75} />
-          )}
-        </button>
       </div>
     </header>
   );

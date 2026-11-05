@@ -424,13 +424,11 @@ export default function DataStudio({ data }: EtViewProps) {
       </PageActionsPortal>
 
       <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-        {/* Data Studio Sidebar: creates collections */}
+        {/* Data Studio Sidebar */}
         <ContentSidebar
           collections={collections}
           activeName={selected?.name}
           onSelect={selectCollection}
-          onCreate={openCreateCollection}
-          onRefresh={refreshSchema}
           busy={busy}
         />
 
@@ -503,7 +501,7 @@ export default function DataStudio({ data }: EtViewProps) {
                             ) : null}
                           </div>
                         </div>
-                        <CardTitle className="text-base font-semibold mt-3">
+                        <CardTitle className="text-sm font-semibold text-muted-foreground mt-3">
                           {col.label || col.name}
                         </CardTitle>
                         <p className="font-mono text-xs text-muted-foreground truncate">
@@ -534,76 +532,20 @@ export default function DataStudio({ data }: EtViewProps) {
                       </CardContent>
                     </Card>
                   ))}
-
-                  {/* Create New Collection Card */}
-                  <button
-                    type="button"
-                    onClick={openCreateCollection}
-                    className="flex min-h-[170px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-surface-subtle/30 p-6 text-center transition-colors hover:border-foreground/30 hover:bg-surface-subtle"
-                  >
-                    <span className="grid size-9 place-items-center rounded-lg border border-border bg-card text-foreground">
-                      <Plus className="size-4" />
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      New collection
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Define a new table and schema
-                    </span>
-                  </button>
                 </div>
               )}
             </div>
           ) : (
             /* COLLECTION SCHEMA STUDIO */
             <div className="space-y-6">
-              {/* Collection Header Banner */}
-              <div className="rounded-xl border border-border bg-card p-5">
-                <div className="flex items-start gap-3.5">
-                  <span className="grid size-10 place-items-center rounded-xl border border-border bg-surface-subtle text-foreground mt-0.5">
-                    <Table2 className="size-5" />
-                  </span>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold text-foreground">
-                        {selected.label || selected.name}
-                      </h2>
-                      <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                        {selected.name}
-                      </span>
-                      <Badge variant="outline" className="text-xs font-mono">
-                        PK: {selected.primary_key || "id"}
-                      </Badge>
-                      {selected.singleton ? (
-                        <Badge variant="outline">Singleton</Badge>
-                      ) : null}
-                      {selected.hidden ? (
-                        <Badge variant="outline">Hidden</Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                      {selected.note || "No description set for this collection."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Schema Fields Table */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Schema Fields
-                  </h3>
-                  <Badge variant="outline" className="text-xs tabular-nums">
-                    {fields.length}
-                  </Badge>
-                </div>
+              <div className="space-y-0">
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-background">
                   <div className="app-scrollbar overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="border-b border-border bg-surface-subtle/80 text-xs font-semibold text-muted-foreground">
+                        <tr className="border-b border-border bg-sidebar text-xs font-semibold text-muted-foreground">
                           <th className="px-4 py-3">Column Name</th>
                           <th className="px-4 py-3">Label</th>
                           <th className="px-4 py-3">Type</th>
@@ -611,7 +553,7 @@ export default function DataStudio({ data }: EtViewProps) {
                           <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-border bg-background">
                         {fields.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
@@ -624,43 +566,43 @@ export default function DataStudio({ data }: EtViewProps) {
                             return (
                               <tr
                                 key={field.name}
-                                className="border-b border-border transition-colors last:border-b-0 hover:bg-surface-subtle/60"
+                                className="border-b border-border transition-colors hover:bg-surface-subtle/60"
                               >
-                                <td className="px-4 py-3 font-mono text-xs font-medium text-foreground">
+                                <td className="px-4 py-3 font-mono text-xs font-medium text-muted-foreground">
                                   {field.name}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-foreground">
+                                <td className="px-4 py-3 text-sm text-muted-foreground">
                                   {field.label || field.name}
                                 </td>
                                 <td className="px-4 py-3">
-                                  <Badge variant="secondary" className="font-mono text-xs">
+                                  <Badge variant="secondary" className="font-mono text-xs text-muted-foreground">
                                     {field.type}
                                   </Badge>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     {isPk ? (
-                                      <Badge variant="default" className="text-xs">
+                                      <Badge variant="outline" className="text-xs text-muted-foreground">
                                         Primary key
                                       </Badge>
                                     ) : null}
                                     {field.required ? (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs text-muted-foreground">
                                         Required
                                       </Badge>
                                     ) : null}
                                     {field.unique ? (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs text-muted-foreground">
                                         Unique
                                       </Badge>
                                     ) : null}
                                     {field.readonly ? (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs text-muted-foreground">
                                         Read only
                                       </Badge>
                                     ) : null}
                                     {field.hidden ? (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs text-muted-foreground">
                                         Hidden
                                       </Badge>
                                     ) : null}
@@ -736,7 +678,7 @@ export default function DataStudio({ data }: EtViewProps) {
       <Dialog open={fieldOpen} onOpenChange={setFieldOpen}>
         <DialogContent aria-describedby={undefined} className="rounded-xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle className="text-sm font-semibold text-muted-foreground">
               {editingField ? "Edit field" : "Add field"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -886,7 +828,7 @@ export default function DataStudio({ data }: EtViewProps) {
       <Dialog open={bootstrapOpen} onOpenChange={setBootstrapOpen}>
         <DialogContent aria-describedby={undefined} className="rounded-xl sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle className="text-sm font-semibold text-muted-foreground">
               Bootstrap Database
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">

@@ -8,9 +8,9 @@ import {
   Database,
   GitBranch,
   KeyRound,
-  PanelLeft,
   Pencil,
   Plus,
+  Shield,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
@@ -618,7 +618,7 @@ export default function AccessStudio({ data }: EtViewProps) {
           title="Access sections"
           onClick={() => setSectionDrawerOpen(true)}
         >
-          <PanelLeft className="size-4" />
+          <Shield className="size-4" />
         </Button>
         <PageActions
           items={[
@@ -682,19 +682,14 @@ export default function AccessStudio({ data }: EtViewProps) {
         <div className="grid gap-6">
           <div className="space-y-6">
             <div className="flex flex-row items-start justify-between gap-3 border-b border-border pb-4">
-              <div className="min-w-0">
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              <div className="min-w-0 space-y-0.5">
+                <h2 className="text-sm font-semibold text-muted-foreground">
                   {selectedRole ? selectedRole.name : "Select a role"}
                 </h2>
                 {selectedRole?.description ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {selectedRole.description}
                   </p>
-                ) : null}
-                {selectedRole ? (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {roleBadges(selectedRole)}
-                  </div>
                 ) : null}
               </div>
               {selectedRole ? (
@@ -750,34 +745,6 @@ export default function AccessStudio({ data }: EtViewProps) {
                   </Notice>
                 ) : (
                   <div className="space-y-4">
-                    <dl
-                      aria-label="Role summary"
-                      className="divide-y divide-border overflow-hidden rounded-lg border border-border"
-                    >
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">
-                          Parent role
-                        </dt>
-                        <dd className="text-right text-sm font-medium">
-                          {parentRole?.name ?? "None"}
-                        </dd>
-                      </div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">
-                          Direct policies
-                        </dt>
-                        <dd className="text-right text-sm font-medium tabular-nums">
-                          {selectedPermissions.length}
-                        </dd>
-                      </div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
-                        <dt className="text-sm text-muted-foreground">Users</dt>
-                        <dd className="text-right text-sm font-medium tabular-nums">
-                          {selectedRole.user_count}
-                        </dd>
-                      </div>
-                    </dl>
-
                     {parentRole ? (
                       <Notice icon={GitBranch}>
                         Actions without a direct policy inherit from{" "}
@@ -919,7 +886,7 @@ export default function AccessStudio({ data }: EtViewProps) {
       {section === "users" ? (
         <div className="space-y-4">
           <div className="border-b border-border pb-3">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">Users and roles</h2>
+            <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">Users and roles</h2>
           </div>
           <div>
             {overview.users.length === 0 ? (
@@ -1006,8 +973,8 @@ export default function AccessStudio({ data }: EtViewProps) {
         <div className="space-y-4">
           <div className="flex flex-row items-start justify-between gap-3 border-b border-border pb-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">API keys</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">API keys</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Keys inherit a role. Bind a user to evaluate{" "}
                 <span className="font-mono text-xs">$user</span> rules.
               </p>
@@ -1138,7 +1105,7 @@ export default function AccessStudio({ data }: EtViewProps) {
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>{roleForm.id ? "Edit role" : "New role"}</DialogTitle>
+            <DialogTitle className="text-sm font-semibold text-muted-foreground">{roleForm.id ? "Edit role" : "New role"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-3">
@@ -1281,7 +1248,7 @@ export default function AccessStudio({ data }: EtViewProps) {
       <Dialog open={keyOpen} onOpenChange={setKeyOpen}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Create API key</DialogTitle>
+            <DialogTitle className="text-sm font-semibold text-muted-foreground">Create API key</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-3">
@@ -1391,7 +1358,7 @@ export default function AccessStudio({ data }: EtViewProps) {
       >
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>API key created</DialogTitle>
+            <DialogTitle className="text-sm font-semibold text-muted-foreground">API key created</DialogTitle>
           </DialogHeader>
           {createdKey ? (
             <div className="space-y-3">
