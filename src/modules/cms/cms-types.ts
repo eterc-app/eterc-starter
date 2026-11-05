@@ -78,12 +78,17 @@ export interface CmsFieldInput {
   readonly?: boolean;
 }
 
+export type CmsPrimaryKeyType = "integer" | "uuid" | "string";
+
 export interface CmsCollectionInput {
   name: string;
   label?: string;
   icon?: string;
   note?: string;
   singleton?: boolean;
+  hidden?: boolean;
+  primary_key?: string;
+  primary_key_type?: CmsPrimaryKeyType;
   fields?: CmsFieldInput[];
 }
 

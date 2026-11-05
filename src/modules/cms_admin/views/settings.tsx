@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowUpRight,
   Box,
   Check,
   CheckCircle2,
@@ -29,6 +31,7 @@ import {
   useSetNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -170,6 +173,10 @@ export default function ProjectSettings({ data }: EtViewProps) {
     setUtilityBusy(true);
     try {
       await cms_call("settings_refresh");
+      const state = await cms_call<{
+        runtime: CmsRuntimeConfig;
+      }>("settings_state");
+      setRuntime(state.runtime);
       toast.success("Schema refreshed.");
     } catch (error) {
       toast.error(
@@ -197,6 +204,11 @@ export default function ProjectSettings({ data }: EtViewProps) {
               variant: "default",
               disabled: saving,
               onSelect: save,
+            },
+            {
+              label: "Open Data Studio",
+              icon: <Database className="size-4" />,
+              href: "/admin/data",
             },
           ]}
         />
@@ -341,6 +353,47 @@ export default function ProjectSettings({ data }: EtViewProps) {
         </div>
       </div>
 
+      {/* DATABASE & SCHEMA MAINTENANCE */}
+      <section className="border-t border-border pt-6 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Database & Schema</h3>
+            <p className="text-xs text-muted-foreground">
+              Collections and schemas are created and configured in Data Studio.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="rounded-lg">
+              <Link href="/admin/data">
+                <Database className="size-4" />
+                Open Data Studio
+                <ArrowUpRight className="size-3.5" />
+              </Link>
+            </Button>
+            <BusyButton
+              type="button"
+              variant="outline"
+              busy={utilityBusy}
+              onClick={refreshSchema}
+              className="rounded-lg"
+            >
+              <RefreshCw className="size-4" />
+              Refresh schema
+            </BusyButton>
+            <BusyButton
+              type="button"
+              variant="outline"
+              busy={utilityBusy}
+              onClick={createStarter}
+              className="rounded-lg"
+            >
+              <FilePlus2 className="size-4" />
+              Use starter Posts
+            </BusyButton>
+          </div>
+        </div>
+      </section>
+
       {/* RUNTIME SECTION */}
       <div className="pt-6 border-t border-border space-y-4">
         <div>
@@ -404,38 +457,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
               <span className="font-semibold text-foreground">Keep the Member role</span>
             </label>
           </div>
-        </div>
-      </div>
-
-      {/* UTILITIES SECTION */}
-      <div className="pt-6 border-t border-border space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Utilities</h3>
-          <p className="text-xs text-muted-foreground">
-            Maintenance tasks for the current schema.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <BusyButton
-            type="button"
-            variant="outline"
-            busy={utilityBusy}
-            onClick={createStarter}
-            className="rounded-lg"
-          >
-            <FilePlus2 className="size-4" />
-            Create starter Posts collection
-          </BusyButton>
-          <BusyButton
-            type="button"
-            variant="outline"
-            busy={utilityBusy}
-            onClick={refreshSchema}
-            className="rounded-lg"
-          >
-            <RefreshCw className="size-4" />
-            Refresh schema
-          </BusyButton>
         </div>
       </div>
 

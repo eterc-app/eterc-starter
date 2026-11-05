@@ -81,6 +81,8 @@ stack; do not switch to a runtime font CDN.
 | Card title | `CardTitle` | 16 / 22 | 600 |
 | Note | `type-note` | 13 / 18 italic | 500 |
 | Eyebrow | `type-headline` | 12 / 16 | 600 |
+| Sidebar text | `.sidebar-text` | 12.6 / 18 | 500 / 600 |
+| Sidebar meta | `.sidebar-meta` | 11.7 / 16 | 500 |
 | Micro / badge | `text-xs` | 13 / 18 | 600 |
 | Mono value | `font-mono text-xs` | 13 / 18 | 500 |
 | Hero number | `text-lg font-medium` | 18 / 24 | 500 |
@@ -101,8 +103,9 @@ Rules:
 
 | Element | Value |
 | --- | --- |
-| Sidebar | 280 px (`w-[280px]`) |
-| Content collection rail | 248 px (`lg:grid-cols-[248px_minmax(0,1fr)]`) |
+| Sidebar | 200 px (`w-(--sidebar-width)`, `--sidebar-width: 12.5rem`) |
+| Collapsed sidebar rail | 56 px (`w-14`) |
+| Content collection rail | 200 px (`lg:grid-cols-[200px_minmax(0,1fr)]`) |
 | Top bar | 64 px (`h-16`) |
 | Content padding | 32 px on large screens, 16–24 px below |
 | Maximum content width | 1560 px (`max-w-[1560px]`) |
@@ -121,10 +124,14 @@ Rules:
 
 Shell composition:
 
-- `AdminTemplate` is the authenticated shell. It has a 280 px white sidebar, a 64 px white top
+- `AdminTemplate` is the authenticated shell. It has a 200 px white sidebar, a 64 px white top
   bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
-- The sidebar has 12 px horizontal padding, 40 px navigation rows, and 12 px sentence-case
-  section labels. The active row uses `--muted` and semibold text.
+- When the sidebar is collapsed it becomes a 56 px icon rail that keeps the logo, navigation
+  icons, and account menu visible. Icon-only rows use `title` and `aria-label` for their label.
+- The sidebar has 8 px horizontal padding, 36 px navigation rows, and 12 px sentence-case
+  section labels. Navigation labels use the `.sidebar-text` utility (12.6 px) and inherit the
+  row's muted or foreground color and 500/600 weight. Secondary sidebar text uses
+  `.sidebar-meta`: 11.7 px, muted. The active row uses `--muted` and semibold text.
 - The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, the current
   page's action icons, and the theme toggle. It does not repeat the page title or carry status
   badges.
@@ -135,7 +142,7 @@ Shell composition:
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
-- Content overview and Data Studio share a 248 px collection rail inside the page. It is
+- Content overview and Data Studio share a 200 px collection rail inside the page. It is
   navigation, not a second work column; on narrow screens it collapses to a `Collections`
   disclosure above the work surface.
 - Auth and setup pages are full-screen canvas surfaces. The active login is a split screen;
@@ -210,7 +217,7 @@ Shell composition:
   move the secondary column into a `SideDrawer` or `Sheet`. The drawer is opened from an
   icon-only trigger with an accessible name.
 - The content module is the documented exception: Content overview and Data Studio share a
-  persistent 248 px collection rail on `lg` and wider. It is navigation, not a second work
+  persistent 200 px collection rail on `lg` and wider. It is navigation, not a second work
   column; the records table remains the only work surface. Below `lg`, the rail collapses to a
   `Collections` disclosure above the page content.
 - The access page role list and media details remain drawers, not permanent second columns.

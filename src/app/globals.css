@@ -12,7 +12,7 @@
   /* Surfaces */
   --background: #ededed;
   --foreground: #000000;
-  --card: #ffffff;
+  --card: #f5f5f5;
   --card-foreground: #000000;
   --popover: #ffffff;
   --popover-foreground: #000000;
@@ -54,7 +54,8 @@
   --field-height-lg: 3rem;
   --field-padding: 0.75rem;
   --header-height: 4rem;
-  --sidebar-width: 17.5rem;
+  --sidebar-width: 12.5rem;
+  --sidebar-font-size: 0.7875rem;
   --content-padding: 2rem;
 
   /* Sidebar */
@@ -188,6 +189,7 @@
 }
 
 @layer base {
+
   *,
   ::before,
   ::after {
@@ -320,6 +322,18 @@
     font-weight: 500;
     line-height: 18px;
   }
+
+  .sidebar-text {
+    font-size: var(--sidebar-font-size);
+    line-height: 18px;
+  }
+
+  .sidebar-meta {
+    color: var(--muted-foreground);
+    font-size: 11.7px;
+    font-weight: 500;
+    line-height: 16px;
+  }
 }
 
 [data-sonner-toast] {
@@ -346,10 +360,10 @@
 }
 
 @layer components {
-/* Eterc Icons - v0.1.0 (Beta) */
+  /* Eterc Icons - v0.1.0 (Beta) */
 
-/* Base icon class */
-.et {
+  /* Base icon class */
+  .et {
     display: inline-block;
     width: 1em;
     height: 1em;
@@ -365,133 +379,133 @@
     backface-visibility: hidden;
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
-}
+  }
 
-/* Individual icon styles */
-.et-envelope {
+  /* Individual icon styles */
+  .et-envelope {
     -webkit-mask-image: url('/eterc-icons/envelope.svg');
     mask-image: url('/eterc-icons/envelope.svg');
     transform: translateY(0.12em);
-}
+  }
 
-.et-envelope-open {
+  .et-envelope-open {
     -webkit-mask-image: url('/eterc-icons/envelope-open.svg');
     mask-image: url('/eterc-icons/envelope-open.svg');
     transform: translateY(0.06em);
-}
+  }
 
-.et-home {
+  .et-home {
     -webkit-mask-image: url('/eterc-icons/home.svg');
     mask-image: url('/eterc-icons/home.svg');
     transform: translateY(0.03em) scale(1.2);
-}
+  }
 
-.et-list {
+  .et-list {
     -webkit-mask-image: url('/eterc-icons/list.svg');
     mask-image: url('/eterc-icons/list.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.1em;
     margin-right: -0.1em;
-}
+  }
 
-.et-padlock {
+  .et-padlock {
     -webkit-mask-image: url('/eterc-icons/padlock.svg');
     mask-image: url('/eterc-icons/padlock.svg');
     margin-left: 0.1em;
     margin-right: -0.1em;
-}
+  }
 
-.et-shopping-basket {
+  .et-shopping-basket {
     -webkit-mask-image: url('/eterc-icons/shopping-basket.svg');
     mask-image: url('/eterc-icons/shopping-basket.svg');
     transform: translateY(0.10em) scale(1.2);
-}
+  }
 
-.et-shopping-cart {
+  .et-shopping-cart {
     -webkit-mask-image: url('/eterc-icons/shopping-cart.svg');
     mask-image: url('/eterc-icons/shopping-cart.svg');
     transform: translateY(0.133em) scale(1.2);
-}
+  }
 
-.et-sign-in {
+  .et-sign-in {
     -webkit-mask-image: url('/eterc-icons/sign-in.svg');
     mask-image: url('/eterc-icons/sign-in.svg');
     transform: translateY(0.10em) scale(1.2);
-}
+  }
 
-.et-sign-out {
+  .et-sign-out {
     -webkit-mask-image: url('/eterc-icons/sign-out.svg');
     mask-image: url('/eterc-icons/sign-out.svg');
     transform: translateY(-0.03em) scale(1.2);
     margin-left: 0.25em;
     margin-right: -0.25em;
-}
+  }
 
-.et-star {
+  .et-star {
     -webkit-mask-image: url('/eterc-icons/star.svg');
     mask-image: url('/eterc-icons/star.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.25em;
     margin-right: -0.25em;
-}
+  }
 
-.et-star-half {
+  .et-star-half {
     -webkit-mask-image: url('/eterc-icons/star-half.svg');
     mask-image: url('/eterc-icons/star-half.svg');
     margin-left: 0.25em;
     margin-right: -0.25em;
-}
+  }
 
-.et-user {
+  .et-user {
     -webkit-mask-image: url('/eterc-icons/user.svg');
     mask-image: url('/eterc-icons/user.svg');
-}
+  }
 
-.et-trash {
+  .et-trash {
     -webkit-mask-image: url('/eterc-icons/trash.svg');
     mask-image: url('/eterc-icons/trash.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 
-.et-user-circle {
+  .et-user-circle {
     -webkit-mask-image: url('/eterc-icons/user-circle.svg');
     mask-image: url('/eterc-icons/user-circle.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 
-.et-users {
+  .et-users {
     -webkit-mask-image: url('/eterc-icons/users.svg');
     mask-image: url('/eterc-icons/users.svg');
     transform: translateY(0.06em) scale(1.33);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 
-.et-pencil {
+  .et-pencil {
     -webkit-mask-image: url('/eterc-icons/pencil.svg');
     mask-image: url('/eterc-icons/pencil.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 
-.et-eye {
+  .et-eye {
     -webkit-mask-image: url('/eterc-icons/eye.svg');
     mask-image: url('/eterc-icons/eye.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 
-.et-search {
+  .et-search {
     -webkit-mask-image: url('/eterc-icons/search.svg');
     mask-image: url('/eterc-icons/search.svg');
     transform: translateY(0.06em) scale(1.2);
     margin-left: 0.15em;
     margin-right: -0.15em;
-}
+  }
 }

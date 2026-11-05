@@ -156,12 +156,15 @@ for (const token of [
   "--destructive: #a51d2d;",
   "--radius-surface: 0.625rem;",
   "--field-height: 2.5rem;",
-  "--sidebar-width: 17.5rem;",
+  "--sidebar-width: 12.5rem;",
+  "--sidebar-font-size: 0.7875rem;",
   "--header-height: 4rem;",
   ".app-page",
   ".type-headline",
   ".type-title",
   ".type-note",
+  ".sidebar-text",
+  ".sidebar-meta",
 ]) {
   if (!globals.includes(token)) {
     problems.push(`missing required design token/utility: ${token}`);
@@ -170,12 +173,15 @@ for (const token of [
 
 const shell = read("src/templates/AdminTemplate.tsx");
 for (const token of [
-  "w-[280px]",
+  "w-(--sidebar-width)",
+  "w-14",
   "h-16",
   "max-w-[1560px]",
   "bg-sidebar",
   "bg-overlay",
   "type-headline",
+  "sidebar-text",
+  "sidebar-meta",
   "PageActionsProvider",
   "PageActionsSlot",
 ]) {
@@ -233,7 +239,7 @@ for (const relative of [
   const page = read(relative);
   for (const token of [
     "ContentSidebar",
-    "lg:grid-cols-[248px_minmax(0,1fr)]",
+    "lg:grid-cols-[200px_minmax(0,1fr)]",
   ]) {
     if (!page.includes(token)) {
       problems.push(`content page missing collection-rail contract: ${relative} (${token})`);

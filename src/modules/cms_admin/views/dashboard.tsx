@@ -6,6 +6,7 @@ import {
   Braces,
   Database,
   KeyRound,
+  Layers,
   Plus,
   ShieldCheck,
   Table2,
@@ -35,6 +36,11 @@ export default function CmsDashboard({ data }: EtViewProps) {
               variant: "default",
             },
             {
+              label: "Open Content",
+              icon: <Layers className="size-4" />,
+              href: "/admin/content",
+            },
+            {
               label: "API reference",
               icon: <Braces className="size-4" />,
               href: "/api-reference",
@@ -59,17 +65,17 @@ export default function CmsDashboard({ data }: EtViewProps) {
         />
       </PageActionsPortal>
 
-      <div className="grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
         <ContentSidebar
           collections={collections}
-          createHref="/admin/data?new=1"
+          createHref="/admin/data"
         />
 
         <section className="min-w-0 space-y-4">
           <div>
             <h2 className="text-base font-semibold">Collections</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Choose a collection to manage its records.
+              Choose a collection to manage its records in Content.
             </p>
           </div>
 
@@ -77,11 +83,11 @@ export default function CmsDashboard({ data }: EtViewProps) {
             <EmptyState
               icon={<Table2 className="size-5" strokeWidth={1.75} />}
               title="No collections yet"
-              description="Create your first collection to start modelling content."
+              description="Create your first collection in Data Studio to start modelling content."
               action={
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
-                    <Link href="/admin/data?new=1">
+                    <Link href="/admin/data">
                       <Plus className="size-4" />
                       Create a collection
                     </Link>
@@ -94,15 +100,10 @@ export default function CmsDashboard({ data }: EtViewProps) {
             />
           ) : (
             <div className="space-y-2">
-              {/* INSTRUCTION FOR AI AGENTS & DEVELOPERS:
-                  Keep this collections section strictly as a SINGLE-COLUMN LIST (space-y-2).
-                  DO NOT revert to multi-column grids (never 2 or 3 columns).
-                  DO NOT use white card backgrounds or card elevation (keep bg-transparent, border-border, no shadow).
-              */}
               {collections.map((collection) => (
                 <Link
                   key={collection.name}
-                  href={`/admin/data?collection=${encodeURIComponent(collection.name)}`}
+                  href={`/admin/content?collection=${encodeURIComponent(collection.name)}`}
                   className="group block"
                 >
                   <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-transparent px-4 py-3 transition-colors hover:border-foreground/30 hover:bg-surface-subtle">

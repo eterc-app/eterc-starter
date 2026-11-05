@@ -1,5 +1,6 @@
 import { admin_login_path } from "@/engine/config";
 import { Eterc } from "@/engine/controller";
+import { csrf_token } from "@/engine/csrf";
 import { set_flashdata } from "@/engine/Flashdata";
 import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
@@ -48,7 +49,6 @@ import {
   scan_database_schema,
 } from "@/modules/cms/cms-schema";
 import type {
-  CmsCollectionInput,
   CmsFieldInput,
   CmsPermissionInput,
   CmsPrincipal,
@@ -228,18 +228,37 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  async data() {
+  async content() {
     const principal = this.principal();
     const snapshot = this.data_snapshot(
       query_string("collection"),
       number_value(query_string("page"), 1),
       query_string("search") ?? ""
     );
+    return this.admin_view("content", "Content", {
+      principal,
+      apiBase: `${this.origin()}/api/v1/cms`,
+      ...snapshot,
+      csrf_token: csrf_token(),
+      media_upload_url: "/api/media/upload",
+      media_api_root: "/api/xhr/media",
+    });
+  }
+
+  async data() {
+    const principal = this.principal();
+    const snapshot = this.data_snapshot(
+      query_string("collection"),
+      1,
+      ""
+    );
     return this.admin_view("data", "Data Studio", {
       principal,
       apiBase: `${this.origin()}/api/v1/cms`,
-      create: query_string("new") === "1",
       ...snapshot,
+      csrf_token: csrf_token(),
+      media_upload_url: "/api/media/upload",
+      media_api_root: "/api/xhr/media",
     });
   }
 
@@ -256,6 +275,7 @@ export default class Cms_admin extends Eterc {
     const principal = this.principal();
     return this.admin_view("settings", "Project settings", {
       principal,
+      collections: list_collections({ include_hidden: true }),
       runtime: get_public_runtime_config(),
     });
   }
@@ -283,8 +303,14 @@ export default class Cms_admin extends Eterc {
       icon: text_value(payload.icon) || undefined,
       note: text_value(payload.note) || undefined,
       singleton: bool_value(payload.singleton),
+      hidden: bool_value(payload.hidden),
+      primary_key: text_value(payload.primary_key) || undefined,
+      primary_key_type:
+        payload.primary_key_type === "uuid" || payload.primary_key_type === "string"
+          ? payload.primary_key_type
+          : "integer",
       fields: array_value<CmsFieldInput>(payload.fields),
-    } as CmsCollectionInput);
+    });
   }
 
   data_collection_update() {
@@ -519,7 +545,10 @@ export default class Cms_admin extends Eterc {
 
   settings_state() {
     this.principal();
-    return { runtime: get_public_runtime_config() };
+    return {
+      runtime: get_public_runtime_config(),
+      collections: list_collections({ include_hidden: true }),
+    };
   }
 
   settings_save() {

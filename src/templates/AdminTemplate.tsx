@@ -25,6 +25,7 @@ import {
   Database,
   Image as ImageIcon,
   KeyRound,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -46,7 +47,7 @@ interface NavItem {
 }
 
 const WORKSPACE_NAV: NavItem[] = [
-  { href: "/admin", label: "Content overview", icon: LayoutDashboard },
+  { href: "/admin/content", label: "Content", icon: Layers },
   { href: "/admin/data", label: "Data Studio", icon: Database },
   { href: "/admin/media", label: "Media library", icon: ImageIcon },
   { href: "/admin/access", label: "Access & API", icon: KeyRound },
@@ -76,12 +77,14 @@ const RESOURCE_NAV = [
 ];
 
 function is_active(pathname: string, href: string): boolean {
+  if (href === "/admin") return pathname === "/admin";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const BREADCRUMB_LABELS: Record<string, string> = {
   "API Reference": "API reference",
   "Database Tables": "Database tables",
+  "Content": "Content",
   "Data Studio": "Data Studio",
   "Media Library": "Media library",
   "Project Settings": "Project settings",
@@ -98,14 +101,21 @@ function breadcrumb_items(
 ): [string, string] {
   if (is_active(pathname, "/admin")) {
     const labels: Record<string, string> = {
-      "/admin": "Content overview",
+      "/admin": "Overview",
+      "/admin/content": "Content",
       "/admin/data": "Data Studio",
       "/admin/media": "Media library",
       "/admin/access": "Access & API",
       "/admin/profile": "Profile & API keys",
       "/admin/settings": "Project settings",
     };
-    return ["Content", labels[pathname] ?? pageTitle];
+    if (pathname.startsWith("/admin/content")) {
+      return ["Content", pageTitle && pageTitle !== "Content" ? pageTitle : "Records"];
+    }
+    if (pathname.startsWith("/admin/data")) {
+      return ["Data Studio", pageTitle && pageTitle !== "Data Studio" ? pageTitle : "Schema"];
+    }
+    return ["Workspace", labels[pathname] ?? pageTitle];
   }
 
   if (is_active(pathname, "/administrators")) {
@@ -198,6 +208,12 @@ function TopHeader({
         </div>
       </div>
 
+      {navbarMeta?.search ? (
+        <div className="hidden min-w-0 flex-1 max-w-sm sm:block sm:ml-4">
+          {navbarMeta.search}
+        </div>
+      ) : null}
+
       <div className="ml-auto flex items-center gap-2">
         <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
         <button
@@ -251,9 +267,123 @@ export function AdminTemplate({
 
   const close_mobile = () => setMobileOpen(false);
 
+  const render_collapsed_sidebar = () => (
+    <div className="flex h-full flex-col items-center">
+      <div className="flex h-16 shrink-0 items-center justify-center">
+        <NextImage
+          src="/company-logo.png"
+          alt={WEBSITE_NAME}
+          width={36}
+          height={36}
+          className="size-9 rounded-lg border border-border object-cover"
+          priority
+        />
+      </div>
+
+      <nav
+        className="app-scrollbar flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-3 pt-2"
+        aria-label="Main navigation"
+      >
+        {nav_items.map((item) => {
+          const Icon = item.icon;
+          const active =
+            item.href === "/admin"
+              ? current_path === "/admin"
+              : is_active(current_path, item.href);
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              title={item.label}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "grid size-10 shrink-0 place-items-center rounded-lg transition-colors",
+                active
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4" strokeWidth={1.75} />
+            </a>
+          );
+        })}
+
+        <span className="my-2 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
+
+        {RESOURCE_NAV.map((item) => {
+          const Icon = item.icon;
+          const active = !item.external && is_active(current_path, item.href);
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noreferrer" : undefined}
+              title={item.label}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "grid size-10 shrink-0 place-items-center rounded-lg transition-colors",
+                active
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4" strokeWidth={1.75} />
+            </a>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-border p-2">
+        <div className="relative">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            aria-label="Account menu"
+            title="Account"
+            onClick={(event) => {
+              event.stopPropagation();
+              setAccountOpen((open) => !open);
+            }}
+            className="grid size-10 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <UserRound className="size-4" strokeWidth={1.75} />
+          </button>
+
+          {accountOpen ? (
+            <div
+              role="menu"
+              className="absolute bottom-[calc(100%+0.5rem)] left-0 z-50 w-52 overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_16px_40px_-20px_rgb(0_0_0/0.35)]"
+            >
+              <a
+                role="menuitem"
+                href="/admin/profile"
+                className="flex h-9 items-center gap-2 rounded-md px-3 text-sm hover:bg-muted"
+              >
+                <UserRound className="size-4" strokeWidth={1.75} />
+                Profile & API keys
+              </a>
+              <a
+                role="menuitem"
+                href="/administrators/logout"
+                className="flex h-9 items-center gap-2 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="size-4" strokeWidth={1.75} />
+                Log out
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
   const render_sidebar = (mobile: boolean) => (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 px-4 py-4">
+      <div className="flex items-center gap-2 px-2.5 py-2.5">
         <NextImage
           src="/company-logo.png"
           alt=""
@@ -263,11 +393,11 @@ export function AdminTemplate({
           priority
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold uppercase tracking-wider leading-5">
+          <span className="sidebar-text block truncate font-semibold uppercase tracking-wider">
             {WEBSITE_NAME}
           </span>
-          <span className="block truncate text-xs leading-4 text-muted-foreground">
-            ercent.com backend
+          <span className="sidebar-meta block truncate">
+            eterc.app
           </span>
         </span>
         {mobile ? (
@@ -293,11 +423,11 @@ export function AdminTemplate({
       </div>
 
       <nav
-        className="app-scrollbar flex-1 overflow-y-auto px-3 pb-4"
+        className="app-scrollbar flex-1 overflow-y-auto px-2 pb-3"
         aria-label={mobile ? "Mobile navigation" : "Main navigation"}
       >
-        <p className="type-headline px-3 pb-2 pt-4">Workspace</p>
-        <div className="space-y-1">
+        <p className="type-headline px-2 pb-1.5 pt-3">Workspace</p>
+        <div className="space-y-0.5">
           {nav_items.map((item) => {
             const Icon = item.icon;
             const active =
@@ -311,7 +441,7 @@ export function AdminTemplate({
                 onClick={mobile ? close_mobile : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
+                  "flex h-9 items-center gap-2 rounded-lg px-2 transition-colors",
                   active
                     ? "bg-muted font-semibold text-foreground"
                     : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -324,14 +454,14 @@ export function AdminTemplate({
                   )}
                   strokeWidth={1.75}
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="sidebar-text truncate">{item.label}</span>
               </a>
             );
           })}
         </div>
 
-        <p className="type-headline px-3 pb-2 pt-6">Resources</p>
-        <div className="space-y-1">
+        <p className="type-headline px-2 pb-1.5 pt-4">Resources</p>
+        <div className="space-y-0.5">
           {RESOURCE_NAV.map((item) => {
             const Icon = item.icon;
             const active = !item.external && is_active(current_path, item.href);
@@ -343,7 +473,7 @@ export function AdminTemplate({
                 rel={item.external ? "noreferrer" : undefined}
                 onClick={mobile ? close_mobile : undefined}
                 className={cn(
-                  "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
+                  "flex h-9 items-center gap-2 rounded-lg px-2 transition-colors",
                   active
                     ? "bg-muted font-semibold text-foreground"
                     : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -356,7 +486,7 @@ export function AdminTemplate({
                   )}
                   strokeWidth={1.75}
                 />
-                <span className="flex-1 truncate">{item.label}</span>
+                <span className="sidebar-text flex-1 truncate">{item.label}</span>
                 {item.external ? (
                   <ArrowUpRight
                     className="size-3.5 text-muted-foreground"
@@ -369,7 +499,7 @@ export function AdminTemplate({
         </div>
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-2">
         <div className="relative">
           <button
             type="button"
@@ -379,21 +509,21 @@ export function AdminTemplate({
               event.stopPropagation();
               setAccountOpen((open) => !open);
             }}
-            className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
+            className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-muted"
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
               <UserRound className="size-4" strokeWidth={1.75} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold leading-5">
+              <span className="sidebar-text block truncate font-semibold">
                 Administrator
               </span>
-              <span className="block truncate text-xs leading-4 text-muted-foreground">
+              <span className="sidebar-meta block truncate">
                 Eterc account
               </span>
             </span>
             <ChevronsUpDown
-              className="size-4 shrink-0 text-muted-foreground"
+              className="size-3.5 shrink-0 text-muted-foreground"
               strokeWidth={1.75}
             />
           </button>
@@ -436,11 +566,15 @@ export function AdminTemplate({
         onClick={() => setAccountOpen(false)}
       >
         <div className="flex min-h-screen">
-          {!sidebarCollapsed ? (
-            <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-border bg-sidebar md:flex">
+          {sidebarCollapsed ? (
+            <aside className="sticky top-0 hidden h-screen w-14 shrink-0 border-r border-border bg-sidebar md:flex">
+              {render_collapsed_sidebar()}
+            </aside>
+          ) : (
+            <aside className="sticky top-0 hidden h-screen w-(--sidebar-width) shrink-0 border-r border-border bg-sidebar md:flex">
               {render_sidebar(false)}
             </aside>
-          ) : null}
+          )}
 
           <div className="flex min-w-0 flex-1 flex-col">
             <TopHeader
@@ -463,7 +597,7 @@ export function AdminTemplate({
           <div className="fixed inset-0 z-50 md:hidden" onClick={close_mobile}>
             <div className="absolute inset-0 bg-overlay" />
             <aside
-              className="relative flex h-full w-[280px] flex-col border-r border-border bg-sidebar shadow-[0_24px_64px_-24px_rgb(0_0_0/0.45)]"
+              className="relative flex h-full w-(--sidebar-width) flex-col border-r border-border bg-sidebar shadow-[0_24px_64px_-24px_rgb(0_0_0/0.45)]"
               onClick={(event) => event.stopPropagation()}
             >
               {render_sidebar(true)}

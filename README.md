@@ -114,9 +114,12 @@ Built-in endpoints:
 
 Open `/admin` after signing in.
 
-- **Data Studio** creates collections (SQLite tables), fields and records. Every
-  collection immediately gets REST endpoints under
-  `/api/v1/cms/items/{collection}`.
+- **Settings → Data model** creates collections (SQLite tables), including the
+  primary-key name and integer, UUID, or manual-string key type. Every collection
+  immediately gets REST endpoints under `/api/v1/cms/items/{collection}`.
+- **Data Studio** manages collection fields, records, and collection-level
+  settings. Image fields accept an upload, an external URL, or an existing image
+  from the media library.
 - **Media library** uploads images, edits titles and alt text, and copies stable
   URLs for use in content fields.
 - **Access** creates roles with `read`, `create`, `update` and `delete`
