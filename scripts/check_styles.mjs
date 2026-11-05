@@ -156,7 +156,7 @@ for (const token of [
   "--destructive: #a51d2d;",
   "--radius-surface: 0.625rem;",
   "--field-height: 2.5rem;",
-  "--sidebar-width: 12.5rem;",
+  "--sidebar-width: 11.25rem;",
   "--sidebar-font-size: 0.7875rem;",
   "--header-height: 4rem;",
   ".app-page",

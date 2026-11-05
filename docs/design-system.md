@@ -103,7 +103,7 @@ Rules:
 
 | Element | Value |
 | --- | --- |
-| Sidebar | 200 px (`w-(--sidebar-width)`, `--sidebar-width: 12.5rem`) |
+| Sidebar | 180 px (`w-(--sidebar-width)`, `--sidebar-width: 11.25rem`) |
 | Collapsed sidebar rail | 56 px (`w-14`) |
 | Content collection rail | 200 px (`lg:grid-cols-[200px_minmax(0,1fr)]`) |
 | Top bar | 64 px (`h-16`) |
@@ -124,14 +124,16 @@ Rules:
 
 Shell composition:
 
-- `AdminTemplate` is the authenticated shell. It has a 200 px white sidebar, a 64 px white top
+- `AdminTemplate` is the authenticated shell. It has a 180 px white sidebar, a 64 px white top
   bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
 - When the sidebar is collapsed it becomes a 56 px icon rail that keeps the logo, navigation
   icons, and account menu visible. Icon-only rows use `title` and `aria-label` for their label.
 - The sidebar has 8 px horizontal padding, 36 px navigation rows, and 12 px sentence-case
-  section labels. Navigation labels use the `.sidebar-text` utility (12.6 px) and inherit the
-  row's muted or foreground color and 500/600 weight. Secondary sidebar text uses
-  `.sidebar-meta`: 11.7 px, muted. The active row uses `--muted` and semibold text.
+  section labels. The content wrapper is `w-full` so rows and the active background fill the
+  rail up to that padding instead of leaving an unused strip on the right. Navigation labels
+  use the `.sidebar-text` utility (12.6 px) and inherit the row's muted or foreground color and
+  500/600 weight. Secondary sidebar text uses `.sidebar-meta`: 11.7 px, muted. The active row
+  uses `--muted` and semibold text.
 - The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, the current
   page's action icons, and the theme toggle. It does not repeat the page title or carry status
   badges.

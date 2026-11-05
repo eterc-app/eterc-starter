@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import {
   ETERC_DOCS_URL,
   ETERC_GITHUB_URL,
@@ -19,75 +19,108 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   ArrowUpRight,
-  BookOpen,
-  Braces,
+  BadgeCheck,
+  Bookmark,
+  Bot,
+  Bug,
+  ChevronRight,
   ChevronsUpDown,
   Database,
   Image as ImageIcon,
-  KeyRound,
+  Languages,
   Layers,
   LayoutDashboard,
   LogOut,
   Menu,
   Moon,
-  Package,
+  Palette,
   PanelLeft,
+  PanelRight,
+  Rabbit,
   Settings2,
+  Shapes,
+  Shield,
+  SlidersHorizontal,
+  SquareTerminal,
+  Store,
   Sun,
   UserRound,
   Users,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
-interface NavItem {
+interface SidebarItem {
   href: string;
   label: string;
+  ariaLabel?: string;
   icon: LucideIcon;
+  external?: boolean;
 }
 
-const WORKSPACE_NAV: NavItem[] = [
-  { href: "/admin/content", label: "Content", icon: Layers },
-  { href: "/admin/data", label: "Data Studio", icon: Database },
-  { href: "/admin/media", label: "Media library", icon: ImageIcon },
-  { href: "/admin/access", label: "Access & API", icon: KeyRound },
-  { href: "/admin/settings", label: "Project settings", icon: Settings2 },
-  { href: "/administrators/manage", label: "Manage users", icon: Users },
-];
+interface SidebarGroup {
+  id: string;
+  items: SidebarItem[];
+}
 
-const RESOURCE_NAV = [
+const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
-    href: "/api-reference",
-    label: "API reference",
-    icon: Braces,
-    external: false,
+    id: "data-content",
+    items: [
+      { href: "/admin/content", label: "Content", icon: Layers },
+      { href: "/admin/data", label: "Data Model", ariaLabel: "Data Studio", icon: Database },
+      { href: "/admin/media", label: "Media library", icon: ImageIcon },
+      { href: "#", label: "Flows", icon: Zap },
+    ],
   },
   {
-    href: ETERC_DOCS_URL,
-    label: "Documentation",
-    icon: BookOpen,
-    external: true,
+    id: "roles-access",
+    items: [
+      { href: "/administrators/manage", label: "User Roles", ariaLabel: "Manage users", icon: Users },
+      { href: "/admin/access", label: "Access Policies", ariaLabel: "Access & API", icon: Shield },
+    ],
   },
   {
-    href: ETERC_GITHUB_URL,
-    label: "Source",
-    icon: Package,
-    external: true,
+    id: "settings-customization",
+    items: [
+      { href: "/admin/settings", label: "Settings", ariaLabel: "Project settings", icon: SlidersHorizontal },
+      { href: "#", label: "Appearance", icon: Palette },
+      { href: "#", label: "Bookmarks", icon: Bookmark },
+      { href: "#", label: "Translations", icon: Languages },
+      { href: "#", label: "AI", icon: Bot },
+    ],
+  },
+  {
+    id: "ecosystem",
+    items: [
+      { href: "#", label: "Marketplace", icon: Store },
+      { href: "#", label: "Extensions", icon: Shapes },
+    ],
+  },
+  {
+    id: "system-support",
+    items: [
+      { href: "/api-reference", label: "System Logs", ariaLabel: "API reference", icon: SquareTerminal },
+      { href: `${ETERC_GITHUB_URL}/issues`, label: "Report Bug", icon: Bug, external: true },
+      { href: `${ETERC_GITHUB_URL}/discussions`, label: "Request Feature", icon: BadgeCheck, external: true },
+    ],
   },
 ];
 
 function is_active(pathname: string, href: string): boolean {
+  if (href === "#") return false;
   if (href === "/admin") return pathname === "/admin";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const BREADCRUMB_LABELS: Record<string, string> = {
-  "API Reference": "API reference",
+  "API Reference": "System Logs",
   "Database Tables": "Database tables",
   "Content": "Content",
-  "Data Studio": "Data Studio",
+  "Data Studio": "Data Model",
   "Media Library": "Media library",
-  "Project Settings": "Project settings",
+  "Project Settings": "Settings",
   "SQL Console": "SQL console",
 };
 
@@ -103,23 +136,23 @@ function breadcrumb_items(
     const labels: Record<string, string> = {
       "/admin": "Overview",
       "/admin/content": "Content",
-      "/admin/data": "Data Studio",
+      "/admin/data": "Data Model",
       "/admin/media": "Media library",
-      "/admin/access": "Access & API",
+      "/admin/access": "Access Policies",
       "/admin/profile": "Profile & API keys",
-      "/admin/settings": "Project settings",
+      "/admin/settings": "Settings",
     };
     if (pathname.startsWith("/admin/content")) {
       return ["Content", pageTitle && pageTitle !== "Content" ? pageTitle : "Records"];
     }
     if (pathname.startsWith("/admin/data")) {
-      return ["Data Studio", pageTitle && pageTitle !== "Data Studio" ? pageTitle : "Schema"];
+      return ["Data Model", pageTitle && pageTitle !== "Data Studio" ? pageTitle : "Schema"];
     }
     return ["Workspace", labels[pathname] ?? pageTitle];
   }
 
   if (is_active(pathname, "/administrators")) {
-    return ["Content", "Administrators"];
+    return ["Access", "User Roles"];
   }
 
   return [
@@ -196,7 +229,7 @@ function TopHeader({
         )}
 
         <div className="flex min-w-0 flex-col justify-center">
-          <span className="truncate text-xs font-medium text-muted-foreground leading-tight">
+          <span className="type-headline truncate text-xs font-medium text-muted-foreground leading-tight">
             {displaySection}
           </span>
           <div className="flex items-center gap-2">
@@ -250,7 +283,6 @@ export function AdminTemplate({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  const nav_items = WORKSPACE_NAV;
   const [section, current] = breadcrumb_items(current_path, pageTitle);
   const dark = resolvedTheme === "dark";
 
@@ -268,142 +300,93 @@ export function AdminTemplate({
   const close_mobile = () => setMobileOpen(false);
 
   const render_collapsed_sidebar = () => (
-    <div className="flex h-full flex-col items-center">
-      <div className="flex h-16 shrink-0 items-center justify-center">
-        <NextImage
-          src="/company-logo.png"
-          alt={WEBSITE_NAME}
-          width={36}
-          height={36}
-          className="size-9 rounded-lg border border-border object-cover"
-          priority
-        />
-      </div>
+    <div className="flex h-full w-full flex-col items-center bg-sidebar py-3">
+      <button
+        type="button"
+        className="grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted"
+        aria-label="Show navigation"
+        title="Show navigation"
+        onClick={() => setSidebarCollapsed(false)}
+      >
+        <PanelLeft className="size-4" strokeWidth={1.75} />
+      </button>
 
       <nav
-        className="app-scrollbar flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-3 pt-2"
-        aria-label="Main navigation"
+        className="app-scrollbar flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1 py-2"
+        aria-label="Collapsed navigation"
       >
-        {nav_items.map((item) => {
-          const Icon = item.icon;
-          const active =
-            item.href === "/admin"
-              ? current_path === "/admin"
-              : is_active(current_path, item.href);
-          return (
-            <a
-              key={item.href}
-              href={item.href}
-              title={item.label}
-              aria-label={item.label}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "grid size-10 shrink-0 place-items-center rounded-lg transition-colors",
-                active
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-            </a>
-          );
-        })}
+        {SIDEBAR_GROUPS.map((group, groupIdx) => (
+          <div key={group.id} className="flex flex-col items-center">
+            {groupIdx > 0 ? (
+              <span className="my-2 h-px w-6 bg-border" aria-hidden="true" />
+            ) : null}
+            <div className="flex flex-col items-center gap-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = is_active(current_path, item.href);
 
-        <span className="my-2 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
-
-        {RESOURCE_NAV.map((item) => {
-          const Icon = item.icon;
-          const active = !item.external && is_active(current_path, item.href);
-          return (
-            <a
-              key={item.href}
-              href={item.href}
-              target={item.external ? "_blank" : undefined}
-              rel={item.external ? "noreferrer" : undefined}
-              title={item.label}
-              aria-label={item.label}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "grid size-10 shrink-0 place-items-center rounded-lg transition-colors",
-                active
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4" strokeWidth={1.75} />
-            </a>
-          );
-        })}
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    title={item.label}
+                    aria-label={item.ariaLabel ?? item.label}
+                    aria-current={active ? "page" : undefined}
+                    onClick={(e) => {
+                      if (item.label === "Appearance") {
+                        e.preventDefault();
+                        setTheme(dark ? "light" : "dark");
+                      } else if (item.href === "#") {
+                        e.preventDefault();
+                        toast.info(`${item.label} will be available in the next Eterc release.`);
+                      }
+                    }}
+                    className={cn(
+                      "grid size-10 place-items-center rounded-lg transition-colors",
+                      active
+                        ? "bg-muted text-foreground"
+                        : "text-foreground hover:bg-muted/70",
+                    )}
+                  >
+                    <Icon className="size-5" strokeWidth={1.75} />
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-border p-2">
-        <div className="relative">
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={accountOpen}
-            aria-label="Account menu"
-            title="Account"
-            onClick={(event) => {
-              event.stopPropagation();
-              setAccountOpen((open) => !open);
-            }}
-            className="grid size-10 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <UserRound className="size-4" strokeWidth={1.75} />
-          </button>
-
-          {accountOpen ? (
-            <div
-              role="menu"
-              className="absolute bottom-[calc(100%+0.5rem)] left-0 z-50 w-52 overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_16px_40px_-20px_rgb(0_0_0/0.35)]"
-            >
-              <a
-                role="menuitem"
-                href="/admin/profile"
-                className="flex h-9 items-center gap-2 rounded-md px-3 text-sm hover:bg-muted"
-              >
-                <UserRound className="size-4" strokeWidth={1.75} />
-                Profile & API keys
-              </a>
-              <a
-                role="menuitem"
-                href="/administrators/logout"
-                className="flex h-9 items-center gap-2 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="size-4" strokeWidth={1.75} />
-                Log out
-              </a>
-            </div>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          aria-label="Account"
+          title="Account"
+          onClick={() => setAccountOpen((open) => !open)}
+          className="grid size-10 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <UserRound className="size-4" strokeWidth={1.75} />
+        </button>
       </div>
     </div>
   );
 
   const render_sidebar = (mobile: boolean) => (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-2.5 py-2.5">
-        <NextImage
-          src="/company-logo.png"
-          alt=""
-          width={36}
-          height={36}
-          className="size-9 shrink-0 rounded-lg border border-border object-cover"
-          priority
-        />
-        <span className="min-w-0 flex-1">
-          <span className="sidebar-text block truncate font-semibold uppercase tracking-wider">
-            {WEBSITE_NAME}
+    <div className="flex h-full w-full flex-col bg-sidebar text-foreground">
+      {/* Top Header - exact matching from attached image */}
+      <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <span className="sidebar-brand block truncate text-xs font-semibold uppercase tracking-wider text-foreground">
+            ETERC APP
           </span>
-          <span className="sidebar-meta block truncate">
-            eterc.app
+          <span className="sidebar-subtitle block truncate text-xs text-muted-foreground">
+            ercent.com backend
           </span>
-        </span>
+        </div>
         {mobile ? (
           <button
             type="button"
-            className="grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="grid size-8 place-items-center rounded-md text-foreground transition-colors hover:bg-muted"
             aria-label="Close navigation"
             onClick={close_mobile}
           >
@@ -412,93 +395,81 @@ export function AdminTemplate({
         ) : (
           <button
             type="button"
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="grid size-8 place-items-center rounded-md text-foreground transition-colors hover:bg-muted"
             aria-label="Hide navigation"
             title="Hide navigation"
             onClick={() => setSidebarCollapsed(true)}
           >
-            <PanelLeft className="size-4" strokeWidth={1.75} />
+            <PanelRight className="size-4" strokeWidth={1.75} />
           </button>
         )}
       </div>
 
+      {/* Nav Groups separated by Dividers - exact matching from attached image */}
       <nav
-        className="app-scrollbar flex-1 overflow-y-auto px-2 pb-3"
+        className="app-scrollbar flex-1 overflow-y-auto px-2.5 py-2.5"
         aria-label={mobile ? "Mobile navigation" : "Main navigation"}
       >
-        <p className="type-headline px-2 pb-1.5 pt-3">Workspace</p>
-        <div className="space-y-0.5">
-          {nav_items.map((item) => {
-            const Icon = item.icon;
-            const active =
-              item.href === "/admin"
-                ? current_path === "/admin"
-                : is_active(current_path, item.href);
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={mobile ? close_mobile : undefined}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-lg px-2 transition-colors",
-                  active
-                    ? "bg-muted font-semibold text-foreground"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "size-4 shrink-0",
-                    active ? "text-foreground" : "text-muted-foreground",
-                  )}
-                  strokeWidth={1.75}
-                />
-                <span className="sidebar-text truncate">{item.label}</span>
-              </a>
-            );
-          })}
-        </div>
+        {SIDEBAR_GROUPS.map((group, groupIdx) => (
+          <div key={group.id}>
+            {groupIdx > 0 ? (
+              <div className="my-2 mx-1 h-px bg-border" />
+            ) : null}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = is_active(current_path, item.href);
 
-        <p className="type-headline px-2 pb-1.5 pt-4">Resources</p>
-        <div className="space-y-0.5">
-          {RESOURCE_NAV.map((item) => {
-            const Icon = item.icon;
-            const active = !item.external && is_active(current_path, item.href);
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target={item.external ? "_blank" : undefined}
-                rel={item.external ? "noreferrer" : undefined}
-                onClick={mobile ? close_mobile : undefined}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-lg px-2 transition-colors",
-                  active
-                    ? "bg-muted font-semibold text-foreground"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "size-4 shrink-0",
-                    active ? "text-foreground" : "text-muted-foreground",
-                  )}
-                  strokeWidth={1.75}
-                />
-                <span className="sidebar-text flex-1 truncate">{item.label}</span>
-                {item.external ? (
-                  <ArrowUpRight
-                    className="size-3.5 text-muted-foreground"
-                    strokeWidth={1.75}
-                  />
-                ) : null}
-              </a>
-            );
-          })}
-        </div>
+                const handleClick = (e: React.MouseEvent) => {
+                  if (item.label === "Appearance") {
+                    e.preventDefault();
+                    setTheme(dark ? "light" : "dark");
+                  } else if (item.href === "#") {
+                    e.preventDefault();
+                    toast.info(`${item.label} will be available in the next Eterc release.`);
+                  } else if (mobile) {
+                    close_mobile();
+                  }
+                };
+
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target={item.external ? "_blank" : undefined}
+                    rel={item.external ? "noreferrer" : undefined}
+                    aria-label={item.ariaLabel ?? item.label}
+                    aria-current={active ? "page" : undefined}
+                    onClick={handleClick}
+                    className={cn(
+                      "flex h-10 items-center gap-3 rounded-lg px-3 transition-colors",
+                      active
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-foreground hover:bg-muted/70",
+                    )}
+                  >
+                    <Icon
+                      className="size-5 shrink-0 text-foreground"
+                      strokeWidth={1.75}
+                    />
+                    <span className="sidebar-text flex-1 truncate font-medium text-foreground">
+                      {item.label}
+                    </span>
+                    {item.external ? (
+                      <ArrowUpRight
+                        className="size-3.5 text-muted-foreground"
+                        strokeWidth={1.75}
+                      />
+                    ) : null}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
+      {/* Bottom Footer Area */}
       <div className="border-t border-border p-2">
         <div className="relative">
           <button
@@ -514,16 +485,16 @@ export function AdminTemplate({
             <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground">
               <UserRound className="size-4" strokeWidth={1.75} />
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="sidebar-text block truncate font-semibold">
+            <span className="min-w-0 flex-1 space-y-0.5">
+              <span className="sidebar-meta block truncate font-medium text-foreground leading-tight">
                 Administrator
               </span>
-              <span className="sidebar-meta block truncate">
+              <span className="sidebar-meta block truncate text-xs text-muted-foreground leading-tight">
                 Eterc account
               </span>
             </span>
             <ChevronsUpDown
-              className="size-3.5 shrink-0 text-muted-foreground"
+              className="-mr-1 size-3.5 shrink-0 text-muted-foreground"
               strokeWidth={1.75}
             />
           </button>
@@ -553,6 +524,12 @@ export function AdminTemplate({
               </a>
             </div>
           ) : null}
+        </div>
+
+        {/* Exact match Directus badge from attached image */}
+        <div className="mt-1 flex items-center gap-2.5 px-2 py-1.5 text-xs text-muted-foreground">
+          <Rabbit className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+          <span className="font-medium">Directus 11.15.4</span>
         </div>
       </div>
     </div>
