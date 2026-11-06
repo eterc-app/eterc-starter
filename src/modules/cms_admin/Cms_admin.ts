@@ -31,12 +31,14 @@ import {
 } from "@/modules/cms/cms-runtime";
 import {
   add_field,
+  reorder_fields,
   create_collection,
   create_record,
   create_starter_collection,
   delete_collection,
   delete_field,
   delete_record,
+  get_collection,
   list_collections,
   list_records,
   update_collection,
@@ -50,6 +52,7 @@ import {
 } from "@/modules/cms/cms-schema";
 import type {
   CmsFieldInput,
+  CmsOptionalFieldsConfig,
   CmsPermissionInput,
   CmsPrincipal,
 } from "@/modules/cms/cms-types";
@@ -301,6 +304,8 @@ export default class Cms_admin extends Eterc {
       name: text_value(payload.name),
       label: text_value(payload.label) || undefined,
       icon: text_value(payload.icon) || undefined,
+      color: text_value(payload.color) || undefined,
+      display_template: text_value(payload.display_template) || undefined,
       note: text_value(payload.note) || undefined,
       singleton: bool_value(payload.singleton),
       hidden: bool_value(payload.hidden),
@@ -314,7 +319,7 @@ export default class Cms_admin extends Eterc {
       fields: array_value<CmsFieldInput>(payload.fields),
       optional_fields:
         payload.optional_fields && typeof payload.optional_fields === "object"
-          ? (payload.optional_fields as any)
+          ? (payload.optional_fields as CmsOptionalFieldsConfig)
           : undefined,
     });
   }
@@ -326,6 +331,11 @@ export default class Cms_admin extends Eterc {
     return update_collection(name, {
       label: typeof payload.label === "string" ? payload.label : undefined,
       icon: typeof payload.icon === "string" ? payload.icon : undefined,
+      color: typeof payload.color === "string" ? payload.color : undefined,
+      display_template:
+        typeof payload.display_template === "string"
+          ? payload.display_template
+          : undefined,
       note: typeof payload.note === "string" ? payload.note : undefined,
       singleton:
         typeof payload.singleton === "boolean" ? payload.singleton : undefined,
@@ -355,29 +365,82 @@ export default class Cms_admin extends Eterc {
   data_field_update() {
     this.principal();
     const payload = body();
-    return update_field(text_value(payload.collection), text_value(payload.field), {
-      label: typeof payload.label === "string" ? payload.label : undefined,
-      type: typeof payload.type === "string" ? (payload.type as CmsFieldInput["type"]) : undefined,
-      interface:
-        typeof payload.interface === "string"
-          ? (payload.interface as CmsFieldInput["interface"])
-          : undefined,
-      options:
-        payload.options && typeof payload.options === "object" && !Array.isArray(payload.options)
-          ? (payload.options as Record<string, unknown>)
-          : undefined,
-      required: typeof payload.required === "boolean" ? payload.required : undefined,
-      unique: typeof payload.unique === "boolean" ? payload.unique : undefined,
-      hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,
-      readonly: typeof payload.readonly === "boolean" ? payload.readonly : undefined,
-    });
+    return update_field(
+      text_value(payload.collection),
+      text_value(payload.field) || text_value(payload.name),
+      {
+        label: typeof payload.label === "string" ? payload.label : undefined,
+        type: typeof payload.type === "string" ? (payload.type as CmsFieldInput["type"]) : undefined,
+        interface:
+          typeof payload.interface === "string"
+            ? (payload.interface as CmsFieldInput["interface"])
+            : undefined,
+        options:
+          payload.options && typeof payload.options === "object" && !Array.isArray(payload.options)
+            ? (payload.options as Record<string, unknown>)
+            : undefined,
+        required: typeof payload.required === "boolean" ? payload.required : undefined,
+        unique: typeof payload.unique === "boolean" ? payload.unique : undefined,
+        hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,
+        readonly: typeof payload.readonly === "boolean" ? payload.readonly : undefined,
+        group:
+          payload.group === null || typeof payload.group === "string"
+            ? (payload.group as string | null)
+            : undefined,
+      }
+    );
+  }
+
+  data_fields_reorder() {
+    this.principal();
+    const payload = body();
+    return reorder_fields(
+      text_value(payload.collection),
+      array_value<string>(payload.fields).map(String)
+    );
   }
 
   data_field_delete() {
     this.principal();
     const payload = body();
-    delete_field(text_value(payload.collection), text_value(payload.field));
+    delete_field(
+      text_value(payload.collection),
+      text_value(payload.field) || text_value(payload.name)
+    );
     return { deleted: true };
+  }
+
+  /**
+   * Return a small page of items for relation, dropdown and builder pickers.
+   * The admin UI uses this instead of exposing the private CMS API to the browser.
+   */
+  data_relation_options() {
+    this.principal();
+    const payload = body();
+    const collectionName = text_value(payload.collection);
+    if (!collectionName) {
+      throw new EtHttpError(400, "Choose a related collection first.");
+    }
+    const collection = get_collection(collectionName);
+    const limit = Math.min(50, Math.max(1, number_value(payload.limit, 25)));
+    const result = list_records(collectionName, {
+      page: 1,
+      limit,
+      search: text_value(payload.search) || undefined,
+      sort: collection.primary_key,
+      direction: "asc",
+    });
+    return {
+      collection: {
+        name: collection.name,
+        label: collection.label,
+        primary_key: collection.primary_key,
+        display_template: collection.display_template,
+        fields: collection.fields.filter((field) => field.type !== "alias"),
+      },
+      rows: result.rows,
+      total: result.total,
+    };
   }
 
   data_record_create() {

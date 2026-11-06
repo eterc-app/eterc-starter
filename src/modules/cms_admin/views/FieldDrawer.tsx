@@ -4,26 +4,24 @@ import { useMemo, useState } from "react";
 import {
   AlignLeft,
   ArrowLeft,
-  Binary,
   Box,
+  Braces,
   Calendar,
-  Check,
   ChevronDown,
   Code,
-  Eye,
+  File,
   FileCode,
   FileText,
   FolderTree,
   Hash,
   Heading,
   Image as ImageIcon,
-  Key,
+  Languages,
   Layers,
   Link,
   List,
   ListFilter,
   MapPin,
-  Maximize2,
   Minus,
   MousePointer,
   Palette,
@@ -35,7 +33,6 @@ import {
   Tag,
   ToggleLeft,
   Type,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogTitle } from "@/components/ui/dialog";
@@ -49,22 +46,126 @@ import {
   SheetHeader,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import type { CmsCollectionWithFields, CmsField, CmsFieldInterface, CmsFieldType } from "@/modules/cms/cms-types";
+import type {
+  CmsCollectionWithFields,
+  CmsField,
+  CmsFieldInterface,
+  CmsFieldType,
+} from "@/modules/cms/cms-types";
+import {
+  CMS_INTERFACE_GROUPS,
+  CMS_INTERFACES,
+  cms_interface_definition,
+  cms_interface_defaults,
+  cms_is_alias_interface,
+  cms_is_group_interface,
+} from "@/modules/cms/cms-interfaces";
+import type { FieldFormState } from "./field-form";
+import { slugify_field_name } from "./field-form";
+import { DefaultValueEditor, InterfaceOptions } from "./FieldOptions";
 import { BusyButton, FIELD_TYPE_OPTIONS } from "./ui";
 
-export interface FieldFormState {
-  name: string;
-  label: string;
-  type: CmsFieldType;
-  interface: CmsFieldInterface;
-  required: boolean;
-  unique: boolean;
-  hidden: boolean;
-  readonly: boolean;
-  choices: string;
-  defaultValue: string;
-  options: Record<string, any>;
+const INTERFACE_DEFINITIONS = Object.values(CMS_INTERFACES);
+const LEGACY_INTERFACES = new Set<CmsFieldInterface>([
+  "number",
+  "json",
+  "select",
+  "relation",
+]);
+
+const TYPE_LABELS: Record<CmsFieldType, string> = {
+  ...Object.fromEntries(
+    FIELD_TYPE_OPTIONS.map((option) => [option.value, option.label])
+  ),
+  alias: "Alias (metadata only)",
+} as Record<CmsFieldType, string>;
+
+const INTERFACE_ICONS: Record<
+  CmsFieldInterface,
+  React.ComponentType<{ className?: string }>
+> = {
+  input: Type,
+  input_autocomplete_api: Search,
+  block_editor: Box,
+  code: Code,
+  textarea: AlignLeft,
+  wysiwyg: FileText,
+  markdown: FileCode,
+  tags: Tag,
+  toggle: ToggleLeft,
+  datetime: Calendar,
+  repeater: Repeat,
+  map: MapPin,
+  color: Palette,
+  dropdown: ListFilter,
+  icon: Sparkles,
+  checkboxes: List,
+  checkboxes_tree: FolderTree,
+  dropdown_multiselect: ListFilter,
+  radio: Radio,
+  file: File,
+  image: ImageIcon,
+  files: Layers,
+  builder_m2a: Box,
+  many_to_many: Link,
+  one_to_many: FolderTree,
+  tree_view: FolderTree,
+  many_to_one: Link,
+  translations: Languages,
+  header: Heading,
+  divider: Minus,
+  buttons: MousePointer,
+  notice: Sparkles,
+  accordion: List,
+  detail_group: Box,
+  raw_group: Braces,
+  collection_item_dropdown: ListFilter,
+  collection_item_dropdown_multiple: ListFilter,
+  hash: Hash,
+  slider: Sliders,
+  number: Hash,
+  json: Braces,
+  select: ListFilter,
+  relation: Link,
+};
+
+function interfaces_for_type(type: CmsFieldType) {
+  return INTERFACE_DEFINITIONS.filter(
+    (definition) =>
+      !definition.alias &&
+      !LEGACY_INTERFACES.has(definition.id) &&
+      definition.types.includes(type)
+  );
+}
+
+function first_interface_for_type(type: CmsFieldType): CmsFieldInterface {
+  return interfaces_for_type(type)[0]?.id ?? "input";
+}
+
+function interface_choices(editingField: CmsField | null) {
+  if (!editingField) {
+    return INTERFACE_DEFINITIONS.filter(
+      (definition) => !LEGACY_INTERFACES.has(definition.id)
+    );
+  }
+  const editingAlias = editingField.type === "alias";
+  return INTERFACE_DEFINITIONS.filter(
+    (definition) =>
+      !LEGACY_INTERFACES.has(definition.id) ||
+      definition.id === editingField.interface
+  )
+    .filter((definition) => (definition.alias === true) === editingAlias)
+    .filter(
+      (definition) =>
+        definition.id === editingField.interface ||
+        definition.types.includes(editingField.type)
+    );
+}
+
+function display_label(value: string): string {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export interface FieldDrawerProps {
@@ -72,6 +173,7 @@ export interface FieldDrawerProps {
   onOpenChange: (open: boolean) => void;
   collectionName: string;
   collections?: CmsCollectionWithFields[];
+  collectionFields?: CmsField[];
   editingField?: CmsField | null;
   form: FieldFormState;
   setForm: React.Dispatch<React.SetStateAction<FieldFormState>>;
@@ -79,100 +181,12 @@ export interface FieldDrawerProps {
   onSave: () => void;
 }
 
-export interface InterfaceOption {
-  id: CmsFieldInterface;
-  label: string;
-  type: CmsFieldType;
-  icon: React.ComponentType<{ className?: string }>;
-  group:
-    | "Text & Numbers"
-    | "Selection"
-    | "Relational"
-    | "Translations"
-    | "Presentation"
-    | "Groups"
-    | "Other";
-}
-
-export const ALL_INTERFACE_OPTIONS: InterfaceOption[] = [
-  // Text & Numbers
-  { id: "input", label: "Input", type: "string", icon: Type, group: "Text & Numbers" },
-  { id: "input_autocomplete_api", label: "Autocomplete Input (API)", type: "string", icon: Search, group: "Text & Numbers" },
-  { id: "block_editor", label: "Block Editor", type: "text", icon: Box, group: "Text & Numbers" },
-  { id: "code", label: "Code", type: "text", icon: Code, group: "Text & Numbers" },
-  { id: "textarea", label: "Textarea", type: "text", icon: AlignLeft, group: "Text & Numbers" },
-  { id: "wysiwyg", label: "WYSIWYG", type: "text", icon: FileText, group: "Text & Numbers" },
-  { id: "markdown", label: "Markdown", type: "text", icon: FileCode, group: "Text & Numbers" },
-  { id: "tags", label: "Tags", type: "json", icon: Tag, group: "Text & Numbers" },
-
-  // Selection
-  { id: "toggle", label: "Toggle", type: "boolean", icon: ToggleLeft, group: "Selection" },
-  { id: "datetime", label: "Datetime", type: "datetime", icon: Calendar, group: "Selection" },
-  { id: "repeater", label: "Repeater", type: "json", icon: Repeat, group: "Selection" },
-  { id: "map", label: "Map", type: "json", icon: MapPin, group: "Selection" },
-  { id: "color", label: "Color", type: "string", icon: Palette, group: "Selection" },
-  { id: "dropdown", label: "Dropdown", type: "select", icon: ListFilter, group: "Selection" },
-  { id: "icon", label: "Icon", type: "string", icon: Sparkles, group: "Selection" },
-  { id: "checkboxes", label: "Checkboxes", type: "json", icon: List, group: "Selection" },
-  { id: "checkboxes_tree", label: "Checkboxes (Tree)", type: "json", icon: FolderTree, group: "Selection" },
-  { id: "dropdown_multiselect", label: "Dropdown (Multiple)", type: "json", icon: ListFilter, group: "Selection" },
-  { id: "radio", label: "Radio Buttons", type: "select", icon: Radio, group: "Selection" },
-
-  // Relational
-  { id: "file", label: "File", type: "string", icon: Layers, group: "Relational" },
-  { id: "image", label: "Image", type: "image", icon: ImageIcon, group: "Relational" },
-  { id: "files", label: "Files", type: "json", icon: Layers, group: "Relational" },
-  { id: "builder_m2a", label: "Builder (M2A)", type: "json", icon: Box, group: "Relational" },
-  { id: "many_to_many", label: "Many to Many", type: "relation", icon: Link, group: "Relational" },
-  { id: "one_to_many", label: "One to Many", type: "relation", icon: FolderTree, group: "Relational" },
-  { id: "tree_view", label: "Tree View", type: "relation", icon: FolderTree, group: "Relational" },
-  { id: "many_to_one", label: "Many to One", type: "relation", icon: Link, group: "Relational" },
-
-  // Translations
-  { id: "translations", label: "Translations", type: "json", icon: Type, group: "Translations" },
-
-  // Presentation
-  { id: "header", label: "Header", type: "string", icon: Heading, group: "Presentation" },
-  { id: "divider", label: "Divider", type: "string", icon: Minus, group: "Presentation" },
-  { id: "buttons", label: "Buttons", type: "string", icon: MousePointer, group: "Presentation" },
-  { id: "notice", label: "Notice", type: "string", icon: Sparkles, group: "Presentation" },
-
-  // Groups
-  { id: "accordion", label: "Accordion", type: "string", icon: List, group: "Groups" },
-  { id: "detail_group", label: "Detail Group", type: "string", icon: Box, group: "Groups" },
-  { id: "raw_group", label: "Raw Group", type: "string", icon: Box, group: "Groups" },
-
-  // Other
-  { id: "collection_item_dropdown", label: "Collection Item Dropdown", type: "relation", icon: ListFilter, group: "Other" },
-  { id: "collection_item_dropdown_multiple", label: "Collection Item Dropdown (Multiple)", type: "json", icon: ListFilter, group: "Other" },
-  { id: "hash", label: "Hash", type: "string", icon: Hash, group: "Other" },
-  { id: "slider", label: "Slider", type: "integer", icon: Sliders, group: "Other" },
-];
-
-const GROUPS = [
-  "Text & Numbers",
-  "Selection",
-  "Relational",
-  "Translations",
-  "Presentation",
-  "Groups",
-  "Other",
-] as const;
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 48);
-}
-
 export function FieldDrawer({
   open,
   onOpenChange,
   collectionName,
   collections = [],
+  collectionFields = [],
   editingField,
   form,
   setForm,
@@ -183,120 +197,196 @@ export function FieldDrawer({
     editingField ? "configure" : "select-type"
   );
   const [search, setSearch] = useState("");
+  const [previousSession, setPreviousSession] = useState({
+    open,
+    editingField,
+  });
+  if (
+    previousSession.open !== open ||
+    previousSession.editingField !== editingField
+  ) {
+    setPreviousSession({ open, editingField });
+    if (open) {
+      setStep(editingField ? "configure" : "select-type");
+      setSearch("");
+    }
+  }
+
+  const availableInterfaces = useMemo(
+    () => interface_choices(editingField ?? null),
+    [editingField]
+  );
 
   const filteredInterfaces = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return ALL_INTERFACE_OPTIONS;
-    return ALL_INTERFACE_OPTIONS.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        item.type.toLowerCase().includes(q) ||
-        item.group.toLowerCase().includes(q)
+    const query = search.trim().toLowerCase();
+    if (!query) return availableInterfaces;
+    return availableInterfaces.filter(
+      (definition) =>
+        definition.label.toLowerCase().includes(query) ||
+        definition.id.toLowerCase().includes(query) ||
+        definition.group.toLowerCase().includes(query) ||
+        definition.types.some((type) => type.includes(query))
     );
-  }, [search]);
+  }, [availableInterfaces, search]);
 
-  const selectInterface = (option: InterfaceOption) => {
-    setForm((current) => ({
-      ...current,
-      interface: option.id,
-      type: option.type,
-      label: current.label || option.label,
+  const definition = cms_interface_definition(form.interface);
+  const alias = cms_is_alias_interface(form.interface);
+
+  const typeOptions = useMemo(() => {
+    const types = definition.types;
+    return types.map((type) => ({
+      value: type,
+      label: TYPE_LABELS[type] ?? type,
     }));
+  }, [definition]);
+
+  const groupFields = useMemo(
+    () =>
+      collectionFields.filter(
+        (field) =>
+          cms_is_group_interface(field.interface) && field.name !== form.name
+      ),
+    [collectionFields, form.name]
+  );
+
+  const selectInterface = (nextInterface: CmsFieldInterface) => {
+    const nextDefinition = cms_interface_definition(nextInterface);
+    setForm((current) => {
+      const type = editingField
+        ? current.type
+        : nextDefinition.types.includes(current.type)
+          ? current.type
+          : nextDefinition.defaultType;
+      return {
+        ...current,
+        interface: nextInterface,
+        type,
+        options:
+          current.interface === nextInterface
+            ? current.options
+            : editingField
+              ? { ...cms_interface_defaults(nextInterface), ...current.options }
+              : cms_interface_defaults(nextInterface),
+      };
+    });
     setStep("configure");
+  };
+
+  const changeType = (nextType: CmsFieldType) => {
+    setForm((current) => {
+      const currentDefinition = cms_interface_definition(current.interface);
+      if (currentDefinition.types.includes(nextType)) {
+        return { ...current, type: nextType };
+      }
+      const nextInterface = first_interface_for_type(nextType);
+      return {
+        ...current,
+        type: nextType,
+        interface: nextInterface,
+        options: {
+          ...cms_interface_defaults(nextInterface),
+          ...current.options,
+        },
+      };
+    });
+  };
+
+  const updateOption = (key: string | string[], value: unknown) => {
+    setForm((current) => {
+      const nextOptions = { ...current.options };
+      const keys = Array.isArray(key) ? key : [key];
+      for (const optionKey of keys) {
+        if (value === undefined || value === null || value === "") {
+          delete nextOptions[optionKey];
+        } else {
+          nextOptions[optionKey] = value;
+        }
+      }
+      return { ...current, options: nextOptions };
+    });
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setStep(editingField ? "configure" : "select-type");
       setSearch("");
+      setStep(editingField ? "configure" : "select-type");
     }
     onOpenChange(nextOpen);
   };
 
-  const updateOpt = (key: string, val: any) => {
-    setForm((f) => ({
-      ...f,
-      options: {
-        ...f.options,
-        [key]: val,
-      },
-    }));
-  };
-
-  const currentInterface = form.interface || "input";
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="max-w-[640px] p-0 flex flex-col gap-0 border-l border-border bg-card">
-        {/* Header */}
-        <SheetHeader className="p-4 pr-12 border-b border-border bg-card">
+      <SheetContent
+        side="right"
+        className="flex max-w-[680px] flex-col gap-0 border-l border-border bg-card p-0"
+      >
+        <SheetHeader className="border-b border-border bg-card p-4 pr-12">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
               {step === "configure" && !editingField ? (
                 <button
                   type="button"
                   onClick={() => setStep("select-type")}
-                  className="grid size-8 place-items-center rounded-full hover:bg-surface-subtle text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Back to type selection"
+                  className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-surface-subtle hover:text-foreground"
+                  aria-label="Back to interface selection"
                 >
                   <ArrowLeft className="size-4" />
                 </button>
               ) : (
-                <span className="grid size-8 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
                   <Box className="size-4" />
                 </span>
               )}
-              <DialogTitle className="text-sm font-semibold text-foreground">
+              <DialogTitle className="truncate text-sm font-semibold text-foreground">
                 {editingField
-                  ? `Edit Field (${editingField.name})`
+                  ? `Edit field · ${editingField.name}`
                   : step === "select-type"
-                    ? `New Field (${collectionName})`
-                    : `Configure Field (${form.name || form.label || "new"})`}
+                    ? `New field · ${collectionName}`
+                    : `Configure field · ${form.name || form.label || "new"}`}
               </DialogTitle>
             </div>
 
             {step === "select-type" ? (
-              <div className="relative w-44">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <div className="relative w-44 shrink-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search Field..."
-                  className="h-8 pl-8 text-xs rounded-lg bg-surface-subtle border-none"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search interfaces..."
+                  className="h-8 rounded-lg border-none bg-surface-subtle pl-8 text-xs"
                 />
               </div>
             ) : null}
           </div>
         </SheetHeader>
 
-        {/* Drawer Body */}
-        <SheetBody className="p-6 flex-1 overflow-y-auto app-scrollbar">
+        <SheetBody className="app-scrollbar flex-1 overflow-y-auto p-6">
           {step === "select-type" ? (
             <div className="space-y-6">
-              {GROUPS.map((group) => {
-                const itemsInGroup = filteredInterfaces.filter(
+              {CMS_INTERFACE_GROUPS.map((group) => {
+                const items = filteredInterfaces.filter(
                   (item) => item.group === group
                 );
-                if (itemsInGroup.length === 0) return null;
+                if (items.length === 0) return null;
                 return (
                   <div key={group} className="space-y-2.5">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {group}
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      {itemsInGroup.map((item) => {
-                        const Icon = item.icon;
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                      {items.map((item) => {
+                        const Icon = INTERFACE_ICONS[item.id] ?? Box;
                         return (
                           <button
                             key={item.id}
                             type="button"
-                            onClick={() => selectInterface(item)}
-                            className="group flex flex-col items-center justify-center p-3 rounded-xl border border-border bg-surface-subtle/40 hover:bg-surface-subtle hover:border-foreground/30 transition-all text-center gap-2 aspect-[4/3]"
+                            onClick={() => selectInterface(item.id)}
+                            className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle/40 p-3 text-center transition-all hover:border-foreground/30 hover:bg-surface-subtle"
                           >
-                            <span className="grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground group-hover:text-foreground transition-colors shadow-xs">
+                            <span className="grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground shadow-xs transition-colors group-hover:text-foreground">
                               <Icon className="size-4" />
                             </span>
-                            <span className="text-xs font-medium text-foreground truncate w-full">
+                            <span className="w-full truncate text-xs font-medium text-foreground">
                               {item.label}
                             </span>
                           </button>
@@ -306,507 +396,262 @@ export function FieldDrawer({
                   </div>
                 );
               })}
+
+              {filteredInterfaces.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">
+                  No interface matches “{search}”.
+                </div>
+              ) : null}
             </div>
           ) : (
-            /* CONFIGURE STEP WITH DIRECTUS DEDICATED FIELD SETTINGS */
             <div className="space-y-5">
-              {/* Common Base: Key (Column Name) & Type */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="field-key" className="text-sm font-semibold">
-                    Key *
-                  </Label>
-                  <Input
-                    id="field-key"
-                    value={form.name}
-                    disabled={editingField !== null}
-                    placeholder="e.g. first_name"
-                    className="h-10 font-mono text-sm rounded-xl bg-card border-input"
-                    onChange={(e) =>
-                      setForm((current) => ({
-                        ...current,
-                        name: slugify(e.target.value),
-                        label:
-                          current.label ||
-                          e.target.value
-                            .replace(/[_-]+/g, " ")
-                            .replace(/\b\w/g, (c) => c.toUpperCase()),
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="field-type" className="text-sm font-semibold">
-                    Type
-                  </Label>
-                  <div className="relative">
-                    <select
-                      id="field-type"
-                      value={form.type}
-                      onChange={(e) =>
+              <section className="space-y-4 rounded-xl border border-border bg-surface-subtle/40 p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="field-key" className="text-sm font-semibold">
+                      Key <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="field-key"
+                      value={form.name}
+                      disabled={editingField !== null}
+                      placeholder="e.g. first_name"
+                      className="h-10 rounded-lg border-input bg-card font-mono text-sm"
+                      onChange={(event) =>
                         setForm((current) => ({
                           ...current,
-                          type: e.target.value as CmsFieldType,
+                          name: slugify_field_name(event.target.value),
                         }))
                       }
-                      className="h-10 w-full appearance-none rounded-xl border border-input bg-card px-3 pr-10 text-sm text-foreground outline-none"
-                    >
-                      {FIELD_TYPE_OPTIONS.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label} ({type.value})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                      onBlur={() =>
+                        setForm((current) =>
+                          current.label.trim() || !current.name
+                            ? current
+                            : { ...current, label: display_label(current.name) }
+                        )
+                      }
+                    />
                   </div>
-                </div>
-              </div>
 
-              {/* Default Value & Required */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="field-default" className="text-sm font-semibold">
-                    Default Value
-                  </Label>
-                  <Input
-                    id="field-default"
-                    value={form.defaultValue}
-                    placeholder="Default value if not set"
-                    className="h-10 rounded-xl bg-card border-input"
-                    onChange={(e) =>
-                      setForm((current) => ({ ...current, defaultValue: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label className="text-sm font-semibold">Required</Label>
-                  <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                    <span className="text-xs text-muted-foreground">Require value</span>
-                    <Switch
-                      checked={form.required}
-                      onCheckedChange={(checked) =>
-                        setForm((current) => ({ ...current, required: checked }))
+                  <div className="grid gap-2">
+                    <Label htmlFor="field-label" className="text-sm font-semibold">
+                      Label
+                    </Label>
+                    <Input
+                      id="field-label"
+                      value={form.label}
+                      placeholder="Field label"
+                      className="h-10 rounded-lg border-input bg-card"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          label: event.target.value,
+                        }))
                       }
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* DEDICATED INTERFACE SPECIFIC SETTINGS */}
-              <div className="border-t border-border pt-4 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Interface Settings
-                </p>
-
-                {/* 1. INPUT */}
-                {currentInterface === "input" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Placeholder</Label>
-                      <Input
-                        value={form.options.placeholder || ""}
-                        placeholder="Enter text..."
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("placeholder", e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Icon Left</Label>
-                        <Input
-                          value={form.options.icon_left || ""}
-                          placeholder="search, user, mail..."
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("icon_left", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Icon Right</Label>
-                        <Input
-                          value={form.options.icon_right || ""}
-                          placeholder="chevron, eye..."
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("icon_right", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. TEXTAREA */}
-                {currentInterface === "textarea" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Placeholder</Label>
-                      <Input
-                        value={form.options.placeholder || ""}
-                        placeholder="Enter long text..."
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("placeholder", e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Soft Limit</Label>
-                        <Input
-                          type="number"
-                          value={form.options.soft_limit || ""}
-                          placeholder="e.g. 500"
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("soft_limit", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Font</Label>
-                        <select
-                          value={form.options.font || "sans"}
-                          onChange={(e) => updateOpt("font", e.target.value)}
-                          className="h-10 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none"
-                        >
-                          <option value="sans">Sans-serif</option>
-                          <option value="serif">Serif</option>
-                          <option value="monospace">Monospace</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Trim start and end</span>
-                      <Switch
-                        checked={form.options.trim ?? true}
-                        onCheckedChange={(c) => updateOpt("trim", c)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. WYSIWYG & MARKDOWN & BLOCK EDITOR */}
-                {(currentInterface === "wysiwyg" || currentInterface === "markdown" || currentInterface === "block_editor") && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Placeholder</Label>
-                      <Input
-                        value={form.options.placeholder || ""}
-                        placeholder="Write content..."
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("placeholder", e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Font</Label>
-                        <select
-                          value={form.options.font || "sans"}
-                          onChange={(e) => updateOpt("font", e.target.value)}
-                          className="h-10 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none"
-                        >
-                          <option value="sans">Sans-serif</option>
-                          <option value="serif">Serif</option>
-                          <option value="monospace">Monospace</option>
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Root Folder</Label>
-                        <Input
-                          value={form.options.folder || ""}
-                          placeholder="e.g. articles"
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("folder", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Static Access Token</Label>
-                      <Input
-                        value={form.options.static_token || ""}
-                        placeholder="Optional asset token"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("static_token", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 4. TOGGLE */}
-                {currentInterface === "toggle" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Icon On</Label>
-                        <Input
-                          value={form.options.icon_on || "check"}
-                          placeholder="check"
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("icon_on", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Icon Off</Label>
-                        <Input
-                          value={form.options.icon_off || "close"}
-                          placeholder="close"
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("icon_off", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Color On</Label>
-                        <Input
-                          value={form.options.color_on || "emerald"}
-                          placeholder="emerald, blue, etc."
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("color_on", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Color Off</Label>
-                        <Input
-                          value={form.options.color_off || "slate"}
-                          placeholder="slate, gray, etc."
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("color_off", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 5. COLOR */}
-                {currentInterface === "color" && (
-                  <div className="space-y-4">
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Opacity Support</span>
-                      <Switch
-                        checked={form.options.opacity ?? false}
-                        onCheckedChange={(c) => updateOpt("opacity", c)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Preset Colors</Label>
-                      <Input
-                        value={form.options.presets || "red, blue, green, amber, indigo"}
-                        placeholder="red, blue, green..."
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("presets", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 6. IMAGE & FILE */}
-                {(currentInterface === "image" || currentInterface === "file" || currentInterface === "files") && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Root Folder</Label>
-                      <Input
-                        value={form.options.folder || ""}
-                        placeholder="e.g. avatars"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("folder", e.target.value)}
-                      />
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Crop to Fit</span>
-                      <Switch
-                        checked={form.options.crop ?? false}
-                        onCheckedChange={(c) => updateOpt("crop", c)}
-                      />
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Enable Create Button</span>
-                      <Switch
-                        checked={form.options.enable_create ?? true}
-                        onCheckedChange={(c) => updateOpt("enable_create", c)}
-                      />
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Enable Select Button</span>
-                      <Switch
-                        checked={form.options.enable_select ?? true}
-                        onCheckedChange={(c) => updateOpt("enable_select", c)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 7. DROPDOWN / RADIO / CHECKBOXES */}
-                {(currentInterface === "dropdown" ||
-                  currentInterface === "radio" ||
-                  currentInterface === "checkboxes" ||
-                  currentInterface === "dropdown_multiselect") && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Choices (comma separated)</Label>
-                      <Input
-                        value={form.choices}
-                        placeholder="option1, option2, option3"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, choices: e.target.value }))
-                        }
-                      />
-                    </div>
-                    {collections.length > 0 ? (
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Or populate from Collection</Label>
-                        <select
-                          value={form.options.rel_collection || ""}
-                          onChange={(e) => updateOpt("rel_collection", e.target.value)}
-                          className="h-10 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none"
-                        >
-                          <option value="">None (use manual choices)</option>
-                          {collections.map((col) => (
-                            <option key={col.name} value={col.name}>
-                              {col.label || col.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
-                {/* 8. HASH */}
-                {currentInterface === "hash" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Placeholder</Label>
-                      <Input
-                        value={form.options.placeholder || ""}
-                        placeholder="••••••••"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("placeholder", e.target.value)}
-                      />
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Masked (Hide true values)</span>
-                      <Switch
-                        checked={form.options.masked ?? true}
-                        onCheckedChange={(c) => updateOpt("masked", c)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 9. DIVIDER */}
-                {currentInterface === "divider" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Title</Label>
-                      <Input
-                        value={form.options.title || ""}
-                        placeholder="Section title"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("title", e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Color</Label>
-                        <Input
-                          value={form.options.color || ""}
-                          placeholder="slate, border, etc."
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("color", e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-semibold">Icon</Label>
-                        <Input
-                          value={form.options.icon || ""}
-                          placeholder="minus"
-                          className="h-10 rounded-xl bg-card border-input"
-                          onChange={(e) => updateOpt("icon", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                      <span className="text-sm font-medium text-foreground">Inline Title</span>
-                      <Switch
-                        checked={form.options.inline_title ?? true}
-                        onCheckedChange={(c) => updateOpt("inline_title", c)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 10. RELATIONAL (Many to One, One to Many, etc.) */}
-                {(currentInterface === "many_to_one" ||
-                  currentInterface === "one_to_many" ||
-                  currentInterface === "many_to_many" ||
-                  currentInterface === "collection_item_dropdown" ||
-                  currentInterface === "collection_item_dropdown_multiple") && (
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Related Collection</Label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label
+                      htmlFor="field-interface"
+                      className="text-sm font-semibold"
+                    >
+                      Interface
+                    </Label>
+                    <div className="relative">
                       <select
-                        value={form.options.rel_collection || ""}
-                        onChange={(e) => updateOpt("rel_collection", e.target.value)}
-                        className="h-10 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none"
+                        id="field-interface"
+                        value={form.interface}
+                        onChange={(event) =>
+                          selectInterface(
+                            event.target.value as CmsFieldInterface
+                          )
+                        }
+                        disabled={!editingField}
+                        className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                       >
-                        <option value="">Select a Collection</option>
-                        {collections.map((col) => (
-                          <option key={col.name} value={col.name}>
-                            {col.label || col.name}
+                        {CMS_INTERFACE_GROUPS.map((group) => {
+                          const items = availableInterfaces.filter(
+                            (item) => item.group === group
+                          );
+                          if (items.length === 0) return null;
+                          return (
+                            <optgroup key={group} label={group}>
+                              {items.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="field-type" className="text-sm font-semibold">
+                      Storage type
+                    </Label>
+                    <div className="relative">
+                      <select
+                        id="field-type"
+                        value={form.type}
+                        onChange={(event) =>
+                          changeType(event.target.value as CmsFieldType)
+                        }
+                        disabled={alias || Boolean(editingField)}
+                        className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                      >
+                        {typeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label} ({option.value})
                           </option>
                         ))}
                       </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Display Template</Label>
-                      <Input
-                        value={form.options.template || ""}
-                        placeholder="{{id}} - {{title}}"
-                        className="h-10 rounded-xl bg-card border-input"
-                        onChange={(e) => updateOpt("template", e.target.value)}
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="field-group" className="text-sm font-semibold">
+                    Group
+                  </Label>
+                  <div className="relative">
+                    <select
+                      id="field-group"
+                      value={form.group ?? ""}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          group: event.target.value || null,
+                        }))
+                      }
+                      disabled={groupFields.length === 0}
+                      className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                    >
+                      <option value="">No group</option>
+                      {groupFields.map((field) => (
+                        <option key={field.name} value={field.name}>
+                          {field.label || field.name} ({field.name})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4 rounded-xl border border-border p-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Interface settings
+                  </p>
+                </div>
+                <InterfaceOptions
+                  form={form}
+                  onOption={updateOption}
+                  onChoices={(choices) =>
+                    setForm((current) => ({ ...current, choices }))
+                  }
+                  collections={collections}
+                />
+              </section>
+
+              {!alias ? (
+                <section className="space-y-3 rounded-xl border border-border p-4">
+                  <DefaultValueEditor
+                    form={form}
+                    onChange={(defaultValue) =>
+                      setForm((current) => ({ ...current, defaultValue }))
+                    }
+                  />
+                </section>
+              ) : null}
+
+              <section className="space-y-3 rounded-xl border border-border p-4">
+                <p className="text-sm font-semibold text-foreground">
+                  Field behavior
+                </p>
+
+                {!alias ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-foreground">
+                          Required
+                        </span>
+                      </div>
+                      <Switch
+                        checked={form.required}
+                        onCheckedChange={(checked) =>
+                          setForm((current) => ({
+                            ...current,
+                            required: checked,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-foreground">
+                          Unique
+                        </span>
+                      </div>
+                      <Switch
+                        checked={form.unique}
+                        onCheckedChange={(checked) =>
+                          setForm((current) => ({ ...current, unique: checked }))
+                        }
                       />
                     </div>
                   </div>
-                )}
-              </div>
+                ) : null}
 
-              {/* Toggles using modern Switch components */}
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                  <span className="text-sm font-medium text-foreground">Unique</span>
-                  <Switch
-                    checked={form.unique}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({ ...current, unique: checked }))
-                    }
-                  />
-                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-foreground">
+                        Hidden
+                      </span>
+                    </div>
+                    <Switch
+                      checked={form.hidden}
+                      onCheckedChange={(checked) =>
+                        setForm((current) => ({ ...current, hidden: checked }))
+                      }
+                    />
+                  </div>
 
-                <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                  <span className="text-sm font-medium text-foreground">Hidden</span>
-                  <Switch
-                    checked={form.hidden}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({ ...current, hidden: checked }))
-                    }
-                  />
+                  <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-foreground">
+                        Read only
+                      </span>
+                    </div>
+                    <Switch
+                      checked={form.readonly}
+                      onCheckedChange={(checked) =>
+                        setForm((current) => ({
+                          ...current,
+                          readonly: checked,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
-
-                <div className="flex h-10 items-center justify-between rounded-xl border border-input bg-card px-4">
-                  <span className="text-sm font-medium text-foreground">Read only</span>
-                  <Switch
-                    checked={form.readonly}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({ ...current, readonly: checked }))
-                    }
-                  />
-                </div>
-              </div>
+              </section>
             </div>
           )}
         </SheetBody>
 
-        {/* Drawer Footer */}
         {step === "configure" ? (
-          <SheetFooter className="border-t border-border p-4 bg-surface-subtle">
+          <SheetFooter className="border-t border-border bg-surface-subtle p-4">
             <Button
               type="button"
               variant="outline"

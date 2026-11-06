@@ -1,21 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowLeft,
   ArrowUpRight,
   Bookmark,
-  Braces,
   Check,
-  ChevronDown,
+  Columns2,
   Database,
+  EllipsisVertical,
+  EyeOff,
   FilePlus2,
-  Layers,
+  GripVertical,
+  Info,
+  KeyRound,
   Loader2,
   Pencil,
   Plus,
   RefreshCw,
-  Settings2,
   Table2,
   Trash2,
 } from "lucide-react";
@@ -26,7 +29,6 @@ import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -37,23 +39,34 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { IconPicker } from "@/components/ui/icon-picker";
+import { DynamicIcon } from "@/components/ui/dynamic-icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { EtViewProps } from "@/engine/views-registry";
-import { cn } from "@/lib/utils";
 import type {
   CmsBootstrapReport,
   CmsCollectionWithFields,
   CmsField,
-  CmsFieldType,
 } from "@/modules/cms/cms-types";
+import { cms_interface_uses_choices } from "@/modules/cms/cms-interfaces";
 import { CollectionDialog } from "./CollectionDialog";
 import { ContentSidebar } from "./ContentSidebar";
-import { FieldDrawer, type FieldFormState } from "./FieldDrawer";
+import { FieldDrawer } from "./FieldDrawer";
 import {
-  BusyButton,
-  EmptyState,
-  FIELD_TYPE_OPTIONS,
-  cms_call,
-} from "./ui";
+  empty_field_form,
+  field_form_from_field,
+  parse_field_default,
+  type FieldFormState,
+} from "./field-form";
+import { BusyButton, EmptyState, cms_call } from "./ui";
 
 interface Snapshot {
   collections?: CmsCollectionWithFields[];
@@ -61,48 +74,16 @@ interface Snapshot {
   fields?: CmsField[];
 }
 
-function emptyFieldForm(): FieldFormState {
+function collection_settings(collection: CmsCollectionWithFields | null) {
   return {
-    name: "",
-    label: "",
-    type: "string",
-    interface: "input",
-    required: false,
-    unique: false,
-    hidden: false,
-    readonly: false,
-    choices: "",
-    defaultValue: "",
-    options: {},
+    label: collection?.label || "",
+    icon: collection?.icon || "box",
+    color: collection?.color || "",
+    display_template: collection?.display_template || "",
+    note: collection?.note || "",
+    hidden: collection?.hidden || false,
+    singleton: collection?.singleton || false,
   };
-}
-
-function formFromField(field: CmsField): FieldFormState {
-  return {
-    name: field.name,
-    label: field.label,
-    type: field.type,
-    interface: field.interface,
-    required: field.required,
-    unique: field.unique,
-    hidden: field.hidden,
-    readonly: field.readonly,
-    choices: Array.isArray(field.options.choices)
-      ? field.options.choices.map(String).join(", ")
-      : "",
-    defaultValue:
-      field.options.default === undefined ? "" : String(field.options.default),
-    options: field.options ?? {},
-  };
-}
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 48);
 }
 
 export default function DataStudio({ data }: EtViewProps) {
@@ -124,8 +105,13 @@ export default function DataStudio({ data }: EtViewProps) {
   // Field modal states
   const [fieldOpen, setFieldOpen] = useState(false);
   const [editingField, setEditingField] = useState<CmsField | null>(null);
-  const [fieldForm, setFieldForm] = useState<FieldFormState>(emptyFieldForm());
+  const [fieldForm, setFieldForm] = useState<FieldFormState>(empty_field_form());
   const [fieldSaving, setFieldSaving] = useState(false);
+  const [fieldLayoutSaving, setFieldLayoutSaving] = useState(false);
+  const [draggedField, setDraggedField] = useState<string | null>(null);
+  const [dropTargetField, setDropTargetField] = useState<string | null>(null);
+  const fieldCardRefs = useRef(new Map<string, HTMLDivElement>());
+  const previousFieldRects = useRef<Map<string, DOMRect> | null>(null);
 
   // Bootstrap Dialog states
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
@@ -133,9 +119,43 @@ export default function DataStudio({ data }: EtViewProps) {
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [bootstrapApplying, setBootstrapApplying] = useState(false);
 
+  // Live collection setup settings (matching Directus Collection Setup)
+  const [colSettings, setColSettings] = useState(() =>
+    collection_settings(selected)
+  );
+
+  const saveCollectionSettings = useCallback(async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const updated = await cms_call<CmsCollectionWithFields>("data_collection_update", {
+        name: selected.name,
+        label: colSettings.label || selected.name,
+        icon: colSettings.icon,
+        color: colSettings.color,
+        display_template: colSettings.display_template,
+        note: colSettings.note,
+        hidden: colSettings.hidden,
+        singleton: colSettings.singleton,
+      });
+      setSelected(updated);
+      setColSettings(collection_settings(updated));
+      setCollections((prev) =>
+        prev.map((c) => (c.name === updated.name ? updated : c))
+      );
+      toast.success("Collection settings saved.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update collection.");
+    } finally {
+      setBusy(false);
+    }
+  }, [colSettings, selected]);
+
   const applySnapshot = useCallback((snapshot: Snapshot) => {
+    const next_selected = snapshot.selected ?? null;
     setCollections(snapshot.collections ?? []);
-    setSelected(snapshot.selected ?? null);
+    setSelected(next_selected);
+    setColSettings(collection_settings(next_selected));
     setFields(snapshot.fields ?? []);
   }, []);
 
@@ -174,12 +194,6 @@ export default function DataStudio({ data }: EtViewProps) {
     setCollectionDialogOpen(true);
   }, []);
 
-  const openEditCollection = useCallback(() => {
-    if (!selected) return;
-    setCollectionDialogMode("edit");
-    setCollectionDialogOpen(true);
-  }, [selected]);
-
   const deleteCollection = useCallback(async () => {
     if (!selected) return;
     const confirmed = await confirm({
@@ -206,13 +220,13 @@ export default function DataStudio({ data }: EtViewProps) {
 
   const openCreateField = useCallback(() => {
     setEditingField(null);
-    setFieldForm(emptyFieldForm());
+    setFieldForm(empty_field_form());
     setFieldOpen(true);
   }, []);
 
   const openEditField = useCallback((field: CmsField) => {
     setEditingField(field);
-    setFieldForm(formFromField(field));
+    setFieldForm(field_form_from_field(field));
     setFieldOpen(true);
   }, []);
 
@@ -220,22 +234,20 @@ export default function DataStudio({ data }: EtViewProps) {
     if (!selected) return;
     setFieldSaving(true);
     try {
-      const options: Record<string, unknown> = { ...(fieldForm.options ?? {}) };
-      if (
-        fieldForm.type === "select" ||
-        fieldForm.interface === "dropdown" ||
-        fieldForm.interface === "radio" ||
-        fieldForm.interface === "checkboxes"
-      ) {
-        if (fieldForm.choices) {
-          options.choices = fieldForm.choices
-            .split(",")
-            .map((c) => c.trim())
-            .filter(Boolean);
-        }
+      const options: Record<string, unknown> = {
+        ...(fieldForm.options ?? {}),
+      };
+      if (cms_interface_uses_choices(fieldForm.interface)) {
+        options.choices = fieldForm.choices;
       }
-      if (fieldForm.defaultValue) {
-        options.default = fieldForm.defaultValue;
+      const defaultValue = parse_field_default(
+        fieldForm.type,
+        fieldForm.defaultValue
+      );
+      if (defaultValue === undefined) {
+        delete options.default;
+      } else {
+        options.default = defaultValue;
       }
 
       if (editingField) {
@@ -250,6 +262,7 @@ export default function DataStudio({ data }: EtViewProps) {
           unique: fieldForm.unique,
           hidden: fieldForm.hidden,
           readonly: fieldForm.readonly,
+          group: fieldForm.group,
         });
         toast.success(`Field '${editingField.name}' updated.`);
       } else {
@@ -264,6 +277,7 @@ export default function DataStudio({ data }: EtViewProps) {
           unique: fieldForm.unique,
           hidden: fieldForm.hidden,
           readonly: fieldForm.readonly,
+          group: fieldForm.group,
         });
         toast.success(`Field '${fieldForm.name}' added.`);
       }
@@ -302,6 +316,96 @@ export default function DataStudio({ data }: EtViewProps) {
       }
     },
     [confirm, refresh, selected]
+  );
+
+  useLayoutEffect(() => {
+    const previousRects = previousFieldRects.current;
+    if (!previousRects) return;
+    previousFieldRects.current = null;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    for (const [name, element] of fieldCardRefs.current) {
+      const previous = previousRects.get(name);
+      if (!previous) continue;
+      const current = element.getBoundingClientRect();
+      const deltaX = previous.left - current.left;
+      const deltaY = previous.top - current.top;
+      if (deltaX === 0 && deltaY === 0) continue;
+      element.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: "translate(0, 0)" },
+        ],
+        { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+      );
+    }
+  }, [fields]);
+
+  const reorderFields = useCallback(
+    async (sourceName: string, targetName: string) => {
+      if (!selected || sourceName === targetName || fieldLayoutSaving) return;
+      const sourceIndex = fields.findIndex((field) => field.name === sourceName);
+      const targetIndex = fields.findIndex((field) => field.name === targetName);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+
+      previousFieldRects.current = new Map(
+        Array.from(fieldCardRefs.current, ([name, element]) => [
+          name,
+          element.getBoundingClientRect(),
+        ])
+      );
+      const reordered = [...fields];
+      const [moved] = reordered.splice(sourceIndex, 1);
+      reordered.splice(targetIndex, 0, moved);
+      setFields(reordered);
+      setDraggedField(null);
+      setDropTargetField(null);
+      setFieldLayoutSaving(true);
+      try {
+        const updated = await cms_call<CmsField[]>("data_fields_reorder", {
+          collection: selected.name,
+          fields: reordered.map((field) => field.name),
+        });
+        setFields(updated);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not reorder fields.");
+        await refresh(selected.name);
+      } finally {
+        setFieldLayoutSaving(false);
+      }
+    },
+    [fieldLayoutSaving, fields, refresh, selected]
+  );
+
+  const cancelFieldDrag = useCallback(() => {
+    setDraggedField(null);
+    setDropTargetField(null);
+    previousFieldRects.current = null;
+  }, []);
+
+  const setFieldWidth = useCallback(
+    async (field: CmsField, width: "half" | "full") => {
+      if (!selected || fieldLayoutSaving) return;
+      setFieldLayoutSaving(true);
+      try {
+        await cms_call("data_field_update", {
+          collection: selected.name,
+          name: field.name,
+          options: { ...field.options, width },
+        });
+        setFields((current) =>
+          current.map((item) =>
+            item.name === field.name
+              ? { ...item, options: { ...item.options, width } }
+              : item
+          )
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not update field layout.");
+      } finally {
+        setFieldLayoutSaving(false);
+      }
+    },
+    [fieldLayoutSaving, selected]
   );
 
   const bootstrap = useCallback(async () => {
@@ -538,116 +642,314 @@ export default function DataStudio({ data }: EtViewProps) {
               )}
             </div>
           ) : (
-            /* COLLECTION SCHEMA STUDIO */
+            /* COLLECTION SCHEMA STUDIO (Directus Style) */
             <div className="space-y-6">
-              {/* Schema Fields Table */}
-              <div className="space-y-0">
-
-                <div className="overflow-hidden rounded-xl border border-border bg-background">
-                  <div className="app-scrollbar overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-sidebar text-xs font-semibold text-muted-foreground">
-                          <th className="px-4 py-3">Column Name</th>
-                          <th className="px-4 py-3">Label</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3">Attributes</th>
-                          <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border bg-background">
-                        {fields.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
-                              No fields defined for this collection.
-                            </td>
-                          </tr>
-                        ) : (
-                          fields.map((field) => {
-                            const isPk = field.name === selected.primary_key;
-                            return (
-                              <tr
-                                key={field.name}
-                                className="border-b border-border transition-colors hover:bg-surface-subtle/60"
-                              >
-                                <td className="px-4 py-3 font-mono text-xs font-medium text-muted-foreground">
-                                  {field.name}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {field.label || field.name}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <Badge variant="secondary" className="font-mono text-xs text-muted-foreground">
-                                    {field.type}
-                                  </Badge>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    {isPk ? (
-                                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                                        Primary key
-                                      </Badge>
-                                    ) : null}
-                                    {field.required ? (
-                                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                                        Required
-                                      </Badge>
-                                    ) : null}
-                                    {field.unique ? (
-                                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                                        Unique
-                                      </Badge>
-                                    ) : null}
-                                    {field.readonly ? (
-                                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                                        Read only
-                                      </Badge>
-                                    ) : null}
-                                    {field.hidden ? (
-                                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                                        Hidden
-                                      </Badge>
-                                    ) : null}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon-xs"
-                                      aria-label={`Edit ${field.name}`}
-                                      onClick={() => openEditField(field)}
-                                    >
-                                      <Pencil className="size-3.5" />
-                                    </Button>
-                                    {!isPk ? (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        aria-label={`Delete ${field.name}`}
-                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => deleteField(field)}
-                                      >
-                                        <Trash2 className="size-3.5" />
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
+              {/* Header Bar */}
+              <div className="flex items-center justify-between pb-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setSelected(null)}
+                    className="rounded-full"
+                    aria-label="Back to collections overview"
+                  >
+                    <ArrowLeft className="size-4" />
+                  </Button>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Data Model</p>
+                    <h2 className="text-base font-semibold text-foreground">
+                      {selected.label || selected.name}
+                    </h2>
                   </div>
+                </div>
 
-                  {/* Clean Bottom Bar */}
-                  <div className="flex items-center border-t border-border px-4 py-3 bg-surface-subtle/40">
-                    <span className="text-xs text-muted-foreground">
-                      {fields.length} {fields.length === 1 ? "column" : "columns"} defined
-                    </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={deleteCollection}
+                    className="text-muted-foreground hover:text-destructive rounded-full"
+                    title="Delete collection"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    onClick={saveCollectionSettings}
+                    className="rounded-full bg-foreground text-background hover:opacity-90 shadow-xs"
+                    title="Save collection settings"
+                  >
+                    <Check className="size-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Fields List */}
+              <div className="grid grid-cols-1 gap-2.5">
+                {fields.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">
+                    No fields created yet for this collection.
+                  </div>
+                ) : (
+                  fields.map((field) => {
+                    const isPk = field.name === selected.primary_key;
+                    return (
+                      <div
+                        key={field.name}
+                        ref={(element) => {
+                          if (element) fieldCardRefs.current.set(field.name, element);
+                          else fieldCardRefs.current.delete(field.name);
+                        }}
+                        onDragOver={(event) => {
+                          if (!draggedField || draggedField === field.name) return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          setDropTargetField(field.name);
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (draggedField) void reorderFields(draggedField, field.name);
+                        }}
+                        onClick={() => openEditField(field)}
+                        className={`group relative flex min-h-14 cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 py-2 transition-[border-color,background-color,opacity,transform] duration-200 ease-out hover:border-foreground/30 ${
+                          draggedField === field.name ? "z-10 scale-[1.015] border-foreground/50 opacity-80" : ""} ${
+                          dropTargetField === field.name && draggedField !== field.name
+                            ? "border-primary bg-primary/5"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            draggable={!fieldLayoutSaving}
+                            aria-label={`Reorder ${field.name}`}
+                            title="Drag to reorder"
+                            onClick={(event) => event.stopPropagation()}
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData("text/plain", field.name);
+                              setDraggedField(field.name);
+                            }}
+                            onDragEnd={cancelFieldDrag}
+                            className="shrink-0 cursor-grab text-muted-foreground transition-colors hover:text-foreground active:cursor-grabbing"
+                          >
+                            <GripVertical className="size-5" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            className="truncate font-mono text-left text-sm font-medium text-foreground hover:underline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditField(field);
+                            }}
+                            aria-label={`Edit ${field.label || field.name}${field.required ? ", required" : ""}`}
+                          >
+                            {field.label || field.name}
+                            {field.required ? (
+                              <span
+                                className="ml-0.5 text-base font-semibold text-foreground"
+                                aria-hidden="true"
+                                title="Required"
+                              >
+                                *
+                              </span>
+                            ) : null}
+                            <span className="ml-2 font-sans text-xs font-normal text-muted-foreground">
+                              ({field.interface || field.type})
+                            </span>
+                          </button>
+                          {isPk ? (
+                            <span title="Primary key">
+                              <KeyRound
+                                className="size-4 shrink-0 rotate-45 text-muted-foreground"
+                                strokeWidth={2.75}
+                                aria-label="Primary key"
+                              />
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div
+                          className="flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {field.hidden ? (
+                            <span title="Hidden field">
+                              <EyeOff
+                                className="size-4 text-muted-foreground"
+                                strokeWidth={2.75}
+                                aria-label="Hidden field"
+                              />
+                            </span>
+                          ) : null}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Actions for ${field.label || field.name}`}
+                                title="Field actions"
+                              >
+                                <EllipsisVertical className="size-4" strokeWidth={2.75} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => openEditField(field)}>
+                                <Pencil />
+                                Edit field
+                              </DropdownMenuItem>
+                              {!isPk ? (
+                                <>
+                                  <DropdownMenuItem
+                                    disabled={fieldLayoutSaving}
+                                    onSelect={() =>
+                                      void setFieldWidth(
+                                        field,
+                                        field.options.width === "half" ? "full" : "half"
+                                      )
+                                    }
+                                  >
+                                    <Columns2 />
+                                    {field.options.width === "half"
+                                      ? "Use full width"
+                                      : "Use half width"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => void deleteField(field)}
+                                  >
+                                    <Trash2 />
+                                    Delete field
+                                  </DropdownMenuItem>
+                                </>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={openCreateField}
+                  className="flex h-11 w-full items-center justify-center rounded-xl bg-foreground text-background font-medium text-sm transition-opacity hover:opacity-90 shadow-xs"
+                >
+                  Create Field
+                </button>
+              </div>
+
+              {/* Directus-style Collection Setup */}
+              <div className="space-y-4 pt-6 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <DynamicIcon
+                    name={colSettings.icon || "box"}
+                    size={18}
+                    color={colSettings.color ? colSettings.color : undefined}
+                    className="text-foreground shrink-0"
+                  />
+                  <h3 className="text-sm font-semibold text-foreground">Collection Setup</h3>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Collection</Label>
+                    <Input
+                      value={selected.name}
+                      disabled
+                      className="h-10 rounded-xl bg-card border-input font-mono opacity-80"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Note</Label>
+                    <Input
+                      value={colSettings.note}
+                      placeholder="Collection description"
+                      className="h-10 rounded-xl bg-card border-input"
+                      onChange={(e) =>
+                        setColSettings((s) => ({ ...s, note: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Icon</Label>
+                    <IconPicker
+                      value={colSettings.icon}
+                      onChange={(icon) =>
+                        setColSettings((s) => ({ ...s, icon }))
+                      }
+                      color={colSettings.color}
+                      placeholder="School, box, user, etc."
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Color</Label>
+                    <ColorPicker
+                      value={colSettings.color}
+                      onChange={(color) =>
+                        setColSettings((s) => ({ ...s, color }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Display Template</Label>
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-input bg-card min-h-10">
+                    <Input
+                      placeholder="e.g. {{first_name}} {{last_name}}"
+                      value={colSettings.display_template}
+                      onChange={(e) =>
+                        setColSettings((s) => ({ ...s, display_template: e.target.value }))
+                      }
+                      className="h-7 flex-1 border-none bg-transparent shadow-none text-xs p-1 focus-visible:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4">
+                    <span className="text-sm font-medium text-foreground">Hide within the App</span>
+                    <Switch
+                      checked={colSettings.hidden}
+                      onCheckedChange={(hidden) =>
+                        setColSettings((s) => ({ ...s, hidden }))
+                      }
+                    />
+                  </div>
+                  <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4">
+                    <span className="text-sm font-medium text-foreground">Treat as single object</span>
+                    <Switch
+                      checked={colSettings.singleton}
+                      onCheckedChange={(singleton) =>
+                        setColSettings((s) => ({ ...s, singleton }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Collection Naming Translations</Label>
+                  <div
+                    role="status"
+                    className="flex min-h-13 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+                  >
+                    <Info className="size-5 shrink-0" />
+                    <span>No items</span>
                   </div>
                 </div>
               </div>
@@ -664,6 +966,7 @@ export default function DataStudio({ data }: EtViewProps) {
         collection={collectionDialogMode === "edit" ? selected : null}
         onSaved={(col) => {
           setSelected(col);
+          setColSettings(collection_settings(col));
           setFields(col.fields);
           setCollections((current) =>
             [
@@ -678,10 +981,12 @@ export default function DataStudio({ data }: EtViewProps) {
 
       {/* FIELD DRAWER (Directus Style) */}
       <FieldDrawer
+        key={editingField ? `edit-${editingField.name}` : "create"}
         open={fieldOpen}
         onOpenChange={setFieldOpen}
         collectionName={selected?.label || selected?.name || ""}
         collections={collections}
+        collectionFields={fields}
         editingField={editingField}
         form={fieldForm}
         setForm={setFieldForm}

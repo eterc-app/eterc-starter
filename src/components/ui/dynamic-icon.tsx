@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import type { LucideIcon } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 
 function toPascalCase(str: string): string {
@@ -27,10 +28,16 @@ export function DynamicIcon({
   const IconComponent = useMemo(() => {
     if (!name) return LucideIcons.Box;
     const pascal = toPascalCase(name);
+    const icon_map = LucideIcons as unknown as Record<
+      string,
+      LucideIcon | undefined
+    >;
+    const bundled = LucideIcons.icons as unknown as Record<
+      string,
+      LucideIcon | undefined
+    >;
     const candidate =
-      (LucideIcons as Record<string, any>)[pascal] ||
-      (LucideIcons as Record<string, any>)[`${pascal}Icon`] ||
-      (LucideIcons.icons as Record<string, any>)?.[pascal];
+      icon_map[pascal] || icon_map[`${pascal}Icon`] || bundled?.[pascal];
     return candidate || LucideIcons.Box;
   }, [name]);
 
@@ -45,3 +52,4 @@ export function DynamicIcon({
     />
   );
 }
+

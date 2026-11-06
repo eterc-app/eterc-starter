@@ -155,7 +155,7 @@ for (const token of [
   "--surface-subtle: #f5f5f5;",
   "--destructive: #a51d2d;",
   "--radius-surface: 0.625rem;",
-  "--field-height: 2.5rem;",
+  "--field-height: 3.25rem;",
   "--sidebar-width: 11.25rem;",
   "--sidebar-font-size: 0.7875rem;",
   "--header-height: 4rem;",
@@ -432,12 +432,18 @@ for (const relative of [
   "src/components/ui/input.tsx",
   "src/components/ui/input-group.tsx",
 ]) {
-  if (!read(relative).includes("h-10")) {
-    problems.push(`${relative} must use the 40 px field height`);
+  if (!read(relative).includes("h-13")) {
+    problems.push(`${relative} must use the 52 px field height`);
   }
 }
-if (!read("src/components/ui/select.tsx").includes("data-[size=default]:h-10")) {
-  problems.push("Select must use the 40 px default field height");
+if (!read("src/components/ui/select.tsx").includes("data-[size=default]:h-13")) {
+  problems.push("Select must use the 52 px default field height");
+}
+if (!read("src/components/ui/textarea.tsx").includes("min-h-40")) {
+  problems.push("Textarea must use the 160 px minimum height");
+}
+if (!read("src/components/ui/label.tsx").includes("type-label")) {
+  problems.push("Label must use the shared 16 px type scale");
 }
 
 const authShell = read("src/modules/login/views/AuthShell.tsx");

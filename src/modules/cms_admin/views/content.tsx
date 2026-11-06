@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal, useSetNavbarMeta } from "@/components/app/PageActionsSlot";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
@@ -33,12 +32,12 @@ import type {
 } from "@/modules/cms/cms-types";
 import { ContentSidebar } from "./ContentSidebar";
 import {
-  BusyButton,
-  EmptyState,
-  FieldInput,
-  FieldLabel,
-  cms_call,
-} from "./ui";
+  CmsFieldForm,
+  FieldValueDisplay,
+  default_value_for_field,
+  is_alias_field,
+} from "./field-inputs";
+import { BusyButton, EmptyState, cms_call } from "./ui";
 
 interface Snapshot {
   collections?: CmsCollectionWithFields[];
@@ -55,36 +54,29 @@ interface Snapshot {
   media_api_root?: string;
 }
 
-function cell_value(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function format_datetime(value: unknown): string {
-  if (!value) return "—";
-  try {
-    const date = new Date(String(value));
-    return Number.isNaN(date.getTime())
-      ? String(value)
-      : date.toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-  } catch {
-    return String(value);
-  }
-}
-
 function record_defaults(fields: CmsField[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const field of fields) {
-    if (field.options.default !== undefined) values[field.name] = field.options.default;
-    else if (field.type === "boolean") values[field.name] = false;
-    else values[field.name] = "";
+    if (is_alias_field(field)) continue;
+    values[field.name] = default_value_for_field(field);
   }
   return values;
+}
+
+function parse_record_value(field: CmsField, value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return default_value_for_field(field);
+  }
+  if (field.type === "json" && typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return default_value_for_field(field);
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return value;
+    }
+  }
+  return value;
 }
 
 function ExpandableSearch({
@@ -253,15 +245,22 @@ export default function ContentManager({ data }: EtViewProps) {
     setViewMode("record-form");
   }, [fields]);
 
-  const openEditRecord = useCallback((record: Record<string, unknown>) => {
-    setEditingRecord(record);
-    const values: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(record)) {
-      values[key] = value ?? "";
-    }
-    setRecordValues(values);
-    setViewMode("record-form");
-  }, []);
+  const openEditRecord = useCallback(
+    (record: Record<string, unknown>) => {
+      setEditingRecord(record);
+      const values: Record<string, unknown> = {};
+      for (const field of fields) {
+        if (is_alias_field(field)) continue;
+        values[field.name] = parse_record_value(field, record[field.name]);
+      }
+      for (const [key, value] of Object.entries(record)) {
+        if (!(key in values)) values[key] = value ?? "";
+      }
+      setRecordValues(values);
+      setViewMode("record-form");
+    },
+    [fields]
+  );
 
   const saveRecord = useCallback(async () => {
     if (!selected) return;
@@ -270,6 +269,7 @@ export default function ContentManager({ data }: EtViewProps) {
       const values: Record<string, unknown> = {};
       for (const field of fields) {
         if (field.hidden || field.readonly) continue;
+        if (is_alias_field(field)) continue;
         if (editingRecord && field.name === selected.primary_key) continue;
         const value = recordValues[field.name];
         if (value !== undefined) values[field.name] = value;
@@ -355,19 +355,28 @@ export default function ContentManager({ data }: EtViewProps) {
   const tableFields = useMemo(
     () =>
       visibleFields
-        .filter((field) => field.name !== selected?.primary_key)
+        .filter(
+          (field) =>
+            field.name !== selected?.primary_key && !is_alias_field(field)
+        )
         .slice(0, 8),
     [selected?.primary_key, visibleFields]
   );
-  const editableFields = useMemo(
+  const formFields = useMemo(
     () =>
       fields.filter(
         (field) =>
           !field.hidden &&
-          !field.readonly &&
           (!editingRecord || field.name !== selected?.primary_key)
       ),
     [editingRecord, fields, selected?.primary_key]
+  );
+  const editableFields = useMemo(
+    () =>
+      formFields.filter(
+        (field) => !field.readonly && !is_alias_field(field)
+      ),
+    [formFields]
   );
 
   const clearSearch = useCallback(() => {
@@ -560,9 +569,9 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               </div>
 
-              {editableFields.length === 0 ? (
+              {formFields.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  This collection has no editable fields. Go to Data Studio to add columns.
+                  This collection has no fields. Go to Data Studio to add columns.
                 </p>
               ) : (
                 <form
@@ -572,30 +581,26 @@ export default function ContentManager({ data }: EtViewProps) {
                   }}
                   className="space-y-5"
                 >
-                  {editableFields.map((field) => (
-                    <div key={field.name} className="grid gap-3">
-                      <FieldLabel field={field} />
-                      <FieldInput
-                        field={field}
-                        value={recordValues[field.name]}
-                        media={{
-                          csrfToken: String(initial.csrf_token ?? ""),
-                          uploadUrl: String(
-                            initial.media_upload_url ?? "/api/media/upload"
-                          ),
-                          apiRoot: String(
-                            initial.media_api_root ?? "/api/xhr/media"
-                          ),
-                        }}
-                        onChange={(value) =>
-                          setRecordValues((values) => ({
-                            ...values,
-                            [field.name]: value,
-                          }))
-                        }
-                      />
-                    </div>
-                  ))}
+                  <CmsFieldForm
+                    fields={formFields}
+                    values={recordValues}
+                    collections={collections}
+                    media={{
+                      csrfToken: String(initial.csrf_token ?? ""),
+                      uploadUrl: String(
+                        initial.media_upload_url ?? "/api/media/upload"
+                      ),
+                      apiRoot: String(
+                        initial.media_api_root ?? "/api/xhr/media"
+                      ),
+                    }}
+                    onChange={(name, value) =>
+                      setRecordValues((values) => ({
+                        ...values,
+                        [name]: value,
+                      }))
+                    }
+                  />
 
                   {/* Clean bottom buttons for form */}
                   <div className="flex items-center justify-between pt-6 border-t border-border">
@@ -758,32 +763,10 @@ export default function ContentManager({ data }: EtViewProps) {
                                     key={field.name}
                                     className="max-w-[220px] px-3 py-3"
                                   >
-                                    {field.type === "boolean" ? (
-                                      <Badge variant={value ? "success" : "outline"}>
-                                        {value ? "Yes" : "No"}
-                                      </Badge>
-                                    ) : field.type === "datetime" ? (
-                                      <span className="text-muted-foreground">
-                                        {format_datetime(value)}
-                                      </span>
-                                    ) : field.type === "image" && value ? (
-                                      <div className="flex items-center gap-2">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={String(value)}
-                                          alt={field.name}
-                                          className="size-7 rounded object-cover border border-border shrink-0 bg-muted"
-                                          loading="lazy"
-                                        />
-                                        <span className="line-clamp-1 truncate text-xs text-muted-foreground">
-                                          {cell_value(value)}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span className="line-clamp-2 break-words text-muted-foreground">
-                                        {cell_value(value)}
-                                      </span>
-                                    )}
+                                    <FieldValueDisplay
+                                      field={field}
+                                      value={value}
+                                    />
                                   </td>
                                 );
                               })}

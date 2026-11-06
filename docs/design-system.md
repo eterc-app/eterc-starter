@@ -112,8 +112,8 @@ Rules:
 | Control radius | 8 px (`rounded-lg`) |
 | Surface radius | 10 px (`rounded-xl`) |
 | Border width | 1 px |
-| Standard field height | 40 px (`h-10`) |
-| Large field height | 48 px (`h-12`) |
+| Standard field height | 52 px (`h-13`) |
+| Large field height | 60 px (`h-15`) |
 | Standard button height | 40 px (`h-10`) |
 | Large button height | 60 px (`h-15`) |
 | Compact button height | 32 px (`h-8`) |
@@ -176,13 +176,13 @@ Shell composition:
 
 ### Fields
 
-- Inputs, selects, and textareas are 40 px tall by default, white, 1 px `--input`, 8 px radius,
-  12 px horizontal padding, 14 px text.
+- Inputs and selects are 52 px tall by default; textareas use a 160 px minimum height. Controls
+  have a white surface, 1 px `--input` border, 8 px radius, 16 px horizontal padding, and 14 px text.
 - Focus is a 1 px black border plus a soft black shadow:
   `focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)]`. Do not use a
   colored outer ring on fields.
 - Placeholders are muted and never replace a label.
-- Labels are 14 px semibold. Keep the label and control in a 12 px vertical stack using `grid gap-3`; the label's `m-0` overrides `space-y-*` margins.
+- Labels are 16 px semibold. Keep the label and control in a 12 px vertical stack using `grid gap-3`; the label's `m-0` overrides `space-y-*` margins.
 - Helper text is 13 px italic muted and appears only when it changes a decision.
 - Form grids use two columns at `sm` and larger, 32 px column gap, 24 px row gap. Long text fields
   span both columns.
@@ -228,6 +228,9 @@ Shell composition:
 
 - Use the shared `ContentSidebar` for the collection rail. Do not build a page-specific
   collection drawer or a horizontal collection tab strip.
+- Data Studio fields use a single-column list of full-width white rows. Each row has a drag
+  handle, a monospaced field label with its interface, key/hidden indicators, and an overflow
+  menu for field actions.
 - The rail is a white surface with a 1 px border and 10 px radius, sticky at 24 px on desktop.
   It has a `Collections` header, collection count, search field, 40 px collection rows, and a
   footer action for creating a collection.
@@ -296,7 +299,7 @@ Shell composition:
 
 ### Empty states
 
-- Use `EmptyState` for a full empty region. It is a white card with a dashed 1 px border, a
+- Use `EmptyState` for a full empty region. It is a white card with a solid 1 px border, a
   48 px icon well, a 16 px semibold title, and optional actions.
 - Use an inline empty state inside a table or editor for a smaller region.
 - Do not use emoji, illustrations, or decorative gradients.
@@ -356,7 +359,7 @@ Primary workspace pages use the top-bar breadcrumb as their page identity and st
 - `AuthShell` still owns forgot/reset password, blocked-access, and alternate login views. It is
   a full-screen canvas with a 440 px card, brand mark, title, optional description, and the
   private-by-default footer.
-- Auth cards use the same 10 px surface radius, 1 px border, 14 px semibold labels, and 40 px
+- Auth cards use the same 10 px surface radius, 1 px border, 16 px semibold labels, and 52 px
   fields as the admin workspace. Login may use a 44 px brand mark and the standard 40 px
   primary button.
 - The setup wizard uses a 3xl max-width card on the canvas. Steps use a neutral track; the active

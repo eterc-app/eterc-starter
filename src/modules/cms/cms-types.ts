@@ -17,7 +17,8 @@ export type CmsFieldType =
   | "json"
   | "select"
   | "image"
-  | "relation";
+  | "relation"
+  | "alias";
 
 export type CmsFieldInterface =
   | "input"
@@ -76,9 +77,41 @@ export interface CmsField {
   unique: boolean;
   hidden: boolean;
   readonly: boolean;
+  /** Name of the parent group field, if this field is inside a group. */
+  group: string | null;
   sort: number;
   created_at: number;
   updated_at: number;
+}
+
+/** A Directus-style choice used by dropdown, radio and checkbox interfaces. */
+export interface CmsChoice {
+  text: string;
+  value: string | number | boolean;
+  icon?: string;
+  color?: string;
+  /** Parent value for tree choices. */
+  parent?: string | number | boolean;
+}
+
+/** A sub-field definition used by the repeater interface. */
+export interface CmsRepeaterField {
+  field: string;
+  name?: string;
+  type?: CmsFieldType;
+  interface?: CmsFieldInterface;
+  options?: Record<string, unknown>;
+  required?: boolean;
+  width?: "half" | "full";
+}
+
+/** A presentation button configured by the buttons interface. */
+export interface CmsLink {
+  label: string;
+  icon?: string;
+  type?: "normal" | "primary" | "info" | "success" | "warning" | "danger";
+  actionType?: "url" | "flow";
+  url?: string;
 }
 
 export interface CmsCollection {
@@ -112,6 +145,7 @@ export interface CmsFieldInput {
   unique?: boolean;
   hidden?: boolean;
   readonly?: boolean;
+  group?: string | null;
 }
 
 export type CmsPrimaryKeyType = "integer" | "bigInteger" | "uuid" | "string";
@@ -387,6 +421,7 @@ export const CMS_FIELD_TYPES: CmsFieldType[] = [
   "select",
   "image",
   "relation",
+  "alias",
 ];
 
 export function cms_field_interface(type: CmsFieldType): CmsFieldInterface {
@@ -408,6 +443,8 @@ export function cms_field_interface(type: CmsFieldType): CmsFieldInterface {
       return "image";
     case "relation":
       return "relation";
+    case "alias":
+      return "raw_group";
     default:
       return "input";
   }

@@ -106,7 +106,7 @@ export function ColorPicker({
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-10 w-full items-center gap-2.5 rounded-xl border border-input bg-card px-3 text-left transition-colors hover:border-foreground/30",
+            "flex h-13 w-full items-center gap-2.5 rounded-lg border border-input bg-card px-4 text-left transition-colors hover:border-foreground/30",
             className
           )}
         >
@@ -122,7 +122,7 @@ export function ColorPicker({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-64 p-4 rounded-2xl border border-border bg-popover shadow-xs space-y-4"
+        className="w-64 rounded-xl border border-border bg-popover p-4 shadow-xs space-y-4"
       >
         {/* Color preview box */}
         <div

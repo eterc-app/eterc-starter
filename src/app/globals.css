@@ -12,7 +12,7 @@
   /* Surfaces */
   --background: #ededed;
   --foreground: #000000;
-  --card: #f5f5f5;
+  --card: #ffffff;
   --card-foreground: #000000;
   --popover: #ffffff;
   --popover-foreground: #000000;
@@ -50,9 +50,9 @@
   /* Geometry */
   --radius: 0.5rem;
   --radius-surface: 0.625rem;
-  --field-height: 2.5rem;
-  --field-height-lg: 3rem;
-  --field-padding: 0.75rem;
+  --field-height: 3.25rem;
+  --field-height-lg: 3.75rem;
+  --field-padding: 1rem;
   --header-height: 4rem;
   --sidebar-width: 12rem;
   /* --sidebar-width: 11.25rem; */

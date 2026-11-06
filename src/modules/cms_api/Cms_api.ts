@@ -249,6 +249,7 @@ export default class Cms_api extends Eterc {
                   required: field.required,
                   hidden: field.hidden,
                   readonly: field.readonly,
+                  group: field.group,
                 })),
             };
           }),
@@ -275,6 +276,11 @@ export default class Cms_api extends Eterc {
         data: update_collection(name, {
           label: typeof payload.label === "string" ? payload.label : undefined,
           icon: typeof payload.icon === "string" ? payload.icon : undefined,
+          color: typeof payload.color === "string" ? payload.color : undefined,
+          display_template:
+            typeof payload.display_template === "string"
+              ? payload.display_template
+              : undefined,
           note: typeof payload.note === "string" ? payload.note : undefined,
           singleton: typeof payload.singleton === "boolean" ? payload.singleton : undefined,
           hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,
@@ -325,6 +331,10 @@ export default class Cms_api extends Eterc {
           unique: typeof payload.unique === "boolean" ? payload.unique : undefined,
           hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,
           readonly: typeof payload.readonly === "boolean" ? payload.readonly : undefined,
+          group:
+            payload.group === null || typeof payload.group === "string"
+              ? (payload.group as string | null)
+              : undefined,
         }),
       });
     }

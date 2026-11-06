@@ -11,7 +11,6 @@ import {
   Flag,
   Info,
   User,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,19 +22,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { IconPicker } from "@/components/ui/icon-picker";
 import { cn } from "@/lib/utils";
 import type {
   CmsCollectionWithFields,
-  CmsFieldType,
   CmsOptionalFieldsConfig,
   CmsPrimaryKeyType,
 } from "@/modules/cms/cms-types";
-import { BusyButton, FIELD_TYPE_OPTIONS, cms_call } from "./ui";
+import { BusyButton, cms_call } from "./ui";
 
 interface CollectionForm {
   name: string;
   label: string;
   icon: string;
+  color: string;
+  display_template: string;
   note: string;
   singleton: boolean;
   hidden: boolean;
@@ -60,7 +62,9 @@ function empty_form(): CollectionForm {
   return {
     name: "",
     label: "",
-    icon: "table",
+    icon: "box",
+    color: "",
+    display_template: "",
     note: "",
     singleton: false,
     hidden: false,
@@ -85,7 +89,9 @@ function form_from_collection(
   return {
     name: collection.name,
     label: collection.label,
-    icon: collection.icon,
+    icon: collection.icon || "box",
+    color: collection.color || "",
+    display_template: collection.display_template || "",
     note: collection.note,
     singleton: collection.singleton,
     hidden: collection.hidden,
@@ -175,6 +181,8 @@ function CollectionDialogBody({
             name: form.name,
             label: form.label || form.name,
             icon: form.icon,
+            color: form.color,
+            display_template: form.display_template,
             note: form.note,
             singleton: form.singleton,
             hidden: form.hidden,
@@ -193,6 +201,8 @@ function CollectionDialogBody({
             name: form.name,
             label: form.label,
             icon: form.icon,
+            color: form.color,
+            display_template: form.display_template,
             note: form.note,
             singleton: form.singleton,
             hidden: form.hidden,
@@ -452,6 +462,30 @@ function CollectionDialogBody({
                       />
                     </div>
                   </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2 border-t border-border pt-4">
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-semibold">Collection Icon</Label>
+                      <IconPicker
+                        value={form.icon}
+                        onChange={(icon) =>
+                          setForm((current) => ({ ...current, icon }))
+                        }
+                        color={form.color}
+                        placeholder="Pick an icon (from 1,700+)"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-semibold">Icon & Brand Color</Label>
+                      <ColorPicker
+                        value={form.color}
+                        onChange={(color) =>
+                          setForm((current) => ({ ...current, color }))
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : mode === "create" ? (
                 /* STEP 2: OPTIONAL FIELDS */
@@ -656,6 +690,30 @@ function CollectionDialogBody({
                             ...current,
                             note: event.target.value,
                           }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-semibold">Collection Icon</Label>
+                      <IconPicker
+                        value={form.icon}
+                        onChange={(icon) =>
+                          setForm((current) => ({ ...current, icon }))
+                        }
+                        color={form.color}
+                        placeholder="Pick an icon (from 1,700+)"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-semibold">Icon & Brand Color</Label>
+                      <ColorPicker
+                        value={form.color}
+                        onChange={(color) =>
+                          setForm((current) => ({ ...current, color }))
                         }
                       />
                     </div>

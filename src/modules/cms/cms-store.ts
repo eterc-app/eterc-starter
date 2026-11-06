@@ -22,6 +22,11 @@ import {
   quote_identifier,
   remove_field_from_policies,
 } from "./cms-schema";
+import {
+  cms_interface_definition,
+  cms_is_alias_interface,
+  cms_is_group_interface,
+} from "./cms-interfaces";
 import { get_runtime_config } from "./cms-runtime";
 
 const RESERVED_PREFIXES = ["eterc_", "cms_", "sqlite_", "et_", "login_", "password_"];
@@ -53,6 +58,10 @@ function fieldFromRow(row: Row): CmsField {
     unique: bool(row.unique),
     hidden: bool(row.hidden),
     readonly: bool(row.readonly),
+    group:
+      row.group === null || row.group === undefined || row.group === ""
+        ? null
+        : String(row.group),
     sort: Number(row.sort ?? 0),
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
@@ -220,7 +229,13 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
         label: humanize_name(opt.status.name.trim() || "status"),
         type: "select" as const,
         interface: "select" as const,
-        options: { choices: ["draft", "published", "archived"] },
+        options: {
+          choices: [
+            { text: "Draft", value: "draft" },
+            { text: "Published", value: "published" },
+            { text: "Archived", value: "archived" },
+          ],
+        },
         required: true,
         defaultSql: "'draft'",
       }
@@ -296,6 +311,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
         : `${quote_identifier(primaryKey)} TEXT NOT NULL PRIMARY KEY`;
   const columns: string[] = [primaryColumn];
   for (const field of normalizedFields) {
+    if (field.type === "alias") continue;
     columns.push(default_field_sql(field, false));
   }
 
@@ -327,7 +343,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   const create = sqlite().transaction(() => {
   sqlite().exec(createSql);
   for (const field of normalizedFields) {
-    if (field.unique) create_unique_index(name, field.name);
+    if (field.unique && field.type !== "alias") create_unique_index(name, field.name);
   }
 
   const result = sqlite()
@@ -353,8 +369,8 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
 
   const insertField = sqlite().prepare(
     `INSERT INTO cms_fields
-      (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, sort, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", sort, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   insertField.run(
@@ -368,6 +384,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     1,
     primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? 1 : 0,
     primaryKeyType === "string" ? 0 : 1,
+    null,
     0,
     now,
     now
@@ -387,6 +404,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       normalized.unique ? 1 : 0,
       normalized.hidden ? 1 : 0,
       normalized.readonly ? 1 : 0,
+      normalized.group,
       sort,
       now,
       now
@@ -406,6 +424,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       0,
       0,
+      null,
       sort++,
       now,
       now
@@ -423,6 +442,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       0,
       0,
+      null,
       sort++,
       now,
       now
@@ -440,6 +460,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       1,
       1,
+      null,
       sort++,
       now,
       now
@@ -456,6 +477,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       1,
       1,
+      null,
       sort++,
       now,
       now
@@ -473,6 +495,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       0,
       1,
+      null,
       sort++,
       now,
       now
@@ -490,6 +513,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       1,
       1,
+      null,
       sort++,
       now,
       now
@@ -506,6 +530,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       1,
       1,
+      null,
       sort++,
       now,
       now
@@ -523,6 +548,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       0,
       0,
       1,
+      null,
       sort++,
       now,
       now
@@ -590,19 +616,23 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
   }
 
   const field = normalize_field({ ...input, name });
-  const ddl = default_field_sql(field, false);
+  assert_group_reference(fields, field.group, field.name);
+  const metadataOnly = field.type === "alias";
+  const ddl = metadataOnly ? "" : default_field_sql(field, false);
   const apply = sqlite().transaction(() => {
-    sqlite().exec(
-      `ALTER TABLE ${quote_identifier(collectionName)} ADD COLUMN ${ddl}`
-    );
-    if (field.unique) create_unique_index(collectionName, field.name);
+    if (!metadataOnly) {
+      sqlite().exec(
+        `ALTER TABLE ${quote_identifier(collectionName)} ADD COLUMN ${ddl}`
+      );
+      if (field.unique) create_unique_index(collectionName, field.name);
+    }
     const now = nowSeconds();
     const sort = fields.reduce((max, item) => Math.max(max, item.sort), 0) + 1;
     const result = sqlite()
       .prepare(
         `INSERT INTO cms_fields
-          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, sort, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", sort, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         collection.id,
@@ -615,6 +645,7 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
         field.unique ? 1 : 0,
         field.hidden ? 1 : 0,
         field.readonly ? 1 : 0,
+        field.group,
         sort,
         now,
         now
@@ -639,7 +670,20 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
 export function update_field(
   collectionName: string,
   fieldName: string,
-  patch: Partial<Pick<CmsField, "label" | "type" | "interface" | "options" | "required" | "unique" | "hidden" | "readonly">>
+  patch: Partial<
+    Pick<
+      CmsField,
+      | "label"
+      | "type"
+      | "interface"
+      | "options"
+      | "required"
+      | "unique"
+      | "hidden"
+      | "readonly"
+      | "group"
+    >
+  >
 ): CmsField {
   const { collection, fields } = require_collection(collectionName);
   if (collection.system) {
@@ -650,27 +694,71 @@ export function update_field(
   if (field.name === "id") {
     throw new EtHttpError(403, "The primary key field cannot be changed.");
   }
+  if (patch.type !== undefined && patch.type !== field.type) {
+    throw new EtHttpError(
+      400,
+      "A field's storage type cannot be changed after creation."
+    );
+  }
 
-  const nextType = patch.type && CMS_FIELD_TYPES.includes(patch.type) ? patch.type : field.type;
-  const nextUnique = patch.unique ?? field.unique;
+  const currentAlias = field.type === "alias" || cms_is_alias_interface(field.interface);
+  const requestedType =
+    patch.type && CMS_FIELD_TYPES.includes(patch.type) ? patch.type : field.type;
+  const requestedInterface = patch.interface ?? field.interface;
+  if (
+    patch.interface !== undefined &&
+    patch.interface !== field.interface &&
+    !cms_interface_definition(requestedInterface).types.includes(field.type)
+  ) {
+    throw new EtHttpError(
+      400,
+      `The '${requestedInterface}' interface does not support the '${field.type}' storage type.`
+    );
+  }
+  const requestedAlias =
+    requestedType === "alias" || cms_is_alias_interface(requestedInterface);
+  if (currentAlias !== requestedAlias) {
+    throw new EtHttpError(
+      400,
+      "A metadata-only field cannot be converted into a database column, or the reverse. Delete and recreate it instead."
+    );
+  }
+  const nextType = requestedAlias ? "alias" : requestedType;
+  const nextInterface = requestedAlias
+    ? cms_is_alias_interface(requestedInterface)
+      ? requestedInterface
+      : field.interface
+    : requestedInterface;
+  const nextGroup =
+    patch.group === undefined
+      ? field.group
+      : String(patch.group ?? "").trim() === ""
+        ? null
+        : String(patch.group).trim();
+  assert_group_reference(fields, nextGroup, field.name);
+  const nextUnique = requestedAlias ? false : (patch.unique ?? field.unique);
+  const nextRequired = requestedAlias ? false : (patch.required ?? field.required);
   const apply = sqlite().transaction(() => {
-    if (nextUnique && !field.unique) create_unique_index(collectionName, field.name);
-    if (!nextUnique && field.unique) drop_unique_index(collectionName, field.name);
+    if (!requestedAlias) {
+      if (nextUnique && !field.unique) create_unique_index(collectionName, field.name);
+      if (!nextUnique && field.unique) drop_unique_index(collectionName, field.name);
+    }
     sqlite()
       .prepare(
         `UPDATE cms_fields
-         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, updated_at = ?
+         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, "group" = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(
         patch.label ?? field.label,
         nextType,
-        patch.interface ?? (patch.type ? cms_field_interface(nextType) : field.interface),
+        nextInterface,
         JSON.stringify(patch.options ?? field.options),
-        (patch.required ?? field.required) ? 1 : 0,
+        nextRequired ? 1 : 0,
         nextUnique ? 1 : 0,
         (patch.hidden ?? field.hidden) ? 1 : 0,
         (patch.readonly ?? field.readonly) ? 1 : 0,
+        nextGroup,
         nowSeconds(),
         field.id
       );
@@ -691,6 +779,32 @@ export function update_field(
   }
 }
 
+export function reorder_fields(collectionName: string, fieldNames: string[]): CmsField[] {
+  const { collection, fields } = require_collection(collectionName);
+  if (collection.system) {
+    throw new EtHttpError(403, "System collections cannot be changed.");
+  }
+  if (
+    fieldNames.length !== fields.length ||
+    new Set(fieldNames).size !== fieldNames.length ||
+    fieldNames.some((name) => !fields.some((field) => field.name === name))
+  ) {
+    throw new EtHttpError(400, "The field order must include every collection field exactly once.");
+  }
+
+  const updateSort = sqlite().prepare(
+    "UPDATE cms_fields SET sort = ?, updated_at = ? WHERE collection_id = ? AND name = ?"
+  );
+  const now = nowSeconds();
+  sqlite().transaction(() => {
+    fieldNames.forEach((name, index) => {
+      updateSort.run(index + 1, now, collection.id, name);
+    });
+  })();
+
+  return field_rows(collection.id);
+}
+
 export function delete_field(collectionName: string, fieldName: string): void {
   const { collection, fields } = require_collection(collectionName);
   if (collection.system) {
@@ -701,13 +815,19 @@ export function delete_field(collectionName: string, fieldName: string): void {
   if (field.name === "id") {
     throw new EtHttpError(403, "The primary key field cannot be deleted.");
   }
+  const metadataOnly = field.type === "alias" || cms_is_alias_interface(field.interface);
   const apply = sqlite().transaction(() => {
-    drop_unique_index(collectionName, field.name);
-    sqlite().exec(
-      `ALTER TABLE ${quote_identifier(collectionName)} DROP COLUMN ${quote_identifier(field.name)}`
-    );
+    if (!metadataOnly) {
+      drop_unique_index(collectionName, field.name);
+      sqlite().exec(
+        `ALTER TABLE ${quote_identifier(collectionName)} DROP COLUMN ${quote_identifier(field.name)}`
+      );
+    }
     sqlite().prepare("DELETE FROM cms_fields WHERE id = ?").run(field.id);
-    remove_field_from_policies(collectionName, field.name);
+    sqlite()
+      .prepare("UPDATE cms_fields SET \"group\" = NULL WHERE collection_id = ? AND \"group\" = ?")
+      .run(collection.id, field.name);
+    if (!metadataOnly) remove_field_from_policies(collectionName, field.name);
   });
   try {
     apply();
@@ -722,18 +842,53 @@ export function delete_field(collectionName: string, fieldName: string): void {
 }
 
 function normalize_field(input: CmsFieldInput): Required<CmsFieldInput> {
-  const type = input.type && CMS_FIELD_TYPES.includes(input.type) ? input.type : "string";
+  const requestedType =
+    input.type && CMS_FIELD_TYPES.includes(input.type) ? input.type : "string";
+  const requestedInterface = input.interface ?? cms_field_interface(requestedType);
+  const metadataOnly =
+    requestedType === "alias" || cms_is_alias_interface(requestedInterface);
+  if (
+    !metadataOnly &&
+    !cms_interface_definition(requestedInterface).types.includes(requestedType)
+  ) {
+    throw new EtHttpError(
+      400,
+      `The '${requestedInterface}' interface does not support the '${requestedType}' storage type.`
+    );
+  }
+  const type: CmsFieldType = metadataOnly ? "alias" : requestedType;
+  const group = String(input.group ?? "").trim();
   return {
     name: String(input.name ?? "").trim(),
     label: String(input.label ?? humanize_name(String(input.name ?? ""))),
     type,
-    interface: input.interface ?? cms_field_interface(type),
+    interface: metadataOnly
+      ? cms_is_alias_interface(requestedInterface)
+        ? requestedInterface
+        : "raw_group"
+      : requestedInterface,
     options: input.options ?? {},
-    required: Boolean(input.required),
-    unique: Boolean(input.unique),
+    required: metadataOnly ? false : Boolean(input.required),
+    unique: metadataOnly ? false : Boolean(input.unique),
     hidden: Boolean(input.hidden),
     readonly: Boolean(input.readonly),
+    group: group === "" ? null : group,
   };
+}
+
+function assert_group_reference(
+  fields: CmsField[],
+  group: string | null,
+  fieldName: string
+): void {
+  if (!group) return;
+  if (group === fieldName) {
+    throw new EtHttpError(400, "A field cannot be grouped inside itself.");
+  }
+  const parent = fields.find((field) => field.name === group);
+  if (!parent || !cms_is_group_interface(parent.interface)) {
+    throw new EtHttpError(400, `Group '${group}' is not a group field in this collection.`);
+  }
 }
 
 function visible_fields(fields: CmsField[], includeHidden = true): CmsField[] {
@@ -745,11 +900,15 @@ function order_field(
   sort?: string,
   primaryKey = "id"
 ): CmsField {
-  const requested = sort ? fields.find((field) => field.name === sort) : undefined;
+  const storageFields = fields.filter((field) => field.type !== "alias");
+  const requested = sort
+    ? storageFields.find((field) => field.name === sort)
+    : undefined;
   if (requested) return requested;
   return (
-    fields.find((field) => field.name === primaryKey) ??
-    fields.find((field) => field.name === "id") ??
+    storageFields.find((field) => field.name === primaryKey) ??
+    storageFields.find((field) => field.name === "id") ??
+    storageFields[0] ??
     fields[0]
   );
 }
@@ -893,7 +1052,10 @@ function build_where(
 
   if (search && search.trim() !== "") {
     const textFields = fields.filter(
-      (field) => !field.hidden && (field.type === "string" || field.type === "text" || field.type === "select")
+      (field) =>
+        !field.hidden &&
+        field.type !== "alias" &&
+        (field.type === "string" || field.type === "text" || field.type === "select")
     );
     if (textFields.length > 0) {
       clauses.push(
@@ -1088,6 +1250,8 @@ function prepare_write_values(
     if (!field) {
       throw new EtHttpError(400, `Unknown field '${key}'.`);
     }
+    // Alias fields are presentation or group metadata and have no SQL column.
+    if (field.type === "alias") continue;
     if (field.readonly || (updating && field.name === primaryKey)) {
       if (!updating && field.readonly && raw !== undefined) {
         throw new EtHttpError(400, `Field '${key}' is read-only.`);
@@ -1108,7 +1272,7 @@ function prepare_write_values(
 
   if (!updating) {
     for (const field of fields) {
-      if (field.readonly || !field.required) continue;
+      if (field.type === "alias" || field.readonly || !field.required) continue;
       if (values[field.name] === undefined || values[field.name] === null) {
         throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
       }
@@ -1208,7 +1372,14 @@ export function create_starter_collection(): CmsCollectionWithFields {
         name: "status",
         label: "Status",
         type: "select",
-        options: { choices: ["draft", "published", "archived"], default: "draft" },
+        options: {
+          choices: [
+            { text: "Draft", value: "draft" },
+            { text: "Published", value: "published" },
+            { text: "Archived", value: "archived" },
+          ],
+          default: "draft",
+        },
       },
       { name: "published_at", label: "Published At", type: "datetime" },
       { name: "cover_image", label: "Cover Image", type: "image" },

@@ -32,7 +32,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
   Palette,
   PanelLeft,
   PanelRight,
@@ -43,7 +42,6 @@ import {
   SlidersHorizontal,
   SquareTerminal,
   Store,
-  Sun,
   UserRound,
   Users,
   X,
@@ -162,16 +160,12 @@ function TopHeader({
   sidebarCollapsed,
   setSidebarCollapsed,
   setMobileOpen,
-  dark,
-  setTheme,
 }: {
   section: string;
   current: string;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   setMobileOpen: (open: boolean) => void;
-  dark: boolean;
-  setTheme: (theme: string) => void;
 }) {
   const navbarMeta = usePageNavbarMeta();
   const displaySection = navbarMeta?.section ?? section;
@@ -242,19 +236,6 @@ function TopHeader({
             </div>
           ) : null}
           <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
-          <button
-            type="button"
-            className="grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Switch theme"
-            title="Switch theme"
-            onClick={() => setTheme(dark ? "light" : "dark")}
-          >
-            {dark ? (
-              <Sun className="size-4" strokeWidth={1.75} />
-            ) : (
-              <Moon className="size-4" strokeWidth={1.75} />
-            )}
-          </button>
         </div>
       </div>
     </header>
@@ -279,6 +260,7 @@ export function AdminTemplate({
 
   const [section, current] = breadcrumb_items(current_path, pageTitle);
   const dark = resolvedTheme === "dark";
+  const toggleTheme = () => setTheme(dark ? "light" : "dark");
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -319,6 +301,23 @@ export function AdminTemplate({
                 const Icon = item.icon;
                 const active = is_active(current_path, item.href);
 
+                if (item.label === "Appearance") {
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="switch"
+                      aria-label="Dark theme"
+                      aria-checked={dark}
+                      title={`Dark theme ${dark ? "on" : "off"}`}
+                      onClick={toggleTheme}
+                      className="grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70"
+                    >
+                      <Icon className="size-5" strokeWidth={1.75} />
+                    </button>
+                  );
+                }
+
                 return (
                   <a
                     key={item.label}
@@ -327,10 +326,7 @@ export function AdminTemplate({
                     aria-label={item.ariaLabel ?? item.label}
                     aria-current={active ? "page" : undefined}
                     onClick={(e) => {
-                      if (item.label === "Appearance") {
-                        e.preventDefault();
-                        setTheme(dark ? "light" : "dark");
-                      } else if (item.href === "#") {
+                      if (item.href === "#") {
                         e.preventDefault();
                         toast.info(`${item.label} will be available in the next Eterc release.`);
                       }
@@ -414,11 +410,45 @@ export function AdminTemplate({
                 const Icon = item.icon;
                 const active = is_active(current_path, item.href);
 
+                if (item.label === "Appearance") {
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="switch"
+                      aria-label="Dark theme"
+                      aria-checked={dark}
+                      title={`Dark theme ${dark ? "on" : "off"}`}
+                      onClick={toggleTheme}
+                      className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-foreground transition-colors hover:bg-muted/70"
+                    >
+                      <Icon
+                        className="size-5 shrink-0 text-foreground"
+                        strokeWidth={1.75}
+                      />
+                      <span className="sidebar-text flex-1 truncate text-left font-medium text-foreground">
+                        Appearance
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                          dark ? "bg-primary" : "bg-muted-foreground/30",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 size-4 rounded-full bg-background transition-transform",
+                            dark ? "translate-x-4" : "translate-x-0.5",
+                          )}
+                        />
+                      </span>
+                    </button>
+                  );
+                }
+
                 const handleClick = (e: React.MouseEvent) => {
-                  if (item.label === "Appearance") {
-                    e.preventDefault();
-                    setTheme(dark ? "light" : "dark");
-                  } else if (item.href === "#") {
+                  if (item.href === "#") {
                     e.preventDefault();
                     toast.info(`${item.label} will be available in the next Eterc release.`);
                   } else if (mobile) {
@@ -548,8 +578,6 @@ export function AdminTemplate({
               sidebarCollapsed={sidebarCollapsed}
               setSidebarCollapsed={setSidebarCollapsed}
               setMobileOpen={setMobileOpen}
-              dark={dark}
-              setTheme={setTheme}
             />
 
             <main className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

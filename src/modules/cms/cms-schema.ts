@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS "cms_fields" (
   "unique" INTEGER NOT NULL DEFAULT 0,
   "hidden" INTEGER NOT NULL DEFAULT 0,
   "readonly" INTEGER NOT NULL DEFAULT 0,
+  "group" TEXT,
   "sort" INTEGER NOT NULL DEFAULT 0,
   "created_at" INTEGER NOT NULL,
   "updated_at" INTEGER NOT NULL,
@@ -160,6 +161,7 @@ function ensure_column(table: string, column: string, definition: string): void 
 function migrate_access_schema(): void {
   ensure_column("cms_collections", "color", "TEXT NOT NULL DEFAULT ''");
   ensure_column("cms_collections", "display_template", "TEXT NOT NULL DEFAULT ''");
+  ensure_column("cms_fields", "group", "TEXT");
   ensure_column("eterc_roles", "parent_role_id", "INTEGER");
   sqlite().exec(
     `CREATE INDEX IF NOT EXISTS "eterc_roles_parent_idx" ON "eterc_roles"("parent_role_id")`
@@ -398,6 +400,11 @@ function unique_columns(table: string): Set<string> {
   return unique;
 }
 
+/** Alias fields are CMS metadata only and never have a matching SQL column. */
+function metadata_only_row(row: Row): boolean {
+  return String(row.interface ?? "") === "alias" || String(row.type ?? "") === "alias";
+}
+
 function build_table_plan(name: string, reconcile: boolean): TablePlan {
   const collection = collection_row(name);
   const columns = sqlite()
@@ -467,10 +474,14 @@ function build_table_plan(name: string, reconcile: boolean): TablePlan {
     : [];
   const existingByName = new Map(existingRows.map((row) => [String(row.name), row]));
   const added = fields
-    .filter((field) => !existingByName.has(field.name))
+    .filter((field) => {
+      const row = existingByName.get(field.name);
+      return !row || metadata_only_row(row);
+    })
     .map((field) => field.name);
   const removed = reconcile
     ? existingRows
+        .filter((row) => !metadata_only_row(row))
         .map((row) => String(row.name))
         .filter((fieldName) => !fields.some((field) => field.name === fieldName))
     : [];
@@ -561,8 +572,27 @@ function apply_plan(plan: TablePlan): void {
         (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, sort, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?, ?)`
     );
+    const updateField = sqlite().prepare(
+      `UPDATE cms_fields
+       SET label = ?, type = ?, interface = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, updated_at = ?
+       WHERE id = ?`
+    );
     for (const field of plan.fields) {
       const row = existingByName.get(field.name);
+      if (row && metadata_only_row(row)) {
+        updateField.run(
+          field.label,
+          field.type,
+          field.interface,
+          field.required ? 1 : 0,
+          field.unique ? 1 : 0,
+          field.hidden ? 1 : 0,
+          field.readonly ? 1 : 0,
+          now,
+          Number(row.id)
+        );
+        continue;
+      }
       if (row) continue;
       insertField.run(
         collectionId,
@@ -722,6 +752,9 @@ export function default_field_sql(
 ): string {
   const type = field.type;
   const options = field.options ?? {};
+  if (type === "alias") {
+    throw new Error("Alias fields are CMS metadata only and do not create SQL columns.");
+  }
   let sqlType = "TEXT";
   if (type === "integer" || type === "boolean" || type === "relation") sqlType = "INTEGER";
   if (type === "decimal") sqlType = "REAL";
