@@ -256,7 +256,7 @@ function TextField({
         type={type}
         value={value}
         placeholder={placeholder}
-        className="h-10 rounded-lg border-input bg-card"
+        className="rounded-lg border-input bg-card"
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
@@ -327,7 +327,7 @@ function SelectField({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none"
+          className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -351,7 +351,7 @@ function ToggleField({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+    <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
       <div className="min-w-0">
         <span className="text-sm font-medium text-foreground">{label}</span>
       </div>
@@ -377,7 +377,7 @@ function IconField({
       <IconPicker
         value={value}
         placeholder={placeholder}
-        className="h-10 rounded-lg"
+        className="h-13 rounded-lg"
         onChange={onChange}
       />
     </div>
@@ -464,7 +464,7 @@ function ChoiceEditor({
                 <Input
                   value={choice.text}
                   placeholder="Label"
-                  className="h-9 rounded-lg border-input bg-card"
+                  className="rounded-lg border-input bg-card"
                   onChange={(event) => {
                     const text = event.target.value;
                     const followsLabel = String(choice.value) === choice.text;
@@ -479,7 +479,7 @@ function ChoiceEditor({
                 <Input
                   value={String(choice.value)}
                   placeholder="Value"
-                  className="h-9 rounded-lg border-input bg-card font-mono text-xs"
+                  className="rounded-lg border-input bg-card font-mono text-xs"
                   onChange={(event) =>
                     patch(index, {
                       value: parse_choice_value(event.target.value, type),
@@ -535,7 +535,7 @@ function ChoiceEditor({
               <IconPicker
                 value={choice.icon ?? ""}
                 placeholder="Optional icon"
-                className="h-9 rounded-lg"
+                className="h-13 rounded-lg"
                 onChange={(icon) =>
                   patch(index, { icon: icon || undefined })
                 }
@@ -543,7 +543,7 @@ function ChoiceEditor({
               <Input
                 value={choice.color ?? ""}
                 placeholder="Color token or value"
-                className="h-9 rounded-lg border-input bg-card"
+                className="rounded-lg border-input bg-card"
                 onChange={(event) =>
                   patch(index, { color: event.target.value || undefined })
                 }
@@ -564,7 +564,7 @@ function ChoiceEditor({
                             : parse_choice_value(event.target.value, type),
                       })
                     }
-                    className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                    className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                   >
                     <option value="">No parent</option>
                     {choices
@@ -641,7 +641,7 @@ function LinkEditor({
               <Input
                 value={link.label}
                 placeholder="Label"
-                className="h-9 flex-1 rounded-lg border-input bg-card"
+                className="h-13 flex-1 rounded-lg border-input bg-card"
                 onChange={(event) =>
                   patch(index, { label: event.target.value })
                 }
@@ -666,7 +666,7 @@ function LinkEditor({
               <IconPicker
                 value={link.icon ?? ""}
                 placeholder="Optional icon"
-                className="h-9 rounded-lg"
+                className="h-13 rounded-lg"
                 onChange={(icon) =>
                   patch(index, { icon: icon || undefined })
                 }
@@ -674,7 +674,7 @@ function LinkEditor({
               <Input
                 value={link.url ?? ""}
                 placeholder="https://example.com"
-                className="h-9 rounded-lg border-input bg-card"
+                className="rounded-lg border-input bg-card"
                 onChange={(event) =>
                   patch(index, { url: event.target.value || undefined })
                 }
@@ -689,7 +689,7 @@ function LinkEditor({
                       type: event.target.value as CmsLink["type"],
                     })
                   }
-                  className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                  className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                 >
                   {LINK_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -708,7 +708,7 @@ function LinkEditor({
                         .value as CmsLink["actionType"],
                     })
                   }
-                  className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                  className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                 >
                   {LINK_ACTIONS.map((action) => (
                     <option key={action.value} value={action.value}>
@@ -806,7 +806,7 @@ function RepeaterFieldsEditor({
                   <Input
                     value={field.field}
                     placeholder="field_key"
-                    className="h-9 rounded-lg border-input bg-card font-mono text-xs"
+                    className="rounded-lg border-input bg-card font-mono text-xs"
                     onChange={(event) =>
                       patch(index, {
                         field: slugify_field_name(event.target.value),
@@ -816,7 +816,7 @@ function RepeaterFieldsEditor({
                   <Input
                     value={field.name ?? ""}
                     placeholder="Label"
-                    className="h-9 rounded-lg border-input bg-card"
+                    className="rounded-lg border-input bg-card"
                     onChange={(event) =>
                       patch(index, { name: event.target.value })
                     }
@@ -879,7 +879,7 @@ function RepeaterFieldsEditor({
                         interface: nextInterface,
                       });
                     }}
-                    className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                    className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                   >
                     {SUB_FIELD_TYPES.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -904,7 +904,7 @@ function RepeaterFieldsEditor({
                           : definition.defaultType,
                       });
                     }}
-                    className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                    className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                   >
                     {interfaces.map((definition) => (
                       <option key={definition.id} value={definition.id}>
@@ -925,14 +925,14 @@ function RepeaterFieldsEditor({
                         width: event.target.value === "full" ? "full" : "half",
                       })
                     }
-                    className="h-9 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                    className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
                   >
                     <option value="half">Half width</option>
                     <option value="full">Full width</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <div className="flex h-9 items-center justify-between rounded-lg border border-input bg-card px-3">
+                <div className="flex h-13 items-center justify-between rounded-lg border border-input bg-card px-3">
                   <span className="text-xs font-medium text-foreground">
                     Required
                   </span>
@@ -995,7 +995,7 @@ function LanguagesEditor({
             <Input
               value={language.code}
               placeholder="en"
-              className="h-9 w-24 rounded-lg border-input bg-card font-mono text-xs"
+              className="w-24 rounded-lg border-input bg-card font-mono text-xs"
               onChange={(event) =>
                 patch(index, { code: event.target.value.trim() })
               }
@@ -1003,7 +1003,7 @@ function LanguagesEditor({
             <Input
               value={language.label}
               placeholder="English"
-              className="h-9 flex-1 rounded-lg border-input bg-card"
+              className="flex-1 rounded-lg border-input bg-card"
               onChange={(event) =>
                 patch(index, { label: event.target.value })
               }

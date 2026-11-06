@@ -142,24 +142,23 @@ function first_interface_for_type(type: CmsFieldType): CmsFieldInterface {
   return interfaces_for_type(type)[0]?.id ?? "input";
 }
 
-function interface_choices(editingField: CmsField | null) {
+function interface_choices(
+  editingField: CmsField | null,
+  type: CmsFieldType
+) {
   if (!editingField) {
     return INTERFACE_DEFINITIONS.filter(
       (definition) => !LEGACY_INTERFACES.has(definition.id)
     );
   }
-  const editingAlias = editingField.type === "alias";
+  const editingAlias = type === "alias";
   return INTERFACE_DEFINITIONS.filter(
     (definition) =>
       !LEGACY_INTERFACES.has(definition.id) ||
       definition.id === editingField.interface
   )
     .filter((definition) => (definition.alias === true) === editingAlias)
-    .filter(
-      (definition) =>
-        definition.id === editingField.interface ||
-        definition.types.includes(editingField.type)
-    );
+    .filter((definition) => definition.types.includes(type));
 }
 
 function display_label(value: string): string {
@@ -213,8 +212,8 @@ export function FieldDrawer({
   }
 
   const availableInterfaces = useMemo(
-    () => interface_choices(editingField ?? null),
-    [editingField]
+    () => interface_choices(editingField ?? null, form.type),
+    [editingField, form.type]
   );
 
   const filteredInterfaces = useMemo(() => {
@@ -339,10 +338,10 @@ export function FieldDrawer({
               )}
               <DialogTitle className="truncate text-sm font-semibold text-foreground">
                 {editingField
-                  ? `Edit field · ${editingField.name}`
+                  ? form.label.trim() || "Edit field"
                   : step === "select-type"
                     ? `New field · ${collectionName}`
-                    : `Configure field · ${form.name || form.label || "new"}`}
+                    : form.label.trim() || "New field"}
               </DialogTitle>
             </div>
 
@@ -416,7 +415,7 @@ export function FieldDrawer({
                       value={form.name}
                       disabled={editingField !== null}
                       placeholder="e.g. first_name"
-                      className="h-10 rounded-lg border-input bg-card font-mono text-sm"
+                      className="rounded-lg border-input bg-card font-mono text-sm"
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -441,7 +440,7 @@ export function FieldDrawer({
                       id="field-label"
                       value={form.label}
                       placeholder="Field label"
-                      className="h-10 rounded-lg border-input bg-card"
+                      className="rounded-lg border-input bg-card"
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -470,7 +469,7 @@ export function FieldDrawer({
                           )
                         }
                         disabled={!editingField}
-                        className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                        className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                       >
                         {CMS_INTERFACE_GROUPS.map((group) => {
                           const items = availableInterfaces.filter(
@@ -504,7 +503,7 @@ export function FieldDrawer({
                           changeType(event.target.value as CmsFieldType)
                         }
                         disabled={alias || Boolean(editingField)}
-                        className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                        className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                       >
                         {typeOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -532,7 +531,7 @@ export function FieldDrawer({
                         }))
                       }
                       disabled={groupFields.length === 0}
-                      className="h-10 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                      className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                     >
                       <option value="">No group</option>
                       {groupFields.map((field) => (
@@ -580,7 +579,7 @@ export function FieldDrawer({
 
                 {!alias ? (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                    <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-foreground">
                           Required
@@ -597,7 +596,7 @@ export function FieldDrawer({
                       />
                     </div>
 
-                    <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                    <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-foreground">
                           Unique
@@ -614,7 +613,7 @@ export function FieldDrawer({
                 ) : null}
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                  <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-foreground">
                         Hidden
@@ -628,7 +627,7 @@ export function FieldDrawer({
                     />
                   </div>
 
-                  <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
+                  <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-foreground">
                         Read only

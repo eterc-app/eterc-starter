@@ -283,6 +283,11 @@ export default class Cms_admin extends Eterc {
     });
   }
 
+  async appearance() {
+    const principal = this.principal();
+    return this.admin_view("appearance", "Appearance", { principal });
+  }
+
   // -------------------------------------------------------------------------
   // Data Studio
   // -------------------------------------------------------------------------

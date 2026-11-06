@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import {
   ETERC_DOCS_URL,
@@ -83,7 +82,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     id: "settings-customization",
     items: [
       { href: "/admin/settings", label: "Settings", ariaLabel: "Project settings", icon: SlidersHorizontal },
-      { href: "#", label: "Appearance", icon: Palette },
+      { href: "/admin/appearance", label: "Appearance", icon: Palette },
       /**   { href: "#", label: "Bookmarks", icon: Bookmark },
          { href: "#", label: "Translations", icon: Languages },
          { href: "#", label: "AI", icon: Bot }, */
@@ -172,7 +171,7 @@ function TopHeader({
   const displayTitle = navbarMeta?.title ?? current;
 
   return (
-    <header className="flex h-14 sm:h-16 shrink-0 items-center border-b border-border bg-background px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center border-b border-border bg-sidebar px-4 sm:h-14 sm:px-6">
       <div className="mx-auto flex w-full max-w-[1560px] items-center gap-3">
         <button
           type="button"
@@ -253,15 +252,11 @@ export function AdminTemplate({
 }) {
   const pathname = usePathname();
   const current_path = to_public_path(pathname);
-  const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
   const [section, current] = breadcrumb_items(current_path, pageTitle);
-  const dark = resolvedTheme === "dark";
-  const toggleTheme = () => setTheme(dark ? "light" : "dark");
-
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -300,23 +295,6 @@ export function AdminTemplate({
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = is_active(current_path, item.href);
-
-                if (item.label === "Appearance") {
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      role="switch"
-                      aria-label="Dark theme"
-                      aria-checked={dark}
-                      title={`Dark theme ${dark ? "on" : "off"}`}
-                      onClick={toggleTheme}
-                      className="grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70"
-                    >
-                      <Icon className="size-5" strokeWidth={1.75} />
-                    </button>
-                  );
-                }
 
                 return (
                   <a
@@ -409,43 +387,6 @@ export function AdminTemplate({
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = is_active(current_path, item.href);
-
-                if (item.label === "Appearance") {
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      role="switch"
-                      aria-label="Dark theme"
-                      aria-checked={dark}
-                      title={`Dark theme ${dark ? "on" : "off"}`}
-                      onClick={toggleTheme}
-                      className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-foreground transition-colors hover:bg-muted/70"
-                    >
-                      <Icon
-                        className="size-5 shrink-0 text-foreground"
-                        strokeWidth={1.75}
-                      />
-                      <span className="sidebar-text flex-1 truncate text-left font-medium text-foreground">
-                        Appearance
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-                          dark ? "bg-primary" : "bg-muted-foreground/30",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "absolute top-0.5 size-4 rounded-full bg-background transition-transform",
-                            dark ? "translate-x-4" : "translate-x-0.5",
-                          )}
-                        />
-                      </span>
-                    </button>
-                  );
-                }
 
                 const handleClick = (e: React.MouseEvent) => {
                   if (item.href === "#") {

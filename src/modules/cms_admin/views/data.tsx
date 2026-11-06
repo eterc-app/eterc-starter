@@ -715,7 +715,7 @@ export default function DataStudio({ data }: EtViewProps) {
                           if (draggedField) void reorderFields(draggedField, field.name);
                         }}
                         onClick={() => openEditField(field)}
-                        className={`group relative flex min-h-14 cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 py-2 transition-[border-color,background-color,opacity,transform] duration-200 ease-out hover:border-foreground/30 ${
+                        className={`group relative flex h-13 cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 transition-[border-color,background-color,opacity,transform] duration-200 ease-out hover:border-foreground/30 ${
                           draggedField === field.name ? "z-10 scale-[1.015] border-foreground/50 opacity-80" : ""} ${
                           dropTargetField === field.name && draggedField !== field.name
                             ? "border-primary bg-primary/5"
@@ -868,7 +868,7 @@ export default function DataStudio({ data }: EtViewProps) {
                     <Input
                       value={selected.name}
                       disabled
-                      className="h-10 rounded-xl bg-card border-input font-mono opacity-80"
+                      className="rounded-xl bg-card border-input font-mono opacity-80"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -876,7 +876,7 @@ export default function DataStudio({ data }: EtViewProps) {
                     <Input
                       value={colSettings.note}
                       placeholder="Collection description"
-                      className="h-10 rounded-xl bg-card border-input"
+                      className="rounded-xl bg-card border-input"
                       onChange={(e) =>
                         setColSettings((s) => ({ ...s, note: e.target.value }))
                       }
@@ -894,6 +894,7 @@ export default function DataStudio({ data }: EtViewProps) {
                       }
                       color={colSettings.color}
                       placeholder="School, box, user, etc."
+                      className="h-13 rounded-xl"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -903,26 +904,27 @@ export default function DataStudio({ data }: EtViewProps) {
                       onChange={(color) =>
                         setColSettings((s) => ({ ...s, color }))
                       }
+                      className="rounded-xl"
                     />
                   </div>
                 </div>
 
                 <div className="grid gap-2">
                   <Label className="text-xs font-semibold text-muted-foreground">Display Template</Label>
-                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-input bg-card min-h-10">
+                  <div className="flex h-13 items-center rounded-xl border border-input bg-card px-3">
                     <Input
                       placeholder="e.g. {{first_name}} {{last_name}}"
                       value={colSettings.display_template}
                       onChange={(e) =>
                         setColSettings((s) => ({ ...s, display_template: e.target.value }))
                       }
-                      className="h-7 flex-1 border-none bg-transparent shadow-none text-xs p-1 focus-visible:outline-none"
+                      className="h-full flex-1 border-none bg-transparent shadow-none text-xs px-1 focus-visible:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4">
+                  <div className="flex h-13 items-center justify-between rounded-xl border border-input bg-card px-4">
                     <span className="text-sm font-medium text-foreground">Hide within the App</span>
                     <Switch
                       checked={colSettings.hidden}
@@ -931,7 +933,7 @@ export default function DataStudio({ data }: EtViewProps) {
                       }
                     />
                   </div>
-                  <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4">
+                  <div className="flex h-13 items-center justify-between rounded-xl border border-input bg-card px-4">
                     <span className="text-sm font-medium text-foreground">Treat as single object</span>
                     <Switch
                       checked={colSettings.singleton}
@@ -946,7 +948,7 @@ export default function DataStudio({ data }: EtViewProps) {
                   <Label className="text-xs font-semibold text-muted-foreground">Collection Naming Translations</Label>
                   <div
                     role="status"
-                    className="flex min-h-13 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground"
+                    className="flex h-13 items-center gap-3 rounded-xl border border-border bg-card px-4 text-sm text-foreground"
                   >
                     <Info className="size-5 shrink-0" />
                     <span>No items</span>
