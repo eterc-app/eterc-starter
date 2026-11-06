@@ -148,9 +148,10 @@ export function IconPicker({
                       key={name}
                       type="button"
                       title={name}
+                      aria-label={`Select ${name} icon`}
                       onClick={() => handleSelect(name)}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",
+                        "flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground",
                         isSelected
                           ? "bg-accent text-accent-foreground font-semibold"
                           : "text-muted-foreground",

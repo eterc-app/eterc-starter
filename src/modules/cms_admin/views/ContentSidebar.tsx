@@ -5,30 +5,28 @@ import Link from "next/link";
 import {
   ChevronDown,
   Folder,
-  GraduationCap,
-  Layers,
   Plus,
   RefreshCw,
   Search,
   Table2,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DynamicIcon } from "@/components/ui/dynamic-icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { CmsCollectionWithFields } from "@/modules/cms/cms-types";
 
-function get_collection_icon(name: string, customIcon?: string) {
-  if (customIcon === "users" || name.includes("user") || name.includes("member")) {
-    return Users;
+function get_collection_icon(name: string) {
+  if (name.includes("user") || name.includes("member")) {
+    return "users";
   }
   if (name.includes("class") || name.includes("student") || name.includes("exam")) {
-    return GraduationCap;
+    return "graduation-cap";
   }
   if (name.includes("setting") || name.includes("config")) {
-    return Layers;
+    return "layers";
   }
-  return Table2;
+  return "table-2";
 }
 
 export function ContentSidebar({
@@ -164,11 +162,15 @@ export function ContentSidebar({
                   <div className="mt-1 space-y-1 pl-2">
                     {filtered.map((collection) => {
                       const active = collection.name === activeName;
-                      const Icon = get_collection_icon(collection.name, collection.icon);
                       const content = (
                         <>
                           <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-surface-subtle text-muted-foreground">
-                            <Icon className="size-3.5" strokeWidth={1.75} />
+                            <DynamicIcon
+                              name={collection.icon || get_collection_icon(collection.name)}
+                              color={collection.color || undefined}
+                              className="size-3.5"
+                              strokeWidth={1.75}
+                            />
                           </span>
                           <span className="min-w-0 flex-1 truncate font-medium">
                             {collection.label || collection.name}

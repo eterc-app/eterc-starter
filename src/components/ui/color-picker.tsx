@@ -105,6 +105,8 @@ export function ColorPicker({
         <button
           type="button"
           disabled={disabled}
+          aria-label={value ? `Color ${value}` : "Pick a color"}
+          title={value ? `Color ${value}` : "Pick a color"}
           className={cn(
             "flex h-13 w-full items-center gap-2.5 rounded-lg border border-input bg-card px-4 text-left transition-colors hover:border-foreground/30",
             className
@@ -115,7 +117,7 @@ export function ColorPicker({
             style={{ backgroundColor: currentColor ? currentColor : "transparent" }}
           />
           <span className="font-mono text-xs text-foreground flex-1 truncate">
-            {value ? value : "Pick a color..."}
+            {value ? value : "Pick"}
           </span>
           <Palette className="size-4 text-muted-foreground shrink-0" />
         </button>
@@ -136,7 +138,8 @@ export function ColorPicker({
             <button
               type="button"
               onClick={() => onChange("")}
-              className="rounded-md bg-background/80 p-1 text-muted-foreground hover:text-foreground backdrop-blur-xs"
+              aria-label="Clear color"
+              className="rounded-full bg-background/80 p-1 text-muted-foreground hover:text-foreground backdrop-blur-xs"
               title="Clear color"
             >
               <RotateCcw className="size-3" />

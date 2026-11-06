@@ -173,11 +173,16 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  private data_snapshot(collectionName?: string, page = 1, search = ""): Record<string, unknown> {
+  private data_snapshot(
+    collectionName?: string,
+    page = 1,
+    search = "",
+    selectFirst = true
+  ): Record<string, unknown> {
     const collections = list_collections({ include_hidden: true });
     const selected =
       collections.find((collection) => collection.name === collectionName) ??
-      collections[0] ??
+      (selectFirst ? collections[0] : null) ??
       null;
     if (!selected) {
       return {
@@ -253,7 +258,8 @@ export default class Cms_admin extends Eterc {
     const snapshot = this.data_snapshot(
       query_string("collection"),
       1,
-      ""
+      "",
+      false
     );
     return this.admin_view("data", "Data Studio", {
       principal,
@@ -298,7 +304,8 @@ export default class Cms_admin extends Eterc {
     return this.data_snapshot(
       text_value(payload.collection) || undefined,
       Math.max(1, number_value(payload.page, 1)),
-      text_value(payload.search)
+      text_value(payload.search),
+      false
     );
   }
 
@@ -489,7 +496,8 @@ export default class Cms_admin extends Eterc {
   data_refresh() {
     this.principal();
     refresh_cms_schema();
-    return this.data_snapshot();
+    const payload = body();
+    return this.data_snapshot(text_value(payload.collection) || undefined, 1, "", false);
   }
 
   // -------------------------------------------------------------------------

@@ -19,7 +19,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Table2,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,7 +27,7 @@ import { PageActionsPortal, useSetNavbarMeta } from "@/components/app/PageAction
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -58,7 +57,6 @@ import type {
 } from "@/modules/cms/cms-types";
 import { cms_interface_uses_choices } from "@/modules/cms/cms-interfaces";
 import { CollectionDialog } from "./CollectionDialog";
-import { ContentSidebar } from "./ContentSidebar";
 import { FieldDrawer } from "./FieldDrawer";
 import {
   empty_field_form,
@@ -424,7 +422,9 @@ export default function DataStudio({ data }: EtViewProps) {
   const refreshSchema = useCallback(async () => {
     setBusy(true);
     try {
-      const snapshot = await cms_call<Snapshot>("data_refresh");
+      const snapshot = await cms_call<Snapshot>("data_refresh", {
+        collection: selected?.name ?? "",
+      });
       applySnapshot(snapshot);
       toast.success("Database schema refreshed.");
     } catch (error) {
@@ -432,7 +432,7 @@ export default function DataStudio({ data }: EtViewProps) {
     } finally {
       setBusy(false);
     }
-  }, [applySnapshot]);
+  }, [applySnapshot, selected]);
 
   const openBootstrap = useCallback(async () => {
     setBootstrapOpen(true);
@@ -490,6 +490,17 @@ export default function DataStudio({ data }: EtViewProps) {
 
   useSetNavbarMeta(navbarMeta);
 
+  const backToCollections = useCallback(() => {
+    setSelected(null);
+    setFields([]);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("collection");
+      url.searchParams.delete("new");
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
+
   return (
     <div className="app-page">
       <PageActionsPortal>
@@ -529,15 +540,7 @@ export default function DataStudio({ data }: EtViewProps) {
         />
       </PageActionsPortal>
 
-      <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-        {/* Data Studio Sidebar */}
-        <ContentSidebar
-          collections={collections}
-          activeName={selected?.name}
-          onSelect={selectCollection}
-          busy={busy}
-        />
-
+      <div className="min-w-0" aria-busy={busy}>
         <div className="min-w-0">
           {!selected ? (
             /* OVERVIEW: Collections & Data Modeling */
@@ -582,60 +585,59 @@ export default function DataStudio({ data }: EtViewProps) {
                   />
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2">
                   {collections.map((col) => (
                     <Card
                       key={col.name}
-                      className="group cursor-pointer transition-all hover:border-foreground/30"
+                      className="group h-13 cursor-pointer flex-row items-center justify-between gap-3 px-4 py-0 transition-all hover:border-foreground/30"
                       onClick={() => selectCollection(col.name)}
                     >
-                      <CardHeader className="p-4 pb-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="grid size-8 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
-                            <Table2 className="size-4" />
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
+                          <DynamicIcon
+                            name={col.icon || "table-2"}
+                            color={col.color || undefined}
+                            className="size-4"
+                          />
+                        </span>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <CardTitle className="truncate text-sm font-semibold text-foreground">
+                            {col.label || col.name}
+                          </CardTitle>
+                          <span className="truncate font-mono text-xs text-muted-foreground">
+                            {col.name}
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            {col.singleton ? (
-                              <Badge variant="outline" className="text-xs">
-                                Singleton
-                              </Badge>
-                            ) : null}
-                            {col.hidden ? (
-                              <Badge variant="outline" className="text-xs">
-                                Hidden
-                              </Badge>
-                            ) : null}
-                          </div>
                         </div>
-                        <CardTitle className="text-sm font-semibold text-muted-foreground mt-3">
-                          {col.label || col.name}
-                        </CardTitle>
-                        <p className="font-mono text-xs text-muted-foreground truncate">
-                          {col.name}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-muted-foreground line-clamp-2 min-h-[32px]">
-                          {col.note || "No description provided."}
-                        </p>
-                        <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                          <span>
-                            {col.fields.length} {col.fields.length === 1 ? "field" : "fields"}
-                          </span>
-                          <Button
-                            asChild
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Link href={`/admin/content?collection=${encodeURIComponent(col.name)}`}>
-                              Open Content
-                              <ArrowUpRight className="size-3 ml-1" />
-                            </Link>
-                          </Button>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                        <div className="hidden items-center gap-1.5 sm:flex">
+                          {col.singleton ? (
+                            <Badge variant="outline" className="text-xs">
+                              Singleton
+                            </Badge>
+                          ) : null}
+                          {col.hidden ? (
+                            <Badge variant="outline" className="text-xs">
+                              Hidden
+                            </Badge>
+                          ) : null}
                         </div>
-                      </CardContent>
+                        <span>
+                          {col.fields.length} {col.fields.length === 1 ? "field" : "fields"}
+                        </span>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Link href={`/admin/content?collection=${encodeURIComponent(col.name)}`}>
+                            Open Content
+                            <ArrowUpRight className="size-3 ml-1" />
+                          </Link>
+                        </Button>
+                      </div>
                     </Card>
                   ))}
                 </div>
@@ -651,7 +653,7 @@ export default function DataStudio({ data }: EtViewProps) {
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    onClick={() => setSelected(null)}
+                    onClick={backToCollections}
                     className="rounded-full"
                     aria-label="Back to collections overview"
                   >
@@ -851,7 +853,7 @@ export default function DataStudio({ data }: EtViewProps) {
               </div>
 
               {/* Directus-style Collection Setup */}
-              <div className="space-y-4 pt-6 border-t border-border">
+              <div className="space-y-4 pt-16">
                 <div className="flex items-center gap-2">
                   <DynamicIcon
                     name={colSettings.icon || "box"}
@@ -862,6 +864,7 @@ export default function DataStudio({ data }: EtViewProps) {
                   <h3 className="text-sm font-semibold text-foreground">Collection Setup</h3>
                 </div>
 
+                <div className="space-y-4 border-t border-border pt-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label className="text-xs font-semibold text-muted-foreground">Collection</Label>
@@ -953,6 +956,7 @@ export default function DataStudio({ data }: EtViewProps) {
                     <Info className="size-5 shrink-0" />
                     <span>No items</span>
                   </div>
+                </div>
                 </div>
               </div>
             </div>

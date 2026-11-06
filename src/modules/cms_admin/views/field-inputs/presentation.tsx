@@ -55,12 +55,11 @@ export function DividerDisplay({ field }: { field: CmsField }) {
   const title_style = { color: header_color(color) };
 
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="h-px flex-1 bg-border" />
+    <div className="flex flex-col gap-3 py-4">
       {title || icon ? (
         <div
           className={cn(
-            "flex items-center gap-2 text-xs font-semibold text-muted-foreground",
+            "flex items-center gap-2 text-sm font-semibold text-foreground",
             !inlineTitle && "uppercase tracking-wider"
           )}
           style={title_style}
@@ -75,7 +74,7 @@ export function DividerDisplay({ field }: { field: CmsField }) {
           {title ? <span>{title}</span> : null}
         </div>
       ) : null}
-      <div className="h-px flex-1 bg-border" />
+      <div className="h-px w-full bg-border" />
     </div>
   );
 }
