@@ -1,11 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  IStorageProvider,
-  StorageUploadOptions,
-  StorageUploadResult,
-} from "../contracts/storage";
+import type { IStorageProvider, StorageUploadOptions, StorageUploadResult } from "../contracts/storage";
 import { UPLOADS_DIR } from "../paths";
 
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -38,10 +34,7 @@ function keyFromOptions(options: StorageUploadOptions): string {
 export class LocalDiskStorageProvider implements IStorageProvider {
   readonly id = "local";
 
-  async upload(
-    file: Buffer | Uint8Array,
-    options: StorageUploadOptions,
-  ): Promise<StorageUploadResult> {
+  async upload(file: Buffer | Uint8Array, options: StorageUploadOptions): Promise<StorageUploadResult> {
     const key = keyFromOptions(options);
     const target = safeKey(key);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -50,10 +43,7 @@ export class LocalDiskStorageProvider implements IStorageProvider {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
         const unique = crypto.randomUUID();
-        const retryKey = key.replace(
-          /(\.[^./]+)?$/,
-          (extension) => `-${unique}${extension ?? ""}`,
-        );
+        const retryKey = key.replace(/(\.[^./]+)?$/, (extension) => `-${unique}${extension ?? ""}`);
         const retry = safeKey(retryKey);
         fs.writeFileSync(retry, Buffer.from(file), { flag: "wx" });
         return {

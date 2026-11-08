@@ -6,21 +6,21 @@
       "file": "prisma/dev.db"
     },
     "status": "verified",
-    "message": "SQLite is ready.",
-    "verified_at": 1792756800
+    "message": "Local SQLite database is ready.",
+    "verified_at": 1794169244
   },
   "auth": {
     "provider": "builtin",
     "label": "Built-in accounts",
     "values": {},
     "status": "verified",
-    "message": "Built-in accounts are ready.",
-    "verified_at": 1792756800
+    "message": "Email and password accounts are managed by Eterc.",
+    "verified_at": 1794169244
   },
   "cms": {
     "api_private": true,
     "max_page_size": 200,
     "seed_member_role": true
   },
-  "updated_at": 1792756800
+  "updated_at": 1794169244
 }

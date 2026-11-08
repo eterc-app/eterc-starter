@@ -48,8 +48,8 @@ import {
   MarkdownInput,
   TextareaInput,
   TextInput,
-  WysiwygInput,
 } from "./text";
+import { WysiwygInput } from "./rich-text-editor";
 import {
   as_array,
   as_object,
@@ -132,6 +132,7 @@ export function FieldInput(props: FieldInputProps) {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          media={media}
         />
       );
     case "markdown":
@@ -141,6 +142,7 @@ export function FieldInput(props: FieldInputProps) {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          media={media}
         />
       );
     case "tags":

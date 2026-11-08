@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Search, Tag, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -685,31 +685,12 @@ export function TagsInput({
 
   return (
     <div className="space-y-2">
-      <div className="flex min-h-13 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-card p-2">
-        {tags.map((tag) => (
-          <Badge
-            key={tag}
-            variant="secondary"
-            className="gap-1 rounded-md px-2 py-1 text-xs"
-          >
-            {tag}
-            {!disabled ? (
-              <button
-                type="button"
-                aria-label={`Remove ${tag}`}
-                onClick={() => remove(tag)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            ) : null}
-          </Badge>
-        ))}
+      <div className="flex min-h-12 items-center gap-3 rounded-xl border border-foreground bg-card px-3 py-1 shadow-[0_3px_10px_rgb(0_0_0/0.12)]">
         <Input
           value={draft}
           disabled={disabled}
           placeholder={allowCustom ? "Add tag and press Enter..." : "Choose a tag..."}
-          className="h-7 min-w-32 flex-1 border-none bg-transparent p-1 text-xs shadow-none focus-visible:outline-none"
+          className="h-10 min-w-32 flex-1 border-none bg-transparent p-0 text-base shadow-none focus-visible:border-transparent focus-visible:shadow-none"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === ",") {
@@ -724,13 +705,34 @@ export function TagsInput({
           }}
         />
         {iconRight ? (
-          <DynamicIcon
-            name={iconRight}
-            size={14}
-            className="shrink-0 text-muted-foreground"
-          />
-        ) : null}
+          <DynamicIcon name={iconRight} size={20} className="shrink-0 text-muted-foreground" />
+        ) : (
+          <Tag className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
       </div>
+
+      {tags.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex h-7 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground"
+            >
+              {tag}
+              {!disabled ? (
+                <button
+                  type="button"
+                  aria-label={`Remove ${tag}`}
+                  onClick={() => remove(tag)}
+                  className="text-primary-foreground/75 transition-opacity hover:text-primary-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {suggestions.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">

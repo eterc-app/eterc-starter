@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fira_Mono, Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
+import "leaflet/dist/leaflet.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";

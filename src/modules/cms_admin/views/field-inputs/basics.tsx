@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -8,8 +8,6 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Minus,
-  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -574,16 +572,37 @@ export function SliderInput({
   );
   const parsed = Number(value);
   const current = Number.isFinite(parsed) ? parsed : min;
+  const progress =
+    max > min ? Math.max(0, Math.min(100, ((current - min) / (max - min)) * 100)) : 0;
+  const sliderRef = useRef<HTMLInputElement>(null);
+  const [sliderWidth, setSliderWidth] = useState(0);
 
   const set_value = (next: number) => {
     if (!Number.isFinite(next)) return;
     onChange(field.type === "integer" ? Math.trunc(next) : next);
   };
 
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (!slider) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setSliderWidth(entry.contentRect.width);
+    });
+    observer.observe(slider);
+    return () => observer.disconnect();
+  }, []);
+
+  const thumbSize = 16;
+  const valuePosition =
+    sliderWidth > thumbSize
+      ? thumbSize / 2 + ((sliderWidth - thumbSize) * progress) / 100
+      : 0;
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-4 rounded-lg border border-input bg-card px-4 py-3">
+    <div className="relative h-14 px-3 pt-1">
+      <div className="relative h-6">
         <input
+          ref={sliderRef}
           id={`cms-field-${field.name}`}
           type="range"
           min={min}
@@ -592,45 +611,18 @@ export function SliderInput({
           value={current}
           disabled={disabled}
           onChange={(event) => set_value(Number(event.target.value))}
-          className="h-2 flex-1 cursor-pointer accent-foreground"
+          className="cms-range-slider absolute inset-x-0 top-0 h-6 w-full"
+          style={{ "--range-progress": progress > 0 ? `${progress}%` : "0%" } as CSSProperties}
         />
         {alwaysShowValue ? (
-          <span className="w-14 text-right font-mono text-sm tabular-nums text-muted-foreground">
+          <span
+            aria-hidden="true"
+            className="absolute top-8 -translate-x-1/2 rounded-full bg-primary px-1.5 py-0 text-xs font-semibold leading-5 tabular-nums text-primary-foreground"
+            style={{ left: `${valuePosition}px` }}
+          >
             {current}
           </span>
         ) : null}
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="Decrease value"
-          disabled={disabled || current <= min}
-          onClick={() => set_value(current - step)}
-        >
-          <Minus className="size-3.5" />
-        </Button>
-        <Input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={current}
-          disabled={disabled}
-          className="h-13 flex-1 rounded-lg border-input bg-card text-center font-mono text-xs"
-          onChange={(event) => set_value(Number(event.target.value))}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="Increase value"
-          disabled={disabled || current >= max}
-          onClick={() => set_value(current + step)}
-        >
-          <Plus className="size-3.5" />
-        </Button>
       </div>
     </div>
   );
@@ -781,8 +773,7 @@ export function MapInput({
     process.env.NEXT_PUBLIC_ETERC_MAP_PROVIDER === "google" ? "google" : "openstreetmap";
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
   const parsed = map_value(value);
-  const coordinates =
-    parsed.type === geometryType ? parsed.coordinates : geometryType === "Point" ? [defaultLng, defaultLat] : [];
+  const coordinates = parsed.type === geometryType ? parsed.coordinates : [];
   const currentPoint =
     geometryType === "Point" && Array.isArray(coordinates) && coordinates.length >= 2
       ? { lng: Number(coordinates[0]), lat: Number(coordinates[1]) }
@@ -907,47 +898,12 @@ export function MapInput({
 
   return (
     <div className="space-y-2">
-      {geometryType === "Point" ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="grid gap-1">
-            <label htmlFor={`cms-field-${field.name}-lat`} className="text-xs font-medium text-muted-foreground">
-              Latitude
-            </label>
-            <Input
-              id={`cms-field-${field.name}-lat`}
-              type="number"
-              step="any"
-              min={-90}
-              max={90}
-              value={currentPoint.lat}
-              disabled={disabled}
-              className="h-13 rounded-lg border-input bg-card font-mono text-xs"
-              onChange={(event) => update([currentPoint.lng, Number(event.target.value)])}
-            />
-          </div>
-          <div className="grid gap-1">
-            <label htmlFor={`cms-field-${field.name}-lng`} className="text-xs font-medium text-muted-foreground">
-              Longitude
-            </label>
-            <Input
-              id={`cms-field-${field.name}-lng`}
-              type="number"
-              step="any"
-              min={-180}
-              max={180}
-              value={currentPoint.lng}
-              disabled={disabled}
-              className="h-13 rounded-lg border-input bg-card font-mono text-xs"
-              onChange={(event) => update([Number(event.target.value), currentPoint.lat])}
-            />
-          </div>
-        </div>
-      ) : (
+      {geometryType !== "Point" ? (
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>Click the map to add {geometryType === "MultiPoint" ? "points" : "vertices"}.</span>
           <span>{countPositions(draftCoordinates)} point(s)</span>
         </div>
-      )}
+      ) : null}
 
       <MapCanvas
         provider={provider}
@@ -958,6 +914,8 @@ export function MapInput({
         zoom={zoom}
         height={Math.max(120, height)}
         disabled={disabled ?? false}
+        pointSelected={geometryType === "Point" && countPositions(draftCoordinates) > 0}
+        onClearPoint={clear}
         onMapClick={addPosition}
       />
 

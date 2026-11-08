@@ -29,7 +29,7 @@ function media_object(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function is_image_file(file: File): boolean {
+export function is_image_file(file: File): boolean {
   return ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(
     file.type.toLowerCase()
   );
@@ -70,16 +70,30 @@ async function read_media_response(
     : envelope;
 }
 
-function upload_image(
+export function upload_image(
   file: File,
   media: CmsMediaConfig,
   folder: string,
   on_progress: (percent: number) => void
 ): Promise<CmsMediaImage> {
+  let uploadUrl: URL;
+  try {
+    uploadUrl = new URL(media.uploadUrl, window.location.origin);
+  } catch {
+    return Promise.reject(new Error("The media upload endpoint is invalid."));
+  }
+  if (uploadUrl.origin !== window.location.origin) {
+    return Promise.reject(new Error("Uploads must use this site's media endpoint."));
+  }
+  if (!media.csrfToken) {
+    return Promise.reject(new Error("The upload security token is missing. Refresh and try again."));
+  }
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", media.uploadUrl);
+    xhr.open("POST", uploadUrl.href);
     xhr.responseType = "json";
+    xhr.timeout = 120_000;
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
       on_progress(Math.round((event.loaded / event.total) * 100));
@@ -96,8 +110,20 @@ function upload_image(
           })()
       );
       const item = media_object(payload.media);
-      if (xhr.status >= 200 && xhr.status < 300 && typeof item.url === "string") {
-        resolve(item as unknown as CmsMediaImage);
+      if (
+        xhr.status >= 200 &&
+        xhr.status < 300 &&
+        typeof item.url === "string" &&
+        item.url !== ""
+      ) {
+        resolve({
+          file: typeof item.file === "string" ? item.file : "",
+          url: item.url,
+          thumbnail_url:
+            typeof item.thumbnail_url === "string" ? item.thumbnail_url : item.url,
+          title: typeof item.title === "string" ? item.title : "",
+          alt: typeof item.alt === "string" ? item.alt : "",
+        });
         return;
       }
       reject(
@@ -112,6 +138,7 @@ function upload_image(
     };
     xhr.onerror = () =>
       reject(new Error("The upload could not reach the server."));
+    xhr.ontimeout = () => reject(new Error("The upload timed out. Try again."));
     const body = new FormData();
     body.append("file", file);
     body.append("csrf_token", media.csrfToken);

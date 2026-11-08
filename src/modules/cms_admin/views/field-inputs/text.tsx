@@ -3,7 +3,6 @@
 import {
   Fragment,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -67,7 +66,9 @@ import {
   option_bool,
   option_number,
   option_string,
+  type CmsMediaConfig,
 } from "./types";
+import { is_image_file, upload_image } from "./media";
 
 function font_class(value: string): string {
   if (value === "monospace" || value === "mono") return "font-mono";
@@ -1083,6 +1084,8 @@ export function WysiwygInput({
       },
     ],
   ];
+  // Toolbar actions read the selection ref only after a click.
+  // eslint-disable-next-line react-hooks/refs
   const visible_groups = tool_groups
     .map((group) => group.filter((item) => has(item.tool)))
     .filter((group) => group.length > 0);
@@ -1390,15 +1393,19 @@ export function MarkdownInput({
   value,
   onChange,
   disabled,
+  media,
 }: {
   field: CmsField;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  media?: CmsMediaConfig;
 }) {
   const current = as_string(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const linkRangeRef = useRef<MarkdownRange | null>(null);
+  const imageRangeRef = useRef<MarkdownRange | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const defaultView =
     option_string(field, "defaultView", "default_view") || "editor";
   const [view, setView] = useState<"editor" | "split" | "preview">(
@@ -1409,6 +1416,8 @@ export function MarkdownInput({
   const [fullscreen, setFullscreen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const preview = useMemo(() => markdown_to_html(current), [current]);
   const words = count_words(current);
   const lines = current === "" ? 1 : current.split("\n").length;
@@ -1510,6 +1519,52 @@ export function MarkdownInput({
     setLinkUrl("");
   };
 
+  const upload_markdown_image = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!is_image_file(file)) {
+      toast.error("Choose a JPG, PNG, GIF, or WEBP image.");
+      return;
+    }
+    if (!media) {
+      toast.error("Image uploads are not configured on this page.");
+      return;
+    }
+
+    const range = imageRangeRef.current ?? selected_range();
+    const selected = current.slice(range.start, range.end).trim();
+    const alt = (selected || file.name.replace(/\.[^.]+$/, ""))
+      .replace(/[\[\]\\]/g, "")
+      .trim();
+    setLinkOpen(false);
+    setUploadingImage(true);
+    setUploadProgress(0);
+    void upload_image(
+      file,
+      media,
+      option_string(field, "folder"),
+      setUploadProgress
+    )
+      .then((image) => {
+        const markdown = `![${alt}](${image.url})`;
+        const next =
+          current.slice(0, range.start) + markdown + current.slice(range.end);
+        const caret = range.start + markdown.length;
+        commit(next, { start: caret, end: caret });
+      })
+      .catch((error: unknown) => {
+        toast.error(
+          error instanceof Error ? error.message : "The image could not be uploaded."
+        );
+      })
+      .finally(() => {
+        setUploadingImage(false);
+        setUploadProgress(0);
+        imageRangeRef.current = null;
+      });
+  };
+
   const apply_wrap = (before: string, after: string, sample: string) =>
     wrap_selection(before, after, sample);
 
@@ -1609,6 +1664,23 @@ export function MarkdownInput({
         run: open_link,
       },
       {
+        tool: "image",
+        label: uploadingImage
+          ? `Uploading image (${uploadProgress}%)`
+          : "Upload image",
+        icon: uploadingImage ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <ImageIcon className="size-3.5" />
+        ),
+        disabled: !media || uploadingImage,
+        run: () => {
+          if (!media || uploadingImage) return;
+          imageRangeRef.current = selected_range();
+          imageInputRef.current?.click();
+        },
+      },
+      {
         tool: "table",
         label: "Insert table",
         icon: <Table2 className="size-3.5" />,
@@ -1702,6 +1774,7 @@ export function MarkdownInput({
     </div>
   ) : null;
 
+  /* eslint-disable react-hooks/refs -- Toolbar callbacks only read refs on click. */
   const toolbar_bar = (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface-subtle px-1.5 py-1">
       {tool_groups.map((group, group_index) => (
@@ -1714,7 +1787,7 @@ export function MarkdownInput({
                 label={item.label}
                 icon={item.icon}
                 active={item.active}
-                disabled={disabled}
+                disabled={disabled || uploadingImage || item.disabled}
                 onClick={item.run}
               />
             ))}
@@ -1723,13 +1796,14 @@ export function MarkdownInput({
       ))}
     </div>
   );
+  /* eslint-enable react-hooks/refs */
 
   const textarea = (
     <textarea
       ref={textareaRef}
       id={`cms-field-${field.name}`}
       value={current}
-      disabled={disabled}
+      disabled={disabled || uploadingImage}
       spellCheck
       placeholder={placeholder}
       className={cn(
@@ -1802,6 +1876,13 @@ export function MarkdownInput({
   if (fullscreen) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col gap-3 bg-overlay p-4">
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          className="hidden"
+          onChange={upload_markdown_image}
+        />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-3 py-2">
             <div className="flex min-w-0 items-center gap-2">
@@ -1837,6 +1918,13 @@ export function MarkdownInput({
 
   return (
     <div className="overflow-hidden rounded-lg border border-input bg-card">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={upload_markdown_image}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-subtle px-1.5 py-1">
         {mode_toggle}
         <div className="flex items-center gap-0.5">

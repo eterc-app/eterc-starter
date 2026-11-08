@@ -41,7 +41,7 @@ export class BuiltinAuthProvider implements IAuthProvider {
              FROM eterc_users u
              LEFT JOIN eterc_administrators a ON a.eterc_user_id = u.id
              LEFT JOIN eterc_user_levels ul ON ul.id = u.user_level_id
-            WHERE u.id = ? LIMIT 1`,
+            WHERE u.id = ? LIMIT 1`
         )
         .get(userId) as AccountRow | undefined;
       if (!row) return null;
