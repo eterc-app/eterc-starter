@@ -380,8 +380,12 @@ export default function ContentManager({ data }: EtViewProps) {
     () => fields.find(is_system_sort_field),
     [fields]
   );
-  const canReorderRecords =
+  const manualOrderingActive =
     Boolean(sortField) &&
+    (selected?.ordering_mode ??
+      (sortField ? "manual" : "default")) === "manual";
+  const canReorderRecords =
+    manualOrderingActive &&
     !search.trim() &&
     !searchInput.trim() &&
     viewMode === "table";
@@ -744,7 +748,7 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               ) : null}
 
-              {sortField ? (
+              {manualOrderingActive ? (
                 <p className="text-xs text-muted-foreground" role="status">
                   {canReorderRecords
                     ? "Drag rows or use the arrow buttons to reorder records."
@@ -758,7 +762,7 @@ export default function ContentManager({ data }: EtViewProps) {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle/80 text-xs font-semibold text-muted-foreground">
-                        {sortField ? (
+                        {manualOrderingActive ? (
                           <th className="w-9 px-1 py-3">
                             <span className="sr-only">Reorder</span>
                           </th>
@@ -871,7 +875,7 @@ export default function ContentManager({ data }: EtViewProps) {
                               }}
                               onClick={() => openEditRecord(record)}
                             >
-                              {sortField ? (
+                              {manualOrderingActive ? (
                                 <td
                                   className="px-1 py-2 text-center"
                                   onClick={(event) => event.stopPropagation()}
@@ -941,7 +945,7 @@ export default function ContentManager({ data }: EtViewProps) {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="flex justify-end gap-1">
-                                  {sortField ? (
+                                  {manualOrderingActive ? (
                                     <>
                                       <Button
                                         type="button"

@@ -51,11 +51,14 @@ import {
 import type { EtViewProps } from "@/engine/views-registry";
 import type {
   CmsBootstrapReport,
+  CmsCollectionOrderingMode,
+  CmsCollectionSort,
   CmsCollectionWithFields,
   CmsField,
 } from "@/modules/cms/cms-types";
 import { cms_interface_uses_choices } from "@/modules/cms/cms-interfaces";
 import { CollectionDialog } from "./CollectionDialog";
+import { CollectionOrderingControl } from "./CollectionOrderingControl";
 import { FieldDrawer } from "./FieldDrawer";
 import {
   empty_field_form,
@@ -72,6 +75,15 @@ interface Snapshot {
 }
 
 function collection_settings(collection: CmsCollectionWithFields | null) {
+  const hasManualSort = Boolean(
+    collection?.fields.some(
+      (field) =>
+        field.options?._eterc_system_field === "sort" ||
+        (field.name === "sort" &&
+          field.type === "integer" &&
+          field.interface === "number")
+    )
+  );
   return {
     label: collection?.label || "",
     icon: collection?.icon || "box",
@@ -80,6 +92,9 @@ function collection_settings(collection: CmsCollectionWithFields | null) {
     note: collection?.note || "",
     hidden: collection?.hidden || false,
     singleton: collection?.singleton || false,
+    ordering_mode:
+      collection?.ordering_mode ?? (hasManualSort ? "manual" : "default"),
+    default_order: collection?.default_order ?? [],
   };
 }
 
@@ -134,6 +149,8 @@ export default function DataStudio({ data }: EtViewProps) {
         note: colSettings.note,
         hidden: colSettings.hidden,
         singleton: colSettings.singleton,
+        ordering_mode: colSettings.ordering_mode,
+        default_order: colSettings.default_order,
       });
       setSelected(updated);
       setColSettings(collection_settings(updated));
@@ -147,6 +164,19 @@ export default function DataStudio({ data }: EtViewProps) {
       setBusy(false);
     }
   }, [colSettings, selected]);
+
+  const orderingFields = fields
+    .filter(
+      (field) =>
+        field.name !== selected?.primary_key &&
+        field.type !== "alias" &&
+        field.options?._eterc_system_field !== "sort" &&
+        !(field.name === "sort" && field.type === "integer" && field.interface === "number")
+    )
+    .map((field) => ({
+      name: field.name,
+      label: field.label || field.name,
+    }));
 
   const applySnapshot = useCallback((snapshot: Snapshot) => {
     const next_selected = snapshot.selected ?? null;
@@ -880,6 +910,25 @@ export default function DataStudio({ data }: EtViewProps) {
                     />
                   </div>
                 </div>
+
+                <CollectionOrderingControl
+                  mode={colSettings.ordering_mode as CmsCollectionOrderingMode}
+                  defaultOrder={colSettings.default_order as CmsCollectionSort[]}
+                  fields={orderingFields}
+                  hasManualSort={selected.fields.some(
+                    (field) =>
+                      field.options?._eterc_system_field === "sort" ||
+                      (field.name === "sort" &&
+                        field.type === "integer" &&
+                        field.interface === "number")
+                  )}
+                  onModeChange={(ordering_mode) =>
+                    setColSettings((current) => ({ ...current, ordering_mode }))
+                  }
+                  onDefaultOrderChange={(default_order) =>
+                    setColSettings((current) => ({ ...current, default_order }))
+                  }
+                />
 
                 <div className="grid gap-2">
                   <Label className="text-xs font-semibold text-muted-foreground">Display Template</Label>

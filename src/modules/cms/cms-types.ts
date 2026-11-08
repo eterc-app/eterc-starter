@@ -121,6 +121,8 @@ export interface CmsCollection {
   icon: string;
   color?: string;
   display_template?: string;
+  ordering_mode: CmsCollectionOrderingMode | null;
+  default_order: CmsCollectionSort[];
   note: string;
   primary_key: string;
   singleton: boolean;
@@ -128,6 +130,13 @@ export interface CmsCollection {
   system: boolean;
   created_at: number;
   updated_at: number;
+}
+
+export type CmsCollectionOrderingMode = "default" | "manual" | "fields";
+
+export interface CmsCollectionSort {
+  field: string;
+  direction: "asc" | "desc";
 }
 
 export interface CmsCollectionWithFields extends CmsCollection {
@@ -165,6 +174,8 @@ export interface CmsCollectionInput {
   icon?: string;
   color?: string;
   display_template?: string;
+  ordering_mode?: CmsCollectionOrderingMode;
+  default_order?: CmsCollectionSort[];
   note?: string;
   singleton?: boolean;
   hidden?: boolean;

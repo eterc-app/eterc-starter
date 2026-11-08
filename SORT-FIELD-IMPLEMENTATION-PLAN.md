@@ -6,15 +6,18 @@ Make the optional collection Sort field a complete, reliable record-ordering fea
 
 Collections without the optional Sort field must keep their current behavior.
 
+Collections may also use configured field-based ordering. Manual ordering and field-based ordering are mutually exclusive active modes; the inactive settings are retained when switching modes.
+
 ## Recommended behavior
 
 - Treat Sort as a system-managed integer order, not a value users normally type by hand.
 - Automatically append newly created records after the last ordered record. If the caller explicitly supplies a Sort value through a supported API, preserve it.
 - Display the Sort value in the Content table, but make it read-only in the record form.
-- Allow admins to reorder records with drag-and-drop in Content. Provide keyboard-operable move controls as an accessible alternative.
-- Apply ordering by ascending Sort value. Place null values after numbered values, and use the collection primary key as a stable tie-breaker.
+- Offer collection ordering modes: existing default order, manual Sort order, or one or more configured fields with direction and priority.
+- Allow admins to reorder records with drag-and-drop in Content only in manual mode. Provide keyboard-operable move controls as an accessible alternative.
+- In field mode, apply configured fields in priority order, place nulls last, then use the collection primary key as a stable tie-breaker. Disable manual reorder controls in this mode.
 - For collections without Sort, preserve the current ordering: primary key descending in the admin Content view, and the API's existing default ordering.
-- In the REST API, honor an explicitly requested `sort` and `direction`; otherwise, use the Sort field when the collection has one.
+- In the REST API, honor an explicitly requested `sort` and `direction`; otherwise, use the active collection ordering mode.
 
 ## Implementation steps
 
@@ -45,13 +48,15 @@ Collections without the optional Sort field must keep their current behavior.
 
 ### 4. Align list and API ordering
 
-- Update the admin Content query to sort by the system Sort field ascending when present, with primary key as a stable tie-breaker.
-- Update the API list endpoint to use the same default for collections with Sort.
+- Persist an active ordering mode and an ordered list of field/direction rules in collection metadata.
+- Allow field rules to be selected and edited during collection setup and from collection settings.
+- Use the active mode for Content and API list defaults. Disable drag reorder while field mode is active, and retain the saved field rules when switching to manual mode.
 - Continue to honor explicit API sort and direction parameters, validating them against storage fields using existing query helpers.
-- Ensure null Sort values appear after numbered values in both admin and API results.
+- Ensure null values appear last and primary key is the final stable tie-breaker.
 
 ### 5. Add database support
 
+- Migrate collection metadata to store ordering mode and field rules, with legacy collections inferring their prior behavior.
 - Add a non-unique index on the Sort column for newly created collections with the optional field.
 - For existing collections with a recognized Sort field, create the index safely and idempotently when the CMS schema is initialized or the collection is first used.
 - Do not add a unique constraint: ties may exist for imported or explicitly ordered records, and primary-key tie-breaking keeps their order stable.
@@ -65,6 +70,7 @@ Collections without the optional Sort field must keep their current behavior.
   - stable ordering for ties and null values;
   - reordering within a page, rejection of stale/invalid submitted IDs, and transaction rollback on failure;
   - API explicit sort overrides and defaults with/without Sort;
+  - configured multiple-field ordering and switching between field and manual modes;
   - no behavior change for collections without Sort;
   - read-only form behavior and keyboard reorder controls.
 - Run the smallest relevant tests, ESLint, TypeScript typecheck, style checks, and production build.
@@ -72,19 +78,21 @@ Collections without the optional Sort field must keep their current behavior.
 
 ## Expected files/surfaces
 
-- `src/modules/cms/cms-store.ts` — system field identification, ordering helpers, append behavior, reorder transaction, and query defaults.
-- `src/modules/cms_admin/Cms_admin.ts` — admin reorder action and Content snapshot ordering.
-- `src/modules/cms_api/Cms_api.ts` — consistent API default while preserving explicit sort parameters.
+- `src/modules/cms/cms-types.ts` and `src/modules/cms/cms-schema.ts` — typed ordering metadata and backward-compatible schema migration.
+- `src/modules/cms/cms-store.ts` — system field identification, ordering helpers, append behavior, reorder transaction, validation, and query defaults.
+- `src/modules/cms_admin/Cms_admin.ts` and `src/modules/cms_api/Cms_api.ts` — collection ordering updates, reorder action, and consistent list defaults.
+- `src/modules/cms_admin/views/CollectionOrderingControl.tsx` — shared ordering mode and field-rule editor.
+- `src/modules/cms_admin/views/CollectionDialog.tsx` and `src/modules/cms_admin/views/data.tsx` — creation and editing controls.
 - `src/modules/cms_admin/views/content.tsx` — drag-and-drop, keyboard controls, refresh, and search-state behavior.
 - `src/modules/cms_admin/views/field-inputs/index.tsx` and field form metadata — render Sort read-only.
-- Tests and any narrowly required documentation.
+- Focused storage checks and narrowly required documentation.
 
 ## Approval and implementation status
 
-The user approved this plan, and implementation is complete. The storage layer, admin and API ordering, and Content reordering UI have been updated as described above.
+The user approved this plan, and implementation is complete. The storage layer, configurable collection ordering modes, admin and API defaults, and Content reordering UI have been updated as described above.
 
 Verification completed:
 
 - TypeScript typecheck and targeted ESLint passed.
 - Production build passed.
-- Isolated SQLite checks passed for append behavior, API Sort overrides, null ordering, index creation, record reordering, stale-ID rejection, and unchanged ordering for collections without Sort.
+- Isolated SQLite checks passed for schema migration, configured multi-field ordering, explicit API sort overrides, switching between field and manual modes, legacy Sort behavior, and unchanged ordering for collections without Sort.

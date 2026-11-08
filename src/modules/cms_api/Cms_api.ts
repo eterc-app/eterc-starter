@@ -49,6 +49,8 @@ import {
 } from "@/modules/cms/cms-store";
 import { refresh_cms_schema } from "@/modules/cms/cms-schema";
 import type {
+  CmsCollectionOrderingMode,
+  CmsCollectionSort,
   CmsCollectionInput,
   CmsFieldInput,
   CmsPermissionInput,
@@ -57,6 +59,20 @@ import type {
 
 interface JsonObject {
   [key: string]: unknown;
+}
+
+function ordering_mode_value(value: unknown): CmsCollectionOrderingMode | undefined {
+  if (value === undefined) return undefined;
+  if (value === "default" || value === "manual" || value === "fields") {
+    return value;
+  }
+  throw new EtHttpError(400, "Choose a valid collection ordering mode.");
+}
+
+function default_order_value(value: unknown): CmsCollectionSort[] | undefined {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) return value as CmsCollectionSort[];
+  throw new EtHttpError(400, "Default ordering must be a list of fields.");
 }
 
 function context() {
@@ -281,6 +297,8 @@ export default class Cms_api extends Eterc {
             typeof payload.display_template === "string"
               ? payload.display_template
               : undefined,
+          ordering_mode: ordering_mode_value(payload.ordering_mode),
+          default_order: default_order_value(payload.default_order),
           note: typeof payload.note === "string" ? payload.note : undefined,
           singleton: typeof payload.singleton === "boolean" ? payload.singleton : undefined,
           hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,

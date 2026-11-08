@@ -5,6 +5,8 @@ import {
   cms_field_interface,
   type CmsCollection,
   type CmsCollectionInput,
+  type CmsCollectionOrderingMode,
+  type CmsCollectionSort,
   type CmsCollectionWithFields,
   type CmsField,
   type CmsFieldInput,
@@ -76,6 +78,13 @@ function collectionFromRow(row: Row): CmsCollection {
     icon: String(row.icon ?? "table"),
     color: String(row.color ?? ""),
     display_template: String(row.display_template ?? ""),
+    ordering_mode:
+      row.ordering_mode === "default" ||
+      row.ordering_mode === "manual" ||
+      row.ordering_mode === "fields"
+        ? row.ordering_mode
+        : null,
+    default_order: parse_collection_order(row.default_order),
     note: String(row.note ?? ""),
     primary_key: String(row.primary_key ?? "id"),
     singleton: bool(row.singleton),
@@ -84,6 +93,66 @@ function collectionFromRow(row: Row): CmsCollection {
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
   };
+}
+
+function parse_collection_order(value: unknown): CmsCollectionSort[] {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is CmsCollectionSort =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        typeof item.field === "string" &&
+        (item.direction === "asc" || item.direction === "desc")
+    );
+  } catch {
+    return [];
+  }
+}
+
+function normalize_collection_order(
+  value: unknown,
+  availableFields: Set<string>
+): CmsCollectionSort[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new EtHttpError(400, "Default ordering must be a list of fields.");
+  }
+  const seen = new Set<string>();
+  return value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new EtHttpError(400, "A default ordering rule is invalid.");
+    }
+    const rule = item as Record<string, unknown>;
+    const field = String(rule.field ?? "").trim();
+    if (!is_safe_identifier(field) || !availableFields.has(field)) {
+      throw new EtHttpError(400, `Default ordering field '${field}' is not a storage field in this collection.`);
+    }
+    if (seen.has(field)) {
+      throw new EtHttpError(400, `Default ordering field '${field}' is listed more than once.`);
+    }
+    if (rule.direction !== "asc" && rule.direction !== "desc") {
+      throw new EtHttpError(400, `Default ordering direction for '${field}' must be ascending or descending.`);
+    }
+    seen.add(field);
+    return { field, direction: rule.direction };
+  });
+}
+
+function collection_ordering_mode(
+  value: unknown,
+  hasSystemSort: boolean
+): CmsCollectionOrderingMode {
+  const mode = value ?? (hasSystemSort ? "manual" : "default");
+  if (mode !== "default" && mode !== "manual" && mode !== "fields") {
+    throw new EtHttpError(400, "Choose a valid collection ordering mode.");
+  }
+  if (mode === "manual" && !hasSystemSort) {
+    throw new EtHttpError(400, "Manual ordering requires the collection Sort field.");
+  }
+  return mode;
 }
 
 function parse_json_object(value: unknown): Record<string, unknown> {
@@ -331,6 +400,35 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   }
 
   const normalizedFields = requested.map(normalize_field);
+  const availableOrderFields = new Set([
+    primaryKey,
+    ...normalizedFields
+      .filter(
+        (field) =>
+          field.type !== "alias" &&
+          !cms_is_alias_interface(field.interface) &&
+          !(
+            field.options._eterc_system_field === "sort" ||
+            (field.name === "sort" &&
+              field.type === "integer" &&
+              field.interface === "number")
+          )
+      )
+      .map((field) => field.name),
+    ...(statusField ? [statusField.name] : []),
+    ...(createdOnName ? [createdOnName] : []),
+    ...(createdByName ? [createdByName] : []),
+    ...(updatedOnName ? [updatedOnName] : []),
+    ...(updatedByName ? [updatedByName] : []),
+  ]);
+  const orderingMode = collection_ordering_mode(input.ordering_mode, Boolean(sortField));
+  const defaultOrder = normalize_collection_order(
+    input.default_order,
+    availableOrderFields
+  );
+  if (orderingMode === "fields" && defaultOrder.length === 0) {
+    throw new EtHttpError(400, "Choose at least one field for field-based ordering.");
+  }
   const primaryColumn =
     primaryKeyType === "integer" || primaryKeyType === "bigInteger"
       ? `${quote_identifier(primaryKey)} INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`
@@ -380,8 +478,8 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   const result = sqlite()
     .prepare(
       `INSERT INTO cms_collections
-        (name, label, icon, color, display_template, note, primary_key, singleton, hidden, system, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        (name, label, icon, color, display_template, ordering_mode, default_order, note, primary_key, singleton, hidden, system, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
     )
     .run(
       name,
@@ -389,6 +487,8 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       String(input.icon ?? "table"),
       String(input.color ?? ""),
       String(input.display_template ?? ""),
+      orderingMode,
+      JSON.stringify(defaultOrder),
       String(input.note ?? ""),
       primaryKey,
       input.singleton ? 1 : 0,
@@ -593,18 +693,57 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
 
 export function update_collection(
   name: string,
-  patch: Partial<Pick<CmsCollection, "label" | "icon" | "color" | "display_template" | "note" | "singleton" | "hidden">>
+  patch: Partial<
+    Pick<
+      CmsCollection,
+      | "label"
+      | "icon"
+      | "color"
+      | "display_template"
+      | "ordering_mode"
+      | "default_order"
+      | "note"
+      | "singleton"
+      | "hidden"
+    >
+  >
 ): CmsCollectionWithFields {
-  const { collection } = require_collection(name);
+  const { collection, fields } = require_collection(name);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
   const current = collection_row(name);
   if (!current) throw new EtHttpError(404, "Collection not found.");
+  const mode = collection_ordering_mode(
+    patch.ordering_mode ?? collection.ordering_mode,
+    Boolean(system_sort_field(fields))
+  );
+  const availableOrderFields = new Set(
+    fields
+      .filter(
+        (field) =>
+        field.type !== "alias" &&
+        !cms_is_alias_interface(field.interface) &&
+        !(
+          field.options._eterc_system_field === "sort" ||
+          (field.name === "sort" &&
+            field.type === "integer" &&
+            field.interface === "number")
+        )
+    )
+      .map((field) => field.name)
+  );
+  const defaultOrder = normalize_collection_order(
+    patch.default_order ?? collection.default_order,
+    availableOrderFields
+  );
+  if (mode === "fields" && defaultOrder.length === 0) {
+    throw new EtHttpError(400, "Choose at least one field for field-based ordering.");
+  }
   sqlite()
     .prepare(
       `UPDATE cms_collections
-       SET label = ?, icon = ?, color = ?, display_template = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
+       SET label = ?, icon = ?, color = ?, display_template = ?, ordering_mode = ?, default_order = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
        WHERE id = ?`
     )
     .run(
@@ -612,6 +751,8 @@ export function update_collection(
       patch.icon ?? collection.icon,
       patch.color ?? collection.color ?? "",
       patch.display_template ?? collection.display_template ?? "",
+      mode,
+      JSON.stringify(defaultOrder),
       patch.note ?? collection.note,
       (patch.singleton ?? collection.singleton) ? 1 : 0,
       (patch.hidden ?? collection.hidden) ? 1 : 0,
@@ -858,6 +999,29 @@ export function delete_field(collectionName: string, fieldName: string): void {
     sqlite()
       .prepare("UPDATE cms_fields SET \"group\" = NULL WHERE collection_id = ? AND \"group\" = ?")
       .run(collection.id, field.name);
+    const defaultOrder = collection.default_order.filter(
+      (rule) => rule.field !== field.name
+    );
+    const deletedSystemSort =
+      field.options._eterc_system_field === "sort" ||
+      (field.name === "sort" &&
+        field.type === "integer" &&
+        field.interface === "number");
+    const nextMode =
+      (deletedSystemSort && collection.ordering_mode === "manual") ||
+      (collection.ordering_mode === "fields" && defaultOrder.length === 0)
+        ? "default"
+        : collection.ordering_mode;
+    sqlite()
+      .prepare(
+        "UPDATE cms_collections SET default_order = ?, ordering_mode = ?, updated_at = ? WHERE id = ?"
+      )
+      .run(
+        JSON.stringify(defaultOrder),
+        nextMode,
+        nowSeconds(),
+        collection.id
+      );
     if (!metadataOnly) remove_field_from_policies(collectionName, field.name);
   });
   try {
@@ -1128,13 +1292,69 @@ export function list_records(
   );
   const sortField = system_sort_field(fields);
   const explicitSort = options.sort?.trim();
-  const requestedSort = explicitSort || sortField?.name;
-  const order = order_field(fields, requestedSort, collection.primary_key);
-  const defaultDirection = sortField && !explicitSort ? "asc" : "desc";
-  const direction =
-    String(options.direction ?? defaultDirection).toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
+  const orderingMode = collection_ordering_mode(
+    collection.ordering_mode,
+    Boolean(sortField)
+  );
+  const sortRules: Array<{
+    field: string;
+    direction: "ASC" | "DESC";
+    nullsLast: boolean;
+  }> = explicitSort
+    ? [
+        {
+          field: order_field(fields, explicitSort, collection.primary_key).name,
+          direction:
+            String(options.direction ?? "desc").toLowerCase() === "asc"
+              ? "ASC"
+              : "DESC",
+          nullsLast:
+            sortField?.name ===
+            order_field(fields, explicitSort, collection.primary_key).name,
+        },
+      ]
+    : orderingMode === "fields"
+      ? collection.default_order
+          .filter((rule) => fields.some((field) => field.name === rule.field && field.type !== "alias"))
+          .map((rule) => ({
+            field: rule.field,
+            direction:
+              String(options.direction ?? rule.direction).toLowerCase() === "asc"
+                ? "ASC"
+                : "DESC",
+            nullsLast: true,
+          }))
+      : orderingMode === "manual" && sortField
+        ? [
+            {
+              field: sortField.name,
+              direction:
+                String(options.direction ?? "asc").toLowerCase() === "asc"
+                  ? "ASC"
+                  : "DESC",
+              nullsLast: true,
+            },
+          ]
+        : [
+            {
+              field: collection.primary_key,
+              direction:
+                String(options.direction ?? "desc").toLowerCase() === "asc"
+                  ? "ASC"
+                  : "DESC",
+              nullsLast: false,
+            },
+          ];
+  if (sortRules.length === 0) {
+    sortRules.push({
+      field: collection.primary_key,
+      direction:
+        String(options.direction ?? "desc").toLowerCase() === "asc"
+          ? "ASC"
+          : "DESC",
+      nullsLast: false,
+    });
+  }
   const filter = options.access_filter
     ? options.filter
       ? { _and: [options.filter, options.access_filter] }
@@ -1142,15 +1362,16 @@ export function list_records(
     : options.filter;
   const where = build_where(fields, options.search, filter);
   const offset = (page - 1) * limit;
-  const orderBy = [
-    ...(sortField?.name === order.name
-      ? [`${quote_identifier(order.name)} IS NULL ASC`]
+  const orderByParts = sortRules.flatMap((rule) => [
+    ...(rule.nullsLast
+      ? [`${quote_identifier(rule.field)} IS NULL ASC`]
       : []),
-    `${quote_identifier(order.name)} ${direction}`,
-    ...(order.name === collection.primary_key
-      ? []
-      : [`${quote_identifier(collection.primary_key)} ASC`]),
-  ].join(", ");
+    `${quote_identifier(rule.field)} ${rule.direction}`,
+  ]);
+  if (!sortRules.some((rule) => rule.field === collection.primary_key)) {
+    orderByParts.push(`${quote_identifier(collection.primary_key)} ASC`);
+  }
+  const orderBy = orderByParts.join(", ");
 
   const totalRow = sqlite()
     .prepare(
@@ -1285,6 +1506,14 @@ export function reorder_records(
   const sortField = system_sort_field(fields);
   if (!sortField) {
     throw new EtHttpError(400, "This collection does not have a Sort field.");
+  }
+  if (
+    collection_ordering_mode(collection.ordering_mode, true) === "fields"
+  ) {
+    throw new EtHttpError(
+      400,
+      "Manual reordering is disabled while field-based ordering is active."
+    );
   }
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1) {
     throw new EtHttpError(400, "A valid page is required to reorder records.");

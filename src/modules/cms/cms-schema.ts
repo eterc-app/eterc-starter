@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS "cms_collections" (
   "icon" TEXT NOT NULL DEFAULT 'table',
   "color" TEXT NOT NULL DEFAULT '',
   "display_template" TEXT NOT NULL DEFAULT '',
+  "ordering_mode" TEXT NOT NULL DEFAULT '',
+  "default_order" TEXT NOT NULL DEFAULT '[]',
   "note" TEXT NOT NULL DEFAULT '',
   "primary_key" TEXT NOT NULL DEFAULT 'id',
   "singleton" INTEGER NOT NULL DEFAULT 0,
@@ -161,6 +163,8 @@ function ensure_column(table: string, column: string, definition: string): void 
 function migrate_access_schema(): void {
   ensure_column("cms_collections", "color", "TEXT NOT NULL DEFAULT ''");
   ensure_column("cms_collections", "display_template", "TEXT NOT NULL DEFAULT ''");
+  ensure_column("cms_collections", "ordering_mode", "TEXT NOT NULL DEFAULT ''");
+  ensure_column("cms_collections", "default_order", "TEXT NOT NULL DEFAULT '[]'");
   ensure_column("cms_fields", "group", "TEXT");
   ensure_column("eterc_roles", "parent_role_id", "INTEGER");
   sqlite().exec(

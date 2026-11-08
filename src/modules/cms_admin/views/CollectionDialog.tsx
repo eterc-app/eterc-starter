@@ -24,10 +24,14 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { cn } from "@/lib/utils";
 import type {
+  CmsCollectionOrderingMode,
+  CmsCollectionSort,
   CmsCollectionWithFields,
   CmsOptionalFieldsConfig,
   CmsPrimaryKeyType,
 } from "@/modules/cms/cms-types";
+import { CollectionOrderingControl } from "./CollectionOrderingControl";
+import type { CollectionOrderingField } from "./CollectionOrderingControl";
 import { BusyButton, cms_call } from "./ui";
 
 interface CollectionForm {
@@ -153,8 +157,64 @@ function CollectionDialogBody({
     enabled: false,
     name: "user_updated",
   });
+  const [orderingMode, setOrderingMode] = useState<CmsCollectionOrderingMode>(
+    () =>
+      collection?.ordering_mode ??
+      (collection?.fields.some(
+        (field) =>
+          field.options?._eterc_system_field === "sort" ||
+          (field.name === "sort" &&
+            field.type === "integer" &&
+            field.interface === "number")
+      )
+        ? "manual"
+        : "default")
+  );
+  const [defaultOrder, setDefaultOrder] = useState<CmsCollectionSort[]>(
+    () => collection?.default_order ?? []
+  );
 
   const [saving, setSaving] = useState(false);
+  const hasManualSort = mode === "create"
+    ? optSort.enabled
+    : Boolean(
+        collection?.fields.some(
+          (field) =>
+            field.options?._eterc_system_field === "sort" ||
+            (field.name === "sort" &&
+              field.type === "integer" &&
+              field.interface === "number")
+        )
+      );
+  const orderingFields: CollectionOrderingField[] =
+    mode === "edit" && collection
+      ? collection.fields
+          .filter(
+            (field) =>
+              field.name !== collection.primary_key &&
+              field.type !== "alias" &&
+              field.options?._eterc_system_field !== "sort" &&
+              !(field.name === "sort" &&
+                field.type === "integer" &&
+                field.interface === "number")
+          )
+          .map((field) => ({
+            name: field.name,
+            label: field.label || field.name,
+          }))
+      : [
+          optStatus.enabled ? { name: optStatus.name, label: "Status" } : null,
+          optCreatedOn.enabled ? { name: optCreatedOn.name, label: "Created On" } : null,
+          optCreatedBy.enabled ? { name: optCreatedBy.name, label: "Created By" } : null,
+          optUpdatedOn.enabled ? { name: optUpdatedOn.name, label: "Updated On" } : null,
+          optUpdatedBy.enabled ? { name: optUpdatedBy.name, label: "Updated By" } : null,
+        ].filter((field): field is CollectionOrderingField => field !== null);
+  const fieldOrderInvalid =
+    orderingMode === "fields" &&
+    (defaultOrder.length === 0 ||
+      defaultOrder.some(
+        (rule) => !orderingFields.some((field) => field.name === rule.field)
+      ));
 
   const save = async () => {
     if (!form.name.trim()) {
@@ -181,6 +241,8 @@ function CollectionDialogBody({
             icon: form.icon,
             color: form.color,
             display_template: form.display_template,
+            ordering_mode: orderingMode,
+            default_order: defaultOrder,
             note: form.note,
             singleton: form.singleton,
             hidden: form.hidden,
@@ -201,6 +263,8 @@ function CollectionDialogBody({
             icon: form.icon,
             color: form.color,
             display_template: form.display_template,
+            ordering_mode: orderingMode,
+            default_order: defaultOrder,
             note: form.note,
             singleton: form.singleton,
             hidden: form.hidden,
@@ -440,6 +504,7 @@ function CollectionDialogBody({
                 </div>
               ) : mode === "create" ? (
                 /* STEP 2: OPTIONAL FIELDS */
+                <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {/* Status Field */}
                   <div className="grid gap-3">
@@ -469,9 +534,16 @@ function CollectionDialogBody({
                     <div className="flex h-11 items-center gap-3 rounded-xl border border-input bg-card px-3 transition-colors">
                       <Switch
                         checked={optSort.enabled}
-                        onCheckedChange={(checked) =>
-                          setOptSort((s) => ({ ...s, enabled: checked }))
-                        }
+                        onCheckedChange={(checked) => {
+                          setOptSort((current) => ({ ...current, enabled: checked }));
+                          setOrderingMode((current) =>
+                            checked && current === "default"
+                              ? "manual"
+                              : !checked && current === "manual"
+                                ? "default"
+                                : current
+                          );
+                        }}
                       />
                       <Input
                         value={optSort.name}
@@ -575,6 +647,18 @@ function CollectionDialogBody({
                       <User className="size-4 shrink-0 text-muted-foreground ml-auto" />
                     </div>
                   </div>
+                </div>
+                <CollectionOrderingControl
+                  mode={orderingMode}
+                  defaultOrder={defaultOrder}
+                  fields={orderingFields}
+                  hasManualSort={hasManualSort}
+                  onModeChange={setOrderingMode}
+                  onDefaultOrderChange={setDefaultOrder}
+                />
+                <p className="text-xs text-muted-foreground">
+                  During initial setup, ordering choices are the enabled optional fields. You can select custom fields after adding them in Data Studio.
+                </p>
                 </div>
               ) : (
                 /* EDIT COLLECTION SETTINGS */
@@ -689,6 +773,15 @@ function CollectionDialogBody({
                       }
                     />
                   </div>
+
+                  <CollectionOrderingControl
+                    mode={orderingMode}
+                    defaultOrder={defaultOrder}
+                    fields={orderingFields}
+                    hasManualSort={hasManualSort}
+                    onModeChange={setOrderingMode}
+                    onDefaultOrderChange={setDefaultOrder}
+                  />
                 </div>
               )}
             </div>
@@ -717,7 +810,7 @@ function CollectionDialogBody({
                   type="button"
                   busy={saving}
                   onClick={save}
-                  disabled={!form.name.trim()}
+                  disabled={!form.name.trim() || fieldOrderInvalid}
                   className="rounded-lg"
                 >
                   {mode === "create" ? "Create collection" : "Save settings"}

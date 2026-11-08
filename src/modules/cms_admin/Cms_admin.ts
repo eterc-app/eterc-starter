@@ -50,6 +50,8 @@ import {
   scan_database_schema,
 } from "@/modules/cms/cms-schema";
 import type {
+  CmsCollectionOrderingMode,
+  CmsCollectionSort,
   CmsFieldInput,
   CmsOptionalFieldsConfig,
   CmsPermissionInput,
@@ -89,6 +91,20 @@ function bool_value(value: unknown, fallback = false): boolean {
 
 function text_value(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function ordering_mode_value(value: unknown): CmsCollectionOrderingMode | undefined {
+  if (value === undefined) return undefined;
+  if (value === "default" || value === "manual" || value === "fields") {
+    return value;
+  }
+  throw new EtHttpError(400, "Choose a valid collection ordering mode.");
+}
+
+function default_order_value(value: unknown): CmsCollectionSort[] | undefined {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) return value as CmsCollectionSort[];
+  throw new EtHttpError(400, "Default ordering must be a list of fields.");
 }
 
 /** Preserve UUID/text primary keys while keeping numeric keys numeric. */
@@ -320,6 +336,8 @@ export default class Cms_admin extends Eterc {
       icon: text_value(payload.icon) || undefined,
       color: text_value(payload.color) || undefined,
       display_template: text_value(payload.display_template) || undefined,
+      ordering_mode: ordering_mode_value(payload.ordering_mode),
+      default_order: default_order_value(payload.default_order),
       note: text_value(payload.note) || undefined,
       singleton: bool_value(payload.singleton),
       hidden: bool_value(payload.hidden),
@@ -350,6 +368,8 @@ export default class Cms_admin extends Eterc {
         typeof payload.display_template === "string"
           ? payload.display_template
           : undefined,
+      ordering_mode: ordering_mode_value(payload.ordering_mode),
+      default_order: default_order_value(payload.default_order),
       note: typeof payload.note === "string" ? payload.note : undefined,
       singleton:
         typeof payload.singleton === "boolean" ? payload.singleton : undefined,
@@ -458,12 +478,15 @@ export default class Cms_admin extends Eterc {
           field.type === "integer" &&
           field.interface === "number")
     );
+    const usesCollectionOrdering = collection.ordering_mode === "fields";
     const result = list_records(collectionName, {
       page: 1,
       limit,
       search: text_value(payload.search) || undefined,
-      sort: sortField?.name ?? collection.primary_key,
-      direction: "asc",
+      sort: usesCollectionOrdering
+        ? undefined
+        : sortField?.name ?? collection.primary_key,
+      direction: usesCollectionOrdering ? undefined : "asc",
     });
     return {
       collection: {
