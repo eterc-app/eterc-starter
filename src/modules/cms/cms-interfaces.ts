@@ -171,7 +171,10 @@ export const CMS_INTERFACES: Record<CmsFieldInterface, CmsInterfaceDefinition> =
     types: ["datetime", "string"],
     defaultType: "datetime",
     defaultOptions: {
+      type: "datetime",
       format: "long",
+      relative: false,
+      use24Hour: false,
       includeSeconds: false,
     },
   },

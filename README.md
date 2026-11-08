@@ -119,7 +119,9 @@ Open `/admin` after signing in.
   immediately gets REST endpoints under `/api/v1/cms/items/{collection}`.
 - **Data Studio** manages collection fields, records, and collection-level
   settings. Image fields accept an upload, an external URL, or an existing image
-  from the media library.
+  from the media library. Map fields use live OpenStreetMap or Google Maps tiles
+  and can edit GeoJSON `Point`, `LineString`, `Polygon`, `MultiPoint`, and
+  `MultiLineString` values.
 - **Media library** uploads images, edits titles and alt text, and copies stable
   URLs for use in content fields.
 - **Access** creates roles with `read`, `create`, `update` and `delete`

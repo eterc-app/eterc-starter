@@ -240,6 +240,7 @@ function TextField({
   onChange,
   placeholder,
   type = "text",
+  step,
   className,
 }: {
   label: string;
@@ -247,6 +248,7 @@ function TextField({
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  step?: string;
   className?: string;
 }) {
   return (
@@ -254,6 +256,7 @@ function TextField({
       <Label className="text-sm font-semibold">{label}</Label>
       <Input
         type={type}
+        step={step}
         value={value}
         placeholder={placeholder}
         className="rounded-lg border-input bg-card"
@@ -1533,31 +1536,59 @@ export function InterfaceOptions({
   }
 
   if (iface === "datetime") {
+    const storedFormat = text_option(form, "format");
+    const legacyDateFormat = storedFormat === "date" && !text_option(form, "type");
     return (
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
-            label="Format"
-            value={text_option(form, "format") || "long"}
-            onChange={(value) => onOption("format", value)}
+            label="Type"
+            value={
+              text_option(form, "type") ||
+              (legacyDateFormat ? "date" : "datetime")
+            }
+            onChange={(value) => onOption("type", value)}
             options={[
-              { value: "long", label: "Date and time" },
-              { value: "date", label: "Date only" },
+              { value: "datetime", label: "DateTime" },
+              { value: "date", label: "Date" },
+              { value: "time", label: "Time" },
+              { value: "timestamp", label: "Timestamp" },
             ]}
           />
           <ToggleField
-            label="Include seconds"
-            checked={bool_option(
-              form,
-              false,
-              "includeSeconds",
-              "include_seconds"
-            )}
+            label="Relative"
+            checked={bool_option(form, false, "relative")}
+            onChange={(value) => onOption("relative", value)}
+          />
+        </div>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Show relative time, for example “5 minutes ago”.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            label="Format"
+            value={legacyDateFormat ? "long" : storedFormat || "long"}
+            onChange={(value) => onOption("format", value)}
+            options={[
+              { value: "long", label: "Long" },
+              { value: "short", label: "Short" },
+            ]}
+          />
+          <ToggleField
+            label="Use 24-Hour Format"
+            checked={bool_option(form, false, "use24Hour", "use_24_hour")}
             onChange={(value) =>
-              onOption(["includeSeconds", "include_seconds"], value)
+              onOption(["use24Hour", "use_24_hour"], value)
             }
           />
         </div>
+        <ToggleField
+          label="Include seconds"
+          checked={bool_option(form, false, "includeSeconds", "include_seconds")}
+          onChange={(value) =>
+            onOption(["includeSeconds", "include_seconds"], value)
+          }
+        />
       </div>
     );
   }
@@ -1581,6 +1612,21 @@ export function InterfaceOptions({
   if (iface === "map") {
     return (
       <div className="space-y-4">
+        <div className="grid gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground" htmlFor="map-geometry-type">
+            Geometry type
+          </label>
+          <select
+            id="map-geometry-type"
+            className="h-10 rounded-lg border border-input bg-card px-3 text-sm"
+            value={text_option(form, "geometryType", "geometry_type") || "Point"}
+            onChange={(event) => onOption(["geometryType", "geometry_type"], event.target.value)}
+          >
+            {["Point", "LineString", "Polygon", "MultiPoint", "MultiLineString"].map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField
             label="Height (px)"
@@ -2147,6 +2193,67 @@ export function DefaultValueEditor({
   const iface = form.interface;
   const type = form.type;
   const value = form.defaultValue;
+
+  if (iface === "datetime") {
+    const dateType =
+      text_option(form, "type") ||
+      (text_option(form, "format") === "date" ? "date" : "datetime");
+    const includeSeconds = bool_option(
+      form,
+      false,
+      "includeSeconds",
+      "include_seconds"
+    );
+    const inputType =
+      dateType === "date"
+        ? "date"
+        : dateType === "time"
+          ? "time"
+          : "datetime-local";
+    let inputValue = value;
+    if (inputType === "datetime-local" && value) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) {
+        const pad = (part: number) => String(part).padStart(2, "0");
+        inputValue = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+          date.getDate()
+        )}T${pad(date.getHours())}:${pad(date.getMinutes())}${
+          includeSeconds ? `:${pad(date.getSeconds())}` : ""
+        }`;
+      }
+    } else if (inputType === "date" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      inputValue = value.slice(0, 10);
+    } else if (inputType === "time") {
+      if (/^\d{2}:\d{2}/.test(value)) {
+        inputValue = value.slice(0, includeSeconds ? 8 : 5);
+      } else {
+        const date = new Date(value);
+        if (!Number.isNaN(date.getTime())) {
+          const pad = (part: number) => String(part).padStart(2, "0");
+          inputValue = `${pad(date.getHours())}:${pad(date.getMinutes())}${
+            includeSeconds ? `:${pad(date.getSeconds())}` : ""
+          }`;
+        }
+      }
+    }
+
+    return (
+      <TextField
+        label="Default value"
+        type={inputType}
+        step={includeSeconds ? "1" : undefined}
+        value={inputValue}
+        onChange={(next) => {
+          if (!next || inputType !== "datetime-local") {
+            onChange(next);
+            return;
+          }
+          const date = new Date(next);
+          onChange(Number.isNaN(date.getTime()) ? next : date.toISOString());
+        }}
+      />
+    );
+  }
 
   if (type === "boolean" || iface === "toggle") {
     return (
