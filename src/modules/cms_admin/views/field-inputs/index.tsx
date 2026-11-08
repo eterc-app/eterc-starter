@@ -56,6 +56,7 @@ import {
   as_string,
   field_choices,
   field_interface,
+  is_system_sort_field,
   is_status_field,
   is_alias_field,
   is_group_field,
@@ -69,6 +70,7 @@ export {
   default_value_for_field,
   is_alias_field,
   is_status_field,
+  is_system_sort_field,
 } from "./types";
 
 export function FieldInput(props: FieldInputProps) {
@@ -468,7 +470,8 @@ export function CmsFieldForm({
           return null;
         }
 
-        const readOnly = disabled || field.readonly;
+        const readOnly =
+          disabled || field.readonly || is_system_sort_field(field);
         return (
           <div key={field.name} className={`grid gap-3 ${widthClass}`}>
             <FieldLabel field={field} />

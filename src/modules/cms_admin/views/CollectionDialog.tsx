@@ -483,6 +483,9 @@ function CollectionDialogBody({
                       />
                       <ArrowUpDown className="size-4 shrink-0 text-muted-foreground ml-auto" />
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      New records are appended automatically. Reorder them from Content.
+                    </p>
                   </div>
 
                   {/* Created On Field */}

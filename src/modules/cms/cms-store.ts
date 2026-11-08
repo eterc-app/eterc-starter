@@ -150,6 +150,28 @@ function field_rows(collectionId: number): CmsField[] {
   ).map(fieldFromRow);
 }
 
+function system_sort_field(fields: CmsField[]): CmsField | undefined {
+  return fields.find(
+    (field) =>
+      field.options._eterc_system_field === "sort" ||
+      (field.name === "sort" &&
+        field.type === "integer" &&
+        field.interface === "number")
+  );
+}
+
+function sort_index_name(collectionName: string, fieldName: string): string {
+  return `cms_sort_${collectionName}_${fieldName}`;
+}
+
+function ensure_sort_index(collectionName: string, fieldName: string): void {
+  sqlite().exec(
+    `CREATE INDEX IF NOT EXISTS ${quote_identifier(
+      sort_index_name(collectionName, fieldName)
+    )} ON ${quote_identifier(collectionName)} (${quote_identifier(fieldName)})`
+  );
+}
+
 function require_collection(name: string): { collection: CmsCollection; fields: CmsField[] } {
   ensure_cms_schema();
   if (!is_safe_identifier(name)) {
@@ -159,7 +181,11 @@ function require_collection(name: string): { collection: CmsCollection; fields: 
   if (!row) {
     throw new EtHttpError(404, `Collection '${name}' was not found.`);
   }
-  return { collection: collectionFromRow(row), fields: field_rows(Number(row.id)) };
+  const collection = collectionFromRow(row);
+  const fields = field_rows(Number(row.id));
+  const sortField = system_sort_field(fields);
+  if (sortField) ensure_sort_index(name, sortField.name);
+  return { collection, fields };
 }
 
 function count_rows(table: string): number {
@@ -248,8 +274,9 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
         label: humanize_name(opt.sort.name.trim() || "sort"),
         type: "integer" as const,
         interface: "number" as const,
-        options: {},
+        options: { _eterc_system_field: "sort" },
         required: false,
+        readonly: true,
         defaultSql: "NULL",
       }
     : null;
@@ -343,6 +370,9 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   const createSql = `CREATE TABLE ${quote_identifier(name)} (${columns.join(", ")})`;
   const create = sqlite().transaction(() => {
   sqlite().exec(createSql);
+  if (sortField) {
+    ensure_sort_index(name, sortField.name);
+  }
   for (const field of normalizedFields) {
     if (field.unique && field.type !== "alias") create_unique_index(name, field.name);
   }
@@ -438,11 +468,11 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       sortField.label,
       sortField.type,
       sortField.interface,
-      "{}",
+      JSON.stringify(sortField.options),
       0,
       0,
       0,
-      0,
+      1,
       null,
       sort++,
       now,
@@ -1096,8 +1126,15 @@ export function list_records(
     configuredMax,
     Math.max(1, Number(options.limit ?? DEFAULT_LIMIT) || DEFAULT_LIMIT)
   );
-  const order = order_field(fields, options.sort, collection.primary_key);
-  const direction = String(options.direction ?? "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
+  const sortField = system_sort_field(fields);
+  const explicitSort = options.sort?.trim();
+  const requestedSort = explicitSort || sortField?.name;
+  const order = order_field(fields, requestedSort, collection.primary_key);
+  const defaultDirection = sortField && !explicitSort ? "asc" : "desc";
+  const direction =
+    String(options.direction ?? defaultDirection).toLowerCase() === "asc"
+      ? "ASC"
+      : "DESC";
   const filter = options.access_filter
     ? options.filter
       ? { _and: [options.filter, options.access_filter] }
@@ -1105,6 +1142,15 @@ export function list_records(
     : options.filter;
   const where = build_where(fields, options.search, filter);
   const offset = (page - 1) * limit;
+  const orderBy = [
+    ...(sortField?.name === order.name
+      ? [`${quote_identifier(order.name)} IS NULL ASC`]
+      : []),
+    `${quote_identifier(order.name)} ${direction}`,
+    ...(order.name === collection.primary_key
+      ? []
+      : [`${quote_identifier(collection.primary_key)} ASC`]),
+  ].join(", ");
 
   const totalRow = sqlite()
     .prepare(
@@ -1117,7 +1163,7 @@ export function list_records(
     .prepare(
       `SELECT * FROM ${quote_identifier(collectionName)}
        ${where.sql}
-       ORDER BY ${quote_identifier(order.name)} ${direction}
+       ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`
     )
     .all(...where.params, limit, offset) as Row[];
@@ -1150,10 +1196,32 @@ export function get_record(
 export function create_record(
   collectionName: string,
   input: Record<string, unknown>,
-  actorUserId: number | null = null
+  actorUserId: number | null = null,
+  options: { allowSortOverride?: boolean } = {}
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
-  const values = prepare_write_values(fields, input, false, collection.primary_key);
+  const sortField = system_sort_field(fields);
+  const sortInput =
+    sortField && options.allowSortOverride ? input[sortField.name] : undefined;
+  const writeInput = sortField
+    ? Object.fromEntries(
+        Object.entries(input).filter(([key]) => key !== sortField.name)
+      )
+    : input;
+  const values = prepare_write_values(fields, writeInput, false, collection.primary_key);
+  let explicitSort: number | undefined;
+  if (
+    sortField &&
+    sortInput !== undefined &&
+    sortInput !== null &&
+    sortInput !== ""
+  ) {
+    const parsed = Number(sortInput);
+    if (!Number.isSafeInteger(parsed)) {
+      throw new EtHttpError(422, `Field '${sortField.label || sortField.name}' must be an integer.`);
+    }
+    explicitSort = parsed;
+  }
   const createdByField = fields.find(
     (field) =>
       field.name !== collection.primary_key &&
@@ -1163,21 +1231,152 @@ export function create_record(
         field.name === "user_created")
   );
   if (createdByField) values[createdByField.name] = actorUserId;
-  const columns = Object.keys(values);
-  const sql =
-    columns.length === 0
-      ? `INSERT INTO ${quote_identifier(collectionName)} DEFAULT VALUES`
-      : `INSERT INTO ${quote_identifier(collectionName)}
-        (${columns.map(quote_identifier).join(", ")})
-        VALUES (${columns.map(() => "?").join(", ")})`;
   try {
-    const row = sqlite()
-      .prepare(`${sql} RETURNING *`)
-      .get(...columns.map((column) => values[column])) as Row | undefined;
-    if (!row) {
-      throw new EtHttpError(500, "The record was created but could not be read back.");
+    const create = sqlite().transaction(() => {
+      if (sortField) {
+        if (explicitSort !== undefined) {
+          values[sortField.name] = explicitSort;
+        } else {
+          const maximum = sqlite()
+            .prepare(
+              `SELECT MAX(${quote_identifier(sortField.name)}) AS maximum
+               FROM ${quote_identifier(collectionName)}`
+            )
+            .get() as { maximum: number | null };
+          const next = Number(maximum.maximum ?? 0) + 1;
+          if (!Number.isSafeInteger(next)) {
+            throw new EtHttpError(409, "No available integer sort position remains.");
+          }
+          values[sortField.name] = next;
+        }
+      }
+
+      const currentColumns = Object.keys(values);
+      const currentSql =
+        currentColumns.length === 0
+          ? `INSERT INTO ${quote_identifier(collectionName)} DEFAULT VALUES RETURNING *`
+          : `INSERT INTO ${quote_identifier(collectionName)}
+             (${currentColumns.map(quote_identifier).join(", ")})
+             VALUES (${currentColumns.map(() => "?").join(", ")}) RETURNING *`;
+      const row = sqlite()
+        .prepare(currentSql)
+        .get(...currentColumns.map((column) => values[column])) as Row | undefined;
+      if (!row) {
+        throw new EtHttpError(500, "The record was created but could not be read back.");
+      }
+      return sanitize_row(row);
+    });
+    return create.immediate();
+  } catch (error) {
+    throw database_error(error);
+  }
+}
+
+export function reorder_records(
+  collectionName: string,
+  page: number,
+  recordIds: Array<string | number>,
+  limit = 20
+): void {
+  const { collection, fields } = require_collection(collectionName);
+  if (collection.system) {
+    throw new EtHttpError(403, "System collections cannot be reordered.");
+  }
+  const sortField = system_sort_field(fields);
+  if (!sortField) {
+    throw new EtHttpError(400, "This collection does not have a Sort field.");
+  }
+  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1) {
+    throw new EtHttpError(400, "A valid page is required to reorder records.");
+  }
+  if (
+    !Array.isArray(recordIds) ||
+    recordIds.length === 0 ||
+    recordIds.length > limit ||
+    new Set(recordIds.map(String)).size !== recordIds.length
+  ) {
+    throw new EtHttpError(400, "The ordered record ids are invalid.");
+  }
+
+  const offset = (page - 1) * limit;
+  if (!Number.isSafeInteger(offset)) {
+    throw new EtHttpError(400, "The requested page is too large to reorder.");
+  }
+  const table = quote_identifier(collectionName);
+  const primaryKey = quote_identifier(collection.primary_key);
+  const sortColumn = quote_identifier(sortField.name);
+  const readRows = sqlite().prepare(
+    `SELECT ${primaryKey} AS id, ${sortColumn} AS sort_value
+     FROM ${table}
+     ORDER BY ${sortColumn} IS NULL ASC, ${sortColumn} ASC, ${primaryKey} ASC
+     LIMIT ? OFFSET ?`
+  );
+  const updateSort = sqlite().prepare(
+    `UPDATE ${table} SET ${sortColumn} = ? WHERE ${primaryKey} = ?`
+  );
+
+  const reorder = sqlite().transaction(() => {
+    const pageRows = readRows.all(limit, offset) as Array<{
+      id: string | number;
+      sort_value: number | null;
+    }>;
+    if (
+      pageRows.length !== recordIds.length ||
+      pageRows.some((row) => !recordIds.some((id) => String(id) === String(row.id)))
+    ) {
+      throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
     }
-    return sanitize_row(row);
+
+    const rowsById = new Map(pageRows.map((row) => [String(row.id), row]));
+    const orderedPage = recordIds.map((id) => rowsById.get(String(id))!);
+    const previous =
+      offset > 0 ? (readRows.get(1, offset - 1) as { id: string | number; sort_value: number | null } | undefined) : undefined;
+    const next = readRows.get(1, offset + pageRows.length) as
+      | { id: string | number; sort_value: number | null }
+      | undefined;
+
+    const pageHasNulls = pageRows.some((row) => row.sort_value === null);
+    const previousIsNull = previous?.sort_value === null;
+    const lower = previous ? Number(previous.sort_value) : 0;
+    const upper =
+      next && next.sort_value !== null ? Number(next.sort_value) : null;
+    const available = upper === null ? Number.POSITIVE_INFINITY : upper - lower - 1;
+
+    if (!pageHasNulls && !previousIsNull && available >= orderedPage.length) {
+      const step =
+        upper === null
+          ? 1
+          : Math.floor((upper - lower) / (orderedPage.length + 1));
+      const start = upper === null ? lower + 1 : lower + step;
+      if (step >= 1 && (previous || start >= 1)) {
+        orderedPage.forEach((row, index) => {
+          updateSort.run(start + index * step, row.id);
+        });
+        return;
+      }
+    }
+
+    const allRows = sqlite()
+      .prepare(
+        `SELECT ${primaryKey} AS id
+         FROM ${table}
+         ORDER BY ${sortColumn} IS NULL ASC, ${sortColumn} ASC, ${primaryKey} ASC`
+      )
+      .all() as Array<{ id: string | number }>;
+    const allById = new Map(allRows.map((row) => [String(row.id), row]));
+    const reorderedIds = allRows.map((row) => String(row.id));
+    reorderedIds.splice(offset, orderedPage.length, ...recordIds.map(String));
+    reorderedIds.forEach((id, index) => {
+      const row = allById.get(id);
+      if (!row) {
+        throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
+      }
+      updateSort.run(index + 1, row.id);
+    });
+  });
+
+  try {
+    reorder.immediate();
   } catch (error) {
     throw database_error(error);
   }
@@ -1190,7 +1389,13 @@ export function update_record(
   actorUserId: number | null = null
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
-  const values = prepare_write_values(fields, input, true, collection.primary_key);
+  const sortField = system_sort_field(fields);
+  const writeInput = sortField
+    ? Object.fromEntries(
+        Object.entries(input).filter(([key]) => key !== sortField.name)
+      )
+    : input;
+  const values = prepare_write_values(fields, writeInput, true, collection.primary_key);
   const updatedByField = fields.find(
     (field) =>
       field.name !== collection.primary_key &&

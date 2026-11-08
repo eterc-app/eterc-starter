@@ -361,7 +361,12 @@ export default class Cms_api extends Eterc {
         page: parse_int(query_value("page"), 1),
         limit: parse_int(query_value("limit"), 25),
         sort: query_value("sort"),
-        direction: query_value("direction") === "asc" ? "asc" : "desc",
+        direction:
+          query_value("direction") === "asc"
+            ? "asc"
+            : query_value("direction") === "desc"
+              ? "desc"
+              : undefined,
         search: query_value("search"),
         filter: parse_filter(),
         access_filter,
@@ -398,7 +403,9 @@ export default class Cms_api extends Eterc {
       const values = apply_presets(payload, policy.presets, principal, collection);
       assert_rule_group(values, policy.filter, principal, collection, "create");
       assert_rule_group(values, policy.validation, principal, collection, "field validation");
-      const row = create_record(collection, values, principal.user_id);
+      const row = create_record(collection, values, principal.user_id, {
+        allowSortOverride: true,
+      });
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response(
         { data: filter_row(principal, collection, formatted, policy.fields) },

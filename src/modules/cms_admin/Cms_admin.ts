@@ -39,6 +39,7 @@ import {
   get_collection,
   list_collections,
   list_records,
+  reorder_records,
   update_collection,
   update_field,
   update_record,
@@ -200,8 +201,6 @@ export default class Cms_admin extends Eterc {
       page,
       limit: 20,
       search: search.trim() || undefined,
-      sort: selected.primary_key,
-      direction: "desc",
     });
     const hasUserAuditField = selected.fields.some(
       (field) =>
@@ -415,6 +414,20 @@ export default class Cms_admin extends Eterc {
     );
   }
 
+  data_records_reorder() {
+    this.principal();
+    const payload = body();
+    const page = number_value(payload.page, 0);
+    const recordIds = array_value<string | number>(payload.record_ids);
+    if (recordIds.some((id) => typeof id !== "string" && typeof id !== "number")) {
+      throw new EtHttpError(400, "The ordered record ids are invalid.");
+    }
+    const collection = text_value(payload.collection);
+    const { limit } = list_records(collection, { page, limit: 20 });
+    reorder_records(collection, page, recordIds, limit);
+    return { reordered: true };
+  }
+
   data_field_delete() {
     this.principal();
     const payload = body();
@@ -438,11 +451,18 @@ export default class Cms_admin extends Eterc {
     }
     const collection = get_collection(collectionName);
     const limit = Math.min(50, Math.max(1, number_value(payload.limit, 25)));
+    const sortField = collection.fields.find(
+      (field) =>
+        field.options._eterc_system_field === "sort" ||
+        (field.name === "sort" &&
+          field.type === "integer" &&
+          field.interface === "number")
+    );
     const result = list_records(collectionName, {
       page: 1,
       limit,
       search: text_value(payload.search) || undefined,
-      sort: collection.primary_key,
+      sort: sortField?.name ?? collection.primary_key,
       direction: "asc",
     });
     return {

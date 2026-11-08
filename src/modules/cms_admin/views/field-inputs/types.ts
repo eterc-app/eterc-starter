@@ -116,6 +116,15 @@ export function is_status_field(field: CmsField): boolean {
   );
 }
 
+export function is_system_sort_field(field: CmsField): boolean {
+  return (
+    field.options?._eterc_system_field === "sort" ||
+    (field.name === "sort" &&
+      field.type === "integer" &&
+      field.interface === "number")
+  );
+}
+
 export function field_interface(field: CmsField): CmsFieldInterface {
   return field.interface || cms_field_interface(field.type);
 }

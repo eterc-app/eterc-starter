@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronLeft,
   ChevronRight,
   Database,
+  GripVertical,
   Layers,
   Loader2,
   Pencil,
@@ -36,6 +39,7 @@ import {
   FieldValueDisplay,
   default_value_for_field,
   is_status_field,
+  is_system_sort_field,
   is_alias_field,
 } from "./field-inputs";
 import { BusyButton, EmptyState, cms_call } from "./ui";
@@ -191,6 +195,9 @@ export default function ContentManager({ data }: EtViewProps) {
   // Mode: "table" for record listing, "record-form" for editing/creating a single record
   const [viewMode, setViewMode] = useState<"table" | "record-form">("table");
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [reordering, setReordering] = useState(false);
+  const [draggedRecordId, setDraggedRecordId] = useState<string | null>(null);
+  const [dropTargetRecordId, setDropTargetRecordId] = useState<string | null>(null);
 
   // Record Form state
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
@@ -369,15 +376,28 @@ export default function ContentManager({ data }: EtViewProps) {
     () => fields.filter((field) => !field.hidden),
     [fields]
   );
+  const sortField = useMemo(
+    () => fields.find(is_system_sort_field),
+    [fields]
+  );
+  const canReorderRecords =
+    Boolean(sortField) &&
+    !search.trim() &&
+    !searchInput.trim() &&
+    viewMode === "table";
   const tableFields = useMemo(
-    () =>
-      visibleFields
-        .filter(
-          (field) =>
-            field.name !== selected?.primary_key && !is_alias_field(field)
-        )
-        .slice(0, 8),
-    [selected?.primary_key, visibleFields]
+    () => {
+      const available = visibleFields.filter(
+        (field) =>
+          field.name !== selected?.primary_key && !is_alias_field(field)
+      );
+      const shown = available.slice(0, 8);
+      if (sortField && !shown.some((field) => field.name === sortField.name)) {
+        return [...available.slice(0, 7), sortField];
+      }
+      return shown;
+    },
+    [selected?.primary_key, sortField, visibleFields]
   );
   const formFields = useMemo(
     () =>
@@ -394,6 +414,55 @@ export default function ContentManager({ data }: EtViewProps) {
         (field) => !field.readonly && !is_alias_field(field)
       ),
     [formFields]
+  );
+  const canCreateRecord = editableFields.length > 0 || Boolean(sortField);
+
+  const saveRecordOrder = useCallback(
+    async (orderedRecords: Record<string, unknown>[]) => {
+      if (!selected || !sortField || !canReorderRecords || reordering) return;
+      const previousRecords = records;
+      setRecords(orderedRecords);
+      setReordering(true);
+      try {
+        await cms_call("data_records_reorder", {
+          collection: selected.name,
+          page,
+          record_ids: orderedRecords.map((record) =>
+            String(record[selected.primary_key])
+          ),
+        });
+        toast.success("Record order updated.");
+        await refresh(selected.name, page, "");
+      } catch (error) {
+        setRecords(previousRecords);
+        toast.error(error instanceof Error ? error.message : "Could not reorder records.");
+        await refresh(selected.name, page, "");
+      } finally {
+        setReordering(false);
+        setDraggedRecordId(null);
+        setDropTargetRecordId(null);
+      }
+    },
+    [
+      canReorderRecords,
+      page,
+      records,
+      refresh,
+      reordering,
+      selected,
+      sortField,
+    ]
+  );
+
+  const moveRecord = useCallback(
+    (from: number, to: number) => {
+      if (!canReorderRecords || reordering || to < 0 || to >= records.length) return;
+      const orderedRecords = [...records];
+      const [moved] = orderedRecords.splice(from, 1);
+      orderedRecords.splice(to, 0, moved);
+      void saveRecordOrder(orderedRecords);
+    },
+    [canReorderRecords, records, reordering, saveRecordOrder]
   );
 
   const clearSearch = useCallback(() => {
@@ -516,7 +585,7 @@ export default function ContentManager({ data }: EtViewProps) {
             >
               <RefreshCw className={cn("size-4", busy && "animate-spin")} />
             </Button>
-            {selected && editableFields.length > 0 ? (
+            {selected && canCreateRecord ? (
               <Button
                 type="button"
                 variant="default"
@@ -675,12 +744,25 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               ) : null}
 
+              {sortField ? (
+                <p className="text-xs text-muted-foreground" role="status">
+                  {canReorderRecords
+                    ? "Drag rows or use the arrow buttons to reorder records."
+                    : "Clear the search to reorder records."}
+                </p>
+              ) : null}
+
               {/* Data Table */}
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <div className="app-scrollbar overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle/80 text-xs font-semibold text-muted-foreground">
+                        {sortField ? (
+                          <th className="w-9 px-1 py-3">
+                            <span className="sr-only">Reorder</span>
+                          </th>
+                        ) : null}
                         <th className="w-10 px-3 py-3 text-center">
                           <Checkbox
                             checked={
@@ -698,14 +780,21 @@ export default function ContentManager({ data }: EtViewProps) {
                             {field.label || field.name}
                           </th>
                         ))}
-                        <th className="w-16 px-3 py-3 text-right">Actions</th>
+                        <th
+                          className={cn(
+                            "px-3 py-3 text-right",
+                            sortField ? "w-44" : "w-16"
+                          )}
+                        >
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {records.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={tableFields.length + 3}
+                            colSpan={tableFields.length + 3 + (sortField ? 1 : 0)}
                             className="py-12 text-center"
                           >
                             <div className="flex flex-col items-center justify-center gap-2">
@@ -734,7 +823,7 @@ export default function ContentManager({ data }: EtViewProps) {
                                   type="button"
                                   size="sm"
                                   onClick={openCreateRecord}
-                                  disabled={editableFields.length === 0}
+                                  disabled={!canCreateRecord}
                                   className="mt-2 rounded-lg"
                                 >
                                   <Plus className="size-3.5" />
@@ -753,10 +842,66 @@ export default function ContentManager({ data }: EtViewProps) {
                               key={rowId}
                               className={cn(
                                 "border-b border-border transition-colors last:border-b-0 cursor-pointer hover:bg-surface-subtle",
-                                isSelected && "bg-muted/70 hover:bg-muted"
+                                isSelected && "bg-muted/70 hover:bg-muted",
+                                dropTargetRecordId === rowId &&
+                                  draggedRecordId !== rowId &&
+                                  "border-t-2 border-t-primary",
+                                draggedRecordId === rowId && "opacity-60"
                               )}
+                              onDragOver={(event) => {
+                                if (!canReorderRecords || reordering || !draggedRecordId) return;
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                                setDropTargetRecordId(rowId);
+                              }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                if (!canReorderRecords || reordering || !draggedRecordId) return;
+                                const from = records.findIndex(
+                                  (item, itemIndex) =>
+                                    String(item[selected.primary_key] ?? itemIndex) === draggedRecordId
+                                );
+                                const to = records.findIndex(
+                                  (item, itemIndex) =>
+                                    String(item[selected.primary_key] ?? itemIndex) === rowId
+                                );
+                                setDraggedRecordId(null);
+                                setDropTargetRecordId(null);
+                                if (from >= 0 && to >= 0 && from !== to) moveRecord(from, to);
+                              }}
                               onClick={() => openEditRecord(record)}
                             >
+                              {sortField ? (
+                                <td
+                                  className="px-1 py-2 text-center"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    draggable={canReorderRecords && !reordering}
+                                    disabled={!canReorderRecords || reordering}
+                                    aria-label={`Drag to reorder record ${rowId}`}
+                                    title={
+                                      canReorderRecords
+                                        ? "Drag to reorder"
+                                        : "Clear search to reorder"
+                                    }
+                                    onDragStart={(event) => {
+                                      event.stopPropagation();
+                                      event.dataTransfer.effectAllowed = "move";
+                                      event.dataTransfer.setData("text/plain", rowId);
+                                      setDraggedRecordId(rowId);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedRecordId(null);
+                                      setDropTargetRecordId(null);
+                                    }}
+                                    className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <GripVertical className="size-4" />
+                                  </button>
+                                </td>
+                              ) : null}
                               <td
                                 className="px-3 py-3 text-center"
                                 onClick={(e) => {
@@ -796,6 +941,38 @@ export default function ContentManager({ data }: EtViewProps) {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="flex justify-end gap-1">
+                                  {sortField ? (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        aria-label={`Move record ${rowId} up`}
+                                        title="Move up"
+                                        disabled={
+                                          !canReorderRecords || reordering || index === 0
+                                        }
+                                        onClick={() => moveRecord(index, index - 1)}
+                                      >
+                                        <ArrowUp className="size-3.5" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        aria-label={`Move record ${rowId} down`}
+                                        title="Move down"
+                                        disabled={
+                                          !canReorderRecords ||
+                                          reordering ||
+                                          index === records.length - 1
+                                        }
+                                        onClick={() => moveRecord(index, index + 1)}
+                                      >
+                                        <ArrowDown className="size-3.5" />
+                                      </Button>
+                                    </>
+                                  ) : null}
                                   <Button
                                     type="button"
                                     variant="ghost"
