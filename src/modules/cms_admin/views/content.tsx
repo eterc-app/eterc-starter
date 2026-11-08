@@ -35,6 +35,7 @@ import {
   CmsFieldForm,
   FieldValueDisplay,
   default_value_for_field,
+  is_status_field,
   is_alias_field,
 } from "./field-inputs";
 import { BusyButton, EmptyState, cms_call } from "./ui";
@@ -44,6 +45,7 @@ interface Snapshot {
   selected?: CmsCollectionWithFields | null;
   fields?: CmsField[];
   records?: Record<string, unknown>[];
+  user_labels?: Record<string, string>;
   total?: number;
   page?: number;
   pages?: number;
@@ -64,6 +66,12 @@ function record_defaults(fields: CmsField[]): Record<string, unknown> {
 }
 
 function parse_record_value(field: CmsField, value: unknown): unknown {
+  if (
+    is_status_field(field) &&
+    (value === null || value === undefined || value === "")
+  ) {
+    return "draft";
+  }
   if (value === null || value === undefined) {
     return default_value_for_field(field);
   }
@@ -169,6 +177,9 @@ export default function ContentManager({ data }: EtViewProps) {
   const [records, setRecords] = useState<Record<string, unknown>[]>(
     initial.records ?? []
   );
+  const [userLabels, setUserLabels] = useState<Record<string, string>>(
+    initial.user_labels ?? {}
+  );
   const [total, setTotal] = useState(Number(initial.total ?? 0));
   const [page, setPage] = useState(Number(initial.page ?? 1));
   const [pages, setPages] = useState(Number(initial.pages ?? 1));
@@ -191,6 +202,7 @@ export default function ContentManager({ data }: EtViewProps) {
     setSelected(snapshot.selected ?? null);
     setFields(snapshot.fields ?? []);
     setRecords(snapshot.records ?? []);
+    setUserLabels(snapshot.user_labels ?? {});
     setTotal(Number(snapshot.total ?? 0));
     setPage(Number(snapshot.page ?? 1));
     setPages(Number(snapshot.pages ?? 1));
@@ -271,7 +283,12 @@ export default function ContentManager({ data }: EtViewProps) {
         if (field.hidden || field.readonly) continue;
         if (is_alias_field(field)) continue;
         if (editingRecord && field.name === selected.primary_key) continue;
-        const value = recordValues[field.name];
+        const rawValue = recordValues[field.name];
+        const value =
+          is_status_field(field) &&
+          (rawValue === null || rawValue === undefined || rawValue === "")
+            ? "draft"
+            : rawValue;
         if (value !== undefined) values[field.name] = value;
       }
 
@@ -766,6 +783,10 @@ export default function ContentManager({ data }: EtViewProps) {
                                     <FieldValueDisplay
                                       field={field}
                                       value={value}
+                                      userLabel={
+                                        userLabels[String(Number(value))] ??
+                                        userLabels[String(value)]
+                                      }
                                     />
                                   </td>
                                 );

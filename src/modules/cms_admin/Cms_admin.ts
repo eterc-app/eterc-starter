@@ -14,6 +14,7 @@ import {
   get_access_overview,
   get_profile_overview,
   list_permissions,
+  list_users,
   replace_permissions,
   require_admin_user,
   require_human_user,
@@ -187,6 +188,7 @@ export default class Cms_admin extends Eterc {
         selected: null,
         fields: [],
         records: [],
+        user_labels: {},
         total: 0,
         page: 1,
         pages: 1,
@@ -201,11 +203,29 @@ export default class Cms_admin extends Eterc {
       sort: selected.primary_key,
       direction: "desc",
     });
+    const hasUserAuditField = selected.fields.some(
+      (field) =>
+        field.options?._eterc_system_field === "user_created" ||
+        field.options?._eterc_system_field === "user_updated" ||
+        field.name === "user_created" ||
+        field.name === "user_updated"
+    );
+    const user_labels = hasUserAuditField
+      ? Object.fromEntries(
+          list_users()
+            .filter((user) => user.eterc_user_id !== null)
+            .map((user) => [
+              String(user.eterc_user_id),
+              user.username || user.email || `User #${user.eterc_user_id}`,
+            ])
+        )
+      : {};
     return {
       collections,
       selected,
       fields: selected.fields,
       records: result.rows,
+      user_labels,
       total: result.total,
       page: result.page,
       pages: result.pages,
@@ -439,18 +459,23 @@ export default class Cms_admin extends Eterc {
   }
 
   data_record_create() {
-    this.principal();
+    const principal = this.principal();
     const payload = body();
-    return create_record(text_value(payload.collection), object_value(payload.values));
+    return create_record(
+      text_value(payload.collection),
+      object_value(payload.values),
+      principal.user_id
+    );
   }
 
   data_record_update() {
-    this.principal();
+    const principal = this.principal();
     const payload = body();
     return update_record(
       text_value(payload.collection),
       record_id_value(payload.id),
-      object_value(payload.values)
+      object_value(payload.values),
+      principal.user_id
     );
   }
 

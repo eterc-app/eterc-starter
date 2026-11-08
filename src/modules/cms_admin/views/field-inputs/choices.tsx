@@ -20,6 +20,7 @@ import {
   as_string_array,
   choice_label,
   field_choices,
+  is_status_field,
   option_bool,
   option_number,
   option_string,
@@ -122,11 +123,14 @@ export function ChoiceSelect({
   const choices = field_choices(field);
   const allowNone = option_bool(field, true, "allowNone", "allow_none");
   const allowOther = option_bool(field, false, "allowOther", "allow_other");
+  const isStatus = is_status_field(field);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const selected = choices.find(
-    (choice) => String(choice.value) === String(value)
-  );
+  const selected =
+    choices.find((choice) => String(choice.value) === String(value)) ??
+    (isStatus && (value === null || value === undefined || value === "")
+      ? choices.find((choice) => String(choice.value).toLowerCase() === "draft")
+      : undefined);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return choices;
@@ -146,43 +150,57 @@ export function ChoiceSelect({
   return (
     <div className="space-y-2">
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-expanded={open}
-            disabled={disabled}
-            className="flex h-13 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-4 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:shadow-[0_0_16px_-8px_var(--ring)] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              {selected ? <ChoiceMarker choice={selected} /> : null}
-              <span
-                className={cn(
-                  "truncate",
-                  !selected && "text-muted-foreground"
-                )}
-              >
-                {selected ? selected.text : placeholder}
+        <div
+          className="flex h-13 w-full items-center rounded-lg border border-input bg-card text-sm text-foreground transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_16px_-8px_var(--ring)] has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-muted has-[:disabled]:text-muted-foreground"
+        >
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-expanded={open}
+              disabled={disabled}
+              className="flex h-full min-w-0 flex-1 items-center justify-between gap-2 rounded-l-lg bg-transparent px-4 text-left outline-none"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {selected ? <ChoiceMarker choice={selected} /> : null}
+                <span
+                  className={cn(
+                    "truncate",
+                    !selected && "text-muted-foreground"
+                  )}
+                >
+                  {selected ? selected.text : placeholder}
+                </span>
               </span>
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-          </button>
-        </PopoverTrigger>
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          {allowNone &&
+          selected &&
+          value !== null &&
+          value !== undefined &&
+          value !== "" ? (
+            <button
+              type="button"
+              aria-label="Clear selection"
+              title="Clear selection"
+              disabled={disabled}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setOpen(false);
+                onChange(null);
+              }}
+              className="mr-2 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            >
+              <X className="size-3.5" />
+            </button>
+          ) : null}
+        </div>
         <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2">
-          <ChoiceSearch query={query} onChange={setQuery} />
+          {!isStatus ? (
+            <ChoiceSearch query={query} onChange={setQuery} />
+          ) : null}
           <div className="app-scrollbar max-h-60 space-y-0.5 overflow-y-auto pt-1">
-            {allowNone ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(null);
-                  setOpen(false);
-                }}
-                className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
-              >
-                <X className="size-3.5" />
-                Clear selection
-              </button>
-            ) : null}
             {filtered.length === 0 ? (
               <p className="px-2 py-4 text-center text-xs text-muted-foreground">
                 No choices match your search.

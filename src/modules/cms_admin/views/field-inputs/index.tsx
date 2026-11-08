@@ -56,6 +56,7 @@ import {
   as_string,
   field_choices,
   field_interface,
+  is_status_field,
   is_alias_field,
   is_group_field,
   type CmsFieldFormProps,
@@ -64,7 +65,11 @@ import {
 } from "./types";
 
 export type { CmsFieldFormProps, CmsMediaConfig, FieldInputProps };
-export { default_value_for_field, is_alias_field } from "./types";
+export {
+  default_value_for_field,
+  is_alias_field,
+  is_status_field,
+} from "./types";
 
 export function FieldInput(props: FieldInputProps) {
   const { field, value, onChange, disabled, media, collections } = props;
@@ -513,12 +518,35 @@ function count_badge(count: number, label: string) {
 export function FieldValueDisplay({
   field,
   value,
+  userLabel,
 }: {
   field: CmsField;
   value: unknown;
+  userLabel?: string;
 }) {
   const iface = field_interface(field);
   if (is_alias_field(field)) return null;
+  const userAuditKind = field.options?._eterc_system_field;
+  if (
+    userAuditKind === "user_created" ||
+    userAuditKind === "user_updated" ||
+    field.name === "user_created" ||
+    field.name === "user_updated"
+  ) {
+    if (value === null || value === undefined || value === "") {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    const id = Number(value);
+    return (
+      <Badge variant="secondary" className="rounded-md text-xs">
+        {userLabel || (Number.isFinite(id) ? `User #${id}` : as_string(value))}
+      </Badge>
+    );
+  }
+  const displayValue =
+    is_status_field(field) && (value === null || value === undefined || value === "")
+      ? "draft"
+      : value;
 
   if (iface === "toggle" || field.type === "boolean") {
     const checked =
@@ -632,16 +660,16 @@ export function FieldValueDisplay({
   }
 
   if (iface === "dropdown" || iface === "radio" || iface === "select") {
-    if (value === null || value === undefined || value === "") {
+    if (displayValue === null || displayValue === undefined || displayValue === "") {
       return <span className="text-muted-foreground">—</span>;
     }
     const choices = field_choices(field);
     const choice = choices.find(
-      (entry) => String(entry.value) === String(value)
+      (entry) => String(entry.value) === String(displayValue)
     );
     return (
       <Badge variant="secondary" className="rounded-md text-xs">
-        {choice?.text ?? as_string(value)}
+        {choice?.text ?? as_string(displayValue)}
       </Badge>
     );
   }

@@ -106,6 +106,16 @@ export function field_choices(field: CmsField): CmsChoice[] {
   return cms_normalize_choices(field.options?.choices);
 }
 
+export function is_status_field(field: CmsField): boolean {
+  return (
+    field.name === "status" &&
+    field.type === "select" &&
+    field_choices(field).some(
+      (choice) => String(choice.value).toLowerCase() === "draft"
+    )
+  );
+}
+
 export function field_interface(field: CmsField): CmsFieldInterface {
   return field.interface || cms_field_interface(field.type);
 }

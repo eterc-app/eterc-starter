@@ -398,7 +398,7 @@ export default class Cms_api extends Eterc {
       const values = apply_presets(payload, policy.presets, principal, collection);
       assert_rule_group(values, policy.filter, principal, collection, "create");
       assert_rule_group(values, policy.validation, principal, collection, "field validation");
-      const row = create_record(collection, values);
+      const row = create_record(collection, values, principal.user_id);
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response(
         { data: filter_row(principal, collection, formatted, policy.fields) },
@@ -417,7 +417,7 @@ export default class Cms_api extends Eterc {
       const merged = { ...existing, ...payload };
       assert_rule_group(merged, policy.filter, principal, collection, "update");
       assert_rule_group(merged, policy.validation, principal, collection, "field validation");
-      const row = update_record(collection, id, payload);
+      const row = update_record(collection, id, payload, principal.user_id);
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response({
         data: filter_row(principal, collection, formatted, policy.fields),

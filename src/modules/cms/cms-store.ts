@@ -235,6 +235,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
             { text: "Published", value: "published" },
             { text: "Archived", value: "archived" },
           ],
+          default: "draft",
         },
         required: true,
         defaultSql: "'draft'",
@@ -490,7 +491,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       humanize_name(createdByName),
       "string",
       "input",
-      "{}",
+      JSON.stringify({ _eterc_system_field: "user_created" }),
       0,
       0,
       0,
@@ -543,7 +544,7 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
       humanize_name(updatedByName),
       "string",
       "input",
-      "{}",
+      JSON.stringify({ _eterc_system_field: "user_updated" }),
       0,
       0,
       0,
@@ -1148,10 +1149,20 @@ export function get_record(
 
 export function create_record(
   collectionName: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  actorUserId: number | null = null
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
   const values = prepare_write_values(fields, input, false, collection.primary_key);
+  const createdByField = fields.find(
+    (field) =>
+      field.name !== collection.primary_key &&
+      field.type !== "alias" &&
+      field.readonly &&
+      (field.options?._eterc_system_field === "user_created" ||
+        field.name === "user_created")
+  );
+  if (createdByField) values[createdByField.name] = actorUserId;
   const columns = Object.keys(values);
   const sql =
     columns.length === 0
@@ -1175,10 +1186,20 @@ export function create_record(
 export function update_record(
   collectionName: string,
   id: string | number,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  actorUserId: number | null = null
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
   const values = prepare_write_values(fields, input, true, collection.primary_key);
+  const updatedByField = fields.find(
+    (field) =>
+      field.name !== collection.primary_key &&
+      field.type !== "alias" &&
+      field.readonly &&
+      (field.options?._eterc_system_field === "user_updated" ||
+        field.name === "user_updated")
+  );
+  if (updatedByField) values[updatedByField.name] = actorUserId;
   if (Object.keys(values).length === 0) {
     return get_record(collectionName, id);
   }
