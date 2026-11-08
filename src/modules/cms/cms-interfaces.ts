@@ -523,6 +523,37 @@ export function cms_is_presentation_interface(
   return cms_interface_definition(id).presentation === true;
 }
 
+const TYPE_INTERFACES: Record<CmsFieldType, CmsFieldInterface> = {
+  string: "input",
+  text: "textarea",
+  integer: "number",
+  decimal: "number",
+  boolean: "toggle",
+  datetime: "datetime",
+  json: "json",
+  select: "select",
+  image: "image",
+  relation: "relation",
+  alias: "input",
+};
+
+/**
+ * Interface used when legacy field metadata has no explicit interface.
+ *
+ * This maps the storage type (the SQLite column) to the control that best
+ * edits it. Passing a storage type to `cms_interface_definition` instead
+ * would silently fall back to a plain text input for every legacy field.
+ */
+export function cms_field_interface(
+  type: CmsFieldType | string | null | undefined,
+  fallback: CmsFieldInterface = "input"
+): CmsFieldInterface {
+  if (type && type in TYPE_INTERFACES) {
+    return TYPE_INTERFACES[type as CmsFieldType];
+  }
+  return fallback;
+}
+
 export function cms_interface_defaults(
   id: CmsFieldInterface | string | null | undefined
 ): Record<string, unknown> {

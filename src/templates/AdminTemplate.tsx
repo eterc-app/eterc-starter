@@ -124,7 +124,7 @@ function breadcrumb_items(
 ): [string, string] {
   if (is_active(pathname, "/admin")) {
     const labels: Record<string, string> = {
-      "/admin": "Overview",
+      "/admin": "Data Model",
       "/admin/content": "Content",
       "/admin/data": "Data Model",
       "/admin/media": "Media library",

@@ -8,6 +8,7 @@ import type {
   CmsFieldInterface,
 } from "@/modules/cms/cms-types";
 import {
+  cms_field_interface,
   cms_interface_definition,
   cms_normalize_choices,
 } from "@/modules/cms/cms-interfaces";
@@ -106,11 +107,7 @@ export function field_choices(field: CmsField): CmsChoice[] {
 }
 
 export function field_interface(field: CmsField): CmsFieldInterface {
-  return (
-    field.interface ||
-    cms_interface_definition(field.type).id ||
-    "input"
-  );
+  return field.interface || cms_field_interface(field.type);
 }
 
 export function as_string(value: unknown): string {

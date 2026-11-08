@@ -50,7 +50,7 @@ export default function DefaultHomepage() {
           <div className="mt-8 flex flex-col gap-2 sm:flex-row">
             {ENV === "dev" ? (
               <Button asChild>
-                <a href="/admin">Open CMS admin</a>
+                <a href="/admin/data">Open CMS admin</a>
               </Button>
             ) : (
               <Button asChild>

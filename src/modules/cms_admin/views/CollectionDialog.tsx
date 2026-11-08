@@ -5,11 +5,9 @@ import {
   ArrowRight,
   ArrowUpDown,
   Box,
-  Check,
   ChevronDown,
   Clock,
   Flag,
-  Info,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -266,63 +264,17 @@ function CollectionDialogBody({
           {/* Right Main Content */}
           <div className="p-6 sm:p-8 space-y-6 flex flex-col justify-between">
             <div className="space-y-6">
-              {/* Header with Title and Directus Step Action Buttons */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <div className="flex items-center gap-3">
                   <span className="grid size-9 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
                     <Box className="size-4.5" />
                   </span>
-                  <DialogTitle className="text-base font-semibold text-foreground">
+                  <DialogTitle className="text-sm font-semibold text-foreground">
                     {mode === "create"
                       ? "Creating New Collection"
                       : "Collection Settings"}
                   </DialogTitle>
                 </div>
-
-                {mode === "create" ? (
-                  <div>
-                    {tab === "setup" ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!form.name.trim()) {
-                            toast.error("Please enter a collection name first.");
-                            return;
-                          }
-                          setTab("optional");
-                        }}
-                        className="grid size-9 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 shadow-xs"
-                        title="Next: Optional Fields"
-                        aria-label="Next step"
-                      >
-                        <ArrowRight className="size-4" strokeWidth={2.5} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={saving || !form.name.trim()}
-                        onClick={save}
-                        className="grid size-9 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-50 shadow-xs"
-                        title="Save & Create Collection"
-                        aria-label="Create collection"
-                      >
-                        <Check className="size-4" strokeWidth={2.5} />
-                      </button>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Information Banner */}
-              <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-subtle/80 p-3.5 text-xs text-muted-foreground">
-                <Info className="size-4 shrink-0 text-foreground" />
-                <span>
-                  {mode === "create"
-                    ? tab === "setup"
-                      ? 'Name the collection and setup its unique "key" field...'
-                      : "Enable and rename any of these optional fields."
-                    : "Update collection metadata and presentation options."}
-                </span>
               </div>
 
               {/* STEP 1: COLLECTION SETUP */}
@@ -331,7 +283,7 @@ function CollectionDialogBody({
                   <div className="grid gap-5 sm:grid-cols-2">
                     {/* Collection Name */}
                     <div className="grid gap-2">
-                      <Label htmlFor="col-name" className="text-sm font-semibold">
+                      <Label htmlFor="col-name" className="!text-xs font-semibold">
                         Name *
                       </Label>
                       <Input
@@ -351,14 +303,11 @@ function CollectionDialogBody({
                           }))
                         }
                       />
-                      <span className="text-xs text-muted-foreground italic">
-                        Collection names are case sensitive and slugified
-                      </span>
                     </div>
 
                     {/* Singleton Toggle */}
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Singleton</Label>
+                      <Label className="!text-xs font-semibold">Singleton</Label>
                       <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4 transition-colors">
                         <span className="text-sm font-medium text-foreground">
                           Treat as single object
@@ -380,7 +329,7 @@ function CollectionDialogBody({
                     <div className="grid gap-5 sm:grid-cols-2">
                       {/* Primary Key Field */}
                       <div className="grid gap-2">
-                        <Label htmlFor="col-pk" className="text-sm font-semibold">
+                        <Label htmlFor="col-pk" className="!text-xs font-semibold">
                           Primary Key Field
                         </Label>
                         <Input
@@ -399,7 +348,7 @@ function CollectionDialogBody({
 
                       {/* Primary Key Type */}
                       <div className="grid gap-2">
-                        <Label htmlFor="col-pk-type" className="text-sm font-semibold">
+                        <Label htmlFor="col-pk-type" className="!text-xs font-semibold">
                           Type
                         </Label>
                         <div className="relative">
@@ -427,7 +376,7 @@ function CollectionDialogBody({
 
                   <div className="grid gap-5 sm:grid-cols-2 border-t border-border pt-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="col-label" className="text-sm font-semibold">
+                      <Label htmlFor="col-label" className="!text-xs font-semibold">
                         Display Label
                       </Label>
                       <Input
@@ -445,7 +394,7 @@ function CollectionDialogBody({
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="col-note" className="text-sm font-semibold">
+                      <Label htmlFor="col-note" className="!text-xs font-semibold">
                         Note / Description
                       </Label>
                       <Input
@@ -465,7 +414,7 @@ function CollectionDialogBody({
 
                   <div className="grid gap-5 sm:grid-cols-2 border-t border-border pt-4">
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Collection Icon</Label>
+                      <Label className="!text-xs font-semibold">Collection Icon</Label>
                       <IconPicker
                         value={form.icon}
                         onChange={(icon) =>
@@ -473,16 +422,18 @@ function CollectionDialogBody({
                         }
                         color={form.color}
                         placeholder="Pick an icon (from 1,700+)"
+                        className="h-11 rounded-xl"
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Icon & Brand Color</Label>
+                      <Label className="!text-xs font-semibold">Icon & Brand Color</Label>
                       <ColorPicker
                         value={form.color}
                         onChange={(color) =>
                           setForm((current) => ({ ...current, color }))
                         }
+                        className="h-11 rounded-xl"
                       />
                     </div>
                   </div>
@@ -627,7 +578,7 @@ function CollectionDialogBody({
                 <div className="space-y-5">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
-                      <Label htmlFor="col-name" className="text-sm font-semibold">
+                      <Label htmlFor="col-name" className="!text-xs font-semibold">
                         Name
                       </Label>
                       <Input
@@ -639,7 +590,7 @@ function CollectionDialogBody({
                     </div>
 
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Singleton</Label>
+                      <Label className="!text-xs font-semibold">Singleton</Label>
                       <div className="flex h-11 items-center justify-between rounded-xl border border-input bg-card px-4">
                         <span className="text-sm font-medium text-foreground">
                           Treat as single object
@@ -659,7 +610,7 @@ function CollectionDialogBody({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
-                      <Label htmlFor="col-label" className="text-sm font-semibold">
+                      <Label htmlFor="col-label" className="!text-xs font-semibold">
                         Display Label
                       </Label>
                       <Input
@@ -677,7 +628,7 @@ function CollectionDialogBody({
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="col-note" className="text-sm font-semibold">
+                      <Label htmlFor="col-note" className="!text-xs font-semibold">
                         Note
                       </Label>
                       <Input
@@ -697,7 +648,7 @@ function CollectionDialogBody({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Collection Icon</Label>
+                      <Label className="!text-xs font-semibold">Collection Icon</Label>
                       <IconPicker
                         value={form.icon}
                         onChange={(icon) =>
@@ -705,16 +656,18 @@ function CollectionDialogBody({
                         }
                         color={form.color}
                         placeholder="Pick an icon (from 1,700+)"
+                        className="h-11 rounded-xl"
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label className="text-sm font-semibold">Icon & Brand Color</Label>
+                      <Label className="!text-xs font-semibold">Icon & Brand Color</Label>
                       <ColorPicker
                         value={form.color}
                         onChange={(color) =>
                           setForm((current) => ({ ...current, color }))
                         }
+                        className="h-11 rounded-xl"
                       />
                     </div>
                   </div>
@@ -738,16 +691,8 @@ function CollectionDialogBody({
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex flex-col-reverse gap-2 pt-4 border-t border-border sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-lg sm:mr-auto"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col-reverse gap-2 pt-4 border-t border-border sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex items-center justify-end gap-2">
                 {mode === "create" && tab === "setup" ? (
                   <Button
                     type="button"

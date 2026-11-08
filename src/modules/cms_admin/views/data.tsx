@@ -3,7 +3,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Bookmark,
   Check,
@@ -472,6 +471,17 @@ export default function DataStudio({ data }: EtViewProps) {
     }
   }, [refresh]);
 
+  const backToCollections = useCallback(() => {
+    setSelected(null);
+    setFields([]);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("collection");
+      url.searchParams.delete("new");
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
+
   // Navbar metadata
   const navbarMeta = useMemo(() => {
     if (!selected) {
@@ -484,36 +494,26 @@ export default function DataStudio({ data }: EtViewProps) {
     return {
       section: "Data Studio",
       title: selected.label || selected.name,
+      onBack: backToCollections,
       badge: <Bookmark className="size-3.5 text-muted-foreground ml-1" />,
     };
-  }, [selected]);
+  }, [backToCollections, selected]);
 
   useSetNavbarMeta(navbarMeta);
-
-  const backToCollections = useCallback(() => {
-    setSelected(null);
-    setFields([]);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("collection");
-      url.searchParams.delete("new");
-      window.history.replaceState(null, "", url);
-    }
-  }, []);
 
   return (
     <div className="app-page">
       <PageActionsPortal>
         <PageActions
           items={[
-            {
-              label: "New collection",
-              icon: <Plus className="size-4" />,
-              variant: "default",
-              onSelect: openCreateCollection,
-            },
             ...(selected
               ? [
+                {
+                  label: "Save collection settings",
+                  icon: <Check className="size-4" />,
+                  variant: "default" as const,
+                  onSelect: saveCollectionSettings,
+                },
                 {
                   label: "Add field",
                   icon: <Plus className="size-4" />,
@@ -524,8 +524,21 @@ export default function DataStudio({ data }: EtViewProps) {
                   icon: <ArrowUpRight className="size-4" />,
                   href: `/admin/content?collection=${encodeURIComponent(selected.name)}`,
                 },
+                {
+                  label: "Delete collection",
+                  icon: <Trash2 className="size-4" />,
+                  variant: "destructive" as const,
+                  onSelect: deleteCollection,
+                },
               ]
-              : []),
+              : [
+                {
+                  label: "New collection",
+                  icon: <Plus className="size-4" />,
+                  variant: "default" as const,
+                  onSelect: openCreateCollection,
+                },
+              ]),
             {
               label: "Bootstrap database",
               icon: <Database className="size-4" />,
@@ -646,50 +659,6 @@ export default function DataStudio({ data }: EtViewProps) {
           ) : (
             /* COLLECTION SCHEMA STUDIO (Directus Style) */
             <div className="space-y-6">
-              {/* Header Bar */}
-              <div className="flex items-center justify-between pb-4 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={backToCollections}
-                    className="rounded-full"
-                    aria-label="Back to collections overview"
-                  >
-                    <ArrowLeft className="size-4" />
-                  </Button>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">Data Model</p>
-                    <h2 className="text-base font-semibold text-foreground">
-                      {selected.label || selected.name}
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={deleteCollection}
-                    className="text-muted-foreground hover:text-destructive rounded-full"
-                    title="Delete collection"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    onClick={saveCollectionSettings}
-                    className="rounded-full bg-foreground text-background hover:opacity-90 shadow-xs"
-                    title="Save collection settings"
-                  >
-                    <Check className="size-4" />
-                  </Button>
-                </div>
-              </div>
-
               {/* Fields List */}
               <div className="grid grid-cols-1 gap-2.5">
                 {fields.length === 0 ? (

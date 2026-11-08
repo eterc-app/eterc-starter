@@ -144,9 +144,9 @@ Shell composition:
 - The account menu lives in the sidebar footer and opens upward.
 - Main content is capped at 1560 px and centered. Pages use the `app-page` utility for a
   consistent 24 px vertical rhythm.
-- Content overview and Data Studio share a 200 px collection rail inside the page. It is
-  navigation, not a second work column; on narrow screens it collapses to a `Collections`
-  disclosure above the work surface.
+- The `/admin` entry point redirects to Data Studio at `/admin/data`. The Content page uses a
+  200 px collection rail inside the page; it is navigation, not a second work column, and
+  collapses to a `Collections` disclosure on narrow screens.
 - Auth and setup pages are full-screen canvas surfaces. The active login is a split screen;
   forgot/reset and blocked-access pages keep the single white `AuthShell` card. Public pages
   use the same canvas and card hierarchy.
@@ -218,10 +218,10 @@ Shell composition:
 - When a page would otherwise have two working columns, keep the primary content full width and
   move the secondary column into a `SideDrawer` or `Sheet`. The drawer is opened from an
   icon-only trigger with an accessible name.
-- The content module is the documented exception: Content overview and Data Studio share a
-  persistent 200 px collection rail on `lg` and wider. It is navigation, not a second work
-  column; the records table remains the only work surface. Below `lg`, the rail collapses to a
-  `Collections` disclosure above the page content.
+- The Content page is the documented exception: it has a persistent 200 px collection rail on
+  `lg` and wider. It is navigation, not a second work column; the records table remains the
+  only work surface. Below `lg`, the rail collapses to a `Collections` disclosure above the
+  page content.
 - The access page role list and media details remain drawers, not permanent second columns.
 
 ### Content collection rail
@@ -232,14 +232,11 @@ Shell composition:
   handle, a monospaced field label with its interface, key/hidden indicators, and an overflow
   menu for field actions.
 - The rail is a white surface with a 1 px border and 10 px radius, sticky at 24 px on desktop.
-  It has a `Collections` header, collection count, search field, 40 px collection rows, and a
+  It has a `Collections` header with a count badge, search field, 40 px collection rows, and a
   footer action for creating a collection.
-- Collection rows use a small icon well, the collection label, and the item count. The active
-  row uses `--muted` and semibold text. Keep the machine name in the row title or in the
-  collection card, not as a second line in the rail.
-- Content overview is a collection browser: a single-column row list (never a 2-column or 3-column grid, and no white card background or elevation; keep bg-transparent, border-border, space-y-2) with label, machine name, item count,
-  and singleton/hidden state. Do not add aggregate stat cards, an API-mode summary, or a
-  duplicate collection list below the grid.
+- Collection rows use a small icon well, the collection label, and a compact item-count badge.
+  The active row uses `--muted` and semibold text. Keep the machine name in the row title or in
+  the collection card, not as a second line in the rail.
 
 ### Dialogs
 
@@ -401,8 +398,7 @@ Primary workspace pages use the top-bar breadcrumb as their page identity and st
 - required tokens and shell geometry in `globals.css` and `AdminTemplate`
 - no admin tabs, no private-API badge, and page actions use the shared icon menu
 - the shared sheet/side-drawer geometry and the policy editor's inherited/override contract
-- the content module's shared collection rail, overview card grid, and absence of overview stat
-  cards
+- the Content page's shared collection rail and Data Studio's collection and schema surfaces
 - the split login surface, its social/error hooks, and the `AuthShell` fallback for reset pages
 - native `window.confirm` calls
 - legacy stylesheets and inline `<style>` blocks
@@ -423,8 +419,7 @@ the rendered app at 1280 px, 1440 px, and 390 px.
 - [ ] No admin tab bars; sections use a drawer or vertical rail.
 - [ ] Two-column work areas use a drawer for the secondary column, except the content module
       collection rail.
-- [ ] Content overview and Data Studio use the shared collection rail; the overview has no
-      stat cards or API-mode summary.
+- [ ] `/admin` redirects to Data Studio; Content retains its collection rail and records table.
 - [ ] Login keeps the split surface, conditional social/forgot controls, and no client secrets.
 - [ ] Sheets use the shared primitive, the correct side, and the inset footer.
 - [ ] Inherited policies are read-only and expose the override action.

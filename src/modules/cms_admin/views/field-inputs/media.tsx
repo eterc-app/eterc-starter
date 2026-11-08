@@ -73,6 +73,7 @@ async function read_media_response(
 function upload_image(
   file: File,
   media: CmsMediaConfig,
+  folder: string,
   on_progress: (percent: number) => void
 ): Promise<CmsMediaImage> {
   return new Promise((resolve, reject) => {
@@ -114,6 +115,54 @@ function upload_image(
     const body = new FormData();
     body.append("file", file);
     body.append("csrf_token", media.csrfToken);
+    body.append("kind", "image");
+    body.append("folder", folder);
+    xhr.send(body);
+  });
+}
+
+function upload_file(
+  file: File,
+  media: CmsMediaConfig,
+  folder: string,
+  on_progress: (percent: number) => void
+): Promise<{ url: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", media.uploadUrl);
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      on_progress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      const payload = media_object(
+        xhr.response ??
+          (() => {
+            try {
+              return JSON.parse(xhr.responseText) as unknown;
+            } catch {
+              return null;
+            }
+          })()
+      );
+      const item = media_object(payload.file);
+      if (xhr.status >= 200 && xhr.status < 300 && typeof item.url === "string") {
+        resolve({ url: item.url });
+        return;
+      }
+      reject(
+        new Error(
+          String(payload.error ?? payload.message ?? "The file could not be uploaded.")
+        )
+      );
+    };
+    xhr.onerror = () => reject(new Error("The upload could not reach the server."));
+    const body = new FormData();
+    body.append("file", file);
+    body.append("csrf_token", media.csrfToken);
+    body.append("kind", "file");
+    body.append("folder", folder);
     xhr.send(body);
   });
 }
@@ -299,6 +348,7 @@ export function ImageInput({
   media?: CmsMediaConfig;
 }) {
   const urlValue = image_url(value);
+  const folder = as_string(field.options.folder);
   const [mode, setMode] = useState<MediaMode>(urlValue ? "url" : "upload");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -321,7 +371,7 @@ export function ImageInput({
     setUploading(true);
     setProgress(0);
     setError("");
-    void upload_image(file, media, setProgress)
+    void upload_image(file, media, folder, setProgress)
       .then((item) => {
         onChange(item.url);
         setMode("upload");
@@ -420,7 +470,7 @@ export function ImageInput({
               {uploading ? "Uploading image..." : "Choose an image to upload"}
             </span>
             <span className="text-xs text-muted-foreground">
-              JPG, PNG, GIF, or WEBP. Images are stored in the media library.
+              JPG, PNG, GIF, or WEBP. {folder ? `Stored in uploads/${folder}.` : "Stored in the media library."}
             </span>
           </button>
           {uploading ? (
@@ -477,7 +527,41 @@ export function FileInput({
   media?: CmsMediaConfig;
 }) {
   const urlValue = as_string(value);
-  const [mode, setMode] = useState<MediaMode>("url");
+  const folder = as_string(field.options.folder);
+  const [mode, setMode] = useState<MediaMode>("upload");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!media) {
+      setError("File uploads are not configured on this page.");
+      return;
+    }
+    setUploading(true);
+    setProgress(0);
+    setError("");
+    void upload_file(file, media, folder, setProgress)
+      .then((item) => {
+        onChange(item.url);
+        setMode("upload");
+      })
+      .catch((uploadError: unknown) => {
+        setError(
+          uploadError instanceof Error
+            ? uploadError.message
+            : "The file could not be uploaded."
+        );
+      })
+      .finally(() => {
+        setUploading(false);
+        setProgress(0);
+      });
+  };
 
   return (
     <div className="space-y-3">
@@ -514,8 +598,7 @@ export function FileInput({
             <FileText className="size-4" strokeWidth={1.75} />
           </span>
           <p className="text-xs text-muted-foreground">
-            No file selected. Paste a URL or choose an item from the media
-            library.
+            No file selected. Upload a file or paste a URL.
           </p>
         </div>
       )}
@@ -525,12 +608,51 @@ export function FileInput({
         onChange={setMode}
         disabled={disabled}
         modes={[
+          { value: "upload", label: "Upload" },
           { value: "url", label: "URL" },
-          { value: "library", label: "Media library" },
         ]}
       />
 
-      {mode === "url" ? (
+      {mode === "upload" ? (
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.doc,.docx,.gif,.gz,.jpeg,.jpg,.mp3,.mp4,.pdf,.png,.ppt,.pptx,.rtf,.tar,.txt,.wav,.webm,.webp,.xls,.xlsx,.zip"
+            className="hidden"
+            onChange={onFileChange}
+          />
+          <button
+            type="button"
+            disabled={disabled || uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-subtle/30 px-4 py-6 text-center transition-colors",
+              !disabled && !uploading && "hover:border-foreground/30 hover:bg-surface-subtle"
+            )}
+          >
+            {uploading ? (
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            ) : (
+              <Upload className="size-5 text-muted-foreground" strokeWidth={1.75} />
+            )}
+            <span className="text-sm font-semibold text-foreground">
+              {uploading ? "Uploading file..." : "Choose a file to upload"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Documents, images, archives, audio, or video up to 25 MB. {folder ? `Stored in uploads/${folder}.` : "Stored in uploads/files."}
+            </span>
+          </button>
+          {uploading ? (
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-foreground transition-[width]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : (
         <Input
           id={`cms-field-${field.name}`}
           type="url"
@@ -540,14 +662,13 @@ export function FileInput({
           className="h-13 rounded-lg border-input bg-card"
           onChange={(event) => onChange(event.target.value)}
         />
-      ) : (
-        <MediaLibraryPanel
-          media={media}
-          selected={urlValue ? [urlValue] : []}
-          disabled={disabled}
-          onSelect={(url) => onChange(url)}
-        />
       )}
+
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -566,8 +687,41 @@ export function FilesInput({
   media?: CmsMediaConfig;
 }) {
   const files = as_string_array(value);
-  const [mode, setMode] = useState<MediaMode>("url");
+  const folder = as_string(field.options.folder);
+  const [mode, setMode] = useState<MediaMode>("upload");
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!media) {
+      setError("File uploads are not configured on this page.");
+      return;
+    }
+    setUploading(true);
+    setProgress(0);
+    setError("");
+    void upload_file(file, media, folder, setProgress)
+      .then((item) => {
+        if (!files.includes(item.url)) onChange([...files, item.url]);
+      })
+      .catch((uploadError: unknown) => {
+        setError(
+          uploadError instanceof Error
+            ? uploadError.message
+            : "The file could not be uploaded."
+        );
+      })
+      .finally(() => {
+        setUploading(false);
+        setProgress(0);
+      });
+  };
 
   const add_url = () => {
     const url = draft.trim();
@@ -592,7 +746,7 @@ export function FilesInput({
             <FileText className="size-4" strokeWidth={1.75} />
           </span>
           <p className="text-xs text-muted-foreground">
-            No files selected. Add URLs or choose images from the media library.
+            No files selected. Upload files or add URLs.
           </p>
         </div>
       ) : (
@@ -636,12 +790,51 @@ export function FilesInput({
         onChange={setMode}
         disabled={disabled}
         modes={[
+          { value: "upload", label: "Upload" },
           { value: "url", label: "URL" },
-          { value: "library", label: "Media library" },
         ]}
       />
 
-      {mode === "url" ? (
+      {mode === "upload" ? (
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.doc,.docx,.gif,.gz,.jpeg,.jpg,.mp3,.mp4,.pdf,.png,.ppt,.pptx,.rtf,.tar,.txt,.wav,.webm,.webp,.xls,.xlsx,.zip"
+            className="hidden"
+            onChange={onFileChange}
+          />
+          <button
+            type="button"
+            disabled={disabled || uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-subtle/30 px-4 py-6 text-center transition-colors",
+              !disabled && !uploading && "hover:border-foreground/30 hover:bg-surface-subtle"
+            )}
+          >
+            {uploading ? (
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            ) : (
+              <Upload className="size-5 text-muted-foreground" strokeWidth={1.75} />
+            )}
+            <span className="text-sm font-semibold text-foreground">
+              {uploading ? "Uploading file..." : "Choose a file to upload"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Documents, images, archives, audio, or video up to 25 MB. {folder ? `Stored in uploads/${folder}.` : "Stored in uploads/files."}
+            </span>
+          </button>
+          {uploading ? (
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-foreground transition-[width]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : (
         <div className="flex items-center gap-2">
           <Input
             id={`cms-field-${field.name}`}
@@ -668,15 +861,13 @@ export function FilesInput({
             Add
           </Button>
         </div>
-      ) : (
-        <MediaLibraryPanel
-          media={media}
-          selected={files}
-          multiple
-          disabled={disabled}
-          onSelect={toggle}
-        />
       )}
+
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -194,7 +194,7 @@ if (shell.includes("Private API")) {
 }
 
 const pageRoots = [
-  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/content.tsx",
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",
@@ -221,7 +221,7 @@ for (const relative of pageRoots) {
 
 const contentSidebar = read("src/modules/cms_admin/views/ContentSidebar.tsx");
 for (const token of [
-  "Search collections",
+  'placeholder="Search"',
   'aria-label="Collections"',
   "New collection",
   "lg:sticky",
@@ -232,10 +232,7 @@ for (const token of [
   }
 }
 
-for (const relative of [
-  "src/modules/cms_admin/views/dashboard.tsx",
-  "src/modules/cms_admin/views/data.tsx",
-]) {
+for (const relative of ["src/modules/cms_admin/views/content.tsx"]) {
   const page = read(relative);
   for (const token of [
     "ContentSidebar",
@@ -247,21 +244,9 @@ for (const relative of [
   }
 }
 
-const dashboardPage = read("src/modules/cms_admin/views/dashboard.tsx");
-for (const forbidden of ["API mode", "Private by default", "fieldCount"]) {
-  if (dashboardPage.includes(forbidden)) {
-    problems.push(`Content overview must not render overview stat content: ${forbidden}`);
-  }
-}
-for (const forbidden of ["grid-cols-2", "grid-cols-3", "xl:grid-cols-3", "bg-card"]) {
-  if (dashboardPage.includes(forbidden)) {
-    problems.push(
-      `Content overview must remain a single-column list without white card backgrounds (forbidden: ${forbidden}). Do not revert to 2 or 3 columns or elevated cards.`,
-    );
-  }
-}
-if (!dashboardPage.includes("space-y-2")) {
-  problems.push("Content overview collections must use a single-column row list (space-y-2), not a multi-column card grid.");
+const cmsAdmin = read("src/modules/cms_admin/Cms_admin.ts");
+if (!cmsAdmin.includes('redirect("admin/data")')) {
+  problems.push("CMS admin index must redirect to Data Studio.");
 }
 
 const dataPage = read("src/modules/cms_admin/views/data.tsx");
@@ -307,7 +292,7 @@ if (pageHeader.includes("actions")) {
 }
 
 for (const relative of [
-  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/content.tsx",
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",
@@ -341,7 +326,7 @@ for (const token of [
 }
 
 for (const relative of [
-  "src/modules/cms_admin/views/dashboard.tsx",
+  "src/modules/cms_admin/views/content.tsx",
   "src/modules/cms_admin/views/data.tsx",
   "src/modules/cms_admin/views/access.tsx",
   "src/modules/cms_admin/views/settings.tsx",

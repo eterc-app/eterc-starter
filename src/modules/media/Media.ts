@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import { admin_login_path } from "@/engine/config";
 import { Eterc } from "@/engine/controller";
@@ -9,6 +10,7 @@ import { EtHttpError } from "@/engine/signals";
 import { redirect } from "@/engine/Url";
 import { require_admin_user } from "@/modules/cms/cms-access";
 import type { CmsPrincipal } from "@/modules/cms/cms-types";
+import { activeStorageProvider } from "@/engine/active/storage-provider";
 import Image from "@/modules/image/Image";
 import {
   MAX_MEDIA_BYTES,
@@ -25,6 +27,50 @@ import {
   upsertMedia,
   type MediaItem,
 } from "./media-store";
+
+const MAX_FILE_UPLOAD_BYTES = 25 * 1024 * 1024;
+const ALLOWED_FILE_EXTENSIONS = new Set([
+  ".csv",
+  ".doc",
+  ".docx",
+  ".gif",
+  ".gz",
+  ".jpeg",
+  ".jpg",
+  ".mp3",
+  ".mp4",
+  ".pdf",
+  ".png",
+  ".ppt",
+  ".pptx",
+  ".rtf",
+  ".tar",
+  ".txt",
+  ".wav",
+  ".webp",
+  ".webm",
+  ".xls",
+  ".xlsx",
+  ".zip",
+]);
+
+function upload_folder(value: unknown, fallback: string): string {
+  const raw = String(value ?? "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/^uploads\/?/i, "");
+  if (raw === "") return fallback;
+
+  const parts = raw.split("/");
+  if (
+    parts.length > 8 ||
+    parts.some((part) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(part))
+  ) {
+    throw new EtHttpError(400, "Choose a valid upload folder inside uploads.");
+  }
+  return parts.join("/");
+}
 
 /**
  * Media library administration.
@@ -78,11 +124,51 @@ export default class Media extends Eterc {
     this.assertCsrf();
     assertLocalMediaStorage();
 
+    const kind = String(post("kind") || "image");
+    if (kind !== "image" && kind !== "file") {
+      throw new EtHttpError(400, "Choose an image or file to upload.");
+    }
+    const folder = upload_folder(
+      post("folder"),
+      kind === "image" ? "media" : "files"
+    );
     const files = await uploaded_files();
     const uploaded = Object.values(files)[0];
 
     if (uploaded === undefined) {
-      throw new EtHttpError(400, "Choose an image to upload.");
+      throw new EtHttpError(400, `Choose a ${kind} to upload.`);
+    }
+
+    if (kind === "file") {
+      if (uploaded.size > MAX_FILE_UPLOAD_BYTES) {
+        throw new EtHttpError(400, "The file is too large. The limit is 25 MB.");
+      }
+      const extension =
+        uploaded.originalName.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
+      if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {
+        throw new EtHttpError(
+          400,
+          "This file type is not supported. Choose a document, archive, audio, or video file."
+        );
+      }
+      const saved = await activeStorageProvider.upload(
+        uploaded.bytes ?? Buffer.alloc(0),
+        {
+        filename: `${crypto.randomUUID()}${extension}`,
+        folder,
+        contentType: uploaded.mimeType,
+        isPublic: true,
+        }
+      );
+      return {
+        ok: true,
+        file: {
+          url: saved.url,
+          name: uploaded.originalName,
+          size: saved.size,
+          contentType: saved.contentType,
+        },
+      };
     }
 
     if (uploaded.size > MAX_MEDIA_BYTES) {
@@ -94,20 +180,44 @@ export default class Media extends Eterc {
       );
     }
 
-    const snapshot = mediaFolderSnapshot();
+    const libraryUpload = folder === "media";
+    const snapshot = libraryUpload ? mediaFolderSnapshot() : null;
 
     try {
       const image = new Image();
       const info = await image.upload({
-        destination: "uploads/media",
+        destination: `uploads/${folder}`,
         upload_to_module: false,
         max_width: 2400,
         max_height: 2400,
-        thumbnail_dir: "uploads/media/thumbs",
+        thumbnail_dir: `uploads/${folder}/thumbs`,
         thumbnail_max_width: 480,
         thumbnail_max_height: 480,
         make_rand_name: true,
       });
+
+      const folderUrl = folder
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/");
+      const baseUrl = `/uploads/${folderUrl}/${encodeURIComponent(info.file_name)}`;
+      if (!libraryUpload) {
+        return {
+          ok: true,
+          media: {
+            file: info.file_name,
+            original_name: uploaded.originalName,
+            title: titleFromName(uploaded.originalName),
+            alt: "",
+            mime: info.file_type,
+            size: fs.statSync(info.file_path).size,
+            url: baseUrl,
+            thumbnail_url: info.thumbnail_path
+              ? `/uploads/${folderUrl}/thumbs/${encodeURIComponent(info.file_name)}`
+              : baseUrl,
+          },
+        };
+      }
 
       const stat = fs.statSync(info.file_path);
       const item: MediaItem = {
@@ -131,7 +241,7 @@ export default class Media extends Eterc {
       const saved = getMedia(info.file_name) ?? item;
       return { ok: true, media: saved, stats: mediaStats() };
     } catch (error) {
-      rollbackMedia(snapshot);
+      if (snapshot) rollbackMedia(snapshot);
       throw new EtHttpError(400, this.mediaError(error));
     }
   }

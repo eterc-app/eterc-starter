@@ -13,10 +13,7 @@ import {
   delete_role,
   get_access_overview,
   get_profile_overview,
-  list_api_keys,
   list_permissions,
-  list_roles,
-  list_users,
   replace_permissions,
   require_admin_user,
   require_human_user,
@@ -218,22 +215,8 @@ export default class Cms_admin extends Eterc {
   }
 
   async index() {
-    const principal = this.principal();
-    const collections = list_collections({ include_hidden: true });
-    const roles = list_roles();
-    const users = list_users();
-    const keys = list_api_keys();
-    const totalRecords = collections.reduce((sum, collection) => sum + collection.item_count, 0);
-    return this.admin_view("dashboard", "Content overview", {
-      principal,
-      collections,
-      roles,
-      users,
-      keys,
-      totalRecords,
-      apiBase: `${this.origin()}/api/v1/cms`,
-      runtime: get_public_runtime_config(),
-    });
+    this.principal();
+    redirect("admin/data");
   }
 
   async content() {

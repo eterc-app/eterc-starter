@@ -52,7 +52,7 @@ function first_word_only(
     return state.word
   }
   if (Array.isArray(node)) {
-    return node.map((child) => first_word_only(child, state))
+    return React.Children.map(node, (child) => first_word_only(child, state))
   }
   if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
     if (is_icon(node) || node.props.children === undefined) return node

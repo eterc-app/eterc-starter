@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(payload);
   } catch (error) {
     await flush_response_cookies(context);
+    const uploadKind = formData.get("kind") === "file" ? "file" : "image";
 
     if (error instanceof EtRedirectSignal) {
       return NextResponse.json(
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: false, error: "The image could not be uploaded." },
+      { ok: false, error: `The ${uploadKind} could not be uploaded.` },
       { status: 500 }
     );
   }
