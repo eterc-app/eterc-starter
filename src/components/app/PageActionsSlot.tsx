@@ -20,11 +20,15 @@ export interface PageNavbarMeta {
   badge?: ReactNode;
   search?: ReactNode;
   pageSidebar?: ReactNode;
+  rightSidebar?: boolean;
+  rightSidebarCollapsed?: boolean;
 }
 
 interface PageActionsContextValue {
   target: HTMLElement | null;
   setTarget: (target: HTMLElement | null) => void;
+  rightSidebarTarget: HTMLElement | null;
+  setRightSidebarTarget: (target: HTMLElement | null) => void;
 }
 
 const PageActionsContext = createContext<PageActionsContextValue | null>(null);
@@ -42,7 +46,9 @@ export function setGlobalNavbarMeta(meta: PageNavbarMeta | null) {
     currentNavbarMeta?.title === meta?.title &&
     currentNavbarMeta?.onBack === meta?.onBack &&
     currentNavbarMeta?.search === meta?.search &&
-    currentNavbarMeta?.pageSidebar === meta?.pageSidebar
+    currentNavbarMeta?.pageSidebar === meta?.pageSidebar &&
+    currentNavbarMeta?.rightSidebar === meta?.rightSidebar &&
+    currentNavbarMeta?.rightSidebarCollapsed === meta?.rightSidebarCollapsed
   ) {
     return;
   }
@@ -52,7 +58,11 @@ export function setGlobalNavbarMeta(meta: PageNavbarMeta | null) {
 
 export function PageActionsProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
-  const value = useMemo(() => ({ target, setTarget }), [target]);
+  const [rightSidebarTarget, setRightSidebarTarget] = useState<HTMLElement | null>(null);
+  const value = useMemo(
+    () => ({ target, setTarget, rightSidebarTarget, setRightSidebarTarget }),
+    [rightSidebarTarget, target]
+  );
 
   return (
     <PageActionsContext.Provider value={value}>
@@ -112,4 +122,27 @@ export function PageActionsPortal({ children }: { children: ReactNode }) {
   if (!context?.target) return null;
 
   return createPortal(children, context.target);
+}
+
+export function PageRightSidebarSlot() {
+  const context = useContext(PageActionsContext);
+  const setTarget = context?.setRightSidebarTarget;
+  const setTargetRef = useCallback(
+    (node: HTMLElement | null) => setTarget?.(node),
+    [setTarget]
+  );
+
+  if (!context) {
+    throw new Error("PageRightSidebarSlot must be used inside PageActionsProvider.");
+  }
+
+  return <div ref={setTargetRef} className="h-full min-h-0 w-full" />;
+}
+
+export function PageRightSidebarPortal({ children }: { children: ReactNode }) {
+  const context = useContext(PageActionsContext);
+
+  if (!context?.rightSidebarTarget) return null;
+
+  return createPortal(children, context.rightSidebarTarget);
 }

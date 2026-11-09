@@ -5,14 +5,22 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowDown,
+  ArrowDownAZ,
+  ArrowDownUp,
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowUp,
+  ArrowUpAZ,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   Columns3,
   Database,
+  Filter,
   GripVertical,
+  EyeOff,
   LayoutGrid,
   Layers,
   Loader2,
@@ -24,15 +32,28 @@ import {
   RefreshCw,
   Send,
   SlidersHorizontal,
+  Sparkles,
+  Table2,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PageActionsPortal, useSetNavbarMeta } from "@/components/app/PageActionsSlot";
+import {
+  PageActionsPortal,
+  PageRightSidebarPortal,
+  useSetNavbarMeta,
+} from "@/components/app/PageActionsSlot";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { EtViewProps } from "@/engine/views-registry";
 import { cn } from "@/lib/utils";
@@ -69,6 +90,13 @@ interface Snapshot {
 }
 
 type DisplayLayout = "table" | "cards" | "calendar" | "kanban" | "map";
+type SidebarSection = "layout" | "refresh" | "import" | "assistant";
+type ColumnAlignment = "left" | "center" | "right";
+
+interface ColumnSort {
+  field: string;
+  direction: "asc" | "desc";
+}
 type FilterOperator =
   | "_eq"
   | "_neq"
@@ -176,12 +204,16 @@ function ExpandableSearch({
   onChange,
   onSubmit,
   onClear,
+  onOpenFilters,
+  activeFilterCount,
   placeholder,
 }: {
   value: string;
   onChange: (val: string) => void;
   onSubmit: (e?: React.FormEvent) => void;
   onClear: () => void;
+  onOpenFilters: () => void;
+  activeFilterCount: number;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(Boolean(value));
@@ -197,11 +229,11 @@ function ExpandableSearch({
     return (
       <Button
         type="button"
-        variant="ghost"
-        size="icon"
-        className="size-8 rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        title="Search"
-        aria-label="Search"
+        variant="outline"
+        size="sm"
+        className="size-8 rounded-full p-0 text-muted-foreground"
+        title="Search and filter"
+        aria-label="Search and filter"
         onClick={() => setOpen(true)}
       >
         <Search className="size-3.5" strokeWidth={1.75} />
@@ -232,20 +264,69 @@ function ExpandableSearch({
           }
         }}
         placeholder={placeholder}
-        className="h-8 w-44 sm:w-60 pl-8 pr-7 rounded-full bg-surface-subtle border-border text-xs"
+        className="h-8 w-44 sm:w-60 pl-8 pr-14 rounded-full bg-surface-subtle border-border text-xs"
       />
-      <button
-        type="button"
-        onClick={() => {
-          if (value) onClear();
-          setOpen(false);
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        aria-label="Close search"
-      >
-        <X className="size-3" />
-      </button>
+      <div className="absolute right-1 flex items-center gap-0.5">
+        <button
+          type="button"
+          onClick={onOpenFilters}
+          className={cn(
+            "relative grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+            activeFilterCount > 0 && "text-primary"
+          )}
+          aria-label="Open search filters"
+          title="Search filters"
+        >
+          <SlidersHorizontal className="size-3.5" />
+          {activeFilterCount > 0 ? (
+            <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary" />
+          ) : null}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (value) onClear();
+            setOpen(false);
+          }}
+          className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Close search"
+        >
+          <X className="size-3" />
+        </button>
+      </div>
     </form>
+  );
+}
+
+function ColumnResizeHandle({
+  label,
+  active,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  label: string;
+  active: boolean;
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp: (event: React.PointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label} column`}
+      className={cn(
+        "absolute right-0 top-0 z-10 h-full w-2 translate-x-1/2 cursor-col-resize touch-none after:absolute after:inset-y-2 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-border/60 hover:after:w-0.5 hover:after:bg-primary focus-visible:after:w-0.5 focus-visible:after:bg-primary",
+        active && "after:w-0.5 after:bg-primary"
+      )}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClick={(event) => event.stopPropagation()}
+    />
   );
 }
 
@@ -279,11 +360,35 @@ export default function ContentManager({ data }: EtViewProps) {
   const [draggedRecordId, setDraggedRecordId] = useState<string | null>(null);
   const [dropTargetRecordId, setDropTargetRecordId] = useState<string | null>(null);
   const [displayLayout, setDisplayLayout] = useState<DisplayLayout>("table");
-  const [viewPanelOpen, setViewPanelOpen] = useState(false);
+  const [viewPanelCollapsed, setViewPanelCollapsed] = useState(true);
+  const [sidebarSection, setSidebarSection] = useState<SidebarSection>("layout");
+  const [columnSort, setColumnSort] = useState<ColumnSort | null>(null);
+  const [columnAlignments, setColumnAlignments] = useState<
+    Record<string, ColumnAlignment>
+  >({});
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [recordContextMenu, setRecordContextMenu] = useState<{
+    x: number;
+    y: number;
+    record: Record<string, unknown>;
+    rowId: string;
+    index: number;
+  } | null>(null);
+  const columnResizeRef = useRef<{
+    key: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+  const [filterFocusRequest, setFilterFocusRequest] = useState(0);
+  const handledFilterFocusRef = useRef(0);
+  const filterSectionRef = useRef<HTMLElement>(null);
   const [columnPreferences, setColumnPreferences] = useState<Record<string, string[]>>({});
+  const [primaryKeyColumnVisibility, setPrimaryKeyColumnVisibility] = useState<Record<string, boolean>>({});
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [draftFilterRules, setDraftFilterRules] = useState<FilterRule[]>([]);
   const [calendarField, setCalendarField] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [kanbanField, setKanbanField] = useState("");
   const [mapField, setMapField] = useState("");
   const [chatInput, setChatInput] = useState("");
@@ -312,7 +417,8 @@ export default function ContentManager({ data }: EtViewProps) {
       collectionName?: string,
       nextPage = 1,
       nextSearch = search,
-      nextFilters = filterRules
+      nextFilters = filterRules,
+      nextSort: ColumnSort | null = columnSort
     ) => {
       setBusy(true);
       try {
@@ -321,6 +427,8 @@ export default function ContentManager({ data }: EtViewProps) {
           page: nextPage,
           search: nextSearch,
           filter: filter_payload(nextFilters, fields),
+          sort: nextSort?.field,
+          direction: nextSort?.direction,
         });
         applySnapshot(snapshot);
       } catch (error) {
@@ -329,7 +437,15 @@ export default function ContentManager({ data }: EtViewProps) {
         setBusy(false);
       }
     },
-    [applySnapshot, fields, filterRules, search, selected]
+    [applySnapshot, columnSort, fields, filterRules, search, selected]
+  );
+
+  const applyColumnSort = useCallback(
+    (nextSort: ColumnSort | null) => {
+      setColumnSort(nextSort);
+      void refresh(selected?.name, 1, search, filterRules, nextSort);
+    },
+    [filterRules, refresh, search, selected?.name]
   );
 
   const selectCollection = useCallback(
@@ -341,7 +457,8 @@ export default function ContentManager({ data }: EtViewProps) {
       setCalendarField("");
       setKanbanField("");
       setMapField("");
-      await refresh(name, 1, "", []);
+      setColumnSort(null);
+      await refresh(name, 1, "", [], null);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("collection", name);
@@ -519,6 +636,7 @@ export default function ContentManager({ data }: EtViewProps) {
       (sortField ? "manual" : "default")) === "manual";
   const canReorderRecords =
     manualOrderingActive &&
+    !columnSort &&
     !search.trim() &&
     !searchInput.trim() &&
     viewMode === "table";
@@ -543,6 +661,83 @@ export default function ContentManager({ data }: EtViewProps) {
     }
     return shown;
   }, [availableTableFields, columnPreferences, selected, sortField]);
+  const primaryKeyColumnVisible = selected
+    ? primaryKeyColumnVisibility[selected.name] ?? true
+    : true;
+  const tableRecords = records;
+  const updateColumnVisibility = useCallback(
+    (fieldName: string, visible: boolean) => {
+      if (!selected) return;
+      const names = columnPreferences[selected.name] ?? tableFields.map((field) => field.name);
+      const next = visible
+        ? [...names, fieldName]
+        : names.filter((name) => name !== fieldName);
+      setColumnPreferences((preferences) => ({
+        ...preferences,
+        [selected.name]: next,
+      }));
+    },
+    [columnPreferences, selected, tableFields]
+  );
+  const updatePrimaryKeyColumnVisibility = useCallback(
+    (visible: boolean) => {
+      if (!selected) return;
+      setPrimaryKeyColumnVisibility((visibility) => ({
+        ...visibility,
+        [selected.name]: visible,
+      }));
+    },
+    [selected]
+  );
+  const moveColumn = useCallback(
+    (fieldName: string, direction: -1 | 1) => {
+      if (!selected) return;
+      const names = [...tableFields.map((field) => field.name)];
+      const position = names.indexOf(fieldName);
+      const target = position + direction;
+      if (position < 0 || target < 0 || target >= names.length) return;
+      [names[position], names[target]] = [names[target], names[position]];
+      setColumnPreferences((preferences) => ({
+        ...preferences,
+        [selected.name]: names,
+      }));
+    },
+    [selected, tableFields]
+  );
+  const beginColumnResize = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    fieldName: string,
+    defaultWidth: number
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const key = `${selected?.name ?? ""}:${fieldName}`;
+    const currentWidth =
+      columnWidths[key] ??
+      event.currentTarget.parentElement?.getBoundingClientRect().width ??
+      defaultWidth;
+    columnResizeRef.current = {
+      key,
+      startX: event.clientX,
+      startWidth: currentWidth || defaultWidth,
+    };
+    setResizingColumn(key);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const updateColumnResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const resize = columnResizeRef.current;
+    if (!resize) return;
+    const width = Math.min(600, Math.max(80, resize.startWidth + event.clientX - resize.startX));
+    setColumnWidths((widths) => ({ ...widths, [resize.key]: width }));
+  };
+  const endColumnResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!columnResizeRef.current) return;
+    columnResizeRef.current = null;
+    setResizingColumn(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
   const dateFields = visibleFields.filter((field) => field.type === "datetime");
   const kanbanFields = visibleFields.filter(
     (field) => field.type === "select" || field.type === "string" || field.type === "text"
@@ -621,6 +816,51 @@ export default function ContentManager({ data }: EtViewProps) {
     void refresh(selected?.name, 1, "");
   }, [refresh, selected?.name]);
 
+  const openFilters = useCallback(() => {
+    setSidebarSection("layout");
+    setViewPanelCollapsed(false);
+    setFilterFocusRequest((request) => request + 1);
+  }, []);
+
+  const openSidebarSection = useCallback((section: SidebarSection) => {
+    setSidebarSection(section);
+    setViewPanelCollapsed(false);
+  }, []);
+
+  const exportCurrentPage = useCallback(() => {
+    if (!selected) return;
+    const exportFields = [
+      { name: selected.primary_key, label: selected.primary_key },
+      ...tableFields.map((field) => ({
+        name: field.name,
+        label: field.label || field.name,
+      })),
+    ];
+    const escapeCsv = (value: unknown) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const csv = [
+      exportFields.map((field) => escapeCsv(field.label)).join(","),
+      ...records.map((record) =>
+        exportFields.map((field) => escapeCsv(record[field.name])).join(",")
+      ),
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selected.name}-page-${page}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [page, records, selected, tableFields]);
+
+  useEffect(() => {
+    if (
+      filterFocusRequest === handledFilterFocusRef.current ||
+      viewPanelCollapsed
+    ) return;
+    filterSectionRef.current?.scrollIntoView({ block: "nearest" });
+    handledFilterFocusRef.current = filterFocusRequest;
+  }, [filterFocusRequest, viewPanelCollapsed]);
+
   const navbarMeta = useMemo(() => {
     const searchControl = selected ? (
       <ExpandableSearch
@@ -628,6 +868,8 @@ export default function ContentManager({ data }: EtViewProps) {
         onChange={setSearchInput}
         onSubmit={submitSearch}
         onClear={clearSearch}
+        onOpenFilters={openFilters}
+        activeFilterCount={filterRules.length}
         placeholder={`Search ${selected.label || selected.name}...`}
       />
     ) : null;
@@ -664,26 +906,31 @@ export default function ContentManager({ data }: EtViewProps) {
       title: selected.label || selected.name,
       search: searchControl,
       pageSidebar,
+      rightSidebar: viewMode === "table",
+      rightSidebarCollapsed: viewPanelCollapsed,
     };
   }, [
     busy,
     clearSearch,
     collections,
     editingRecord,
+    filterRules.length,
+    openFilters,
     searchInput,
     selectCollection,
     selected,
     submitSearch,
+    viewPanelCollapsed,
     viewMode,
   ]);
 
   useSetNavbarMeta(navbarMeta);
 
-  const toggleRowSelect = (id: string) => {
+  const setRowSelected = (id: string, checked: boolean) => {
     setSelectedRowIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (checked) next.add(id);
+      else next.delete(id);
       return next;
     });
   };
@@ -699,7 +946,7 @@ export default function ContentManager({ data }: EtViewProps) {
   };
 
   return (
-    <div className="app-page">
+    <div className="app-page h-full min-h-0 gap-0">
       <PageActionsPortal>
         {viewMode === "record-form" ? (
           <div className="flex items-center gap-1.5">
@@ -707,7 +954,7 @@ export default function ContentManager({ data }: EtViewProps) {
               type="button"
               variant="outline"
               size="icon"
-              className="rounded-full"
+              className="size-8 rounded-full"
               title="Cancel"
               aria-label="Cancel"
               onClick={() => setViewMode("table")}
@@ -719,7 +966,7 @@ export default function ContentManager({ data }: EtViewProps) {
                 type="button"
                 variant="destructive"
                 size="icon"
-                className="rounded-full"
+                className="size-8 rounded-full"
                 title="Delete record"
                 aria-label="Delete record"
                 onClick={() => deleteRecord(editingRecord)}
@@ -731,7 +978,7 @@ export default function ContentManager({ data }: EtViewProps) {
               type="button"
               variant="default"
               size="icon"
-              className="rounded-full"
+              className="size-8 rounded-full"
               title={recordSaving ? "Saving..." : "Save record"}
               aria-label={recordSaving ? "Saving..." : "Save record"}
               disabled={recordSaving}
@@ -746,24 +993,11 @@ export default function ContentManager({ data }: EtViewProps) {
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
-            {selected ? (
-              <Button
-                type="button"
-                variant={viewPanelOpen ? "secondary" : "outline"}
-                size="sm"
-                className="h-8 rounded-full"
-                aria-expanded={viewPanelOpen}
-                onClick={() => setViewPanelOpen((open) => !open)}
-              >
-                <SlidersHorizontal className="size-3.5" />
-                View options
-              </Button>
-            ) : null}
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="rounded-full"
+              className="size-8 rounded-full"
               title="Refresh"
               aria-label="Refresh"
               disabled={busy}
@@ -771,12 +1005,25 @@ export default function ContentManager({ data }: EtViewProps) {
             >
               <RefreshCw className={cn("size-4", busy && "animate-spin")} />
             </Button>
+            {selectedRowIds.size > 0 ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="size-8 rounded-full"
+                title={`Delete ${selectedRowIds.size} selected record${selectedRowIds.size === 1 ? "" : "s"}`}
+                aria-label={`Delete ${selectedRowIds.size} selected record${selectedRowIds.size === 1 ? "" : "s"}`}
+                onClick={deleteSelected}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            ) : null}
             {selected && canCreateRecord ? (
               <Button
                 type="button"
                 variant="default"
                 size="icon"
-                className="rounded-full"
+                className="size-8 rounded-full"
                 title="New record"
                 aria-label="New record"
                 onClick={openCreateRecord}
@@ -788,7 +1035,7 @@ export default function ContentManager({ data }: EtViewProps) {
         )}
       </PageActionsPortal>
 
-      <div className="mb-4 md:hidden">
+      <div className="mb-4 shrink-0 md:hidden">
         <ContentSidebar
           collections={collections}
           activeName={selected?.name}
@@ -797,8 +1044,8 @@ export default function ContentManager({ data }: EtViewProps) {
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-5 lg:flex-row">
-      <div className="min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!selected ? (
             <div className="py-16 text-center">
               <EmptyState
@@ -892,30 +1139,12 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           ) : (
             /* TABLE WORKING AREA */
-            <div className="space-y-4">
-              {selectedRowIds.size > 0 ? (
-                <div className="flex items-center justify-between gap-3">
-                  <Badge variant="outline" className="tabular-nums">
-                    {total} {total === 1 ? "record" : "records"}
-                  </Badge>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="rounded-lg"
-                    onClick={deleteSelected}
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete ({selectedRowIds.size})
-                  </Button>
-                </div>
-              ) : null}
-
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
               {displayLayout === "table" ? (
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
-                <div className="app-scrollbar overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+                <div className="app-scrollbar min-h-0 flex-1 overflow-auto">
+                  <table className="w-full min-w-full table-fixed text-left text-sm">
+                    <thead className="sticky top-0 z-10 bg-surface-subtle/95">
                       <tr className="border-b border-border bg-surface-subtle/80 text-xs font-semibold text-muted-foreground">
                         {manualOrderingActive ? (
                           <th className="w-9 px-1 py-3">
@@ -929,23 +1158,182 @@ export default function ContentManager({ data }: EtViewProps) {
                             }
                             onCheckedChange={toggleSelectAll}
                             aria-label="Select all rows"
+                            className="size-4 border-2"
                           />
                         </th>
-                        <th className="px-3 py-3 font-mono">
-                          {selected.primary_key || "id"}
-                        </th>
+                        {primaryKeyColumnVisible ? <th
+                          className="relative px-3 py-3 font-mono"
+                          style={{
+                            width: columnWidths[`${selected.name}:${selected.primary_key}`] ?? 140,
+                          }}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="group inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-inherit transition-colors hover:bg-muted"
+                                aria-label={`Column options for ${selected.primary_key || "id"}`}
+                              >
+                                {selected.primary_key || "id"}
+                                <ArrowUp className="size-3 opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onSelect={() => updatePrimaryKeyColumnVisibility(false)}
+                              >
+                                <EyeOff />
+                                Hide Field
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <ColumnResizeHandle
+                            label={selected.primary_key || "id"}
+                            active={resizingColumn === `${selected.name}:${selected.primary_key}`}
+                            onPointerDown={(event) =>
+                              beginColumnResize(event, selected.primary_key, 140)
+                            }
+                            onPointerMove={updateColumnResize}
+                            onPointerUp={endColumnResize}
+                          />
+                        </th> : null}
                         {tableFields.map((field) => (
-                          <th key={field.name} className="px-3 py-3 whitespace-nowrap">
-                            {field.label || field.name}
+                          <th
+                            key={field.name}
+                            className={cn(
+                              "relative px-3 py-3 whitespace-nowrap",
+                              columnAlignments[field.name] === "center" && "text-center",
+                              columnAlignments[field.name] === "right" && "text-right"
+                            )}
+                            style={{
+                              width: columnWidths[`${selected.name}:${field.name}`] ?? 180,
+                            }}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="group inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-inherit transition-colors hover:bg-muted"
+                                  aria-label={`Column options for ${field.label || field.name}`}
+                                >
+                                  {field.label || field.name}
+                                  {filterRules.some((rule) => rule.field === field.name) ? (
+                                    <Filter
+                                      className="size-3 text-primary"
+                                      aria-label="Filtered"
+                                    />
+                                  ) : null}
+                                  {columnSort?.field === field.name ? (
+                                    columnSort.direction === "asc"
+                                      ? <ArrowUpAZ className="size-3.5" />
+                                      : <ArrowDownAZ className="size-3.5" />
+                                  ) : (
+                                    <ArrowUp className="size-3 opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />
+                                  )}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuItem onSelect={() => applyColumnSort({ field: field.name, direction: "asc" })}>
+                                  <ArrowUpAZ />
+                                  Sort Ascending
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => applyColumnSort({ field: field.name, direction: "desc" })}>
+                                  <ArrowDownAZ />
+                                  Sort Descending
+                                </DropdownMenuItem>
+                                {columnSort?.field === field.name ? (
+                                  <DropdownMenuItem onSelect={() => applyColumnSort(null)}>
+                                    Clear Sort
+                                  </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => setColumnAlignments((alignments) => ({ ...alignments, [field.name]: "left" }))}>
+                                  <AlignLeft />
+                                  Left Align
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setColumnAlignments((alignments) => ({ ...alignments, [field.name]: "center" }))}>
+                                  <AlignCenter />
+                                  Center Align
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setColumnAlignments((alignments) => ({ ...alignments, [field.name]: "right" }))}>
+                                  <AlignRight />
+                                  Right Align
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={tableFields[0]?.name === field.name}
+                                  onSelect={() => moveColumn(field.name, -1)}
+                                >
+                                  <ChevronLeft />
+                                  Move Column Left
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={tableFields[tableFields.length - 1]?.name === field.name}
+                                  onSelect={() => moveColumn(field.name, 1)}
+                                >
+                                  <ChevronRight />
+                                  Move Column Right
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={tableFields.length <= 1}
+                                  onSelect={() => updateColumnVisibility(field.name, false)}
+                                >
+                                  <EyeOff />
+                                  Hide Field
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <ColumnResizeHandle
+                              label={field.label || field.name}
+                              active={resizingColumn === `${selected.name}:${field.name}`}
+                              onPointerDown={(event) =>
+                                beginColumnResize(event, field.name, 180)
+                              }
+                              onPointerMove={updateColumnResize}
+                              onPointerUp={endColumnResize}
+                            />
                           </th>
                         ))}
-                        <th
-                          className={cn(
-                            "px-3 py-3 text-right",
-                            sortField ? "w-44" : "w-16"
-                          )}
-                        >
-                          Actions
+                        <th className="sticky right-0 z-20 p-0">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="absolute right-0 top-1/2 grid size-8 -translate-y-1/2 place-items-center text-muted-foreground transition-colors hover:text-foreground"
+                                aria-label="Add a column"
+                                title="Add a column"
+                              >
+                                <Plus className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+                              {!primaryKeyColumnVisible ? (
+                                <DropdownMenuItem
+                                  onSelect={() => updatePrimaryKeyColumnVisibility(true)}
+                                >
+                                  {selected.primary_key || "id"}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {availableTableFields.length === 0 ? (
+                                primaryKeyColumnVisible ? (
+                                  <DropdownMenuItem disabled>All fields are hidden or already shown</DropdownMenuItem>
+                                ) : null
+                              ) : availableTableFields.map((field) => {
+                                const isVisible = tableFields.some((item) => item.name === field.name);
+                                return (
+                                  <DropdownMenuItem
+                                    key={field.name}
+                                    disabled={isVisible}
+                                    onSelect={() => updateColumnVisibility(field.name, true)}
+                                  >
+                                    {field.label || field.name}
+                                    {isVisible ? <span className="ml-auto text-xs text-muted-foreground">Shown</span> : null}
+                                  </DropdownMenuItem>
+                                );
+                              })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </th>
                       </tr>
                     </thead>
@@ -953,7 +1341,7 @@ export default function ContentManager({ data }: EtViewProps) {
                       {records.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={tableFields.length + 3 + (sortField ? 1 : 0)}
+                            colSpan={tableFields.length + 3 + (primaryKeyColumnVisible ? 1 : 0) + (sortField ? 1 : 0)}
                             className="py-12 text-center"
                           >
                             <div className="flex flex-col items-center justify-center gap-2">
@@ -988,7 +1376,8 @@ export default function ContentManager({ data }: EtViewProps) {
                           </td>
                         </tr>
                       ) : (
-                        records.map((record, index) => {
+                        tableRecords.map((record) => {
+                          const index = records.indexOf(record);
                           const rowId = String(record[selected.primary_key] ?? index);
                           const isSelected = selectedRowIds.has(rowId);
                           return (
@@ -1024,6 +1413,17 @@ export default function ContentManager({ data }: EtViewProps) {
                                 if (from >= 0 && to >= 0 && from !== to) moveRecord(from, to);
                               }}
                               onClick={() => openEditRecord(record)}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setRecordContextMenu({
+                                  x: Math.min(event.clientX, window.innerWidth - 200),
+                                  y: Math.min(event.clientY, window.innerHeight - 190),
+                                  record,
+                                  rowId,
+                                  index,
+                                });
+                              }}
                             >
                               {manualOrderingActive ? (
                                 <td
@@ -1058,26 +1458,38 @@ export default function ContentManager({ data }: EtViewProps) {
                               ) : null}
                               <td
                                 className="px-3 py-3 text-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleRowSelect(rowId);
-                                }}
+                                onClick={(event) => event.stopPropagation()}
                               >
                                 <Checkbox
                                   checked={isSelected}
-                                  onCheckedChange={() => toggleRowSelect(rowId)}
+                                  onCheckedChange={(checked) =>
+                                    setRowSelected(rowId, checked === true)
+                                  }
                                   aria-label={`Select row ${rowId}`}
+                                  className="size-4 border-2"
                                 />
                               </td>
-                              <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
+                              {primaryKeyColumnVisible ? <td
+                                className="px-3 py-3 font-mono text-xs text-muted-foreground"
+                                style={{
+                                  width: columnWidths[`${selected.name}:${selected.primary_key}`] ?? 140,
+                                }}
+                              >
                                 {String(record[selected.primary_key] ?? "—")}
-                              </td>
+                              </td> : null}
                               {tableFields.map((field) => {
                                 const value = record[field.name];
                                 return (
                                   <td
                                     key={field.name}
-                                    className="max-w-[220px] px-3 py-3"
+                                    className={cn(
+                                      "min-w-0 px-3 py-3",
+                                      columnAlignments[field.name] === "center" && "text-center",
+                                      columnAlignments[field.name] === "right" && "text-right"
+                                    )}
+                                    style={{
+                                      width: columnWidths[`${selected.name}:${field.name}`] ?? 180,
+                                    }}
                                   >
                                     <FieldValueDisplay
                                       field={field}
@@ -1090,63 +1502,7 @@ export default function ContentManager({ data }: EtViewProps) {
                                   </td>
                                 );
                               })}
-                              <td
-                                className="px-3 py-3 text-right"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="flex justify-end gap-1">
-                                  {manualOrderingActive ? (
-                                    <>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        aria-label={`Move record ${rowId} up`}
-                                        title="Move up"
-                                        disabled={
-                                          !canReorderRecords || reordering || index === 0
-                                        }
-                                        onClick={() => moveRecord(index, index - 1)}
-                                      >
-                                        <ArrowUp className="size-3.5" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        aria-label={`Move record ${rowId} down`}
-                                        title="Move down"
-                                        disabled={
-                                          !canReorderRecords ||
-                                          reordering ||
-                                          index === records.length - 1
-                                        }
-                                        onClick={() => moveRecord(index, index + 1)}
-                                      >
-                                        <ArrowDown className="size-3.5" />
-                                      </Button>
-                                    </>
-                                  ) : null}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    aria-label="Edit record"
-                                    onClick={() => openEditRecord(record)}
-                                  >
-                                    <Pencil className="size-3.5" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    aria-label="Delete record"
-                                    onClick={() => deleteRecord(record)}
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
-                                </div>
-                              </td>
+                              <td className="sticky right-0 z-10 p-0" />
                             </tr>
                           );
                         })
@@ -1219,33 +1575,105 @@ export default function ContentManager({ data }: EtViewProps) {
                   {records.length === 0 ? <p className="col-span-full py-12 text-center text-sm text-muted-foreground">No records to display.</p> : null}
                 </div>
               ) : displayLayout === "calendar" ? (
-                <div className="space-y-3">
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
                   {!calendarField && dateFields.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Add a date/time field to this collection to use the calendar layout.</p>
-                  ) : records.map((record, index) => {
-                    const rowId = String(record[selected.primary_key] ?? index);
-                    const rawDate = record[calendarField || dateFields[0]?.name];
-                    const date = rawDate ? new Date(String(rawDate)) : null;
-                    const dateLabel = date && !Number.isNaN(date.getTime())
-                      ? date.toLocaleString()
-                      : "No date";
-                    return (
-                      <button key={rowId} type="button" onClick={() => openEditRecord(record)} className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-surface-subtle">
-                        <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-xs font-medium text-muted-foreground">{dateLabel}</span>
-                          <span className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                            {tableFields.slice(0, 3).map((field) => (
-                              <span key={field.name} className="max-w-full truncate text-sm">
-                                <span className="text-muted-foreground">{field.label || field.name}: </span>
-                                <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      </button>
+                    <p className="p-8 text-center text-sm text-muted-foreground">Add a date/time field to this collection to use the calendar layout.</p>
+                  ) : (() => {
+                    const selectedDateField = calendarField || dateFields[0]?.name;
+                    const firstOfMonth = new Date(
+                      calendarMonth.getFullYear(),
+                      calendarMonth.getMonth(),
+                      1
                     );
-                  })}
+                    const gridStart = new Date(
+                      firstOfMonth.getFullYear(),
+                      firstOfMonth.getMonth(),
+                      1 - firstOfMonth.getDay()
+                    );
+                    const days = Array.from({ length: 42 }, (_, dayIndex) => {
+                      const date = new Date(gridStart);
+                      date.setDate(gridStart.getDate() + dayIndex);
+                      return date;
+                    });
+                    const recordsByDay = new Map<string, Record<string, unknown>[]>();
+                    for (const record of records) {
+                      const rawDate = selectedDateField ? record[selectedDateField] : undefined;
+                      if (!rawDate) continue;
+                      const date = new Date(String(rawDate));
+                      if (Number.isNaN(date.getTime())) continue;
+                      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                      recordsByDay.set(key, [...(recordsByDay.get(key) ?? []), record]);
+                    }
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-4">
+                          <div className="flex items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon-xs" aria-label="Previous month" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>
+                              <ChevronLeft className="size-4" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon-xs" aria-label="Next month" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>
+                              <ChevronRight className="size-4" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setCalendarMonth(new Date())}>Today</Button>
+                          </div>
+                          <h2 className="text-sm font-semibold">
+                            {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                          </h2>
+                          <span className="w-24" aria-hidden="true" />
+                        </div>
+                        <div className="grid grid-cols-7 border-b border-border bg-muted/30 text-center text-xs font-medium text-muted-foreground">
+                          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                            <div key={day} className="py-2">{day}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7">
+                          {days.map((date) => {
+                            const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                            const dayRecords = recordsByDay.get(key) ?? [];
+                            const inMonth = date.getMonth() === calendarMonth.getMonth();
+                            const today = date.toDateString() === new Date().toDateString();
+                            return (
+                              <div
+                                key={key}
+                                className={cn(
+                                  "min-h-24 border-b border-r border-border p-1.5 last:border-r-0 sm:min-h-28 sm:p-2",
+                                  !inMonth && "bg-muted/20 text-muted-foreground/60"
+                                )}
+                              >
+                                <span className={cn(
+                                  "mb-1 grid size-6 place-items-center rounded-full text-xs",
+                                  today && "bg-primary font-semibold text-primary-foreground"
+                                )}>
+                                  {date.getDate()}
+                                </span>
+                                <div className="space-y-1">
+                                  {dayRecords.slice(0, 2).map((record, index) => {
+                                    const rowId = String(record[selected.primary_key] ?? index);
+                                    const titleField = tableFields[0];
+                                    return (
+                                      <button
+                                        key={rowId}
+                                        type="button"
+                                        onClick={() => openEditRecord(record)}
+                                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-xs text-foreground hover:bg-primary/20"
+                                      >
+                                        {titleField
+                                          ? String(record[titleField.name] ?? "Untitled")
+                                          : `#${rowId}`}
+                                      </button>
+                                    );
+                                  })}
+                                  {dayRecords.length > 2 ? (
+                                    <p className="px-1 text-xs text-muted-foreground">+{dayRecords.length - 2} more</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               ) : displayLayout === "kanban" ? (
                 (() => {
@@ -1402,29 +1830,196 @@ export default function ContentManager({ data }: EtViewProps) {
           ) : null}
       </div>
 
-      {selected && viewMode === "table" && viewPanelOpen ? (
-        <aside className="w-full shrink-0 space-y-5 rounded-xl border border-border bg-card p-4 lg:w-80">
+      {recordContextMenu ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Close record actions"
+            onClick={() => setRecordContextMenu(null)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setRecordContextMenu(null);
+            }}
+          />
+          <div
+            role="menu"
+            aria-label={`Actions for record ${recordContextMenu.rowId}`}
+            className="fixed z-50 min-w-48 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_16px_40px_-20px_rgb(0_0_0/0.35)]"
+            style={{ left: Math.max(8, recordContextMenu.x), top: Math.max(8, recordContextMenu.y) }}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                openEditRecord(recordContextMenu.record);
+                setRecordContextMenu(null);
+              }}
+            >
+              <Pencil className="size-4" />
+              Edit record
+            </button>
+            {manualOrderingActive ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canReorderRecords || reordering || recordContextMenu.index === 0}
+                  className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                  onClick={() => {
+                    moveRecord(recordContextMenu.index, recordContextMenu.index - 1);
+                    setRecordContextMenu(null);
+                  }}
+                >
+                  <ArrowUp className="size-4" />
+                  Move up
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={
+                    !canReorderRecords ||
+                    reordering ||
+                    recordContextMenu.index === records.length - 1
+                  }
+                  className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                  onClick={() => {
+                    moveRecord(recordContextMenu.index, recordContextMenu.index + 1);
+                    setRecordContextMenu(null);
+                  }}
+                >
+                  <ArrowDown className="size-4" />
+                  Move down
+                </button>
+              </>
+            ) : null}
+            <div className="my-1 h-px bg-border" />
+            <button
+              type="button"
+              role="menuitem"
+              className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                void deleteRecord(recordContextMenu.record);
+                setRecordContextMenu(null);
+              }}
+            >
+              <Trash2 className="size-4" />
+              Delete record
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      <PageRightSidebarPortal>
+      {selected && viewMode === "table" ? (
+        <aside
+          className={cn(
+            "flex h-full min-h-0 w-full flex-col border-l border-border bg-card",
+            viewPanelCollapsed
+              ? "lg:w-14"
+              : "border border-border lg:w-80"
+          )}
+        >
+          {viewPanelCollapsed ? (
+            <div className="flex h-full flex-col items-center py-2">
+              <button
+                type="button"
+                className="grid size-12 place-items-center text-foreground transition-colors hover:bg-muted/70"
+                aria-label="Expand layout options"
+                title="Layout Options"
+                onClick={() => openSidebarSection("layout")}
+              >
+                <Layers className="size-4" strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                className="grid size-12 place-items-center border-t border-border text-foreground transition-colors hover:bg-muted/70"
+                aria-label="Refresh content"
+                title="Auto Refresh"
+                onClick={() => openSidebarSection("refresh")}
+              >
+                <RefreshCw className={cn("size-4", busy && "animate-spin")} strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                className="grid size-12 place-items-center border-t border-border text-foreground transition-colors hover:bg-muted/70"
+                aria-label="Open import and export options"
+                title="Import / Export"
+                onClick={() => openSidebarSection("import")}
+              >
+                <ArrowDownUp className="size-4" strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                className="mt-auto grid size-12 place-items-center border-t border-border text-foreground transition-colors hover:bg-muted/70"
+                aria-label="Open AI Assistant"
+                title="AI Assistant"
+                onClick={() => openSidebarSection("assistant")}
+              >
+                <Sparkles className="size-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          ) : (
+            <>
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              {sidebarSection === "layout" ? (
+                <Layers className="size-4 shrink-0 text-muted-foreground" />
+              ) : sidebarSection === "refresh" ? (
+                <RefreshCw className="size-4 shrink-0 text-muted-foreground" />
+              ) : sidebarSection === "import" ? (
+                <ArrowDownUp className="size-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <Sparkles className="size-4 shrink-0 text-muted-foreground" />
+              )}
+              <h2 className="truncate text-sm font-semibold">
+                {sidebarSection === "layout"
+                  ? "Layout Options"
+                  : sidebarSection === "refresh"
+                    ? "Auto Refresh"
+                    : sidebarSection === "import"
+                      ? "Import / Export"
+                      : "AI Assistant"}
+              </h2>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Collapse right sidebar"
+              title="Collapse right sidebar"
+              onClick={() => setViewPanelCollapsed(true)}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+          {sidebarSection === "layout" ? (
+          <div className="cms-sidebar-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <LayoutGrid className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Layout</h2>
+              <h3 className="text-sm font-semibold">Layout</h3>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {([
-                ["table", "Table"],
-                ["cards", "Cards"],
-                ["calendar", "Calendar"],
-                ["kanban", "Kanban"],
-                ["map", "Map"],
-              ] as const).map(([layout, label]) => (
+                ["table", "Table", Table2],
+                ["cards", "Cards", LayoutGrid],
+                ["calendar", "Calendar", CalendarDays],
+                ["kanban", "Kanban", Columns3],
+                ["map", "Map", MapPin],
+              ] as const).map(([layout, label, Icon]) => (
                 <Button
                   key={layout}
                   type="button"
                   variant={displayLayout === layout ? "secondary" : "outline"}
                   size="sm"
-                  className="justify-start"
+                  className="h-10 justify-start"
+                  aria-pressed={displayLayout === layout}
                   onClick={() => setDisplayLayout(layout)}
                 >
+                  <Icon className="size-4" />
                   {label}
                 </Button>
               ))}
@@ -1434,7 +2029,7 @@ export default function ContentManager({ data }: EtViewProps) {
                 Date field
                 <select
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  value={calendarField}
+                  value={calendarField || dateFields[0]?.name || ""}
                   onChange={(event) => setCalendarField(event.target.value)}
                 >
                   <option value="">Choose a date field</option>
@@ -1465,81 +2060,10 @@ export default function ContentManager({ data }: EtViewProps) {
             ) : null}
           </section>
 
-          <section className="space-y-3 border-t border-border pt-4">
-            <div className="flex items-center gap-2">
-              <Columns3 className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Columns</h2>
-            </div>
-            <div className="space-y-1">
-              {availableTableFields.map((field) => {
-                const isVisible = tableFields.some((item) => item.name === field.name);
-                const visibleIndex = tableFields.findIndex((item) => item.name === field.name);
-                return (
-                  <div key={field.name} className="flex items-center gap-1 rounded-md px-1 py-1 hover:bg-muted/50">
-                    <Checkbox
-                      checked={isVisible}
-                      aria-label={`Show ${field.label || field.name}`}
-                      onCheckedChange={(checked) => {
-                        const current = selected ? columnPreferences[selected.name] : undefined;
-                        const names = current ?? tableFields.map((item) => item.name);
-                        const next = checked
-                          ? [...names, field.name]
-                          : names.filter((name) => name !== field.name);
-                        setColumnPreferences((preferences) => ({
-                          ...preferences,
-                          [selected.name]: next,
-                        }));
-                      }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      {field.label || field.name}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={`Move ${field.name} up`}
-                      disabled={!isVisible || visibleIndex <= 0}
-                      onClick={() => {
-                        const names = tableFields.map((item) => item.name);
-                        const position = names.indexOf(field.name);
-                        [names[position - 1], names[position]] = [names[position], names[position - 1]];
-                        setColumnPreferences((preferences) => ({
-                          ...preferences,
-                          [selected.name]: names,
-                        }));
-                      }}
-                    >
-                      <ArrowUp className="size-3" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={`Move ${field.name} down`}
-                      disabled={!isVisible || visibleIndex < 0 || visibleIndex >= tableFields.length - 1}
-                      onClick={() => {
-                        const names = tableFields.map((item) => item.name);
-                        const position = names.indexOf(field.name);
-                        [names[position + 1], names[position]] = [names[position], names[position + 1]];
-                        setColumnPreferences((preferences) => ({
-                          ...preferences,
-                          [selected.name]: names,
-                        }));
-                      }}
-                    >
-                      <ArrowDown className="size-3" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="space-y-3 border-t border-border pt-4">
+          <section ref={filterSectionRef} className="space-y-3 border-t border-border pt-4">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Advanced filters</h2>
+              <h2 className="text-sm font-semibold">Filters</h2>
             </div>
             {filterRules.length ? (
               <div className="space-y-1.5">
@@ -1637,16 +2161,60 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           </section>
 
-          <section className="space-y-3 border-t border-border pt-4">
-            <div className="flex items-center gap-2">
-              <MessageSquareText className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Ask AI about your data</h2>
-            </div>
-            <div className="max-h-40 min-h-16 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
-              {chatMessages.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Ask a question about this collection. AI chat is a UI preview and is not connected yet.
+          </div>
+          ) : sidebarSection === "refresh" ? (
+            <section className="flex flex-1 flex-col gap-3 p-4">
+              <p className="text-sm text-muted-foreground">
+                Reload the current collection and page to get the latest records.
+              </p>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={busy}
+                onClick={() => void refresh(selected.name, page, search)}
+              >
+                <RefreshCw className={cn("size-4", busy && "animate-spin")} />
+                Refresh content
+              </Button>
+            </section>
+          ) : sidebarSection === "import" ? (
+            <section className="flex flex-1 flex-col gap-4 p-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Import</h3>
+                <p className="text-xs text-muted-foreground">
+                  Record import is not available yet.
                 </p>
+              </div>
+              <div className="space-y-2 border-t border-border pt-4">
+                <h3 className="text-sm font-semibold">Export</h3>
+                <p className="text-xs text-muted-foreground">
+                  Download the records on the current page as a CSV file.
+                </p>
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant="outline"
+                  disabled={records.length === 0}
+                  onClick={exportCurrentPage}
+                >
+                  <ArrowDownUp className="size-4" />
+                  Export current page
+                </Button>
+              </div>
+            </section>
+          ) : (
+          <section className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+            <div className="cms-sidebar-scroll flex-1 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-3">
+              {chatMessages.length === 0 ? (
+                <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
+                  <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+                    <MessageSquareText className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium">Build with AI Assistant</p>
+                    <p className="mt-1 text-xs text-muted-foreground">AI responses may be inaccurate</p>
+                  </div>
+                </div>
               ) : chatMessages.map((message, index) => (
                 <p key={`${index}-${message}`} className="ml-auto w-fit max-w-[90%] rounded-lg bg-primary px-2.5 py-1.5 text-xs text-primary-foreground">
                   {message}
@@ -1654,7 +2222,7 @@ export default function ContentManager({ data }: EtViewProps) {
               ))}
             </div>
             <form
-              className="flex gap-2"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-input p-2"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!chatInput.trim()) return;
@@ -1662,14 +2230,18 @@ export default function ContentManager({ data }: EtViewProps) {
                 setChatInput("");
               }}
             >
-              <Input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Ask about your records..." className="h-9 min-w-0 text-xs" />
-              <Button type="submit" size="icon" className="size-9 shrink-0" aria-label="Send question" disabled={!chatInput.trim()}>
+              <Input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Type your message here..."               className="h-9 min-w-0 border-0 px-1 text-xs shadow-none" />
+              <Button type="submit" size="icon" className="size-8 shrink-0" aria-label="Send question" disabled={!chatInput.trim()}>
                 <Send className="size-4" />
               </Button>
             </form>
           </section>
+          )}
+            </>
+          )}
         </aside>
       ) : null}
+      </PageRightSidebarPortal>
       </div>
 
       {confirm_dialog}

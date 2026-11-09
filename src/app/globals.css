@@ -344,6 +344,15 @@
     background-clip: content-box;
   }
 
+  .cms-sidebar-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .cms-sidebar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   .app-page {
     display: flex;
     flex-direction: column;

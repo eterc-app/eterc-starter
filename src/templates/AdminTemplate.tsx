@@ -12,6 +12,7 @@ import { to_public_path } from "@/engine/url-aliases";
 import {
   PageActionsProvider,
   PageActionsSlot,
+  PageRightSidebarSlot,
   usePageNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { cn } from "@/lib/utils";
@@ -205,14 +206,14 @@ function TopHeader({
             <button
               type="button"
               onClick={navbarMeta.onBack}
-              className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Go back"
               title="Go back"
             >
               <ArrowLeft className="size-4" strokeWidth={2} />
             </button>
           ) : (
-            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
               {navbarMeta?.icon ?? <LayoutDashboard className="size-4" strokeWidth={1.75} />}
             </span>
           )}
@@ -505,10 +506,13 @@ export function AdminTemplate({
     <PageActionsProvider>
       <div
         data-theme={theme}
-        className="min-h-screen bg-background text-foreground"
+        className={cn(
+          "min-h-screen bg-background text-foreground",
+          contentPage && "h-screen overflow-hidden",
+        )}
         onClick={() => setAccountOpen(false)}
       >
-        <div className="flex min-h-screen">
+        <div className={cn("flex min-h-screen", contentPage && "h-full min-h-0")}>
           {compactSidebar ? (
             <aside className="sticky top-0 hidden h-screen w-14 shrink-0 border-r border-border bg-sidebar md:flex">
               {render_collapsed_sidebar()}
@@ -525,7 +529,7 @@ export function AdminTemplate({
             </aside>
           ) : null}
 
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <TopHeader
               section={section}
               current={current}
@@ -535,10 +539,33 @@ export function AdminTemplate({
               setMobileOpen={setMobileOpen}
             />
 
-            <main className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-              <div className="mx-auto w-full max-w-[1560px]">{children}</div>
+            <main
+              className={cn(
+                "min-h-0 flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
+                contentPage && "flex flex-col overflow-hidden p-0",
+              )}
+            >
+              <div
+                className={cn(
+                  "mx-auto w-full max-w-[1560px]",
+                  contentPage && "mx-0 h-full min-h-0 max-w-none",
+                )}
+              >
+                {children}
+              </div>
             </main>
           </div>
+
+          {navbarMeta?.rightSidebar ? (
+            <aside
+              className={cn(
+                "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
+                navbarMeta.rightSidebarCollapsed ? "w-14" : "w-80",
+              )}
+            >
+              <PageRightSidebarSlot />
+            </aside>
+          ) : null}
         </div>
 
         {mobileOpen ? (
