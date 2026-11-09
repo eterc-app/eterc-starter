@@ -1792,9 +1792,13 @@ export function InterfaceOptions({
         <TextField
           label="Root folder"
           value={text_option(form, "folder")}
-          placeholder="e.g. avatars"
+          placeholder="e.g. catalog/products"
           onChange={(value) => onOption("folder", value)}
         />
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Default destination under uploads. Editors can choose another folder
+          or create a subfolder from the upload field.
+        </p>
       </div>
     );
   }

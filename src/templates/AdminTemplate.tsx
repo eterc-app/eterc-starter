@@ -157,12 +157,14 @@ function TopHeader({
   section,
   current,
   sidebarCollapsed,
+  allowSidebarExpand,
   setSidebarCollapsed,
   setMobileOpen,
 }: {
   section: string;
   current: string;
   sidebarCollapsed: boolean;
+  allowSidebarExpand: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   setMobileOpen: (open: boolean) => void;
 }) {
@@ -182,7 +184,7 @@ function TopHeader({
           <Menu className="size-4" strokeWidth={1.75} />
         </button>
 
-        {sidebarCollapsed ? (
+        {sidebarCollapsed && allowSidebarExpand ? (
           <button
             type="button"
             className="hidden size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
@@ -255,6 +257,9 @@ export function AdminTemplate({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const navbarMeta = usePageNavbarMeta();
+  const contentPage = current_path === "/admin/content";
+  const compactSidebar = sidebarCollapsed || contentPage;
 
   const [section, current] = breadcrumb_items(current_path, pageTitle);
   useEffect(() => {
@@ -272,15 +277,17 @@ export function AdminTemplate({
 
   const render_collapsed_sidebar = () => (
     <div className="flex h-full w-full flex-col items-center bg-sidebar py-3">
-      <button
-        type="button"
-        className="grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted"
-        aria-label="Show navigation"
-        title="Show navigation"
-        onClick={() => setSidebarCollapsed(false)}
-      >
-        <PanelLeft className="size-4" strokeWidth={1.75} />
-      </button>
+      {contentPage ? null : (
+        <button
+          type="button"
+          className="grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted"
+          aria-label="Show navigation"
+          title="Show navigation"
+          onClick={() => setSidebarCollapsed(false)}
+        >
+          <PanelLeft className="size-4" strokeWidth={1.75} />
+        </button>
+      )}
 
       <nav
         className="app-scrollbar flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1 py-2"
@@ -502,7 +509,7 @@ export function AdminTemplate({
         onClick={() => setAccountOpen(false)}
       >
         <div className="flex min-h-screen">
-          {sidebarCollapsed ? (
+          {compactSidebar ? (
             <aside className="sticky top-0 hidden h-screen w-14 shrink-0 border-r border-border bg-sidebar md:flex">
               {render_collapsed_sidebar()}
             </aside>
@@ -512,11 +519,18 @@ export function AdminTemplate({
             </aside>
           )}
 
+          {navbarMeta?.pageSidebar ? (
+            <aside className="sticky top-0 hidden h-screen w-48 shrink-0 border-r border-border bg-sidebar md:flex">
+              {navbarMeta.pageSidebar}
+            </aside>
+          ) : null}
+
           <div className="flex min-w-0 flex-1 flex-col">
             <TopHeader
               section={section}
               current={current}
-              sidebarCollapsed={sidebarCollapsed}
+              sidebarCollapsed={compactSidebar}
+              allowSidebarExpand={!contentPage}
               setSidebarCollapsed={setSidebarCollapsed}
               setMobileOpen={setMobileOpen}
             />

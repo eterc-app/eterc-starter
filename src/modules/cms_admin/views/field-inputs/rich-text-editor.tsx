@@ -23,6 +23,7 @@ import {
   Heading2,
   Heading3,
   ImagePlus,
+  Images,
   Italic,
   Link2,
   List,
@@ -41,7 +42,12 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { CmsField } from "@/modules/cms/cms-types";
-import { upload_image, is_image_file } from "./media";
+import {
+  UploadAssetPicker,
+  UploadFolderPicker,
+  upload_image,
+  is_image_file,
+} from "./media";
 import { as_string, option_string, type CmsMediaConfig } from "./types";
 
 const EDITOR_EXTENSIONS = [
@@ -128,7 +134,8 @@ export function WysiwygInput({
   const current = as_string(value);
   const placeholder =
     option_string(field, "placeholder") || "Write content...";
-  const folder = option_string(field, "folder");
+  const folder = option_string(field, "folder") || "media";
+  const [uploadFolder, setUploadFolder] = useState(folder);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceValue, setSourceValue] = useState(current);
@@ -136,6 +143,7 @@ export function WysiwygInput({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
   const [imageOpen, setImageOpen] = useState(false);
+  const [browseImages, setBrowseImages] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [imageAlt, setImageAlt] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -247,7 +255,7 @@ export function WysiwygInput({
     setSourceMode(false);
     setUploading(true);
     setUploadProgress(0);
-    void upload_image(file, media, folder, setUploadProgress)
+    void upload_image(file, media, uploadFolder, setUploadProgress)
       .then((image) => {
         insert_image(image.url, imageAlt || image.title || file.name);
       })
@@ -428,53 +436,85 @@ export function WysiwygInput({
         </div>
       ) : null}
       {!sourceMode && imageOpen ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-2 py-2">
-          <Input
-            value={imageUrl}
+        <div className="space-y-2 border-b border-border bg-card p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={imageUrl}
+              disabled={disabled || uploading}
+              placeholder="Image URL"
+              aria-label="Image URL"
+              className="h-8 min-w-40 flex-1 text-xs"
+              onChange={(event) => setImageUrl(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  submit_image_url();
+                }
+              }}
+            />
+            <Input
+              value={imageAlt}
+              disabled={disabled || uploading}
+              placeholder="Alt text"
+              aria-label="Image alt text"
+              className="h-8 min-w-32 flex-1 text-xs"
+              onChange={(event) => setImageAlt(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              disabled={!editor_image_url(imageUrl) || disabled}
+              onClick={submit_image_url}
+            >
+              Insert URL
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={!media || disabled || uploading}
+              onClick={() => setBrowseImages((open) => !open)}
+            >
+              <Images className="size-3.5" />
+              {browseImages ? "Hide library" : "Choose uploaded"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={!media || disabled || uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <ImagePlus className="size-3.5" />
+              )}
+              {uploading ? `${uploadProgress}%` : "Upload"}
+            </Button>
+          </div>
+          <UploadFolderPicker
+            media={media}
+            folder={uploadFolder}
+            id={`cms-richtext-folder-${field.name}`}
+            onChange={setUploadFolder}
             disabled={disabled || uploading}
-            placeholder="Image URL"
-            aria-label="Image URL"
-            className="h-8 min-w-40 flex-1 text-xs"
-            onChange={(event) => setImageUrl(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                submit_image_url();
-              }
-            }}
           />
-          <Input
-            value={imageAlt}
-            disabled={disabled || uploading}
-            placeholder="Alt text"
-            aria-label="Image alt text"
-            className="h-8 min-w-32 flex-1 text-xs"
-            onChange={(event) => setImageAlt(event.target.value)}
-          />
-          <Button
-            type="button"
-            size="sm"
-            className="h-8"
-            disabled={!editor_image_url(imageUrl) || disabled}
-            onClick={submit_image_url}
-          >
-            Insert URL
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8"
-            disabled={!media || disabled || uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <ImagePlus className="size-3.5" />
-            )}
-            {uploading ? `${uploadProgress}%` : "Upload"}
-          </Button>
+          {browseImages ? (
+            <UploadAssetPicker
+              media={media}
+              kind="image"
+              selected={[]}
+              disabled={disabled}
+              onSelect={(url) => {
+                const imageName = url.split("/").pop()?.split("?")[0] ?? "image";
+                insert_image(url, imageAlt || decodeURIComponent(imageName));
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
       {sourceMode ? (

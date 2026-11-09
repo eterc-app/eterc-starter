@@ -28,6 +28,15 @@ export interface CmsMediaImage {
   alt?: string;
 }
 
+export interface CmsUploadAsset {
+  url: string;
+  thumbnail_url?: string;
+  name: string;
+  folder: string;
+  size: number;
+  kind: "image" | "file";
+}
+
 export interface FieldInputProps {
   field: CmsField;
   value: unknown;

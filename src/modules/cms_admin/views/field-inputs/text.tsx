@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils";
 import type { CmsField } from "@/modules/cms/cms-types";
 import { CodeEditor } from "./code-editor";
 import { markdown_to_html } from "./markdown";
+import { ImageInput } from "./media";
 import {
   as_array,
   as_object,
@@ -68,7 +69,12 @@ import {
   option_string,
   type CmsMediaConfig,
 } from "./types";
-import { is_image_file, upload_image } from "./media";
+import {
+  is_image_file,
+  upload_image,
+  UploadAssetPicker,
+  UploadFolderPicker,
+} from "./media";
 
 function font_class(value: string): string {
   if (value === "monospace" || value === "mono") return "font-mono";
@@ -296,9 +302,6 @@ export function AutocompleteApiInput({
           onChange={onChange}
           disabled={disabled}
         />
-        <p className="text-xs text-muted-foreground">
-          Add a lookup URL in Data Studio to enable autocomplete.
-        </p>
       </div>
     );
   }
@@ -722,7 +725,7 @@ function safe_link_url(raw: string): string {
 
 function safe_media_url(raw: string): string {
   const value = raw.trim();
-  if (/^(?:https?:\/\/|\/|data:image\/)/i.test(value)) return value;
+  if (/^(?:https?:\/\/|\/(?!\/)|\.\.?\/)/i.test(value)) return value;
   return "";
 }
 
@@ -1084,7 +1087,8 @@ export function WysiwygInput({
       },
     ],
   ];
-  // Toolbar actions read the selection ref only after a click.
+
+  // The ref is only dereferenced by toolbar callbacks after user interaction.
   // eslint-disable-next-line react-hooks/refs
   const visible_groups = tool_groups
     .map((group) => group.filter((item) => has(item.tool)))
@@ -1406,6 +1410,9 @@ export function MarkdownInput({
   const linkRangeRef = useRef<MarkdownRange | null>(null);
   const imageRangeRef = useRef<MarkdownRange | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadFolder, setUploadFolder] = useState(
+    option_string(field, "folder") || "media"
+  );
   const defaultView =
     option_string(field, "defaultView", "default_view") || "editor";
   const [view, setView] = useState<"editor" | "split" | "preview">(
@@ -1416,6 +1423,8 @@ export function MarkdownInput({
   const [fullscreen, setFullscreen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const preview = useMemo(() => markdown_to_html(current), [current]);
@@ -1519,6 +1528,29 @@ export function MarkdownInput({
     setLinkUrl("");
   };
 
+  const insert_markdown_image = (url: string, suggestedAlt: string) => {
+    const safeUrl = safe_media_url(url);
+    if (!safeUrl) {
+      toast.error("Choose a valid image URL.");
+      return;
+    }
+    const range = imageRangeRef.current ?? selected_range();
+    const selected = current.slice(range.start, range.end).trim();
+    const alt = (selected || suggestedAlt || "image")
+      .replace(/[\[\]\\]/g, "")
+      .trim();
+    const markdownUrl = safeUrl.replace(/[()]/g, (character) =>
+      encodeURIComponent(character)
+    );
+    const markdown = `![${alt}](${markdownUrl})`;
+    const next =
+      current.slice(0, range.start) + markdown + current.slice(range.end);
+    const caret = range.start + markdown.length;
+    commit(next, { start: caret, end: caret });
+    imageRangeRef.current = null;
+    setImageOpen(false);
+  };
+
   const upload_markdown_image = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -1532,26 +1564,12 @@ export function MarkdownInput({
       return;
     }
 
-    const range = imageRangeRef.current ?? selected_range();
-    const selected = current.slice(range.start, range.end).trim();
-    const alt = (selected || file.name.replace(/\.[^.]+$/, ""))
-      .replace(/[\[\]\\]/g, "")
-      .trim();
     setLinkOpen(false);
     setUploadingImage(true);
     setUploadProgress(0);
-    void upload_image(
-      file,
-      media,
-      option_string(field, "folder"),
-      setUploadProgress
-    )
+    void upload_image(file, media, uploadFolder, setUploadProgress)
       .then((image) => {
-        const markdown = `![${alt}](${image.url})`;
-        const next =
-          current.slice(0, range.start) + markdown + current.slice(range.end);
-        const caret = range.start + markdown.length;
-        commit(next, { start: caret, end: caret });
+        insert_markdown_image(image.url, image.title || file.name);
       })
       .catch((error: unknown) => {
         toast.error(
@@ -1561,7 +1579,6 @@ export function MarkdownInput({
       .finally(() => {
         setUploadingImage(false);
         setUploadProgress(0);
-        imageRangeRef.current = null;
       });
   };
 
@@ -1665,9 +1682,12 @@ export function MarkdownInput({
       },
       {
         tool: "image",
-        label: uploadingImage
-          ? `Uploading image (${uploadProgress}%)`
-          : "Upload image",
+        label: imageOpen
+          ? "Close image options"
+          : uploadingImage
+            ? `Uploading image (${uploadProgress}%)`
+            : "Insert image",
+        active: imageOpen,
         icon: uploadingImage ? (
           <Loader2 className="size-3.5 animate-spin" />
         ) : (
@@ -1677,7 +1697,8 @@ export function MarkdownInput({
         run: () => {
           if (!media || uploadingImage) return;
           imageRangeRef.current = selected_range();
-          imageInputRef.current?.click();
+          setLinkOpen(false);
+          setImageOpen((open) => !open);
         },
       },
       {
@@ -1774,7 +1795,73 @@ export function MarkdownInput({
     </div>
   ) : null;
 
-  /* eslint-disable react-hooks/refs -- Toolbar callbacks only read refs on click. */
+  const image_bar = imageOpen ? (
+    <div className="space-y-2 border-b border-border bg-card p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={imageUrl}
+          disabled={disabled || uploadingImage}
+          placeholder="https://example.com/image.jpg"
+          aria-label="Image URL"
+          className="h-8 min-w-40 flex-1 text-xs"
+          onChange={(event) => setImageUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              insert_markdown_image(imageUrl, "image");
+              setImageUrl("");
+            }
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8"
+          disabled={!safe_media_url(imageUrl) || disabled || uploadingImage}
+          onClick={() => {
+            insert_markdown_image(imageUrl, "image");
+            setImageUrl("");
+          }}
+        >
+          Insert URL
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8"
+          disabled={!media || disabled || uploadingImage}
+          onClick={() => imageInputRef.current?.click()}
+        >
+          {uploadingImage ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <ImageIcon className="size-3.5" />
+          )}
+          {uploadingImage ? `${uploadProgress}%` : "Upload"}
+        </Button>
+      </div>
+      <UploadFolderPicker
+        media={media}
+        folder={uploadFolder}
+        id={`cms-markdown-folder-${field.name}`}
+        onChange={setUploadFolder}
+        disabled={disabled || uploadingImage}
+      />
+      <UploadAssetPicker
+        media={media}
+        kind="image"
+        selected={[]}
+        disabled={disabled || uploadingImage}
+        onSelect={(url) => {
+          const imageName = url.split("/").pop()?.split("?")[0] ?? "image";
+          insert_markdown_image(url, decodeURIComponent(imageName));
+        }}
+      />
+    </div>
+  ) : null;
+
+  /* eslint-disable react-hooks/refs -- Toolbar callbacks only read selection refs on click. */
   const toolbar_bar = (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface-subtle px-1.5 py-1">
       {tool_groups.map((group, group_index) => (
@@ -1909,6 +1996,7 @@ export function MarkdownInput({
           </div>
           {toolbar_bar}
           {link_bar}
+          {image_bar}
           <div className="flex min-h-0 flex-1 flex-col">{editor_body}</div>
           {footer}
         </div>
@@ -1944,6 +2032,7 @@ export function MarkdownInput({
       </div>
       {toolbar_bar}
       {link_bar}
+      {image_bar}
       {editor_body}
       {footer}
     </div>
@@ -2017,11 +2106,13 @@ export function BlockEditorInput({
   value,
   onChange,
   disabled,
+  media,
 }: {
   field: CmsField;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  media?: CmsMediaConfig;
 }) {
   const blocks = read_blocks(value);
   const bordered = option_bool(field, true, "bordered");
@@ -2057,15 +2148,6 @@ export function BlockEditorInput({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-muted-foreground">
-          {blocks.length} block{blocks.length === 1 ? "" : "s"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Drag the handle to reorder
-        </p>
-      </div>
-
       {blocks.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-surface-subtle px-4 py-6 text-center">
           <p className="text-sm font-semibold text-foreground">No blocks yet</p>
@@ -2288,42 +2370,32 @@ export function BlockEditorInput({
                   />
                 </div>
               ) : type === "image" ? (
-                <div className="space-y-2">
-                  <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <ImageInput
+                    field={field}
+                    value={block.value}
+                    media={media}
+                    disabled={disabled}
+                    onChange={(next) => patch(index, { value: as_string(next) })}
+                  />
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor={`cms-block-image-alt-${field.name}-${index}`}
+                      className="text-xs font-semibold text-foreground"
+                    >
+                      Alternative text
+                    </label>
                     <Input
-                      value={block.value}
-                      disabled={disabled}
-                      placeholder="Image URL"
-                      className="h-10 rounded-md border-input bg-card font-mono text-xs"
-                      onChange={(event) =>
-                        patch(index, { value: event.target.value })
-                      }
-                    />
-                    <Input
+                      id={`cms-block-image-alt-${field.name}-${index}`}
                       value={block_text(block, "alt", "")}
                       disabled={disabled}
-                      placeholder="Alternative text"
-                      className="h-10 rounded-md border-input bg-card text-xs"
+                      placeholder="Describe the image"
+                      className="h-9 rounded-md border-input bg-card text-xs"
                       onChange={(event) =>
                         patch(index, { alt: event.target.value })
                       }
                     />
                   </div>
-                  {safe_media_url(block.value) ? (
-                    <div className="overflow-hidden rounded-md border border-border bg-surface-subtle p-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={safe_media_url(block.value)}
-                        alt={block_text(block, "alt", "")}
-                        className="max-h-40 w-auto max-w-full rounded object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Enter an absolute URL or a path under /uploads to preview
-                      the image.
-                    </p>
-                  )}
                 </div>
               ) : type === "quote" ? (
                 <Textarea
@@ -2373,6 +2445,7 @@ export function BlockEditorInput({
           ))}
         </div>
       </div>
+
     </div>
   );
 }

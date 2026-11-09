@@ -19,6 +19,7 @@ export interface PageNavbarMeta {
   onBack?: (() => void) | null;
   badge?: ReactNode;
   search?: ReactNode;
+  pageSidebar?: ReactNode;
 }
 
 interface PageActionsContextValue {
@@ -40,7 +41,8 @@ export function setGlobalNavbarMeta(meta: PageNavbarMeta | null) {
     currentNavbarMeta?.section === meta?.section &&
     currentNavbarMeta?.title === meta?.title &&
     currentNavbarMeta?.onBack === meta?.onBack &&
-    currentNavbarMeta?.search === meta?.search
+    currentNavbarMeta?.search === meta?.search &&
+    currentNavbarMeta?.pageSidebar === meta?.pageSidebar
   ) {
     return;
   }

@@ -27,50 +27,15 @@ import {
   upsertMedia,
   type MediaItem,
 } from "./media-store";
+import {
+  ALLOWED_UPLOAD_EXTENSIONS,
+  createUploadFolder,
+  ensureUploadFolder,
+  listUploadAssets,
+  normalizeUploadFolder,
+} from "./upload-assets";
 
 const MAX_FILE_UPLOAD_BYTES = 25 * 1024 * 1024;
-const ALLOWED_FILE_EXTENSIONS = new Set([
-  ".csv",
-  ".doc",
-  ".docx",
-  ".gif",
-  ".gz",
-  ".jpeg",
-  ".jpg",
-  ".mp3",
-  ".mp4",
-  ".pdf",
-  ".png",
-  ".ppt",
-  ".pptx",
-  ".rtf",
-  ".tar",
-  ".txt",
-  ".wav",
-  ".webp",
-  ".webm",
-  ".xls",
-  ".xlsx",
-  ".zip",
-]);
-
-function upload_folder(value: unknown, fallback: string): string {
-  const raw = String(value ?? "")
-    .trim()
-    .replaceAll("\\", "/")
-    .replace(/^\/+|\/+$/g, "")
-    .replace(/^uploads\/?/i, "");
-  if (raw === "") return fallback;
-
-  const parts = raw.split("/");
-  if (
-    parts.length > 8 ||
-    parts.some((part) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(part))
-  ) {
-    throw new EtHttpError(400, "Choose a valid upload folder inside uploads.");
-  }
-  return parts.join("/");
-}
 
 /**
  * Media library administration.
@@ -119,6 +84,29 @@ export default class Media extends Eterc {
     return { ok: true, media, stats: mediaStats(media) };
   }
 
+  async list_upload_assets(): Promise<Record<string, unknown>> {
+    this.principal();
+    assertLocalMediaStorage();
+    return { ok: true, ...listUploadAssets() };
+  }
+
+  async create_upload_folder(): Promise<Record<string, unknown>> {
+    this.principal();
+    this.assertCsrf();
+    assertLocalMediaStorage();
+
+    try {
+      const parent = normalizeUploadFolder(post("folder"));
+      const folder = createUploadFolder(parent, String(post("name") ?? ""));
+      return { ok: true, folder };
+    } catch (error) {
+      throw new EtHttpError(
+        400,
+        error instanceof Error ? error.message : "The folder could not be created."
+      );
+    }
+  }
+
   async upload_media(): Promise<Record<string, unknown>> {
     this.principal();
     this.assertCsrf();
@@ -128,10 +116,21 @@ export default class Media extends Eterc {
     if (kind !== "image" && kind !== "file") {
       throw new EtHttpError(400, "Choose an image or file to upload.");
     }
-    const folder = upload_folder(
-      post("folder"),
-      kind === "image" ? "media" : "files"
-    );
+    let folder: string;
+    try {
+      folder = normalizeUploadFolder(
+        post("folder"),
+        kind === "image" ? "media" : "files"
+      );
+      ensureUploadFolder(folder);
+    } catch (error) {
+      throw new EtHttpError(
+        400,
+        error instanceof Error
+          ? error.message
+          : "Choose a valid upload folder inside uploads."
+      );
+    }
     const files = await uploaded_files();
     const uploaded = Object.values(files)[0];
 
@@ -145,7 +144,7 @@ export default class Media extends Eterc {
       }
       const extension =
         uploaded.originalName.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
-      if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {
+      if (!ALLOWED_UPLOAD_EXTENSIONS.has(extension)) {
         throw new EtHttpError(
           400,
           "This file type is not supported. Choose a document, archive, audio, or video file."
@@ -154,10 +153,10 @@ export default class Media extends Eterc {
       const saved = await activeStorageProvider.upload(
         uploaded.bytes ?? Buffer.alloc(0),
         {
-        filename: `${crypto.randomUUID()}${extension}`,
-        folder,
-        contentType: uploaded.mimeType,
-        isPublic: true,
+          filename: `${crypto.randomUUID()}${extension}`,
+          folder,
+          contentType: uploaded.mimeType,
+          isPublic: true,
         }
       );
       return {
@@ -184,6 +183,7 @@ export default class Media extends Eterc {
     const snapshot = libraryUpload ? mediaFolderSnapshot() : null;
 
     try {
+      ensureUploadFolder(`${folder}/thumbs`, true);
       const image = new Image();
       const info = await image.upload({
         destination: `uploads/${folder}`,

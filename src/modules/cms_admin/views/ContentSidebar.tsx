@@ -36,6 +36,7 @@ export function ContentSidebar({
   createHref,
   onRefresh,
   busy = false,
+  layout = "page",
   className,
 }: {
   collections: CmsCollectionWithFields[];
@@ -45,11 +46,13 @@ export function ContentSidebar({
   createHref?: string;
   onRefresh?: () => void;
   busy?: boolean;
+  layout?: "page" | "navigation";
   className?: string;
 }) {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
+  const navigationLayout = layout === "navigation";
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -80,11 +83,27 @@ export function ContentSidebar({
   ) : null;
 
   return (
-    <aside className={cn("min-w-0 lg:self-start", className)}>
-      <div className="overflow-hidden rounded-xl border border-border bg-card lg:sticky lg:top-6">
+    <aside
+      className={cn(
+        navigationLayout
+          ? "flex min-h-0 flex-1 flex-col"
+          : "min-w-0 lg:self-start",
+        className,
+      )}
+    >
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border border-border bg-card lg:sticky lg:top-6",
+          navigationLayout &&
+            "flex min-h-0 flex-1 flex-col rounded-none border-0 bg-transparent lg:static",
+        )}
+      >
         <button
           type="button"
-          className="flex w-full items-center gap-2 px-3 py-3 text-left lg:hidden"
+          className={cn(
+            "flex w-full items-center gap-2 px-3 py-3 text-left lg:hidden",
+            navigationLayout && "hidden",
+          )}
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((open) => !open)}
         >
@@ -105,16 +124,22 @@ export function ContentSidebar({
         <div
           className={cn(
             "border-t border-border lg:border-t-0",
-            mobileOpen ? "block" : "hidden lg:block",
+            navigationLayout
+              ? "flex min-h-0 flex-1 flex-col"
+              : mobileOpen
+                ? "block"
+                : "hidden lg:block",
           )}
         >
           <div className="px-3 py-3">
-            <div className="hidden items-center justify-between gap-2 lg:flex">
-              <p className="type-headline">Collections</p>
-              <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                {collections.length}
-              </span>
-            </div>
+            {!navigationLayout ? (
+              <div className="hidden items-center justify-between gap-2 lg:flex">
+                <p className="type-headline">Collections</p>
+                <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                  {collections.length}
+                </span>
+              </div>
+            ) : null}
             <div className="lg:mt-3">
               <Input
                 value={query}
@@ -127,7 +152,10 @@ export function ContentSidebar({
           </div>
 
           <nav
-            className="app-scrollbar max-h-[min(56vh,520px)] overflow-y-auto border-t border-border px-2 py-3"
+            className={cn(
+              "app-scrollbar max-h-[min(56vh,520px)] overflow-y-auto border-t border-border px-2 py-3",
+              navigationLayout && "min-h-0 max-h-none flex-1",
+            )}
             aria-label="Collections"
           >
             {filtered.length === 0 ? (
@@ -177,9 +205,6 @@ export function ContentSidebar({
                           </span>
                           <span className="min-w-0 flex-1 truncate font-medium">
                             {collection.label || collection.name}
-                          </span>
-                          <span className="sidebar-meta min-w-6 rounded-full bg-surface-subtle px-1.5 py-0.5 text-center font-medium tabular-nums text-muted-foreground">
-                            {collection.item_count}
                           </span>
                         </>
                       );

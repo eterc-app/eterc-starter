@@ -104,6 +104,7 @@ export function FieldInput(props: FieldInputProps) {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          media={media}
         />
       );
     case "code":

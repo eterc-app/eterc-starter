@@ -236,11 +236,16 @@ for (const relative of ["src/modules/cms_admin/views/content.tsx"]) {
   const page = read(relative);
   for (const token of [
     "ContentSidebar",
-    "lg:grid-cols-[200px_minmax(0,1fr)]",
+    'layout="navigation"',
+    "pageSidebar",
+    "md:hidden",
   ]) {
     if (!page.includes(token)) {
       problems.push(`content page missing collection-rail contract: ${relative} (${token})`);
     }
+  }
+  if (page.includes("lg:grid-cols-[200px_minmax(0,1fr)]")) {
+    problems.push(`content page must not render a duplicate collection rail: ${relative}`);
   }
 }
 

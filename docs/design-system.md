@@ -105,7 +105,7 @@ Rules:
 | --- | --- |
 | Sidebar | 180 px (`w-(--sidebar-width)`, `--sidebar-width: 11.25rem`) |
 | Collapsed sidebar rail | 56 px (`w-14`) |
-| Content collection rail | 200 px (`lg:grid-cols-[200px_minmax(0,1fr)]`) |
+| Content collections pane | 192 px (`w-48`) beside the 56 px icon rail on `/admin/content` |
 | Top bar | 64 px (`h-16`) |
 | Content padding | 32 px on large screens, 16–24 px below |
 | Maximum content width | 1560 px (`max-w-[1560px]`) |
@@ -128,6 +128,9 @@ Shell composition:
   bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
 - When the sidebar is collapsed it becomes a 56 px icon rail that keeps the logo, navigation
   icons, and account menu visible. Icon-only rows use `title` and `aria-label` for their label.
+- On `/admin/content`, the global navigation uses that 56 px rail and collections occupy the
+  adjacent 192 px pane. The records canvas uses the remaining workspace width without a second
+  in-page collection sidebar.
 - The sidebar has 8 px horizontal padding, 36 px navigation rows, and 12 px sentence-case
   section labels. The content wrapper is `w-full` so rows and the active background fill the
   rail up to that padding instead of leaving an unused strip on the right. Navigation labels

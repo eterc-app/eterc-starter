@@ -484,12 +484,22 @@ export default function ContentManager({ data }: EtViewProps) {
         placeholder={`Search ${selected.label || selected.name}...`}
       />
     ) : null;
+    const pageSidebar = (
+      <ContentSidebar
+        collections={collections}
+        activeName={selected?.name}
+        onSelect={selectCollection}
+        busy={busy}
+        layout="navigation"
+      />
+    );
 
     if (!selected) {
       return {
         section: "Content",
         title: "Content",
         icon: <Layers className="size-4" strokeWidth={1.75} />,
+        pageSidebar,
       };
     }
     if (viewMode === "record-form") {
@@ -499,14 +509,26 @@ export default function ContentManager({ data }: EtViewProps) {
           ? `Editing record in ${selected.label || selected.name}`
           : `New record in ${selected.label || selected.name}`,
         onBack: () => setViewMode("table"),
+        pageSidebar,
       };
     }
     return {
       section: "Content",
       title: selected.label || selected.name,
       search: searchControl,
+      pageSidebar,
     };
-  }, [clearSearch, editingRecord, searchInput, selected, submitSearch, viewMode]);
+  }, [
+    busy,
+    clearSearch,
+    collections,
+    editingRecord,
+    searchInput,
+    selectCollection,
+    selected,
+    submitSearch,
+    viewMode,
+  ]);
 
   useSetNavbarMeta(navbarMeta);
 
@@ -606,16 +628,16 @@ export default function ContentManager({ data }: EtViewProps) {
         )}
       </PageActionsPortal>
 
-      <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-        {/* Content Sidebar */}
+      <div className="mb-4 md:hidden">
         <ContentSidebar
           collections={collections}
           activeName={selected?.name}
           onSelect={selectCollection}
           busy={busy}
         />
+      </div>
 
-        <div className="min-w-0">
+      <div className="min-w-0">
           {!selected ? (
             <div className="py-16 text-center">
               <EmptyState
@@ -748,14 +770,6 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               ) : null}
 
-              {manualOrderingActive ? (
-                <p className="text-xs text-muted-foreground" role="status">
-                  {canReorderRecords
-                    ? "Drag rows or use the arrow buttons to reorder records."
-                    : "Clear the search to reorder records."}
-                </p>
-              ) : null}
-
               {/* Data Table */}
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <div className="app-scrollbar overflow-x-auto">
@@ -804,11 +818,6 @@ export default function ContentManager({ data }: EtViewProps) {
                             <div className="flex flex-col items-center justify-center gap-2">
                               <p className="text-sm font-semibold text-muted-foreground">
                                 {search ? "No records match your search" : "No records yet"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {search
-                                  ? "Try searching for something else or clear the filter."
-                                  : `Add your first record to ${selected.label || selected.name}.`}
                               </p>
                               {search ? (
                                 <Button
@@ -1036,7 +1045,6 @@ export default function ContentManager({ data }: EtViewProps) {
               </div>
             </div>
           )}
-        </div>
       </div>
 
       {confirm_dialog}

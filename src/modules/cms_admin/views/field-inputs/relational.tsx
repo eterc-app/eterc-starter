@@ -292,9 +292,6 @@ export function RelationInput({
           className="h-13 rounded-lg border-input bg-card"
           onChange={(event) => onChange(event.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
-          Choose a related collection in Data Studio to use the item picker.
-        </p>
       </div>
     );
   }
@@ -416,9 +413,6 @@ export function RelationMultiInput({
             )
           }
         />
-        <p className="text-xs text-muted-foreground">
-          Choose a related collection in Data Studio to use the item picker.
-        </p>
       </div>
     );
   }
