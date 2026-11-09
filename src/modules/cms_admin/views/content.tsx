@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -56,7 +57,6 @@ import {
   useSetNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { useConfirm } from "@/components/app/ConfirmDialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -89,6 +89,7 @@ import {
   is_system_sort_field,
   is_alias_field,
 } from "./field-inputs";
+import { field_choices } from "./field-inputs/types";
 import { MapCanvas } from "./field-inputs/MapCanvas";
 import { BusyButton, EmptyState, cms_call } from "./ui";
 
@@ -453,6 +454,9 @@ export default function ContentManager({ data }: EtViewProps) {
   const [reordering, setReordering] = useState(false);
   const [draggedRecordId, setDraggedRecordId] = useState<string | null>(null);
   const [dropTargetRecordId, setDropTargetRecordId] = useState<string | null>(null);
+  const [kanbanDraggedRecordId, setKanbanDraggedRecordId] = useState<string | null>(null);
+  const [kanbanDropTargetKey, setKanbanDropTargetKey] = useState<string | null>(null);
+  const [kanbanUpdating, setKanbanUpdating] = useState(false);
   const savedLayoutPreferences = useSyncExternalStore(
     subscribe_layout_storage,
     get_layout_storage_snapshot,
@@ -523,6 +527,8 @@ export default function ContentManager({ data }: EtViewProps) {
   >({});
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [kanbanField, setKanbanField] = useState("");
+  const [kanbanTitleField, setKanbanTitleField] = useState("");
+  const [kanbanTextField, setKanbanTextField] = useState("");
   const [mapField, setMapField] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<string[]>([]);
@@ -617,6 +623,10 @@ export default function ContentManager({ data }: EtViewProps) {
       setCalendarView("month");
       setCalendarRecordOffsets({});
       setKanbanField("");
+      setKanbanTitleField("");
+      setKanbanTextField("");
+      setKanbanDraggedRecordId(null);
+      setKanbanDropTargetKey(null);
       setMapField("");
       setColumnSort(null);
       await refresh(name, 1, "", [], null);
@@ -946,6 +956,63 @@ export default function ContentManager({ data }: EtViewProps) {
   const kanbanFields = visibleFields.filter(
     (field) => field.type === "select" || field.type === "string" || field.type === "text"
   );
+  const kanbanGroupField =
+    kanbanFields.find((field) => field.name === kanbanField) ?? kanbanFields[0];
+  const kanbanCardFields = visibleFields.filter(
+    (field) =>
+      field.name !== selected?.primary_key && !is_alias_field(field)
+  );
+  const kanbanResolvedTitleField =
+    kanbanCardFields.find((field) => field.name === kanbanTitleField) ??
+    kanbanCardFields.find((field) => field.type === "string" || field.type === "text") ??
+    kanbanCardFields[0];
+  const kanbanResolvedTextField =
+    kanbanTextField === "none"
+      ? undefined
+      : kanbanCardFields.find(
+          (field) =>
+            field.name === kanbanTextField &&
+            field.name !== kanbanResolvedTitleField?.name
+        ) ??
+        kanbanCardFields.find(
+          (field) => field.name !== kanbanResolvedTitleField?.name
+        );
+  const moveKanbanRecord = async (rowId: string, targetValue: unknown) => {
+    if (!selected || !kanbanGroupField || kanbanGroupField.readonly || kanbanUpdating) {
+      return;
+    }
+    const record = records.find(
+      (item, index) =>
+        String(item[selected.primary_key] ?? index) === rowId
+    );
+    if (!record || Object.is(record[kanbanGroupField.name], targetValue)) return;
+
+    const previousRecords = records;
+    setRecords((current) =>
+      current.map((item, index) =>
+        String(item[selected.primary_key] ?? index) === rowId
+          ? { ...item, [kanbanGroupField.name]: targetValue }
+          : item
+      )
+    );
+    setKanbanUpdating(true);
+    setKanbanDraggedRecordId(null);
+    setKanbanDropTargetKey(null);
+    try {
+      await cms_call("data_record_update", {
+        collection: selected.name,
+        id: record[selected.primary_key],
+        values: { [kanbanGroupField.name]: targetValue },
+      });
+      toast.success(`Record moved to ${String(targetValue ?? "No value")}.`);
+      await refresh(selected.name, page);
+    } catch (error) {
+      setRecords(previousRecords);
+      toast.error(error instanceof Error ? error.message : "Could not move the record.");
+    } finally {
+      setKanbanUpdating(false);
+    }
+  };
   const mapFields = visibleFields.filter(
     (field) => field.interface === "map" || field.type === "json"
   );
@@ -2147,7 +2214,7 @@ export default function ContentManager({ data }: EtViewProps) {
                                 className={cn(
                                   "h-8 rounded-md px-3 text-sm capitalize transition-colors hover:bg-muted",
                                   calendarView === view
-                                    ? "font-bold text-foreground"
+                                    ? "font-semibold text-foreground"
                                     : "font-normal text-muted-foreground"
                                 )}
                               >
@@ -2311,41 +2378,148 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               ) : displayLayout === "kanban" ? (
                 (() => {
-                  const groupField = kanbanField || kanbanFields[0]?.name;
-                  const groups = new Map<string, Record<string, unknown>[]>();
-                  for (const record of records) {
-                    const value = groupField ? record[groupField] : undefined;
-                    const key = value === null || value === undefined || value === "" ? "No value" : String(value);
-                    groups.set(key, [...(groups.get(key) ?? []), record]);
+                  const groupField = kanbanGroupField;
+                  const groups = new Map<
+                    string,
+                    {
+                      label: string;
+                      value: unknown;
+                      records: { record: Record<string, unknown>; index: number }[];
+                    }
+                  >();
+                  const configuredChoices = groupField
+                    ? field_choices(groupField)
+                    : [];
+                  for (const choice of configuredChoices) {
+                    const key = String(choice.value);
+                    groups.set(key, {
+                      label: choice.text,
+                      value: choice.value,
+                      records: [],
+                    });
                   }
+                  records.forEach((record, index) => {
+                    const rawValue = groupField ? record[groupField.name] : undefined;
+                    const key =
+                      rawValue === null || rawValue === undefined || rawValue === ""
+                        ? "__no_value__"
+                        : String(rawValue);
+                    const configuredChoice = configuredChoices.find(
+                      (choice) => String(choice.value) === key
+                    );
+                    const label = configuredChoice?.text ?? (key === "__no_value__" ? "No value" : key);
+                    const group = groups.get(key) ?? {
+                      label,
+                      value: rawValue ?? null,
+                      records: [],
+                    };
+                    group.records.push({ record, index });
+                    groups.set(key, group);
+                  });
+                  const columns = Array.from(groups.entries()).map(([key, group]) => ({
+                    key,
+                    label: group.label,
+                    value: group.value,
+                    records: group.records,
+                  }));
                   return !groupField ? (
                     <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Add a text or select field to group Kanban cards.</p>
                   ) : (
-                    <div className="flex gap-3 overflow-x-auto pb-2">
-                      {Array.from(groups.entries()).map(([group, groupRecords]) => (
-                        <section key={group} className="w-64 shrink-0 rounded-xl bg-muted/40 p-3">
-                          <h3 className="mb-3 flex items-center justify-between text-xs font-semibold">
-                            <span className="truncate">{group}</span>
-                            <Badge variant="outline">{groupRecords.length}</Badge>
+                    <div className="min-h-0 flex-1 overflow-x-auto pt-3">
+                      <div className="flex h-full w-max flex-col">
+                        <div className="flex min-h-0 flex-1 items-stretch">
+                          {columns.map(({ key, label, value, records: groupRecords }, index) => (
+                            <Fragment key={key}>
+                              <section
+                          onDragOver={(event) => {
+                            if (!kanbanGroupField.readonly && kanbanDraggedRecordId) {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setKanbanDropTargetKey(key);
+                            }
+                          }}
+                          onDragLeave={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                              setKanbanDropTargetKey((current) => current === key ? null : current);
+                            }
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            const rowId =
+                              kanbanDraggedRecordId ||
+                              event.dataTransfer.getData("text/plain");
+                            setKanbanDropTargetKey(null);
+                            if (rowId) void moveKanbanRecord(rowId, value);
+                          }}
+                          className={cn(
+                            "flex w-80 shrink-0 flex-col rounded-xl border p-3 transition-colors duration-200",
+                            kanbanDropTargetKey === key
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-muted/50"
+                          )}
+                        >
+                          <h3 className="mb-3 flex shrink-0 items-center gap-2 pl-2 text-sm font-semibold">
+                            <span className="truncate">{label}</span>
+                            <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-border text-3xs font-semibold tabular-nums text-foreground">
+                              {groupRecords.length}
+                            </span>
                           </h3>
-                          <div className="space-y-2">
-                            {groupRecords.map((record, index) => {
+                          <div className="min-h-24 flex-1 space-y-2">
+                            {groupRecords.map(({ record, index }) => {
                               const rowId = String(record[selected.primary_key] ?? index);
-                              return (
-                                <button key={rowId} type="button" onClick={() => openEditRecord(record)} className="w-full rounded-lg border border-border bg-card p-3 text-left hover:bg-surface-subtle">
-                                  <span className="mb-2 block font-mono text-xs text-muted-foreground">#{rowId}</span>
-                                  {tableFields.filter((field) => field.name !== groupField).slice(0, 3).map((field) => (
-                                    <span key={field.name} className="mb-1 block truncate text-xs">
-                                      <span className="text-muted-foreground">{field.label || field.name}: </span>
-                                      <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
+                              return <button
+                                  key={rowId}
+                                  type="button"
+                                  draggable={!kanbanGroupField.readonly && !kanbanUpdating}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", rowId);
+                                    setKanbanDraggedRecordId(rowId);
+                                  }}
+                                  onDragEnd={() => {
+                                    setKanbanDraggedRecordId(null);
+                                    setKanbanDropTargetKey(null);
+                                  }}
+                                  onClick={() => openEditRecord(record)}
+                                  className={cn(
+                                    "min-h-24 w-full cursor-grab rounded-xl border border-border bg-card p-5 text-left transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface-subtle active:cursor-grabbing",
+                                    kanbanDraggedRecordId === rowId &&
+                                      "scale-95 border-primary bg-primary/10 opacity-80"
+                                  )}
+                                >
+                                  <span className="block truncate text-sm font-semibold">
+                                    {kanbanResolvedTitleField ? (
+                                      <FieldValueDisplay
+                                        field={kanbanResolvedTitleField}
+                                        value={record[kanbanResolvedTitleField.name]}
+                                        userLabel={userLabels[String(record[kanbanResolvedTitleField.name])]}
+                                      />
+                                    ) : `#${rowId}`}
+                                  </span>
+                                  {kanbanResolvedTextField ? (
+                                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                                      <FieldValueDisplay
+                                        field={kanbanResolvedTextField}
+                                        value={record[kanbanResolvedTextField.name]}
+                                        userLabel={userLabels[String(record[kanbanResolvedTextField.name])]}
+                                      />
                                     </span>
-                                  ))}
+                                  ) : null}
                                 </button>
-                              );
                             })}
+                            {groupRecords.length === 0 ? (
+                              <p className="px-1 py-2 text-xs text-muted-foreground">No records</p>
+                            ) : null}
                           </div>
-                        </section>
-                      ))}
+                              </section>
+                              {index < columns.length - 1 ? (
+                                <div aria-hidden="true" className="w-4 shrink-0 bg-card" />
+                              ) : null}
+                            </Fragment>
+                          ))}
+                        </div>
+                        <div aria-hidden="true" className="h-3 shrink-0 bg-card" />
+                      </div>
                     </div>
                   );
                 })()
@@ -2810,21 +2984,53 @@ export default function ContentManager({ data }: EtViewProps) {
               </>
             ) : null}
             {displayLayout === "kanban" ? (
-              <label className="block space-y-1.5 text-xs text-muted-foreground">
-                Group cards by
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  value={kanbanField}
-                  onChange={(event) => setKanbanField(event.target.value)}
-                >
-                  <option value="">Choose a field</option>
-                  {kanbanFields.map((field) => (
-                    <option key={field.name} value={field.name}>
-                      {field.label || field.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  Group By
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={kanbanGroupField?.name ?? ""}
+                    onChange={(event) => setKanbanField(event.target.value)}
+                  >
+                    {kanbanFields.map((field) => (
+                      <option key={field.name} value={field.name}>
+                        {field.label || field.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  Card Title
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={kanbanResolvedTitleField?.name ?? ""}
+                    onChange={(event) => setKanbanTitleField(event.target.value)}
+                  >
+                    {kanbanCardFields.map((field) => (
+                      <option key={field.name} value={field.name}>
+                        {field.label || field.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  Card Text
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={kanbanResolvedTextField?.name ?? "none"}
+                    onChange={(event) => setKanbanTextField(event.target.value)}
+                  >
+                    <option value="none">No card text</option>
+                    {kanbanCardFields
+                      .filter((field) => field.name !== kanbanResolvedTitleField?.name)
+                      .map((field) => (
+                        <option key={field.name} value={field.name}>
+                          {field.label || field.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </>
             ) : null}
           </section>
 
