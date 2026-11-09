@@ -6,17 +6,24 @@ import {
   ArrowLeft,
   ArrowDown,
   ArrowUp,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  Columns3,
   Database,
   GripVertical,
+  LayoutGrid,
   Layers,
   Loader2,
+  MapPin,
+  MessageSquareText,
   Pencil,
   Plus,
   Search,
   RefreshCw,
+  Send,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -42,6 +49,7 @@ import {
   is_system_sort_field,
   is_alias_field,
 } from "./field-inputs";
+import { MapCanvas } from "./field-inputs/MapCanvas";
 import { BusyButton, EmptyState, cms_call } from "./ui";
 
 interface Snapshot {
@@ -58,6 +66,78 @@ interface Snapshot {
   csrf_token?: string;
   media_upload_url?: string;
   media_api_root?: string;
+}
+
+type DisplayLayout = "table" | "cards" | "calendar" | "kanban" | "map";
+type FilterOperator =
+  | "_eq"
+  | "_neq"
+  | "_contains"
+  | "_gt"
+  | "_gte"
+  | "_lt"
+  | "_lte"
+  | "_null";
+
+interface FilterRule {
+  id: string;
+  field: string;
+  operator: FilterOperator;
+  value: string;
+}
+
+function filter_payload(
+  rules: FilterRule[],
+  fields: CmsField[]
+): Record<string, unknown> | undefined {
+  const conditions = rules.map((rule) => {
+    let value: unknown = rule.value;
+    if (rule.operator === "_null") value = true;
+    else if (
+      fields.some(
+        (field) =>
+          field.name === rule.field &&
+          (field.type === "integer" || field.type === "decimal")
+      )
+    ) {
+      value = Number(rule.value);
+    }
+    return { [rule.field]: { [rule.operator]: value } };
+  });
+  return conditions.length ? { _and: conditions } : undefined;
+}
+
+function coordinates(value: unknown): { latitude: number; longitude: number } | null {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (
+    Array.isArray(parsed) &&
+    parsed.length >= 2 &&
+    Number.isFinite(Number(parsed[0])) &&
+    Number.isFinite(Number(parsed[1]))
+  ) {
+    return { longitude: Number(parsed[0]), latitude: Number(parsed[1]) };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const point = parsed as Record<string, unknown>;
+  const rawCoordinates = point.coordinates;
+  const latitude = Number(
+    point.latitude ?? point.lat ??
+      (Array.isArray(rawCoordinates) ? rawCoordinates[1] : undefined)
+  );
+  const longitude = Number(
+    point.longitude ?? point.lng ?? point.lon ??
+      (Array.isArray(rawCoordinates) ? rawCoordinates[0] : undefined)
+  );
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
 }
 
 function record_defaults(fields: CmsField[]): Record<string, unknown> {
@@ -198,6 +278,16 @@ export default function ContentManager({ data }: EtViewProps) {
   const [reordering, setReordering] = useState(false);
   const [draggedRecordId, setDraggedRecordId] = useState<string | null>(null);
   const [dropTargetRecordId, setDropTargetRecordId] = useState<string | null>(null);
+  const [displayLayout, setDisplayLayout] = useState<DisplayLayout>("table");
+  const [viewPanelOpen, setViewPanelOpen] = useState(false);
+  const [columnPreferences, setColumnPreferences] = useState<Record<string, string[]>>({});
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [draftFilterRules, setDraftFilterRules] = useState<FilterRule[]>([]);
+  const [calendarField, setCalendarField] = useState("");
+  const [kanbanField, setKanbanField] = useState("");
+  const [mapField, setMapField] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<string[]>([]);
 
   // Record Form state
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
@@ -218,13 +308,19 @@ export default function ContentManager({ data }: EtViewProps) {
   }, []);
 
   const refresh = useCallback(
-    async (collectionName?: string, nextPage = 1, nextSearch = search) => {
+    async (
+      collectionName?: string,
+      nextPage = 1,
+      nextSearch = search,
+      nextFilters = filterRules
+    ) => {
       setBusy(true);
       try {
         const snapshot = await cms_call<Snapshot>("data_state", {
           collection: collectionName ?? selected?.name ?? "",
           page: nextPage,
           search: nextSearch,
+          filter: filter_payload(nextFilters, fields),
         });
         applySnapshot(snapshot);
       } catch (error) {
@@ -233,14 +329,19 @@ export default function ContentManager({ data }: EtViewProps) {
         setBusy(false);
       }
     },
-    [applySnapshot, search, selected]
+    [applySnapshot, fields, filterRules, search, selected]
   );
 
   const selectCollection = useCallback(
     async (name: string) => {
       setViewMode("table");
       setSelectedRowIds(new Set());
-      await refresh(name, 1, "");
+      setFilterRules([]);
+      setDraftFilterRules([]);
+      setCalendarField("");
+      setKanbanField("");
+      setMapField("");
+      await refresh(name, 1, "", []);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("collection", name);
@@ -256,6 +357,38 @@ export default function ContentManager({ data }: EtViewProps) {
       await refresh(selected?.name, 1, searchInput.trim());
     },
     [refresh, searchInput, selected?.name]
+  );
+
+  const applyFilters = useCallback(() => {
+    const invalidRule = draftFilterRules.find(
+      (rule) =>
+        rule.operator !== "_null" &&
+        (!rule.value.trim() ||
+          (fields.some(
+            (field) =>
+              field.name === rule.field &&
+              (field.type === "integer" || field.type === "decimal")
+          ) &&
+            Number.isNaN(Number(rule.value))))
+    );
+    if (invalidRule) {
+      toast.error("Enter a valid value for each filter or choose an empty-value operator.");
+      return;
+    }
+    setSelectedRowIds(new Set());
+    setFilterRules(draftFilterRules);
+    void refresh(selected?.name, 1, search, draftFilterRules);
+  }, [draftFilterRules, fields, refresh, search, selected?.name]);
+
+  const removeFilter = useCallback(
+    (id: string) => {
+      const next = filterRules.filter((rule) => rule.id !== id);
+      setSelectedRowIds(new Set());
+      setFilterRules(next);
+      setDraftFilterRules((rules) => rules.filter((rule) => rule.id !== id));
+      void refresh(selected?.name, 1, search, next);
+    },
+    [filterRules, refresh, search, selected?.name]
   );
 
   const openCreateRecord = useCallback(() => {
@@ -389,19 +522,33 @@ export default function ContentManager({ data }: EtViewProps) {
     !search.trim() &&
     !searchInput.trim() &&
     viewMode === "table";
-  const tableFields = useMemo(
-    () => {
-      const available = visibleFields.filter(
+  const availableTableFields = useMemo(
+    () =>
+      visibleFields.filter(
         (field) =>
           field.name !== selected?.primary_key && !is_alias_field(field)
-      );
-      const shown = available.slice(0, 8);
-      if (sortField && !shown.some((field) => field.name === sortField.name)) {
-        return [...available.slice(0, 7), sortField];
-      }
-      return shown;
-    },
-    [selected?.primary_key, sortField, visibleFields]
+      ),
+    [selected?.primary_key, visibleFields]
+  );
+  const tableFields = useMemo(() => {
+    const saved = selected ? columnPreferences[selected.name] : undefined;
+    if (saved) {
+      return saved
+        .map((name) => availableTableFields.find((field) => field.name === name))
+        .filter((field): field is CmsField => Boolean(field));
+    }
+    const shown = availableTableFields.slice(0, 8);
+    if (sortField && !shown.some((field) => field.name === sortField.name)) {
+      return [...availableTableFields.slice(0, 7), sortField];
+    }
+    return shown;
+  }, [availableTableFields, columnPreferences, selected, sortField]);
+  const dateFields = visibleFields.filter((field) => field.type === "datetime");
+  const kanbanFields = visibleFields.filter(
+    (field) => field.type === "select" || field.type === "string" || field.type === "text"
+  );
+  const mapFields = visibleFields.filter(
+    (field) => field.interface === "map" || field.type === "json"
   );
   const formFields = useMemo(
     () =>
@@ -599,6 +746,19 @@ export default function ContentManager({ data }: EtViewProps) {
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
+            {selected ? (
+              <Button
+                type="button"
+                variant={viewPanelOpen ? "secondary" : "outline"}
+                size="sm"
+                className="h-8 rounded-full"
+                aria-expanded={viewPanelOpen}
+                onClick={() => setViewPanelOpen((open) => !open)}
+              >
+                <SlidersHorizontal className="size-3.5" />
+                View options
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -637,7 +797,8 @@ export default function ContentManager({ data }: EtViewProps) {
         />
       </div>
 
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-5 lg:flex-row">
+      <div className="min-w-0 flex-1">
           {!selected ? (
             <div className="py-16 text-center">
               <EmptyState
@@ -660,7 +821,7 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           ) : viewMode === "record-form" ? (
             /* RECORD FORM WORKING AREA */
-            <div className="max-w-3xl space-y-6">
+            <div className="w-full md:w-4/5 space-y-6">
               {formFields.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   This collection has no fields. Go to Data Studio to add columns.
@@ -750,7 +911,7 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
               ) : null}
 
-              {/* Data Table */}
+              {displayLayout === "table" ? (
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <div className="app-scrollbar overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -1006,7 +1167,7 @@ export default function ContentManager({ data }: EtViewProps) {
                         variant="outline"
                         size="icon-xs"
                         disabled={page <= 1 || busy}
-                        onClick={() => refresh(selected.name, page - 1)}
+                        onClick={() => refresh(selected?.name, page - 1)}
                       >
                         <ChevronLeft className="size-3.5" />
                       </Button>
@@ -1015,7 +1176,7 @@ export default function ContentManager({ data }: EtViewProps) {
                         variant="outline"
                         size="icon-xs"
                         disabled={page >= pages || busy}
-                        onClick={() => refresh(selected.name, page + 1)}
+                        onClick={() => refresh(selected?.name, page + 1)}
                       >
                         <ChevronRight className="size-3.5" />
                       </Button>
@@ -1023,8 +1184,492 @@ export default function ContentManager({ data }: EtViewProps) {
                   </div>
                 ) : null}
               </div>
+              ) : displayLayout === "cards" ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {records.map((record, index) => {
+                    const rowId = String(record[selected.primary_key] ?? index);
+                    return (
+                      <article
+                        key={rowId}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openEditRecord(record)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") openEditRecord(record);
+                        }}
+                        className="cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-subtle"
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="truncate font-mono text-xs text-muted-foreground">#{rowId}</span>
+                          <Pencil className="size-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-3">
+                          {tableFields.slice(0, 4).map((field) => (
+                            <div key={field.name} className="min-w-0">
+                              <p className="text-xs font-medium text-muted-foreground">{field.label || field.name}</p>
+                              <div className="truncate text-sm">
+                                <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {records.length === 0 ? <p className="col-span-full py-12 text-center text-sm text-muted-foreground">No records to display.</p> : null}
+                </div>
+              ) : displayLayout === "calendar" ? (
+                <div className="space-y-3">
+                  {!calendarField && dateFields.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Add a date/time field to this collection to use the calendar layout.</p>
+                  ) : records.map((record, index) => {
+                    const rowId = String(record[selected.primary_key] ?? index);
+                    const rawDate = record[calendarField || dateFields[0]?.name];
+                    const date = rawDate ? new Date(String(rawDate)) : null;
+                    const dateLabel = date && !Number.isNaN(date.getTime())
+                      ? date.toLocaleString()
+                      : "No date";
+                    return (
+                      <button key={rowId} type="button" onClick={() => openEditRecord(record)} className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-surface-subtle">
+                        <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-medium text-muted-foreground">{dateLabel}</span>
+                          <span className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                            {tableFields.slice(0, 3).map((field) => (
+                              <span key={field.name} className="max-w-full truncate text-sm">
+                                <span className="text-muted-foreground">{field.label || field.name}: </span>
+                                <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : displayLayout === "kanban" ? (
+                (() => {
+                  const groupField = kanbanField || kanbanFields[0]?.name;
+                  const groups = new Map<string, Record<string, unknown>[]>();
+                  for (const record of records) {
+                    const value = groupField ? record[groupField] : undefined;
+                    const key = value === null || value === undefined || value === "" ? "No value" : String(value);
+                    groups.set(key, [...(groups.get(key) ?? []), record]);
+                  }
+                  return !groupField ? (
+                    <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Add a text or select field to group Kanban cards.</p>
+                  ) : (
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {Array.from(groups.entries()).map(([group, groupRecords]) => (
+                        <section key={group} className="w-64 shrink-0 rounded-xl bg-muted/40 p-3">
+                          <h3 className="mb-3 flex items-center justify-between text-xs font-semibold">
+                            <span className="truncate">{group}</span>
+                            <Badge variant="outline">{groupRecords.length}</Badge>
+                          </h3>
+                          <div className="space-y-2">
+                            {groupRecords.map((record, index) => {
+                              const rowId = String(record[selected.primary_key] ?? index);
+                              return (
+                                <button key={rowId} type="button" onClick={() => openEditRecord(record)} className="w-full rounded-lg border border-border bg-card p-3 text-left hover:bg-surface-subtle">
+                                  <span className="mb-2 block font-mono text-xs text-muted-foreground">#{rowId}</span>
+                                  {tableFields.filter((field) => field.name !== groupField).slice(0, 3).map((field) => (
+                                    <span key={field.name} className="mb-1 block truncate text-xs">
+                                      <span className="text-muted-foreground">{field.label || field.name}: </span>
+                                      <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
+                                    </span>
+                                  ))}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  );
+                })()
+              ) : (
+                (() => {
+                  const locationField = mapField || mapFields[0]?.name;
+                  const points = records.flatMap((record, index) => {
+                    const point = locationField ? coordinates(record[locationField]) : null;
+                    return point ? [{ record, index, ...point }] : [];
+                  });
+                  return (
+                    <div className="space-y-3">
+                      {mapFields.length > 0 ? (
+                        <label className="flex max-w-sm items-center gap-2 text-xs text-muted-foreground">
+                          Location field
+                          <select
+                            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                            value={locationField}
+                            onChange={(event) => setMapField(event.target.value)}
+                          >
+                            {mapFields.map((field) => (
+                              <option key={field.name} value={field.name}>{field.label || field.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {points.length > 0 ? (
+                        <>
+                          <MapCanvas
+                            provider="openstreetmap"
+                            apiKey=""
+                            geometryType="MultiPoint"
+                            coordinates={points.map((point) => [
+                              point.longitude,
+                              point.latitude,
+                            ])}
+                            center={{
+                              lat: points.reduce((sum, point) => sum + point.latitude, 0) / points.length,
+                              lng: points.reduce((sum, point) => sum + point.longitude, 0) / points.length,
+                            }}
+                            zoom={points.length === 1 ? 12 : 4}
+                            height={420}
+                            disabled
+                            pointSelected={false}
+                            onClearPoint={() => {}}
+                            onMapClick={() => {}}
+                          />
+                          <div className="grid gap-3 sm:grid-cols-2" role="region" aria-label="Record locations">
+                            {points.map((point) => {
+                              const rowId = String(point.record[selected.primary_key] ?? point.index);
+                              return (
+                                <button
+                                  key={rowId}
+                                  type="button"
+                                  title={`Record #${rowId}`}
+                                  aria-label={`Open record ${rowId}`}
+                                  onClick={() => openEditRecord(point.record)}
+                                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-surface-subtle"
+                                >
+                                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                                  <span className="min-w-0">
+                                    <span className="block font-mono text-xs text-muted-foreground">
+                                      #{rowId}
+                                    </span>
+                                    <span className="mt-1 block text-sm">
+                                      {point.latitude}, {point.longitude}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Showing {points.length} location {points.length === 1 ? "record" : "records"} from this page.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                          {mapFields.length
+                            ? "No values in this field contain latitude and longitude coordinates."
+                            : "Add a JSON or map field with latitude and longitude values to plot records."}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
             </div>
           )}
+          {displayLayout !== "table" && pages > 1 ? (
+            <div className="flex items-center justify-between border-t border-border py-3 text-xs text-muted-foreground">
+              <span>Page {page} of {pages} ({total} records)</span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-xs"
+                  disabled={page <= 1 || busy}
+                  onClick={() => refresh(selected?.name, page - 1)}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-xs"
+                  disabled={page >= pages || busy}
+                  onClick={() => refresh(selected?.name, page + 1)}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+      </div>
+
+      {selected && viewMode === "table" && viewPanelOpen ? (
+        <aside className="w-full shrink-0 space-y-5 rounded-xl border border-border bg-card p-4 lg:w-80">
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Layout</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["table", "Table"],
+                ["cards", "Cards"],
+                ["calendar", "Calendar"],
+                ["kanban", "Kanban"],
+                ["map", "Map"],
+              ] as const).map(([layout, label]) => (
+                <Button
+                  key={layout}
+                  type="button"
+                  variant={displayLayout === layout ? "secondary" : "outline"}
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => setDisplayLayout(layout)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            {displayLayout === "calendar" ? (
+              <label className="block space-y-1.5 text-xs text-muted-foreground">
+                Date field
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  value={calendarField}
+                  onChange={(event) => setCalendarField(event.target.value)}
+                >
+                  <option value="">Choose a date field</option>
+                  {dateFields.map((field) => (
+                    <option key={field.name} value={field.name}>
+                      {field.label || field.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {displayLayout === "kanban" ? (
+              <label className="block space-y-1.5 text-xs text-muted-foreground">
+                Group cards by
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  value={kanbanField}
+                  onChange={(event) => setKanbanField(event.target.value)}
+                >
+                  <option value="">Choose a field</option>
+                  {kanbanFields.map((field) => (
+                    <option key={field.name} value={field.name}>
+                      {field.label || field.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </section>
+
+          <section className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center gap-2">
+              <Columns3 className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Columns</h2>
+            </div>
+            <div className="space-y-1">
+              {availableTableFields.map((field) => {
+                const isVisible = tableFields.some((item) => item.name === field.name);
+                const visibleIndex = tableFields.findIndex((item) => item.name === field.name);
+                return (
+                  <div key={field.name} className="flex items-center gap-1 rounded-md px-1 py-1 hover:bg-muted/50">
+                    <Checkbox
+                      checked={isVisible}
+                      aria-label={`Show ${field.label || field.name}`}
+                      onCheckedChange={(checked) => {
+                        const current = selected ? columnPreferences[selected.name] : undefined;
+                        const names = current ?? tableFields.map((item) => item.name);
+                        const next = checked
+                          ? [...names, field.name]
+                          : names.filter((name) => name !== field.name);
+                        setColumnPreferences((preferences) => ({
+                          ...preferences,
+                          [selected.name]: next,
+                        }));
+                      }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      {field.label || field.name}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`Move ${field.name} up`}
+                      disabled={!isVisible || visibleIndex <= 0}
+                      onClick={() => {
+                        const names = tableFields.map((item) => item.name);
+                        const position = names.indexOf(field.name);
+                        [names[position - 1], names[position]] = [names[position], names[position - 1]];
+                        setColumnPreferences((preferences) => ({
+                          ...preferences,
+                          [selected.name]: names,
+                        }));
+                      }}
+                    >
+                      <ArrowUp className="size-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`Move ${field.name} down`}
+                      disabled={!isVisible || visibleIndex < 0 || visibleIndex >= tableFields.length - 1}
+                      onClick={() => {
+                        const names = tableFields.map((item) => item.name);
+                        const position = names.indexOf(field.name);
+                        [names[position + 1], names[position]] = [names[position], names[position + 1]];
+                        setColumnPreferences((preferences) => ({
+                          ...preferences,
+                          [selected.name]: names,
+                        }));
+                      }}
+                    >
+                      <ArrowDown className="size-3" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Advanced filters</h2>
+            </div>
+            {filterRules.length ? (
+              <div className="space-y-1.5">
+                {filterRules.map((rule) => (
+                  <div key={rule.id} className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+                    <span className="min-w-0 flex-1 truncate">
+                      {fields.find((field) => field.name === rule.field)?.label || rule.field}{" "}
+                      {rule.operator.replaceAll("_", " ")}{" "}
+                      {rule.operator === "_null" ? "empty" : rule.value}
+                    </span>
+                    <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove filter" onClick={() => removeFilter(rule.id)}>
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No filters applied.</p>
+            )}
+            <div className="space-y-2">
+              {draftFilterRules.map((rule) => (
+                <div key={rule.id} className="space-y-1.5 rounded-lg border border-border p-2">
+                  <select
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    value={rule.field}
+                    onChange={(event) =>
+                      setDraftFilterRules((rules) =>
+                        rules.map((item) => item.id === rule.id ? { ...item, field: event.target.value } : item)
+                      )
+                    }
+                    aria-label="Filter field"
+                  >
+                    {visibleFields.map((field) => (
+                      <option key={field.name} value={field.name}>{field.label || field.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    value={rule.operator}
+                    onChange={(event) =>
+                      setDraftFilterRules((rules) =>
+                        rules.map((item) => item.id === rule.id ? { ...item, operator: event.target.value as FilterOperator } : item)
+                      )
+                    }
+                    aria-label="Filter operator"
+                  >
+                    <option value="_eq">is</option>
+                    <option value="_neq">is not</option>
+                    <option value="_contains">contains</option>
+                    <option value="_gt">greater than</option>
+                    <option value="_gte">at least</option>
+                    <option value="_lt">less than</option>
+                    <option value="_lte">at most</option>
+                    <option value="_null">is empty</option>
+                  </select>
+                  {rule.operator !== "_null" ? (
+                    <Input
+                      value={rule.value}
+                      onChange={(event) =>
+                        setDraftFilterRules((rules) =>
+                          rules.map((item) => item.id === rule.id ? { ...item, value: event.target.value } : item)
+                        )
+                      }
+                      placeholder="Filter value"
+                      className="h-8 text-xs"
+                    />
+                  ) : null}
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() =>
+                    setDraftFilterRules((rules) => [
+                      ...rules,
+                      {
+                        id: `${Date.now()}-${rules.length}`,
+                        field: visibleFields[0]?.name ?? "",
+                        operator: "_contains",
+                        value: "",
+                      },
+                    ])
+                  }
+                  disabled={visibleFields.length === 0}
+                >
+                  Add filter
+                </Button>
+                <Button type="button" size="sm" onClick={applyFilters} disabled={draftFilterRules.length === 0}>
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center gap-2">
+              <MessageSquareText className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Ask AI about your data</h2>
+            </div>
+            <div className="max-h-40 min-h-16 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
+              {chatMessages.length === 0 ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Ask a question about this collection. AI chat is a UI preview and is not connected yet.
+                </p>
+              ) : chatMessages.map((message, index) => (
+                <p key={`${index}-${message}`} className="ml-auto w-fit max-w-[90%] rounded-lg bg-primary px-2.5 py-1.5 text-xs text-primary-foreground">
+                  {message}
+                </p>
+              ))}
+            </div>
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!chatInput.trim()) return;
+                setChatMessages((messages) => [...messages, chatInput.trim()]);
+                setChatInput("");
+              }}
+            >
+              <Input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Ask about your records..." className="h-9 min-w-0 text-xs" />
+              <Button type="submit" size="icon" className="size-9 shrink-0" aria-label="Send question" disabled={!chatInput.trim()}>
+                <Send className="size-4" />
+              </Button>
+            </form>
+          </section>
+        </aside>
+      ) : null}
       </div>
 
       {confirm_dialog}

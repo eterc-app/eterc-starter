@@ -192,7 +192,8 @@ export default class Cms_admin extends Eterc {
     collectionName?: string,
     page = 1,
     search = "",
-    selectFirst = true
+    selectFirst = true,
+    filter?: Record<string, unknown>
   ): Record<string, unknown> {
     const collections = list_collections({ include_hidden: true });
     const selected =
@@ -217,6 +218,7 @@ export default class Cms_admin extends Eterc {
       page,
       limit: 20,
       search: search.trim() || undefined,
+      filter,
     });
     const hasUserAuditField = selected.fields.some(
       (field) =>
@@ -319,11 +321,16 @@ export default class Cms_admin extends Eterc {
   data_state() {
     this.principal();
     const payload = body();
+    const filter =
+      payload.filter && typeof payload.filter === "object" && !Array.isArray(payload.filter)
+        ? (payload.filter as Record<string, unknown>)
+        : undefined;
     return this.data_snapshot(
       text_value(payload.collection) || undefined,
       Math.max(1, number_value(payload.page, 1)),
       text_value(payload.search),
-      false
+      false,
+      filter
     );
   }
 
