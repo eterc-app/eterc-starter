@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -12,15 +19,20 @@ import {
   AlignRight,
   ArrowUp,
   ArrowUpAZ,
+  Box,
   CalendarDays,
   Check,
+  CircleCheck,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Columns3,
   Database,
   Filter,
   GripVertical,
   EyeOff,
+  Image as ImageIcon,
   LayoutGrid,
   Layers,
   Loader2,
@@ -55,6 +67,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { EtViewProps } from "@/engine/views-registry";
 import { cn } from "@/lib/utils";
 import type {
@@ -90,8 +109,42 @@ interface Snapshot {
 }
 
 type DisplayLayout = "table" | "cards" | "calendar" | "kanban" | "map";
+type CalendarView = "month" | "week" | "day" | "list";
 type SidebarSection = "layout" | "refresh" | "import" | "assistant";
 type ColumnAlignment = "left" | "center" | "right";
+
+const display_layouts: {
+  value: DisplayLayout;
+  label: string;
+  Icon: typeof LayoutGrid;
+}[] = [
+  { value: "table", label: "Table", Icon: Table2 },
+  { value: "cards", label: "Cards", Icon: LayoutGrid },
+  { value: "calendar", label: "Calendar", Icon: CalendarDays },
+  { value: "kanban", label: "Kanban", Icon: Columns3 },
+  { value: "map", label: "Map", Icon: MapPin },
+];
+
+const collection_layout_storage_key = "eterc-cms-content-layouts";
+const layout_storage_unavailable = "__layout_storage_unavailable__";
+const layout_storage_listeners = new Set<() => void>();
+
+function subscribe_layout_storage(listener: () => void): () => void {
+  layout_storage_listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    layout_storage_listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function get_layout_storage_snapshot(): string | null {
+  try {
+    return window.localStorage.getItem(collection_layout_storage_key);
+  } catch {
+    return layout_storage_unavailable;
+  }
+}
 
 interface ColumnSort {
   field: string;
@@ -133,6 +186,47 @@ function filter_payload(
     return { [rule.field]: { [rule.operator]: value } };
   });
   return conditions.length ? { _and: conditions } : undefined;
+}
+
+function is_display_layout(value: string): value is DisplayLayout {
+  return display_layouts.some((layout) => layout.value === value);
+}
+
+function pagination_items(
+  current: number,
+  total: number
+): (number | "start-ellipsis" | "end-ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  return [
+    1,
+    ...(start > 2 ? (["start-ellipsis"] as const) : []),
+    ...Array.from({ length: end - start + 1 }, (_, index) => start + index),
+    ...(end < total - 1 ? (["end-ellipsis"] as const) : []),
+    total,
+  ];
+}
+
+function parse_calendar_date(value: unknown): Date | null {
+  if (typeof value === "string") {
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (dateOnly) {
+      const [, year, month, day] = dateOnly;
+      const localDate = new Date(Number(year), Number(month) - 1, Number(day));
+      if (
+        localDate.getFullYear() === Number(year) &&
+        localDate.getMonth() === Number(month) - 1 &&
+        localDate.getDate() === Number(day)
+      ) {
+        return localDate;
+      }
+      return null;
+    }
+  }
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function coordinates(value: unknown): { latitude: number; longitude: number } | null {
@@ -359,7 +453,39 @@ export default function ContentManager({ data }: EtViewProps) {
   const [reordering, setReordering] = useState(false);
   const [draggedRecordId, setDraggedRecordId] = useState<string | null>(null);
   const [dropTargetRecordId, setDropTargetRecordId] = useState<string | null>(null);
-  const [displayLayout, setDisplayLayout] = useState<DisplayLayout>("table");
+  const savedLayoutPreferences = useSyncExternalStore(
+    subscribe_layout_storage,
+    get_layout_storage_snapshot,
+    () => null
+  );
+  const layoutPreferences = useMemo<Record<string, DisplayLayout>>(() => {
+    if (!savedLayoutPreferences || savedLayoutPreferences === layout_storage_unavailable) {
+      return {};
+    }
+    try {
+      const parsed: unknown = JSON.parse(savedLayoutPreferences);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Saved layout preferences are invalid.");
+      }
+      return Object.fromEntries(
+        Object.entries(parsed).filter(
+          ([, value]) => typeof value === "string" && is_display_layout(value)
+        )
+      ) as Record<string, DisplayLayout>;
+    } catch (error) {
+      console.error("Could not parse saved collection layouts.", error);
+      return {};
+    }
+  }, [savedLayoutPreferences]);
+  const displayLayout = selected
+    ? layoutPreferences[selected.name] ?? "table"
+    : "table";
+  const [cardSize, setCardSize] = useState<
+    "small" | "medium" | "large" | "extra-large"
+  >("small");
+  const [cardImageField, setCardImageField] = useState("auto");
+  const [cardTitleField, setCardTitleField] = useState("auto");
+  const [cardSubtitleField, setCardSubtitleField] = useState("auto");
   const [viewPanelCollapsed, setViewPanelCollapsed] = useState(true);
   const [sidebarSection, setSidebarSection] = useState<SidebarSection>("layout");
   const [columnSort, setColumnSort] = useState<ColumnSort | null>(null);
@@ -388,6 +514,13 @@ export default function ContentManager({ data }: EtViewProps) {
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [draftFilterRules, setDraftFilterRules] = useState<FilterRule[]>([]);
   const [calendarField, setCalendarField] = useState("");
+  const [calendarEndField, setCalendarEndField] = useState("");
+  const [calendarDisplayField, setCalendarDisplayField] = useState("");
+  const [calendarFirstDay, setCalendarFirstDay] = useState(0);
+  const [calendarView, setCalendarView] = useState<CalendarView>("month");
+  const [calendarRecordOffsets, setCalendarRecordOffsets] = useState<
+    Record<string, number>
+  >({});
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [kanbanField, setKanbanField] = useState("");
   const [mapField, setMapField] = useState("");
@@ -398,6 +531,30 @@ export default function ContentManager({ data }: EtViewProps) {
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
   const [recordValues, setRecordValues] = useState<Record<string, unknown>>({});
   const [recordSaving, setRecordSaving] = useState(false);
+
+  const setDisplayLayout = (layout: DisplayLayout) => {
+    if (!selected) return;
+    const next = { ...layoutPreferences, [selected.name]: layout };
+    try {
+      window.localStorage.setItem(
+        collection_layout_storage_key,
+        JSON.stringify(next)
+      );
+      layout_storage_listeners.forEach((listener) => listener());
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? `Could not save this collection's layout: ${error.message}`
+          : "Could not save this collection's layout."
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (savedLayoutPreferences === layout_storage_unavailable) {
+      toast.error("Could not access saved collection layouts in this browser.");
+    }
+  }, [savedLayoutPreferences]);
 
   const applySnapshot = useCallback((snapshot: Snapshot) => {
     setCollections(snapshot.collections ?? []);
@@ -455,6 +612,10 @@ export default function ContentManager({ data }: EtViewProps) {
       setFilterRules([]);
       setDraftFilterRules([]);
       setCalendarField("");
+      setCalendarEndField("");
+      setCalendarDisplayField("");
+      setCalendarView("month");
+      setCalendarRecordOffsets({});
       setKanbanField("");
       setMapField("");
       setColumnSort(null);
@@ -661,6 +822,22 @@ export default function ContentManager({ data }: EtViewProps) {
     }
     return shown;
   }, [availableTableFields, columnPreferences, selected, sortField]);
+  const cardSortFields = [
+    ...(selected &&
+    !fields.some((field) => field.name === selected.primary_key)
+      ? [{ name: selected.primary_key, label: selected.primary_key }]
+      : []),
+    ...fields
+      .filter((field) => !is_alias_field(field))
+      .map((field) => ({
+        name: field.name,
+        label: field.label || field.name,
+      })),
+  ];
+  const defaultCardSortField =
+    cardSortFields.find((field) => field.name.toLowerCase() === "id") ??
+    cardSortFields[0];
+  const nonTablePaginationItems = pagination_items(page, pages);
   const primaryKeyColumnVisible = selected
     ? primaryKeyColumnVisibility[selected.name] ?? true
     : true;
@@ -739,6 +916,33 @@ export default function ContentManager({ data }: EtViewProps) {
     }
   };
   const dateFields = visibleFields.filter((field) => field.type === "datetime");
+  const cardImageFields = visibleFields.filter(
+    (field) => field.type === "image" || field.interface === "image"
+  );
+  const cardTextFields = visibleFields.filter(
+    (field) =>
+      field.name !== selected?.primary_key &&
+      !is_alias_field(field) &&
+      (field.type === "string" || field.type === "text")
+  );
+  const resolvedCardImageField =
+    cardImageField === "none"
+      ? undefined
+      : cardImageFields.find((field) => field.name === cardImageField) ??
+        cardImageFields[0];
+  const resolvedCardTitleField =
+    cardTitleField === "none"
+      ? undefined
+      : cardTextFields.find((field) => field.name === cardTitleField) ??
+        cardTextFields[0];
+  const cardSubtitleFields = cardTextFields.filter(
+    (field) => field.name !== resolvedCardTitleField?.name
+  );
+  const resolvedCardSubtitleField =
+    cardSubtitleField === "none"
+      ? undefined
+      : cardSubtitleFields.find((field) => field.name === cardSubtitleField) ??
+        cardSubtitleFields[0];
   const kanbanFields = visibleFields.filter(
     (field) => field.type === "select" || field.type === "string" || field.type === "text"
   );
@@ -935,14 +1139,21 @@ export default function ContentManager({ data }: EtViewProps) {
     });
   };
 
+  const currentRecordIds = records.map((record, index) =>
+    String(record[selected?.primary_key ?? "id"] ?? index)
+  );
+  const allRecordsSelected =
+    currentRecordIds.length > 0 &&
+    currentRecordIds.every((id) => selectedRowIds.has(id));
   const toggleSelectAll = () => {
-    if (selectedRowIds.size === records.length && records.length > 0) {
-      setSelectedRowIds(new Set());
-    } else {
-      setSelectedRowIds(
-        new Set(records.map((r, i) => String(r[selected?.primary_key ?? "id"] ?? i)))
-      );
-    }
+    setSelectedRowIds((previous) => {
+      const next = new Set(previous);
+      for (const id of currentRecordIds) {
+        if (allRecordsSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   };
 
   return (
@@ -1035,7 +1246,7 @@ export default function ContentManager({ data }: EtViewProps) {
         )}
       </PageActionsPortal>
 
-      <div className="mb-4 shrink-0 md:hidden">
+      <div className="mb-1 shrink-0 md:hidden">
         <ContentSidebar
           collections={collections}
           activeName={selected?.name}
@@ -1139,7 +1350,12 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           ) : (
             /* TABLE WORKING AREA */
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                displayLayout === "cards" ? "gap-1" : "gap-4"
+              )}
+            >
               {displayLayout === "table" ? (
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
                 <div className="app-scrollbar min-h-0 flex-1 overflow-auto">
@@ -1153,9 +1369,7 @@ export default function ContentManager({ data }: EtViewProps) {
                         ) : null}
                         <th className="w-10 px-3 py-3 text-center">
                           <Checkbox
-                            checked={
-                              selectedRowIds.size === records.length && records.length > 0
-                            }
+                            checked={allRecordsSelected}
                             onCheckedChange={toggleSelectAll}
                             aria-label="Select all rows"
                             className="size-4 border-2"
@@ -1541,136 +1755,556 @@ export default function ContentManager({ data }: EtViewProps) {
                 ) : null}
               </div>
               ) : displayLayout === "cards" ? (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <>
+                <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-1">
+                  <button
+                    type="button"
+                    className={cn(
+                      "inline-flex cursor-pointer items-center gap-1.5 text-sm transition-colors",
+                      allRecordsSelected
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-pressed={allRecordsSelected}
+                    onClick={toggleSelectAll}
+                  >
+                    <CircleCheck
+                      className="size-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    Select All
+                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      title={`Card size: ${cardSize}. Change card size`}
+                      aria-label={`Card size: ${cardSize}. Change card size`}
+                      onClick={() =>
+                        setCardSize((size) =>
+                          size === "small"
+                            ? "medium"
+                            : size === "medium"
+                              ? "large"
+                              : size === "large"
+                                ? "extra-large"
+                                : "small"
+                        )
+                      }
+                    >
+                      <LayoutGrid className="size-4" />
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="cursor-pointer px-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label="Choose sort field"
+                        >
+                          {cardSortFields.find(
+                            (field) => field.name === columnSort?.field
+                          )?.label ?? defaultCardSortField?.label ?? "Sort by"}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {cardSortFields.map((field) => (
+                          <DropdownMenuItem
+                            key={field.name}
+                            onSelect={() =>
+                              applyColumnSort({
+                                field: field.name,
+                                direction: columnSort?.direction ?? "asc",
+                              })
+                            }
+                          >
+                            {columnSort?.field === field.name ? (
+                              <Check />
+                            ) : null}
+                            {field.label}
+                          </DropdownMenuItem>
+                        ))}
+                        {columnSort ? (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => applyColumnSort(null)}>
+                              Clear sort
+                            </DropdownMenuItem>
+                          </>
+                        ) : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <button
+                      type="button"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={
+                        columnSort?.direction === "desc"
+                          ? "Sort ascending"
+                          : "Sort descending"
+                      }
+                      title={
+                        columnSort?.direction === "desc"
+                          ? "Sort ascending"
+                          : "Sort descending"
+                      }
+                      disabled={!columnSort}
+                      onClick={() => {
+                        if (!columnSort) return;
+                        applyColumnSort({
+                          ...columnSort,
+                          direction:
+                            columnSort.direction === "asc" ? "desc" : "asc",
+                        });
+                      }}
+                    >
+                      {columnSort?.direction === "desc" ? (
+                        <ArrowDownAZ className="size-4" />
+                      ) : (
+                        <ArrowUpAZ className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "grid items-start gap-4",
+                    cardSize === "small"
+                      ? "grid-cols-3 sm:grid-cols-5 lg:grid-cols-7 2xl:grid-cols-9"
+                      : cardSize === "medium"
+                        ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8"
+                        : cardSize === "large"
+                          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5"
+                          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                  )}
+                >
                   {records.map((record, index) => {
                     const rowId = String(record[selected.primary_key] ?? index);
+                    const imageValue = resolvedCardImageField
+                      ? record[resolvedCardImageField.name]
+                      : undefined;
+                    const imageUrl =
+                      typeof imageValue === "string" ? imageValue : "";
                     return (
                       <article
                         key={rowId}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openEditRecord(record)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") openEditRecord(record);
-                        }}
-                        className="cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-subtle"
+                        className="relative min-w-0"
                       >
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                          <span className="truncate font-mono text-xs text-muted-foreground">#{rowId}</span>
-                          <Pencil className="size-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-3">
-                          {tableFields.slice(0, 4).map((field) => (
-                            <div key={field.name} className="min-w-0">
-                              <p className="text-xs font-medium text-muted-foreground">{field.label || field.name}</p>
-                              <div className="truncate text-sm">
-                                <FieldValueDisplay field={field} value={record[field.name]} userLabel={userLabels[String(record[field.name])]} />
-                              </div>
+                        <button
+                          type="button"
+                          aria-label={`${selectedRowIds.has(rowId) ? "Deselect" : "Select"} record ${rowId}`}
+                          aria-pressed={selectedRowIds.has(rowId)}
+                          onClick={() =>
+                            setRowSelected(rowId, !selectedRowIds.has(rowId))
+                          }
+                          className={cn(
+                            "absolute left-2 top-2 z-10 grid size-5 place-items-center rounded-full border-2 bg-card/90 transition-colors",
+                            selectedRowIds.has(rowId)
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border text-transparent hover:border-foreground"
+                          )}
+                        >
+                          {selectedRowIds.has(rowId) ? (
+                            <Check className="size-3.5" strokeWidth={2.5} />
+                          ) : null}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditRecord(record)}
+                          aria-label={`Edit record ${rowId}`}
+                          className="group block w-full overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/30 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                          <div className="relative aspect-square overflow-hidden bg-muted">
+                            <div className="absolute inset-0 grid place-items-center text-muted-foreground">
+                              <Box className="size-9" strokeWidth={1.5} />
                             </div>
-                          ))}
-                        </div>
+                            {imageUrl ? (
+                              <>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={imageUrl}
+                                  alt={resolvedCardImageField?.label || resolvedCardImageField?.name || "Record image"}
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                  }}
+                                  className="absolute inset-0 size-full object-cover"
+                                />
+                              </>
+                            ) : null}
+                          </div>
+                          {resolvedCardTitleField || resolvedCardSubtitleField ? (
+                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden px-3 py-2 text-sm">
+                              {resolvedCardTitleField ? (
+                                <span className="min-w-0 truncate font-semibold">
+                                  <FieldValueDisplay
+                                    field={resolvedCardTitleField}
+                                    value={record[resolvedCardTitleField.name]}
+                                    userLabel={userLabels[String(record[resolvedCardTitleField.name])]}
+                                  />
+                                </span>
+                              ) : null}
+                              {resolvedCardSubtitleField ? (
+                                <>
+                                  {resolvedCardTitleField ? (
+                                    <span className="shrink-0 text-muted-foreground">·</span>
+                                  ) : null}
+                                  <span className="min-w-0 truncate text-xs text-muted-foreground">
+                                    <FieldValueDisplay
+                                      field={resolvedCardSubtitleField}
+                                      value={record[resolvedCardSubtitleField.name]}
+                                      userLabel={userLabels[String(record[resolvedCardSubtitleField.name])]}
+                                    />
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <p className="truncate px-3 py-2 font-mono text-xs text-muted-foreground">
+                              #{rowId}
+                            </p>
+                          )}
+                        </button>
                       </article>
                     );
                   })}
                   {records.length === 0 ? <p className="col-span-full py-12 text-center text-sm text-muted-foreground">No records to display.</p> : null}
                 </div>
+                </>
               ) : displayLayout === "calendar" ? (
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  {!calendarField && dateFields.length === 0 ? (
-                    <p className="p-8 text-center text-sm text-muted-foreground">Add a date/time field to this collection to use the calendar layout.</p>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+                  {dateFields.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-muted-foreground">
+                      Add a date/time field to this collection to use the calendar layout.
+                    </p>
                   ) : (() => {
-                    const selectedDateField = calendarField || dateFields[0]?.name;
-                    const firstOfMonth = new Date(
-                      calendarMonth.getFullYear(),
-                      calendarMonth.getMonth(),
-                      1
+                    const selectedDateField =
+                      dateFields.find((field) => field.name === calendarField)?.name ??
+                      dateFields[0].name;
+                    const selectedEndField = dateFields.find(
+                      (field) => field.name === calendarEndField
+                    )?.name;
+                    const calendarDisplayFields = visibleFields.filter(
+                      (field) => !is_alias_field(field)
                     );
-                    const gridStart = new Date(
-                      firstOfMonth.getFullYear(),
-                      firstOfMonth.getMonth(),
-                      1 - firstOfMonth.getDay()
-                    );
-                    const days = Array.from({ length: 42 }, (_, dayIndex) => {
-                      const date = new Date(gridStart);
-                      date.setDate(gridStart.getDate() + dayIndex);
+                    const titleField =
+                      calendarDisplayFields.find(
+                        (field) => field.name === calendarDisplayField
+                      ) ?? calendarDisplayFields[0];
+                    const startOfPeriod = new Date(calendarMonth);
+                    if (calendarView === "month") {
+                      startOfPeriod.setDate(1);
+                      startOfPeriod.setDate(
+                        startOfPeriod.getDate() -
+                          ((startOfPeriod.getDay() - calendarFirstDay + 7) % 7)
+                      );
+                    } else if (calendarView === "week") {
+                      startOfPeriod.setDate(
+                        startOfPeriod.getDate() -
+                          ((startOfPeriod.getDay() - calendarFirstDay + 7) % 7)
+                      );
+                    }
+                    startOfPeriod.setHours(0, 0, 0, 0);
+                    const dayCount =
+                      calendarView === "month"
+                        ? 42
+                        : calendarView === "week"
+                          ? 7
+                          : 1;
+                    const days = Array.from({ length: dayCount }, (_, index) => {
+                      const date = new Date(startOfPeriod);
+                      date.setDate(startOfPeriod.getDate() + index);
                       return date;
                     });
-                    const recordsByDay = new Map<string, Record<string, unknown>[]>();
-                    for (const record of records) {
-                      const rawDate = selectedDateField ? record[selectedDateField] : undefined;
-                      if (!rawDate) continue;
-                      const date = new Date(String(rawDate));
-                      if (Number.isNaN(date.getTime())) continue;
-                      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-                      recordsByDay.set(key, [...(recordsByDay.get(key) ?? []), record]);
-                    }
+                    const dayKey = (date: Date) =>
+                      `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                    const recordsByDay = new Map<
+                      string,
+                      { record: Record<string, unknown>; index: number }[]
+                    >();
+                    const listRecords: {
+                      record: Record<string, unknown>;
+                      index: number;
+                      date: Date;
+                    }[] = [];
+                    records.forEach((record, index) => {
+                      const rawDate = record[selectedDateField];
+                      if (rawDate === null || rawDate === undefined || rawDate === "") return;
+                      const date = parse_calendar_date(rawDate);
+                      if (!date) return;
+                      date.setHours(0, 0, 0, 0);
+                      const rawEndDate = selectedEndField
+                        ? record[selectedEndField]
+                        : undefined;
+                      const parsedEndDate = parse_calendar_date(rawEndDate) ?? date;
+                      const endDate = new Date(
+                        parsedEndDate
+                      );
+                      endDate.setHours(0, 0, 0, 0);
+                      listRecords.push({ record, index, date });
+                      for (
+                        const eventDate = new Date(date);
+                        eventDate <= endDate && eventDate.getTime() - date.getTime() <= 366 * 86400000;
+                        eventDate.setDate(eventDate.getDate() + 1)
+                      ) {
+                        const key = dayKey(eventDate);
+                        recordsByDay.set(key, [
+                          ...(recordsByDay.get(key) ?? []),
+                          { record, index },
+                        ]);
+                      }
+                    });
+                    const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
+                      const day = (calendarFirstDay + index) % 7;
+                      return new Intl.DateTimeFormat(undefined, {
+                        weekday: "short",
+                      }).format(new Date(2024, 0, 7 + day));
+                    });
+                    const periodLabel =
+                      calendarView === "day"
+                        ? calendarMonth.toLocaleDateString(undefined, {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : calendarView === "week"
+                          ? `${days[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
+                          : calendarMonth.toLocaleDateString(undefined, {
+                              month: "long",
+                              year: "numeric",
+                            });
+                    const shiftCalendar = (direction: -1 | 1, jump = false) => {
+                      const next = new Date(calendarMonth);
+                      if (jump) {
+                        next.setFullYear(next.getFullYear() + direction);
+                      } else if (calendarView === "month") {
+                        next.setMonth(next.getMonth() + direction, 1);
+                      } else {
+                        next.setDate(
+                          next.getDate() +
+                            direction * (calendarView === "week" ? 7 : 1)
+                        );
+                      }
+                      setCalendarMonth(next);
+                    };
                     return (
                       <>
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-2 sm:px-4">
                           <div className="flex items-center gap-1">
-                            <Button type="button" variant="ghost" size="icon-xs" aria-label="Previous month" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Previous year"
+                              title="Previous year"
+                              onClick={() => shiftCalendar(-1, true)}
+                            >
+                              <ChevronsLeft className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={`Previous ${calendarView}`}
+                              onClick={() => shiftCalendar(-1)}
+                            >
                               <ChevronLeft className="size-4" />
                             </Button>
-                            <Button type="button" variant="ghost" size="icon-xs" aria-label="Next month" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>
+                            <button
+                              type="button"
+                              className="h-8 rounded-md px-3 text-sm font-normal text-foreground transition-colors hover:bg-muted"
+                              onClick={() => setCalendarMonth(new Date())}
+                            >
+                              Today
+                            </button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={`Next ${calendarView}`}
+                              onClick={() => shiftCalendar(1)}
+                            >
                               <ChevronRight className="size-4" />
                             </Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setCalendarMonth(new Date())}>Today</Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Next year"
+                              title="Next year"
+                              onClick={() => shiftCalendar(1, true)}
+                            >
+                              <ChevronsRight className="size-4" />
+                            </Button>
                           </div>
-                          <h2 className="text-sm font-semibold">
-                            {calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-                          </h2>
-                          <span className="w-24" aria-hidden="true" />
-                        </div>
-                        <div className="grid grid-cols-7 border-b border-border bg-muted/30 text-center text-xs font-medium text-muted-foreground">
-                          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                            <div key={day} className="py-2">{day}</div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-7">
-                          {days.map((date) => {
-                            const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-                            const dayRecords = recordsByDay.get(key) ?? [];
-                            const inMonth = date.getMonth() === calendarMonth.getMonth();
-                            const today = date.toDateString() === new Date().toDateString();
-                            return (
-                              <div
-                                key={key}
+                          <h2 className="text-sm font-semibold">{periodLabel}</h2>
+                          <div className="flex items-center gap-1" aria-label="Calendar view">
+                            {(["month", "week", "day", "list"] as const).map((view) => (
+                              <button
+                                key={view}
+                                type="button"
+                                aria-pressed={calendarView === view}
+                                onClick={() => setCalendarView(view)}
                                 className={cn(
-                                  "min-h-24 border-b border-r border-border p-1.5 last:border-r-0 sm:min-h-28 sm:p-2",
-                                  !inMonth && "bg-muted/20 text-muted-foreground/60"
+                                  "h-8 rounded-md px-3 text-sm capitalize transition-colors hover:bg-muted",
+                                  calendarView === view
+                                    ? "font-bold text-foreground"
+                                    : "font-normal text-muted-foreground"
                                 )}
                               >
-                                <span className={cn(
-                                  "mb-1 grid size-6 place-items-center rounded-full text-xs",
-                                  today && "bg-primary font-semibold text-primary-foreground"
-                                )}>
-                                  {date.getDate()}
-                                </span>
-                                <div className="space-y-1">
-                                  {dayRecords.slice(0, 2).map((record, index) => {
-                                    const rowId = String(record[selected.primary_key] ?? index);
-                                    const titleField = tableFields[0];
-                                    return (
-                                      <button
-                                        key={rowId}
-                                        type="button"
-                                        onClick={() => openEditRecord(record)}
-                                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-xs text-foreground hover:bg-primary/20"
-                                      >
-                                        {titleField
-                                          ? String(record[titleField.name] ?? "Untitled")
-                                          : `#${rowId}`}
-                                      </button>
-                                    );
-                                  })}
-                                  {dayRecords.length > 2 ? (
-                                    <p className="px-1 text-xs text-muted-foreground">+{dayRecords.length - 2} more</p>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })}
+                                {view}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+                        {calendarView === "list" ? (
+                          <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto bg-background">
+                            {listRecords
+                              .sort((left, right) => left.date.getTime() - right.date.getTime())
+                              .map(({ record, index, date }) => {
+                                const rowId = String(record[selected.primary_key] ?? index);
+                                return (
+                                  <button
+                                    key={rowId}
+                                    type="button"
+                                    onClick={() => openEditRecord(record)}
+                                    className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-surface-subtle"
+                                  >
+                                    <time
+                                      dateTime={date.toISOString()}
+                                      className="w-28 shrink-0 text-xs text-muted-foreground"
+                                    >
+                                      {date.toLocaleDateString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                      })}
+                                    </time>
+                                    <span className="min-w-0 truncate text-sm font-medium">
+                                      {titleField
+                                        ? <FieldValueDisplay field={titleField} value={record[titleField.name]} userLabel={userLabels[String(record[titleField.name])]} />
+                                        : `#${rowId}`}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            {listRecords.length === 0 ? (
+                              <p className="p-8 text-center text-sm text-muted-foreground">
+                                No records have a date in this field.
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <>
+                            <div className={cn(
+                              "grid border-b border-border bg-muted/30 text-center text-xs font-medium text-muted-foreground",
+                              calendarView === "day" ? "grid-cols-1" : "grid-cols-7"
+                            )}>
+                              {(calendarView === "day"
+                                ? [weekdayLabels[calendarMonth.getDay()]]
+                                : weekdayLabels
+                              ).map((day) => (
+                                <div key={day} className="py-2">{day}</div>
+                              ))}
+                            </div>
+                            <div
+                              className={cn(
+                                "grid min-h-0",
+                                calendarView === "month"
+                                  ? "grid-cols-7"
+                                  : calendarView === "week"
+                                    ? "grid-cols-7"
+                                    : "grid-cols-1"
+                              )}
+                            >
+                              {days.map((date) => {
+                                const key = dayKey(date);
+                                const dayRecords = recordsByDay.get(key) ?? [];
+                                const recordOffset =
+                                  (calendarRecordOffsets[key] ?? 0) % Math.max(dayRecords.length, 1);
+                                const visibleRecord = dayRecords[recordOffset];
+                                const inMonth =
+                                  date.getMonth() === calendarMonth.getMonth();
+                                const today =
+                                  date.toDateString() === new Date().toDateString();
+                                return (
+                                  <div
+                                    key={key}
+                                    className={cn(
+                                      "min-h-20 overflow-hidden border-b border-r border-border p-1.5 last:border-r-0 sm:min-h-20 sm:p-2",
+                                      !inMonth &&
+                                        calendarView === "month" &&
+                                        "bg-muted/20 text-muted-foreground/60",
+                                      today && "bg-muted-foreground/20",
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      aria-label={`Show ${date.toLocaleDateString()}`}
+                                      onClick={() => {
+                                        setCalendarMonth(date);
+                                        setCalendarView("day");
+                                      }}
+                                      className={cn(
+                                        "mb-1 flex h-6 w-full items-center justify-end px-1.5 text-xs",
+                                        today && "font-semibold text-foreground"
+                                      )}
+                                    >
+                                      {date.getDate()}
+                                    </button>
+                                    <div className="space-y-1">
+                                      {visibleRecord ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditRecord(visibleRecord.record)}
+                                          className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-xs text-foreground hover:bg-primary/20"
+                                        >
+                                          {titleField
+                                            ? <FieldValueDisplay field={titleField} value={visibleRecord.record[titleField.name]} userLabel={userLabels[String(visibleRecord.record[titleField.name])]} />
+                                            : `#${String(visibleRecord.record[selected.primary_key] ?? visibleRecord.index)}`}
+                                        </button>
+                                      ) : null}
+                                      {dayRecords.length > 1 ? (
+                                        <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                                          <button
+                                            type="button"
+                                            aria-label={`Previous record on ${date.toLocaleDateString()}`}
+                                            className="rounded px-1 hover:bg-muted hover:text-foreground"
+                                            onClick={() =>
+                                              setCalendarRecordOffsets((offsets) => ({
+                                                ...offsets,
+                                                [key]:
+                                                  (recordOffset - 1 + dayRecords.length) %
+                                                  dayRecords.length,
+                                              }))
+                                            }
+                                          >
+                                            <ChevronLeft className="size-3" aria-hidden="true" />
+                                          </button>
+                                          <span>
+                                            {recordOffset + 1}/{dayRecords.length}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            aria-label={`Next record on ${date.toLocaleDateString()}`}
+                                            className="rounded px-1 hover:bg-muted hover:text-foreground"
+                                            onClick={() =>
+                                              setCalendarRecordOffsets((offsets) => ({
+                                                ...offsets,
+                                                [key]: (recordOffset + 1) % dayRecords.length,
+                                              }))
+                                            }
+                                          >
+                                            <ChevronRight className="size-3" aria-hidden="true" />
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
                       </>
                     );
                   })()}
@@ -1802,9 +2436,11 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           )}
           {displayLayout !== "table" && pages > 1 ? (
-            <div className="flex items-center justify-between border-t border-border py-3 text-xs text-muted-foreground">
-              <span>Page {page} of {pages} ({total} records)</span>
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3 text-xs text-muted-foreground">
+              <span>
+                Page {page} of {pages} · {total} records
+              </span>
+              <nav className="flex items-center gap-1" aria-label="Content pages">
                 <Button
                   type="button"
                   variant="outline"
@@ -1815,6 +2451,31 @@ export default function ContentManager({ data }: EtViewProps) {
                 >
                   <ChevronLeft className="size-3.5" />
                 </Button>
+                {nonTablePaginationItems.map((item) =>
+                  typeof item === "number" ? (
+                    <Button
+                      key={item}
+                      type="button"
+                      variant={page === item ? "secondary" : "ghost"}
+                      size="icon-xs"
+                      className="min-w-7"
+                      disabled={busy}
+                      aria-current={page === item ? "page" : undefined}
+                      aria-label={`Go to page ${item}`}
+                      onClick={() => refresh(selected?.name, item)}
+                    >
+                      {item}
+                    </Button>
+                  ) : (
+                    <span
+                      key={item}
+                      aria-hidden="true"
+                      className="px-1 text-muted-foreground"
+                    >
+                      …
+                    </span>
+                  )
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1825,7 +2486,7 @@ export default function ContentManager({ data }: EtViewProps) {
                 >
                   <ChevronRight className="size-3.5" />
                 </Button>
-              </div>
+              </nav>
             </div>
           ) : null}
       </div>
@@ -1998,48 +2659,155 @@ export default function ContentManager({ data }: EtViewProps) {
           {sidebarSection === "layout" ? (
           <div className="cms-sidebar-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <LayoutGrid className="size-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Layout</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                ["table", "Table", Table2],
-                ["cards", "Cards", LayoutGrid],
-                ["calendar", "Calendar", CalendarDays],
-                ["kanban", "Kanban", Columns3],
-                ["map", "Map", MapPin],
-              ] as const).map(([layout, label, Icon]) => (
-                <Button
-                  key={layout}
-                  type="button"
-                  variant={displayLayout === layout ? "secondary" : "outline"}
-                  size="sm"
-                  className="h-10 justify-start"
-                  aria-pressed={displayLayout === layout}
-                  onClick={() => setDisplayLayout(layout)}
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </Button>
-              ))}
-            </div>
-            {displayLayout === "calendar" ? (
-              <label className="block space-y-1.5 text-xs text-muted-foreground">
-                Date field
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  value={calendarField || dateFields[0]?.name || ""}
-                  onChange={(event) => setCalendarField(event.target.value)}
-                >
-                  <option value="">Choose a date field</option>
-                  {dateFields.map((field) => (
-                    <option key={field.name} value={field.name}>
-                      {field.label || field.name}
-                    </option>
+            <div className="space-y-2">
+              <span className="block text-sm font-semibold">Layout</span>
+              <Select
+                value={displayLayout}
+                onValueChange={(value) => {
+                  if (is_display_layout(value)) setDisplayLayout(value);
+                }}
+              >
+                <SelectTrigger aria-label="Layout" className="w-full font-normal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
+                  {display_layouts.map(({ value, label, Icon }) => (
+                    <SelectItem key={value} value={value}>
+                      <Icon className="size-4 text-muted-foreground" />
+                      {label}
+                    </SelectItem>
                   ))}
-                </select>
-              </label>
+                </SelectContent>
+              </Select>
+            </div>
+            {displayLayout === "cards" ? (
+              <>
+                <div className="space-y-2">
+                  <span className="flex items-center gap-2">
+                    <ImageIcon className="size-4 text-muted-foreground" />
+                    Image Source
+                  </span>
+                  <Select
+                    value={resolvedCardImageField?.name ?? "none"}
+                    onValueChange={setCardImageField}
+                  >
+                    <SelectTrigger aria-label="Image Source" className="w-full font-normal">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
+                      <SelectItem value="none">No image</SelectItem>
+                      {cardImageFields.map((field) => (
+                        <SelectItem key={field.name} value={field.name}>
+                          {field.label || field.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <span className="block text-sm font-semibold">Title</span>
+                  <Select
+                    value={resolvedCardTitleField?.name ?? "none"}
+                    onValueChange={setCardTitleField}
+                  >
+                    <SelectTrigger aria-label="Title" className="w-full font-normal">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
+                      <SelectItem value="none">No title</SelectItem>
+                      {cardTextFields.map((field) => (
+                        <SelectItem key={field.name} value={field.name}>
+                          {field.label || field.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <span className="block text-sm font-semibold">Subtitle</span>
+                  <Select
+                    value={resolvedCardSubtitleField?.name ?? "none"}
+                    onValueChange={setCardSubtitleField}
+                  >
+                    <SelectTrigger aria-label="Subtitle" className="w-full font-normal">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
+                      <SelectItem value="none">No subtitle</SelectItem>
+                      {cardSubtitleFields.map((field) => (
+                        <SelectItem key={field.name} value={field.name}>
+                          {field.label || field.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
+            {displayLayout === "calendar" ? (
+              <>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  Start Date Field
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={calendarField || dateFields[0]?.name || ""}
+                    onChange={(event) => setCalendarField(event.target.value)}
+                  >
+                    {dateFields.map((field) => (
+                      <option key={field.name} value={field.name}>
+                        {field.label || field.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  End Date Field
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={calendarEndField}
+                    onChange={(event) => setCalendarEndField(event.target.value)}
+                  >
+                    <option value="">Optional</option>
+                    {dateFields
+                      .filter((field) => field.name !== (calendarField || dateFields[0]?.name))
+                      .map((field) => (
+                        <option key={field.name} value={field.name}>
+                          {field.label || field.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  Display Template
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={calendarDisplayField || cardTextFields[0]?.name || ""}
+                    onChange={(event) => setCalendarDisplayField(event.target.value)}
+                  >
+                    {visibleFields
+                      .filter((field) => !is_alias_field(field))
+                      .map((field) => (
+                      <option key={field.name} value={field.name}>
+                        {field.label || field.name}
+                      </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  First Day of the Week
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={calendarFirstDay}
+                    onChange={(event) => setCalendarFirstDay(Number(event.target.value))}
+                  >
+                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                      (day, index) => (
+                        <option key={day} value={index}>{day}</option>
+                      )
+                    )}
+                  </select>
+                </label>
+              </>
             ) : null}
             {displayLayout === "kanban" ? (
               <label className="block space-y-1.5 text-xs text-muted-foreground">

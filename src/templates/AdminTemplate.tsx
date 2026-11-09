@@ -541,8 +541,10 @@ export function AdminTemplate({
 
             <main
               className={cn(
-                "min-h-0 flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
-                contentPage && "flex flex-col overflow-hidden p-0",
+                "min-h-0 flex-1 bg-background",
+                contentPage
+                  ? "flex flex-col overflow-hidden px-4 py-0 sm:px-6 lg:px-8"
+                  : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
               )}
             >
               <div
