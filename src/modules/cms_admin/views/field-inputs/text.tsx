@@ -2150,10 +2150,7 @@ export function BlockEditorInput({
     <div className="space-y-2">
       {blocks.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-surface-subtle px-4 py-6 text-center">
-          <p className="text-sm font-semibold text-foreground">No blocks yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Choose a block type below to start building the content.
-          </p>
+          <p className="text-sm text-foreground">No blocks yet</p>
         </div>
       ) : (
         blocks.map((block, index) => {

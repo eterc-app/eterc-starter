@@ -661,26 +661,6 @@ export default function ContentManager({ data }: EtViewProps) {
           ) : viewMode === "record-form" ? (
             /* RECORD FORM WORKING AREA */
             <div className="max-w-3xl space-y-6">
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg"
-                    onClick={() => setViewMode("table")}
-                  >
-                    <ArrowLeft className="size-4" />
-                    Back to records
-                  </Button>
-                  <h2 className="text-sm font-semibold text-muted-foreground">
-                    {editingRecord
-                      ? `Edit record #${String(editingRecord[selected.primary_key] ?? "")}`
-                      : `New ${selected.label || selected.name} record`}
-                  </h2>
-                </div>
-              </div>
-
               {formFields.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   This collection has no fields. Go to Data Studio to add columns.
