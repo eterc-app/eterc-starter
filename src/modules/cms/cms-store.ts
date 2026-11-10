@@ -1170,20 +1170,68 @@ function build_filter_clauses(
             }
             break;
           case "_contains":
-            clauses.push(`${column} LIKE ?`);
-            params.push(`%${String(operand)}%`);
+            clauses.push(`instr(${column}, ?) > 0`);
+            params.push(String(operand));
             break;
           case "_not_contains":
-            clauses.push(`(${column} IS NULL OR ${column} NOT LIKE ?)`);
-            params.push(`%${String(operand)}%`);
+            clauses.push(`(${column} IS NULL OR instr(${column}, ?) = 0)`);
+            params.push(String(operand));
+            break;
+          case "_icontains":
+            clauses.push(`instr(lower(${column}), lower(?)) > 0`);
+            params.push(String(operand));
             break;
           case "_starts_with":
-            clauses.push(`${column} LIKE ?`);
-            params.push(`${String(operand)}%`);
+            clauses.push(`substr(${column}, 1, length(?)) = ?`);
+            params.push(String(operand), String(operand));
+            break;
+          case "_not_starts_with":
+            clauses.push(
+              `(${column} IS NULL OR substr(${column}, 1, length(?)) != ?)`
+            );
+            params.push(String(operand), String(operand));
+            break;
+          case "_not_istarts_with":
+            clauses.push(
+              `(${column} IS NULL OR substr(lower(${column}), 1, length(lower(?))) != lower(?))`
+            );
+            params.push(String(operand), String(operand));
             break;
           case "_ends_with":
-            clauses.push(`${column} LIKE ?`);
-            params.push(`%${String(operand)}`);
+            clauses.push(`substr(${column}, -length(?)) = ?`);
+            params.push(String(operand), String(operand));
+            break;
+          case "_not_ends_with":
+            clauses.push(
+              `(${column} IS NULL OR substr(${column}, -length(?)) != ?)`
+            );
+            params.push(String(operand), String(operand));
+            break;
+          case "_iends_with":
+            clauses.push(
+              `substr(lower(${column}), -length(lower(?))) = lower(?)`
+            );
+            params.push(String(operand), String(operand));
+            break;
+          case "_not_iends_with":
+            clauses.push(
+              `(${column} IS NULL OR substr(lower(${column}), -length(lower(?))) != lower(?))`
+            );
+            params.push(String(operand), String(operand));
+            break;
+          case "_ieq":
+            clauses.push(`lower(${column}) = lower(?)`);
+            params.push(operand);
+            break;
+          case "_nieq":
+            clauses.push(`(${column} IS NULL OR lower(${column}) != lower(?))`);
+            params.push(operand);
+            break;
+          case "_empty":
+            clauses.push(`${column} = ''`);
+            break;
+          case "_nempty":
+            clauses.push(`(${column} IS NOT NULL AND ${column} != '')`);
             break;
           case "_gt":
             clauses.push(`${column} > ?`);
@@ -1204,6 +1252,9 @@ function build_filter_clauses(
           case "_null":
             clauses.push(operand ? `${column} IS NULL` : `${column} IS NOT NULL`);
             break;
+          case "_nnull":
+            clauses.push(operand ? `${column} IS NOT NULL` : `${column} IS NULL`);
+            break;
           case "_in": {
             const values = Array.isArray(operand) ? operand : [operand];
             if (values.length === 0) {
@@ -1218,6 +1269,27 @@ function build_filter_clauses(
               params.push(...nonNull);
             }
             clauses.push(parts.length === 1 ? parts[0] : `(${parts.join(" OR ")})`);
+            break;
+          }
+          case "_not_in": {
+            const values = Array.isArray(operand) ? operand : [operand];
+            if (values.length === 0) {
+              clauses.push("1 = 1");
+              break;
+            }
+            const nonNull = values.filter((value) => value !== null);
+            const includesNull = nonNull.length !== values.length;
+            if (nonNull.length > 0) {
+              const notInClause = `${column} NOT IN (${nonNull.map(() => "?").join(", ")})`;
+              params.push(...nonNull);
+              clauses.push(
+                includesNull
+                  ? `(${column} IS NOT NULL AND ${notInClause})`
+                  : `(${column} IS NULL OR ${notInClause})`
+              );
+            } else {
+              clauses.push(`${column} IS NOT NULL`);
+            }
             break;
           }
           default:

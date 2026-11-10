@@ -40,13 +40,11 @@ import {
   MapPin,
   Pencil,
   Plus,
-  Search,
   RefreshCw,
-  SlidersHorizontal,
+  SquarePlus,
   Sparkles,
   Table2,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -65,7 +63,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -80,6 +77,22 @@ import type {
   CmsField,
 } from "@/modules/cms/cms-types";
 import { ContentSidebar } from "./ContentSidebar";
+import {
+  ContentSearch,
+  add_filter_node,
+  create_filter_condition,
+  create_filter_group,
+  filter_conditions,
+  filter_group_payload,
+  remove_filter_node,
+  reorder_filter_nodes,
+  set_filter_group_junction,
+  update_filter_condition,
+  type FilterCondition,
+  type FilterGroup,
+  type FilterJunction,
+} from "./ContentSearch";
+
 import {
   CmsFieldForm,
   FieldValueDisplay,
@@ -156,43 +169,6 @@ function get_layout_storage_snapshot(): string | null {
 interface ColumnSort {
   field: string;
   direction: "asc" | "desc";
-}
-type FilterOperator =
-  | "_eq"
-  | "_neq"
-  | "_contains"
-  | "_gt"
-  | "_gte"
-  | "_lt"
-  | "_lte"
-  | "_null";
-
-interface FilterRule {
-  id: string;
-  field: string;
-  operator: FilterOperator;
-  value: string;
-}
-
-function filter_payload(
-  rules: FilterRule[],
-  fields: CmsField[]
-): Record<string, unknown> | undefined {
-  const conditions = rules.map((rule) => {
-    let value: unknown = rule.value;
-    if (rule.operator === "_null") value = true;
-    else if (
-      fields.some(
-        (field) =>
-          field.name === rule.field &&
-          (field.type === "integer" || field.type === "decimal")
-      )
-    ) {
-      value = Number(rule.value);
-    }
-    return { [rule.field]: { [rule.operator]: value } };
-  });
-  return conditions.length ? { _and: conditions } : undefined;
 }
 
 function is_display_layout(value: string): value is DisplayLayout {
@@ -304,102 +280,64 @@ function parse_record_value(field: CmsField, value: unknown): unknown {
   return value;
 }
 
-function ExpandableSearch({
+const no_layout_option = "__no_layout_option__";
+
+function LayoutOptionPicker({
+  label,
   value,
-  onChange,
-  onSubmit,
-  onClear,
-  onOpenFilters,
-  activeFilterCount,
+  options,
   placeholder,
+  onValueChange,
+  onClear,
 }: {
-  value: string;
-  onChange: (val: string) => void;
-  onSubmit: (e?: React.FormEvent) => void;
+  label: string;
+  value: string | undefined;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  onValueChange: (value: string) => void;
   onClear: () => void;
-  onOpenFilters: () => void;
-  activeFilterCount: number;
-  placeholder?: string;
 }) {
-  const [open, setOpen] = useState(Boolean(value));
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      inputRef.current?.focus();
-    }
-  }, [open]);
-
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="size-8 rounded-full p-0 text-muted-foreground"
-        title="Search and filter"
-        aria-label="Search and filter"
-        onClick={() => setOpen(true)}
-      >
-        <Search className="size-3.5" strokeWidth={1.75} />
-      </Button>
-    );
-  }
+  const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(e);
-      }}
-      className="relative flex items-center"
-    >
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        ref={inputRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            if (!value) {
-              setOpen(false);
-            } else {
-              onClear();
-            }
-          }
-        }}
-        placeholder={placeholder}
-        className="h-8 w-44 sm:w-60 pl-8 pr-14 rounded-full bg-surface-subtle border-border text-xs"
-      />
-      <div className="absolute right-1 flex items-center gap-0.5">
+    <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-card p-2">
+      {selectedOption ? (
         <button
           type="button"
-          onClick={onOpenFilters}
-          className={cn(
-            "relative grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-            activeFilterCount > 0 && "text-primary"
-          )}
-          aria-label="Open search filters"
-          title="Search filters"
+          aria-label={`Remove ${selectedOption.label} from ${label}`}
+          onClick={onClear}
+          className="mr-auto max-w-full cursor-pointer truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium transition-colors hover:bg-destructive hover:text-destructive-foreground"
         >
-          <SlidersHorizontal className="size-3.5" />
-          {activeFilterCount > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary" />
-          ) : null}
+          {selectedOption.label}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (value) onClear();
-            setOpen(false);
-          }}
-          className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Close search"
-        >
-          <X className="size-3" />
-        </button>
-      </div>
-    </form>
+      ) : (
+        <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
+          {placeholder}
+        </span>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Choose ${label}`}
+            disabled={options.length === 0}
+            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <SquarePlus className="size-6" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {options.map((option) => (
+            <DropdownMenuItem
+              key={option.value}
+              onSelect={() => onValueChange(option.value)}
+            >
+              {option.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -535,13 +473,12 @@ export default function ContentManager({ data }: EtViewProps) {
     startX: number;
     startWidth: number;
   } | null>(null);
-  const [filterFocusRequest, setFilterFocusRequest] = useState(0);
-  const handledFilterFocusRef = useRef(0);
-  const filterSectionRef = useRef<HTMLElement>(null);
   const [columnPreferences, setColumnPreferences] = useState<Record<string, string[]>>({});
   const [primaryKeyColumnVisibility, setPrimaryKeyColumnVisibility] = useState<Record<string, boolean>>({});
-  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
-  const [draftFilterRules, setDraftFilterRules] = useState<FilterRule[]>([]);
+  const [filterGroup, setFilterGroup] = useState<FilterGroup>(() =>
+    create_filter_group()
+  );
+  const filterGroupRef = useRef(filterGroup);
   const [calendarField, setCalendarField] = useState("");
   const [calendarEndField, setCalendarEndField] = useState("");
   const [calendarDisplayField, setCalendarDisplayField] = useState("");
@@ -593,6 +530,10 @@ export default function ContentManager({ data }: EtViewProps) {
     }
   }, [savedLayoutPreferences]);
 
+  useEffect(() => {
+    filterGroupRef.current = filterGroup;
+  }, [filterGroup]);
+
   const applySnapshot = useCallback((snapshot: Snapshot) => {
     setCollections(snapshot.collections ?? []);
     setSelected(snapshot.selected ?? null);
@@ -611,7 +552,7 @@ export default function ContentManager({ data }: EtViewProps) {
       collectionName?: string,
       nextPage = 1,
       nextSearch = search,
-      nextFilters = filterRules,
+      nextFilterGroup: FilterGroup = filterGroup,
       nextSort: ColumnSort | null = columnSort
     ) => {
       setBusy(true);
@@ -620,7 +561,7 @@ export default function ContentManager({ data }: EtViewProps) {
           collection: collectionName ?? selected?.name ?? "",
           page: nextPage,
           search: nextSearch,
-          filter: filter_payload(nextFilters, fields),
+          filter: filter_group_payload(nextFilterGroup, fields),
           sort: nextSort?.field,
           direction: nextSort?.direction,
         });
@@ -631,23 +572,35 @@ export default function ContentManager({ data }: EtViewProps) {
         setBusy(false);
       }
     },
-    [applySnapshot, columnSort, fields, filterRules, search, selected]
+    [applySnapshot, columnSort, fields, filterGroup, search, selected]
+  );
+
+  const updateFilterGroup = useCallback(
+    (nextGroup: FilterGroup, apply = true) => {
+      filterGroupRef.current = nextGroup;
+      setFilterGroup(nextGroup);
+      if (!apply) return;
+      setSelectedRowIds(new Set());
+      void refresh(selected?.name, 1, search, nextGroup, columnSort);
+    },
+    [columnSort, refresh, search, selected?.name]
   );
 
   const applyColumnSort = useCallback(
     (nextSort: ColumnSort | null) => {
       setColumnSort(nextSort);
-      void refresh(selected?.name, 1, search, filterRules, nextSort);
+      void refresh(selected?.name, 1, search, filterGroup, nextSort);
     },
-    [filterRules, refresh, search, selected?.name]
+    [filterGroup, refresh, search, selected?.name]
   );
 
   const selectCollection = useCallback(
     async (name: string) => {
+      const emptyFilterGroup = create_filter_group();
       setViewMode("table");
       setSelectedRowIds(new Set());
-      setFilterRules([]);
-      setDraftFilterRules([]);
+      filterGroupRef.current = emptyFilterGroup;
+      setFilterGroup(emptyFilterGroup);
       setCalendarField("");
       setCalendarEndField("");
       setCalendarDisplayField("");
@@ -660,7 +613,7 @@ export default function ContentManager({ data }: EtViewProps) {
       setKanbanDropTargetKey(null);
       setMapField("");
       setColumnSort(null);
-      await refresh(name, 1, "", [], null);
+      await refresh(name, 1, "", emptyFilterGroup, null);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("collection", name);
@@ -678,36 +631,63 @@ export default function ContentManager({ data }: EtViewProps) {
     [refresh, searchInput, selected?.name]
   );
 
-  const applyFilters = useCallback(() => {
-    const invalidRule = draftFilterRules.find(
-      (rule) =>
-        rule.operator !== "_null" &&
-        (!rule.value.trim() ||
-          (fields.some(
-            (field) =>
-              field.name === rule.field &&
-              (field.type === "integer" || field.type === "decimal")
-          ) &&
-            Number.isNaN(Number(rule.value))))
-    );
-    if (invalidRule) {
-      toast.error("Enter a valid value for each filter or choose an empty-value operator.");
-      return;
-    }
-    setSelectedRowIds(new Set());
-    setFilterRules(draftFilterRules);
-    void refresh(selected?.name, 1, search, draftFilterRules);
-  }, [draftFilterRules, fields, refresh, search, selected?.name]);
-
-  const removeFilter = useCallback(
-    (id: string) => {
-      const next = filterRules.filter((rule) => rule.id !== id);
-      setSelectedRowIds(new Set());
-      setFilterRules(next);
-      setDraftFilterRules((rules) => rules.filter((rule) => rule.id !== id));
-      void refresh(selected?.name, 1, search, next);
+  const addFilterCondition = useCallback(
+    (groupId: string, field: CmsField) => {
+      const condition = create_filter_condition(field);
+      updateFilterGroup(
+        add_filter_node(filterGroupRef.current, groupId, condition)
+      );
+      return condition.id;
     },
-    [filterRules, refresh, search, selected?.name]
+    [updateFilterGroup]
+  );
+
+  const addFilterGroup = useCallback(
+    (groupId: string) => {
+      updateFilterGroup(
+        add_filter_node(filterGroupRef.current, groupId, create_filter_group())
+      );
+    },
+    [updateFilterGroup]
+  );
+
+  const changeFilterCondition = useCallback(
+    (
+      id: string,
+      changes: Partial<Pick<FilterCondition, "field" | "operator" | "value">>,
+      commit = true
+    ) => {
+      updateFilterGroup(
+        update_filter_condition(filterGroupRef.current, id, changes),
+        commit
+      );
+    },
+    [updateFilterGroup]
+  );
+
+  const removeFilterNode = useCallback(
+    (id: string) => {
+      updateFilterGroup(remove_filter_node(filterGroupRef.current, id));
+    },
+    [updateFilterGroup]
+  );
+
+  const setFilterGroupJunction = useCallback(
+    (groupId: string, junction: FilterJunction) => {
+      updateFilterGroup(
+        set_filter_group_junction(filterGroupRef.current, groupId, junction)
+      );
+    },
+    [updateFilterGroup]
+  );
+
+  const reorderFilterNodes = useCallback(
+    (fromId: string, toId: string) => {
+      updateFilterGroup(
+        reorder_filter_nodes(filterGroupRef.current, fromId, toId)
+      );
+    },
+    [updateFilterGroup]
   );
 
   const openCreateRecord = useCallback(() => {
@@ -957,6 +937,15 @@ export default function ContentManager({ data }: EtViewProps) {
     }
   };
   const dateFields = visibleFields.filter((field) => field.type === "datetime");
+  const calendarDisplayFields = visibleFields.filter(
+    (field) => !is_alias_field(field)
+  );
+  const resolvedCalendarField =
+    calendarField === no_layout_option
+      ? undefined
+      : dateFields.find((field) => field.name === calendarField) ?? dateFields[0];
+  const effectiveCalendarFirstDay =
+    calendarFirstDay < 0 ? 0 : calendarFirstDay;
   const cardImageFields = visibleFields.filter(
     (field) => field.type === "image" || field.interface === "image"
   );
@@ -966,8 +955,14 @@ export default function ContentManager({ data }: EtViewProps) {
       !is_alias_field(field) &&
       (field.type === "string" || field.type === "text")
   );
+  const resolvedCalendarDisplayField =
+    calendarDisplayField === no_layout_option
+      ? undefined
+      : calendarDisplayFields.find(
+          (field) => field.name === calendarDisplayField
+        ) ?? cardTextFields[0];
   const resolvedCardImageField =
-    cardImageField === "none"
+    cardImageField === "none" || cardImageField === no_layout_option
       ? undefined
       : cardImageFields.find((field) => field.name === cardImageField) ??
         cardImageFields[0];
@@ -1017,17 +1012,21 @@ export default function ContentManager({ data }: EtViewProps) {
     (field) => field.type === "select" || field.type === "string" || field.type === "text"
   );
   const kanbanGroupField =
-    kanbanFields.find((field) => field.name === kanbanField) ?? kanbanFields[0];
+    kanbanField === no_layout_option
+      ? undefined
+      : kanbanFields.find((field) => field.name === kanbanField) ?? kanbanFields[0];
   const kanbanCardFields = visibleFields.filter(
     (field) =>
       field.name !== selected?.primary_key && !is_alias_field(field)
   );
   const kanbanResolvedTitleField =
-    kanbanCardFields.find((field) => field.name === kanbanTitleField) ??
-    kanbanCardFields.find((field) => field.type === "string" || field.type === "text") ??
-    kanbanCardFields[0];
+    kanbanTitleField === no_layout_option
+      ? undefined
+      : kanbanCardFields.find((field) => field.name === kanbanTitleField) ??
+        kanbanCardFields.find((field) => field.type === "string" || field.type === "text") ??
+        kanbanCardFields[0];
   const kanbanResolvedTextField =
-    kanbanTextField === "none"
+    kanbanTextField === "none" || kanbanTextField === no_layout_option
       ? undefined
       : kanbanCardFields.find(
           (field) =>
@@ -1077,14 +1076,15 @@ export default function ContentManager({ data }: EtViewProps) {
     (field) => field.interface === "map" || field.type === "json"
   );
   const resolvedMapField =
-    mapFields.find((field) => field.name === mapField) ?? mapFields[0];
-  const mapDisplayTemplateValue =
-    visibleFields.find((field) => field.name === mapDisplayField)?.name ??
-    "collection-default";
+    mapField === no_layout_option
+      ? undefined
+      : mapFields.find((field) => field.name === mapField) ?? mapFields[0];
   const mapPoints = useMemo(
     () => {
       const locationField =
-        fields.find(
+        mapField === no_layout_option
+          ? undefined
+          : fields.find(
           (field) =>
             !field.hidden &&
             (field.interface === "map" || field.type === "json") &&
@@ -1110,7 +1110,9 @@ export default function ContentManager({ data }: EtViewProps) {
   const mapPointLabels = useMemo(
     () => {
       const displayField =
-        fields.find(
+        mapDisplayField === no_layout_option
+          ? undefined
+          : fields.find(
           (field) => !field.hidden && field.name === mapDisplayField
         ) ??
         fields.find(
@@ -1199,12 +1201,6 @@ export default function ContentManager({ data }: EtViewProps) {
     setSearchInput("");
     void refresh(selected?.name, 1, "");
   }, [refresh, selected?.name]);
-
-  const openFilters = useCallback(() => {
-    setSidebarSection("layout");
-    setViewPanelCollapsed(false);
-    setFilterFocusRequest((request) => request + 1);
-  }, []);
 
   const openSidebarSection = useCallback((section: SidebarSection) => {
     setSidebarSection(section);
@@ -1305,24 +1301,21 @@ export default function ContentManager({ data }: EtViewProps) {
     [fields, page, refresh, search, selected]
   );
 
-  useEffect(() => {
-    if (
-      filterFocusRequest === handledFilterFocusRef.current ||
-      viewPanelCollapsed
-    ) return;
-    filterSectionRef.current?.scrollIntoView({ block: "nearest" });
-    handledFilterFocusRef.current = filterFocusRequest;
-  }, [filterFocusRequest, viewPanelCollapsed]);
-
   const navbarMeta = useMemo(() => {
     const searchControl = selected ? (
-      <ExpandableSearch
+      <ContentSearch
         value={searchInput}
         onChange={setSearchInput}
         onSubmit={submitSearch}
         onClear={clearSearch}
-        onOpenFilters={openFilters}
-        activeFilterCount={filterRules.length}
+        fields={visibleFields}
+        filterGroup={filterGroup}
+        onAddCondition={addFilterCondition}
+        onAddGroup={addFilterGroup}
+        onChangeCondition={changeFilterCondition}
+        onRemoveNode={removeFilterNode}
+        onSetJunction={setFilterGroupJunction}
+        onReorderNodes={reorderFilterNodes}
         placeholder={`Search ${selected.label || selected.name}...`}
       />
     ) : null;
@@ -1364,15 +1357,21 @@ export default function ContentManager({ data }: EtViewProps) {
     };
   }, [
     busy,
+    addFilterCondition,
+    addFilterGroup,
+    changeFilterCondition,
     clearSearch,
     collections,
     editingRecord,
-    filterRules.length,
-    openFilters,
+    filterGroup,
+    removeFilterNode,
+    reorderFilterNodes,
+    setFilterGroupJunction,
     searchInput,
     selectCollection,
     selected,
     submitSearch,
+    visibleFields,
     viewPanelCollapsed,
     viewMode,
   ]);
@@ -1453,18 +1452,6 @@ export default function ContentManager({ data }: EtViewProps) {
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="size-8 rounded-full"
-              title="Refresh"
-              aria-label="Refresh"
-              disabled={busy}
-              onClick={() => refresh(selected?.name, page, search)}
-            >
-              <RefreshCw className={cn("size-4", busy && "animate-spin")} />
-            </Button>
             {selectedRowIds.size > 0 ? (
               <Button
                 type="button"
@@ -1686,7 +1673,9 @@ export default function ContentManager({ data }: EtViewProps) {
                                   aria-label={`Column options for ${field.label || field.name}`}
                                 >
                                   {field.label || field.name}
-                                  {filterRules.some((rule) => rule.field === field.name) ? (
+                                  {filter_conditions(filterGroup).some(
+                                    (condition) => condition.field === field.name
+                                  ) ? (
                                     <Filter
                                       className="size-3 text-primary"
                                       aria-label="Filtered"
@@ -2240,35 +2229,29 @@ export default function ContentManager({ data }: EtViewProps) {
                 </>
               ) : displayLayout === "calendar" ? (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
-                  {dateFields.length === 0 ? (
+                  {dateFields.length === 0 || !resolvedCalendarField ? (
                     <p className="p-8 text-center text-sm text-muted-foreground">
-                      Add a date/time field to this collection to use the calendar layout.
+                      {dateFields.length === 0
+                        ? "Add a date/time field to this collection to use the calendar layout."
+                        : "Select a start date field in Layout Options to use the calendar layout."}
                     </p>
                   ) : (() => {
-                    const selectedDateField =
-                      dateFields.find((field) => field.name === calendarField)?.name ??
-                      dateFields[0].name;
+                    const selectedDateField = resolvedCalendarField.name;
                     const selectedEndField = dateFields.find(
                       (field) => field.name === calendarEndField
                     )?.name;
-                    const calendarDisplayFields = visibleFields.filter(
-                      (field) => !is_alias_field(field)
-                    );
-                    const titleField =
-                      calendarDisplayFields.find(
-                        (field) => field.name === calendarDisplayField
-                      ) ?? calendarDisplayFields[0];
+                    const titleField = resolvedCalendarDisplayField;
                     const startOfPeriod = new Date(calendarMonth);
                     if (calendarView === "month") {
                       startOfPeriod.setDate(1);
                       startOfPeriod.setDate(
                         startOfPeriod.getDate() -
-                          ((startOfPeriod.getDay() - calendarFirstDay + 7) % 7)
+                          ((startOfPeriod.getDay() - effectiveCalendarFirstDay + 7) % 7)
                       );
                     } else if (calendarView === "week") {
                       startOfPeriod.setDate(
                         startOfPeriod.getDate() -
-                          ((startOfPeriod.getDay() - calendarFirstDay + 7) % 7)
+                          ((startOfPeriod.getDay() - effectiveCalendarFirstDay + 7) % 7)
                       );
                     }
                     startOfPeriod.setHours(0, 0, 0, 0);
@@ -2322,7 +2305,7 @@ export default function ContentManager({ data }: EtViewProps) {
                       }
                     });
                     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
-                      const day = (calendarFirstDay + index) % 7;
+                      const day = (effectiveCalendarFirstDay + index) % 7;
                       return new Intl.DateTimeFormat(undefined, {
                         weekday: "short",
                       }).format(new Date(2024, 0, 7 + day));
@@ -2625,7 +2608,7 @@ export default function ContentManager({ data }: EtViewProps) {
                     records: group.records,
                   }));
                   return !groupField ? (
-                    <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Add a text or select field to group Kanban cards.</p>
+                    <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Select a grouping field in Layout Options to use Kanban.</p>
                   ) : (
                     <div className="min-h-0 flex-1 overflow-x-auto pt-3">
                       <div className="flex h-full w-max flex-col">
@@ -2976,7 +2959,7 @@ export default function ContentManager({ data }: EtViewProps) {
             </Button>
           </div>
           {sidebarSection === "layout" ? (
-          <div className="cms-sidebar-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+          <div className="cms-sidebar-scroll cms-layout-options min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <section className="space-y-3">
             <div className="space-y-2">
               <span className="block text-sm font-semibold">Layout</span>
@@ -3006,35 +2989,36 @@ export default function ContentManager({ data }: EtViewProps) {
                     <ImageIcon className="size-4 text-muted-foreground" />
                     Image Source
                   </span>
-                  <Select
-                    value={resolvedCardImageField?.name ?? "none"}
+                  <LayoutOptionPicker
+                    label="image source"
+                    value={resolvedCardImageField?.name}
+                    options={[
+                      { value: "none", label: "No image" },
+                      ...cardImageFields.map((field) => ({
+                        value: field.name,
+                        label: field.label || field.name,
+                      })),
+                    ]}
+                    placeholder="No image selected"
                     onValueChange={setCardImageField}
-                  >
-                    <SelectTrigger aria-label="Image Source" className="w-full font-normal">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
-                      <SelectItem value="none">No image</SelectItem>
-                      {cardImageFields.map((field) => (
-                        <SelectItem key={field.name} value={field.name}>
-                          {field.label || field.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onClear={() => setCardImageField("none")}
+                  />
                 </div>
                 <div className="space-y-2">
                   <span className="block text-sm font-semibold">Title</span>
-                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background p-2">
+                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-card p-2">
                     <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                       {resolvedCardTitleFields.length > 0 ? (
                         resolvedCardTitleFields.map((field) => (
-                          <span
+                          <button
                             key={field.name}
-                            className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                            type="button"
+                            aria-label={`Remove ${field.label || field.name} from title fields`}
+                            onClick={() => toggleCardTitleField(field.name, false)}
+                            className="max-w-full cursor-pointer truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium transition-colors hover:bg-destructive hover:text-destructive-foreground"
                           >
                             {field.label || field.name}
-                          </span>
+                          </button>
                         ))
                       ) : (
                         <span className="px-1 text-sm text-muted-foreground">
@@ -3049,7 +3033,7 @@ export default function ContentManager({ data }: EtViewProps) {
                           aria-label="Add or remove title fields"
                           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
-                          <Plus className="size-4" />
+                          <SquarePlus className="size-6" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -3077,16 +3061,19 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
                 <div className="space-y-2">
                   <span className="block text-sm font-semibold">Subtitle</span>
-                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background p-2">
+                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-card p-2">
                     <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                       {resolvedCardSubtitleFields.length > 0 ? (
                         resolvedCardSubtitleFields.map((field) => (
-                          <span
+                          <button
                             key={field.name}
-                            className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                            type="button"
+                            aria-label={`Remove ${field.label || field.name} from subtitle fields`}
+                            onClick={() => toggleCardSubtitleField(field.name, false)}
+                            className="max-w-full cursor-pointer truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium transition-colors hover:bg-destructive hover:text-destructive-foreground"
                           >
                             {field.label || field.name}
-                          </span>
+                          </button>
                         ))
                       ) : (
                         <span className="px-1 text-sm text-muted-foreground">
@@ -3101,7 +3088,7 @@ export default function ContentManager({ data }: EtViewProps) {
                           aria-label="Add or remove subtitle fields"
                           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
-                          <Plus className="size-4" />
+                          <SquarePlus className="size-6" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -3131,116 +3118,125 @@ export default function ContentManager({ data }: EtViewProps) {
             ) : null}
             {displayLayout === "calendar" ? (
               <>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   Start Date Field
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={calendarField || dateFields[0]?.name || ""}
-                    onChange={(event) => setCalendarField(event.target.value)}
-                  >
-                    {dateFields.map((field) => (
-                      <option key={field.name} value={field.name}>
-                        {field.label || field.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  <LayoutOptionPicker
+                    label="start date field"
+                    value={resolvedCalendarField?.name}
+                    options={dateFields.map((field) => ({
+                      value: field.name,
+                      label: field.label || field.name,
+                    }))}
+                    placeholder="No start date field selected"
+                    onValueChange={setCalendarField}
+                    onClear={() => setCalendarField(no_layout_option)}
+                  />
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   End Date Field
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={calendarEndField}
-                    onChange={(event) => setCalendarEndField(event.target.value)}
-                  >
-                    <option value="">Optional</option>
-                    {dateFields
-                      .filter((field) => field.name !== (calendarField || dateFields[0]?.name))
-                      .map((field) => (
-                        <option key={field.name} value={field.name}>
-                          {field.label || field.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  <LayoutOptionPicker
+                    label="end date field"
+                    value={dateFields.find((field) => field.name === calendarEndField)?.name}
+                    options={[
+                      { value: "none", label: "Optional" },
+                      ...dateFields
+                        .filter((field) => field.name !== resolvedCalendarField?.name)
+                        .map((field) => ({
+                          value: field.name,
+                          label: field.label || field.name,
+                        })),
+                    ]}
+                    placeholder="Optional"
+                    onValueChange={(value) =>
+                      setCalendarEndField(value === "none" ? "" : value)
+                    }
+                    onClear={() => setCalendarEndField("")}
+                  />
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   Display Template
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={calendarDisplayField || cardTextFields[0]?.name || ""}
-                    onChange={(event) => setCalendarDisplayField(event.target.value)}
-                  >
-                    {visibleFields
-                      .filter((field) => !is_alias_field(field))
-                      .map((field) => (
-                      <option key={field.name} value={field.name}>
-                        {field.label || field.name}
-                      </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  <LayoutOptionPicker
+                    label="display template"
+                    value={resolvedCalendarDisplayField?.name}
+                    options={calendarDisplayFields.map((field) => ({
+                      value: field.name,
+                      label: field.label || field.name,
+                    }))}
+                    placeholder="No display template selected"
+                    onValueChange={setCalendarDisplayField}
+                    onClear={() => setCalendarDisplayField(no_layout_option)}
+                  />
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   First Day of the Week
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={calendarFirstDay}
-                    onChange={(event) => setCalendarFirstDay(Number(event.target.value))}
-                  >
-                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
-                      (day, index) => (
-                        <option key={day} value={index}>{day}</option>
-                      )
+                  <LayoutOptionPicker
+                    label="first day of the week"
+                    value={
+                      calendarFirstDay >= 0
+                        ? String(calendarFirstDay)
+                        : undefined
+                    }
+                    options={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                      (day, index) => ({ value: String(index), label: day })
                     )}
-                  </select>
-                </label>
+                    placeholder="Sunday (default)"
+                    onValueChange={(value) =>
+                      setCalendarFirstDay(Number(value))
+                    }
+                    onClear={() => setCalendarFirstDay(-1)}
+                  />
+                </div>
               </>
             ) : null}
             {displayLayout === "kanban" ? (
               <>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   Group By
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={kanbanGroupField?.name ?? ""}
-                    onChange={(event) => setKanbanField(event.target.value)}
-                  >
-                    {kanbanFields.map((field) => (
-                      <option key={field.name} value={field.name}>
-                        {field.label || field.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  <LayoutOptionPicker
+                    label="group by field"
+                    value={kanbanGroupField?.name}
+                    options={kanbanFields.map((field) => ({
+                      value: field.name,
+                      label: field.label || field.name,
+                    }))}
+                    placeholder="No grouping field selected"
+                    onValueChange={setKanbanField}
+                    onClear={() => setKanbanField(no_layout_option)}
+                  />
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   Card Title
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={kanbanResolvedTitleField?.name ?? ""}
-                    onChange={(event) => setKanbanTitleField(event.target.value)}
-                  >
-                    {kanbanCardFields.map((field) => (
-                      <option key={field.name} value={field.name}>
-                        {field.label || field.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block space-y-1.5 text-xs text-muted-foreground">
+                  <LayoutOptionPicker
+                    label="card title field"
+                    value={kanbanResolvedTitleField?.name}
+                    options={kanbanCardFields.map((field) => ({
+                      value: field.name,
+                      label: field.label || field.name,
+                    }))}
+                    placeholder="No card title field selected"
+                    onValueChange={setKanbanTitleField}
+                    onClear={() => setKanbanTitleField(no_layout_option)}
+                  />
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   Card Text
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={kanbanResolvedTextField?.name ?? "none"}
-                    onChange={(event) => setKanbanTextField(event.target.value)}
-                  >
-                    <option value="none">No card text</option>
-                    {kanbanCardFields
-                      .filter((field) => field.name !== kanbanResolvedTitleField?.name)
-                      .map((field) => (
-                        <option key={field.name} value={field.name}>
-                          {field.label || field.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                  <LayoutOptionPicker
+                    label="card text field"
+                    value={kanbanResolvedTextField?.name}
+                    options={[
+                      { value: "none", label: "No card text" },
+                      ...kanbanCardFields
+                        .filter((field) => field.name !== kanbanResolvedTitleField?.name)
+                        .map((field) => ({
+                          value: field.name,
+                          label: field.label || field.name,
+                        })),
+                    ]}
+                    placeholder="No card text"
+                    onValueChange={setKanbanTextField}
+                    onClear={() => setKanbanTextField(no_layout_option)}
+                  />
+                </div>
               </>
             ) : null}
             {displayLayout === "map" ? (
@@ -3256,64 +3252,54 @@ export default function ContentManager({ data }: EtViewProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div
-                  aria-label="Location field"
-                  className={cn(
-                    "flex min-h-16 items-center rounded-xl border border-border px-4 text-sm",
-                    resolvedMapField
-                      ? "bg-background text-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {resolvedMapField ? (
-                    <Select
-                      value={resolvedMapField.name}
-                      onValueChange={setMapField}
-                    >
-                      <SelectTrigger
-                        aria-label="Location field"
-                        className="w-full border-0 bg-transparent p-0 font-normal shadow-none"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent align="start">
-                        {mapFields.map((field) => (
-                          <SelectItem key={field.name} value={field.name}>
-                            {field.label || field.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span>No compatible fields</span>
-                  )}
+                <div className="space-y-2">
+                  <span className="block text-sm font-semibold">Location Field</span>
+                  <LayoutOptionPicker
+                    label="location field"
+                    value={resolvedMapField?.name}
+                    options={mapFields.map((field) => ({
+                      value: field.name,
+                      label: field.label || field.name,
+                    }))}
+                    placeholder={
+                      mapFields.length === 0
+                        ? "No compatible fields"
+                        : "No location field selected"
+                    }
+                    onValueChange={setMapField}
+                    onClear={() => setMapField(no_layout_option)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <span className="block text-sm font-semibold">Display Template</span>
-                  <Select
-                    value={mapDisplayTemplateValue}
+                  <LayoutOptionPicker
+                    label="map display template"
+                    value={
+                      mapDisplayField === no_layout_option
+                        ? undefined
+                        : visibleFields.find((field) => field.name === mapDisplayField)?.name
+                    }
+                    options={[
+                      { value: "collection-default", label: "Using Collection Default..." },
+                      ...visibleFields
+                        .filter((field) => !is_alias_field(field))
+                        .map((field) => ({
+                          value: field.name,
+                          label: field.label || field.name,
+                        })),
+                    ]}
+                    placeholder={
+                      mapDisplayField === no_layout_option
+                        ? "No display template selected"
+                        : "Using Collection Default..."
+                    }
                     onValueChange={(value) =>
                       setMapDisplayField(
                         value === "collection-default" ? "" : value
                       )
                     }
-                  >
-                    <SelectTrigger aria-label="Display Template" className="w-full font-normal">
-                      <SelectValue placeholder="Using Collection Default..." />
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                      <SelectItem value="collection-default">
-                        Using Collection Default...
-                      </SelectItem>
-                      {visibleFields
-                        .filter((field) => !is_alias_field(field))
-                        .map((field) => (
-                          <SelectItem key={field.name} value={field.name}>
-                            {field.label || field.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    onClear={() => setMapDisplayField(no_layout_option)}
+                  />
                 </div>
                 <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
                   <Checkbox
@@ -3327,107 +3313,6 @@ export default function ContentManager({ data }: EtViewProps) {
                 </label>
               </>
             ) : null}
-          </section>
-
-          <section ref={filterSectionRef} className="space-y-3 border-t border-border pt-4">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Filters</h2>
-            </div>
-            {filterRules.length ? (
-              <div className="space-y-1.5">
-                {filterRules.map((rule) => (
-                  <div key={rule.id} className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs">
-                    <span className="min-w-0 flex-1 truncate">
-                      {fields.find((field) => field.name === rule.field)?.label || rule.field}{" "}
-                      {rule.operator.replaceAll("_", " ")}{" "}
-                      {rule.operator === "_null" ? "empty" : rule.value}
-                    </span>
-                    <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove filter" onClick={() => removeFilter(rule.id)}>
-                      <X className="size-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No filters applied.</p>
-            )}
-            <div className="space-y-2">
-              {draftFilterRules.map((rule) => (
-                <div key={rule.id} className="space-y-1.5 rounded-lg border border-border p-2">
-                  <select
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                    value={rule.field}
-                    onChange={(event) =>
-                      setDraftFilterRules((rules) =>
-                        rules.map((item) => item.id === rule.id ? { ...item, field: event.target.value } : item)
-                      )
-                    }
-                    aria-label="Filter field"
-                  >
-                    {visibleFields.map((field) => (
-                      <option key={field.name} value={field.name}>{field.label || field.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                    value={rule.operator}
-                    onChange={(event) =>
-                      setDraftFilterRules((rules) =>
-                        rules.map((item) => item.id === rule.id ? { ...item, operator: event.target.value as FilterOperator } : item)
-                      )
-                    }
-                    aria-label="Filter operator"
-                  >
-                    <option value="_eq">is</option>
-                    <option value="_neq">is not</option>
-                    <option value="_contains">contains</option>
-                    <option value="_gt">greater than</option>
-                    <option value="_gte">at least</option>
-                    <option value="_lt">less than</option>
-                    <option value="_lte">at most</option>
-                    <option value="_null">is empty</option>
-                  </select>
-                  {rule.operator !== "_null" ? (
-                    <Input
-                      value={rule.value}
-                      onChange={(event) =>
-                        setDraftFilterRules((rules) =>
-                          rules.map((item) => item.id === rule.id ? { ...item, value: event.target.value } : item)
-                        )
-                      }
-                      placeholder="Filter value"
-                      className="h-8 text-xs"
-                    />
-                  ) : null}
-                </div>
-              ))}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() =>
-                    setDraftFilterRules((rules) => [
-                      ...rules,
-                      {
-                        id: `${Date.now()}-${rules.length}`,
-                        field: visibleFields[0]?.name ?? "",
-                        operator: "_contains",
-                        value: "",
-                      },
-                    ])
-                  }
-                  disabled={visibleFields.length === 0}
-                >
-                  Add filter
-                </Button>
-                <Button type="button" size="sm" onClick={applyFilters} disabled={draftFilterRules.length === 0}>
-                  Apply
-                </Button>
-              </div>
-            </div>
           </section>
 
           </div>
