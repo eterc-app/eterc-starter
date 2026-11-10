@@ -41,6 +41,7 @@ accents.
 | --- | --- | --- |
 | `--background` | `#ededed` | App canvas behind cards |
 | `--card` / `--popover` | `#ffffff` | Sidebar, top bar, cards, menus |
+| `--assistant-sidebar` | subtle cool tint | AI, right workspace-tools, and Content collections panel backgrounds |
 | `--foreground` | `#000000` | Primary text and primary actions |
 | `--muted-foreground` | `#666666` | Secondary text, notes, placeholders |
 | `--border` | `#d9d9d9` | Card, table, and divider borders |
@@ -125,7 +126,7 @@ Rules:
 Shell composition:
 
 - `AdminTemplate` is the authenticated shell. It has a 180 px white sidebar, a 64 px white top
-  bar, a gray canvas with 32 px padding, and a 320 px right workspace-tools panel on large
+  bar, a gray canvas with 32 px padding, and a 256 px right workspace-tools panel on large
   screens. The right panel provides AI-assistant status, record import/export, and schema export;
   Content replaces it with collection-specific controls.
 - When the sidebar is collapsed it becomes a 56 px icon rail that keeps the logo, navigation
@@ -143,8 +144,11 @@ Shell composition:
   page's action icons, and the theme toggle. It does not repeat the page title or carry status
   badges.
 - The right workspace-tools panel remains visible alongside authenticated admin pages on large
-  screens. Its assistant is a scaffold and must clearly state that no model calls are sent until
-  an AI runtime is connected.
+  screens. The assistant views in both the workspace panel and the Content page's right sidebar
+  use a compact title/status header, centered welcome state, and bottom-anchored composer. The
+  composer remains disabled and both panels must clearly state that no model calls are sent until
+  an AI runtime is connected. Use the `--assistant-sidebar` token for a subtle blue-tinted panel
+  background; Data tools remain available from the workspace panel header.
 - Page actions are dynamic. Each route portals its action icons into the top-bar slot immediately
   before the theme toggle; the slot is empty on routes without actions. When a page uses
   `PageHeader`, it carries the title and description only; primary workspace pages rely on the

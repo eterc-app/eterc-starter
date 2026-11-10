@@ -527,7 +527,7 @@ export function AdminTemplate({
           )}
 
           {navbarMeta?.pageSidebar ? (
-            <aside className="sticky top-0 hidden h-screen w-48 shrink-0 border-r border-border bg-sidebar md:flex">
+            <aside className="sticky top-0 hidden h-screen w-48 shrink-0 border-r border-border bg-assistant-sidebar md:flex">
               {navbarMeta.pageSidebar}
             </aside>
           ) : null}
@@ -564,7 +564,7 @@ export function AdminTemplate({
           <aside
             className={cn(
               "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
-              navbarMeta?.rightSidebarCollapsed ? "w-14" : "w-80",
+              navbarMeta?.rightSidebarCollapsed ? "w-14" : "w-64",
             )}
           >
             {navbarMeta?.rightSidebar ? (

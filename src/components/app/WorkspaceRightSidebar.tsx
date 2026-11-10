@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, Bot, FileJson2, Upload } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUp,
+  Bot,
+  Database,
+  FileJson2,
+  Plus,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type {
@@ -217,42 +226,82 @@ export function WorkspaceRightSidebar() {
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-sidebar text-foreground">
-      <div className="shrink-0 border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold">Workspace tools</h2>
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-          <button
-            type="button"
-            className={`flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium ${section === "assistant" ? "bg-card text-foreground" : "text-muted-foreground"}`}
-            aria-pressed={section === "assistant"}
-            onClick={() => setSection("assistant")}
-          >
-            <Bot className="size-3.5" />
-            Assistant
-          </button>
-          <button
-            type="button"
-            className={`flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium ${section === "data" ? "bg-card text-foreground" : "text-muted-foreground"}`}
-            aria-pressed={section === "data"}
-            onClick={() => setSection("data")}
-          >
-            <ArrowDownToLine className="size-3.5" />
-            Data tools
-          </button>
+    <div className="flex h-full min-h-0 w-full flex-col bg-assistant-sidebar text-foreground">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          {section === "assistant" ? (
+            <Sparkles className="size-4 shrink-0" />
+          ) : (
+            <ArrowDownToLine className="size-4 shrink-0" />
+          )}
+          <h2 className="truncate text-sm font-semibold">
+            {section === "assistant" ? "AI Assistant" : "Data tools"}
+          </h2>
         </div>
+        <button
+          type="button"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={section === "assistant" ? "Open data tools" : "Open AI assistant"}
+          title={section === "assistant" ? "Data tools" : "AI Assistant"}
+          onClick={() =>
+            setSection((current) => (current === "assistant" ? "data" : "assistant"))
+          }
+        >
+          {section === "assistant" ? (
+            <Database className="size-4" />
+          ) : (
+            <Bot className="size-4" />
+          )}
+        </button>
       </div>
 
       {section === "assistant" ? (
-        <div className="space-y-3 p-4">
-          <div className="flex items-center gap-2">
-            <Bot className="size-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">AI Assistant</h3>
+        <>
+          <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Bot className="size-3.5" />
+              <span>Not connected</span>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            The assistant interface is available, but its model runtime is not connected yet.
-            No prompts are sent to an AI service.
-          </p>
-        </div>
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-muted">
+              <Sparkles className="size-8" />
+            </div>
+            <h3 className="mt-4 text-lg font-medium">Build with AI Assistant</h3>
+             <p className="text-muted-foreground">
+                  AI responses may be inaccurate 
+                </p>
+          </div>
+          <div className="shrink-0 px-3 pb-3">
+            <div className="rounded-xl border border-input bg-card p-3">
+              <textarea
+                rows={2}
+                disabled
+                aria-label="Message the AI assistant"
+                placeholder="Type your message here ..."
+                className="max-h-32 min-h-10 w-full resize-none bg-transparent text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Attach a file"
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Plus className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Send message"
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <ArrowUp className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="app-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           <div className="space-y-2">

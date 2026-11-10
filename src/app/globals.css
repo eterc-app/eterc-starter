@@ -66,6 +66,7 @@
 
   /* Sidebar */
   --sidebar: #ffffff;
+  --assistant-sidebar: color-mix(in srgb, var(--sidebar) 96%, var(--brand) 4%);
   --sidebar-foreground: #000000;
   --sidebar-primary: #000000;
   --sidebar-primary-foreground: #ffffff;
@@ -117,6 +118,7 @@
   --focus-shadow: 0 0 16px -8px var(--ring);
 
   --sidebar: #161b22;
+  --assistant-sidebar: color-mix(in srgb, var(--sidebar) 94%, var(--brand) 6%);
   --sidebar-foreground: #f0f6fc;
   --sidebar-primary: #f0f6fc;
   --sidebar-primary-foreground: #0d1117;
@@ -168,6 +170,7 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
+  --color-assistant-sidebar: var(--assistant-sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);

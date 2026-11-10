@@ -2879,10 +2879,10 @@ export default function ContentManager({ data }: EtViewProps) {
       {selected && viewMode === "table" ? (
         <aside
           className={cn(
-            "flex h-full min-h-0 w-full flex-col border-l border-border bg-card",
+            "flex h-full min-h-0 w-full flex-col border-l border-border bg-assistant-sidebar",
             viewPanelCollapsed
               ? "lg:w-14"
-              : "border border-border lg:w-80"
+              : "border border-border lg:w-64"
           )}
         >
           {viewPanelCollapsed ? (
@@ -3388,13 +3388,45 @@ export default function ContentManager({ data }: EtViewProps) {
               </div>
             </section>
           ) : (
-            <section className="space-y-2 p-4">
-              <p className="text-sm font-semibold">AI Assistant</p>
-              <p className="text-sm text-muted-foreground">
-                The assistant model runtime is not connected yet. No prompts are sent to an AI
-                service.
-              </p>
-            </section>
+            <>
+              <div className="cms-sidebar-scroll min-h-0 flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 text-center">
+                <div className="grid size-20 place-items-center rounded-full bg-muted">
+                  <Sparkles className="size-8" />
+                </div>
+                <h3 className="mt-4 text-lg font-medium">Build with AI Assistant</h3>
+                <p className="text-muted-foreground">
+                  AI responses may be inaccurate 
+                </p>
+              </div>
+              <div className="shrink-0 px-3 pb-3">
+                <div className="rounded-xl border border-input bg-card p-2">
+                  <textarea
+                    rows={1}
+                    aria-label="Message the AI assistant"
+                    placeholder="Type your message here ..."
+                    className="cms-sidebar-scroll max-h-32 min-h-6 w-full resize-none overflow-y-auto border-0 bg-transparent p-0 text-sm leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:shadow-none"
+                  />
+                  <div className="mt-1 flex items-center justify-between">
+                    <button
+                      type="button"
+                      disabled
+                      aria-label="Attach a file"
+                      className="inline-grid size-7 place-items-center rounded-full bg-muted text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      aria-label="Send message"
+                      className="inline-grid size-7 place-items-center rounded-full bg-muted text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
             </>
           )}
