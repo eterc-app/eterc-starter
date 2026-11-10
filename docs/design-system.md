@@ -125,7 +125,9 @@ Rules:
 Shell composition:
 
 - `AdminTemplate` is the authenticated shell. It has a 180 px white sidebar, a 64 px white top
-  bar, and a gray canvas with 32 px padding. There is no Electron title bar or assistant rail.
+  bar, a gray canvas with 32 px padding, and a 320 px right workspace-tools panel on large
+  screens. The right panel provides AI-assistant status, record import/export, and schema export;
+  Content replaces it with collection-specific controls.
 - When the sidebar is collapsed it becomes a 56 px icon rail that keeps the logo, navigation
   icons, and account menu visible. Icon-only rows use `title` and `aria-label` for their label.
 - On `/admin/content`, the global navigation uses that 56 px rail and collections occupy the
@@ -140,6 +142,9 @@ Shell composition:
 - The top bar holds the mobile navigation trigger, sidebar collapse, breadcrumb, the current
   page's action icons, and the theme toggle. It does not repeat the page title or carry status
   badges.
+- The right workspace-tools panel remains visible alongside authenticated admin pages on large
+  screens. Its assistant is a scaffold and must clearly state that no model calls are sent until
+  an AI runtime is connected.
 - Page actions are dynamic. Each route portals its action icons into the top-bar slot immediately
   before the theme toggle; the slot is empty on routes without actions. When a page uses
   `PageHeader`, it carries the title and description only; primary workspace pages rely on the

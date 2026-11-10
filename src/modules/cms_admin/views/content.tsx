@@ -38,12 +38,10 @@ import {
   Layers,
   Loader2,
   MapPin,
-  MessageSquareText,
   Pencil,
   Plus,
   Search,
   RefreshCw,
-  Send,
   SlidersHorizontal,
   Sparkles,
   Table2,
@@ -61,6 +59,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -92,6 +91,13 @@ import {
 import { field_choices } from "./field-inputs/types";
 import { MapCanvas } from "./field-inputs/MapCanvas";
 import { BusyButton, EmptyState, cms_call } from "./ui";
+import {
+  collection_schema,
+  csv_cell,
+  download_text,
+  import_field_value,
+  parse_csv,
+} from "./workspace-transfer";
 
 interface Snapshot {
   collections?: CmsCollectionWithFields[];
@@ -243,7 +249,11 @@ function coordinates(value: unknown): { latitude: number; longitude: number } | 
     Array.isArray(parsed) &&
     parsed.length >= 2 &&
     Number.isFinite(Number(parsed[0])) &&
-    Number.isFinite(Number(parsed[1]))
+    Number.isFinite(Number(parsed[1])) &&
+    Number(parsed[0]) >= -180 &&
+    Number(parsed[0]) <= 180 &&
+    Number(parsed[1]) >= -90 &&
+    Number(parsed[1]) <= 90
   ) {
     return { longitude: Number(parsed[0]), latitude: Number(parsed[1]) };
   }
@@ -484,14 +494,29 @@ export default function ContentManager({ data }: EtViewProps) {
   const displayLayout = selected
     ? layoutPreferences[selected.name] ?? "table"
     : "table";
+  const previousDisplayLayout = useRef<DisplayLayout>("table");
   const [cardSize, setCardSize] = useState<
     "small" | "medium" | "large" | "extra-large"
   >("small");
   const [cardImageField, setCardImageField] = useState("auto");
-  const [cardTitleField, setCardTitleField] = useState("auto");
-  const [cardSubtitleField, setCardSubtitleField] = useState("auto");
+  const [cardTitleFieldNames, setCardTitleFieldNames] = useState<string[] | null>(
+    null
+  );
+  const [cardSubtitleFieldNames, setCardSubtitleFieldNames] = useState<
+    string[] | null
+  >(null);
   const [viewPanelCollapsed, setViewPanelCollapsed] = useState(true);
   const [sidebarSection, setSidebarSection] = useState<SidebarSection>("layout");
+  useEffect(() => {
+    if (
+      displayLayout === "map" &&
+      previousDisplayLayout.current !== "map"
+    ) {
+      setSidebarSection("layout");
+      setViewPanelCollapsed(false);
+    }
+    previousDisplayLayout.current = displayLayout;
+  }, [displayLayout]);
   const [columnSort, setColumnSort] = useState<ColumnSort | null>(null);
   const [columnAlignments, setColumnAlignments] = useState<
     Record<string, ColumnAlignment>
@@ -530,8 +555,10 @@ export default function ContentManager({ data }: EtViewProps) {
   const [kanbanTitleField, setKanbanTitleField] = useState("");
   const [kanbanTextField, setKanbanTextField] = useState("");
   const [mapField, setMapField] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<string[]>([]);
+  const [mapDisplayField, setMapDisplayField] = useState("");
+  const [clusterNearbyData, setClusterNearbyData] = useState(false);
+  const [importingRecords, setImportingRecords] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Record Form state
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
@@ -553,6 +580,10 @@ export default function ContentManager({ data }: EtViewProps) {
           ? `Could not save this collection's layout: ${error.message}`
           : "Could not save this collection's layout."
       );
+    }
+    if (layout === "map") {
+      setSidebarSection("layout");
+      setViewPanelCollapsed(false);
     }
   };
 
@@ -940,19 +971,48 @@ export default function ContentManager({ data }: EtViewProps) {
       ? undefined
       : cardImageFields.find((field) => field.name === cardImageField) ??
         cardImageFields[0];
-  const resolvedCardTitleField =
-    cardTitleField === "none"
-      ? undefined
-      : cardTextFields.find((field) => field.name === cardTitleField) ??
-        cardTextFields[0];
+  const resolvedCardTitleFields =
+    cardTitleFieldNames === null
+      ? cardTextFields.slice(0, 1)
+      : cardTextFields.filter((field) =>
+          cardTitleFieldNames.includes(field.name)
+        );
   const cardSubtitleFields = cardTextFields.filter(
-    (field) => field.name !== resolvedCardTitleField?.name
+    (field) =>
+      !resolvedCardTitleFields.some(
+        (titleField) => titleField.name === field.name
+      )
   );
-  const resolvedCardSubtitleField =
-    cardSubtitleField === "none"
-      ? undefined
-      : cardSubtitleFields.find((field) => field.name === cardSubtitleField) ??
-        cardSubtitleFields[0];
+  const resolvedCardSubtitleFields =
+    cardSubtitleFieldNames === null
+      ? cardSubtitleFields.slice(0, 1)
+      : cardSubtitleFields.filter((field) =>
+          cardSubtitleFieldNames.includes(field.name)
+        );
+  const toggleCardTitleField = (fieldName: string, checked: boolean) => {
+    const currentNames =
+      cardTitleFieldNames ??
+      resolvedCardTitleFields.map((field) => field.name);
+    const nextNames = checked
+      ? [...currentNames, fieldName]
+      : currentNames.filter((name) => name !== fieldName);
+    setCardTitleFieldNames(nextNames);
+    setCardSubtitleFieldNames((subtitleNames) =>
+      subtitleNames === null
+        ? null
+        : subtitleNames.filter((name) => !nextNames.includes(name))
+    );
+  };
+  const toggleCardSubtitleField = (fieldName: string, checked: boolean) => {
+    const currentNames =
+      cardSubtitleFieldNames ??
+      resolvedCardSubtitleFields.map((field) => field.name);
+    setCardSubtitleFieldNames(
+      checked
+        ? [...currentNames, fieldName]
+        : currentNames.filter((name) => name !== fieldName)
+    );
+  };
   const kanbanFields = visibleFields.filter(
     (field) => field.type === "select" || field.type === "string" || field.type === "text"
   );
@@ -1015,6 +1075,59 @@ export default function ContentManager({ data }: EtViewProps) {
   };
   const mapFields = visibleFields.filter(
     (field) => field.interface === "map" || field.type === "json"
+  );
+  const resolvedMapField =
+    mapFields.find((field) => field.name === mapField) ?? mapFields[0];
+  const mapDisplayTemplateValue =
+    visibleFields.find((field) => field.name === mapDisplayField)?.name ??
+    "collection-default";
+  const mapPoints = useMemo(
+    () => {
+      const locationField =
+        fields.find(
+          (field) =>
+            !field.hidden &&
+            (field.interface === "map" || field.type === "json") &&
+            field.name === mapField
+        ) ??
+        fields.find(
+          (field) =>
+            !field.hidden &&
+            (field.interface === "map" || field.type === "json")
+        );
+      return records.flatMap((record, index) => {
+        const point = locationField ? coordinates(record[locationField.name]) : null;
+        return point ? [{ record, index, ...point }] : [];
+      });
+    },
+    [fields, mapField, records]
+  );
+  const mapPointCoordinates = useMemo(
+    () =>
+      mapPoints.map((point) => [point.longitude, point.latitude]),
+    [mapPoints]
+  );
+  const mapPointLabels = useMemo(
+    () => {
+      const displayField =
+        fields.find(
+          (field) => !field.hidden && field.name === mapDisplayField
+        ) ??
+        fields.find(
+          (field) =>
+            !field.hidden &&
+            field.name !== selected?.primary_key &&
+            !is_alias_field(field) &&
+            (field.type === "string" || field.type === "text")
+        );
+      return mapPoints.map((point) => {
+        const value = displayField ? point.record[displayField.name] : undefined;
+        return value == null
+          ? `#${String(point.record[selected?.primary_key ?? "id"] ?? point.index)}`
+          : String(value);
+      });
+    },
+    [fields, mapDisplayField, mapPoints, selected?.primary_key]
   );
   const formFields = useMemo(
     () =>
@@ -1101,27 +1214,96 @@ export default function ContentManager({ data }: EtViewProps) {
   const exportCurrentPage = useCallback(() => {
     if (!selected) return;
     const exportFields = [
-      { name: selected.primary_key, label: selected.primary_key },
-      ...tableFields.map((field) => ({
-        name: field.name,
-        label: field.label || field.name,
-      })),
+      { name: selected.primary_key },
+      ...tableFields.map((field) => ({ name: field.name })),
     ];
-    const escapeCsv = (value: unknown) =>
-      `"${String(value ?? "").replaceAll('"', '""')}"`;
     const csv = [
-      exportFields.map((field) => escapeCsv(field.label)).join(","),
+      exportFields.map((field) => csv_cell(field.name)).join(","),
       ...records.map((record) =>
-        exportFields.map((field) => escapeCsv(record[field.name])).join(",")
+        exportFields.map((field) => csv_cell(record[field.name])).join(",")
       ),
     ].join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selected.name}-page-${page}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    download_text(
+      `\uFEFF${csv}`,
+      "text/csv;charset=utf-8",
+      `${selected.name}-page-${page}.csv`
+    );
   }, [page, records, selected, tableFields]);
+
+  const exportSchema = useCallback(() => {
+    try {
+      download_text(
+        JSON.stringify(collection_schema(collections), null, 2),
+        "application/json;charset=utf-8",
+        "eterc-schema.json"
+      );
+      toast.success("Schema exported.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not export schema."
+      );
+    }
+  }, [collections]);
+
+  const importCsv = useCallback(
+    async (file: File) => {
+      if (!selected) return;
+      setImportingRecords(true);
+      let imported = 0;
+      try {
+        const rows = parse_csv(await file.text());
+        const [headerRow, ...dataRows] = rows;
+        if (!headerRow?.length) throw new Error("The CSV file is empty.");
+        const headers = headerRow.map((header) => header.trim());
+        if (new Set(headers).size !== headers.length) {
+          throw new Error("The CSV file contains duplicate column names.");
+        }
+
+        const fieldsByName = new Map(fields.map((field) => [field.name, field]));
+        const writableFields = headers.map((header) => {
+          if (header === selected.primary_key) return null;
+          const field = fieldsByName.get(header);
+          if (!field) {
+            throw new Error(`"${header}" is not a writable field in this collection.`);
+          }
+          return field.type === "alias" || field.readonly ? null : field;
+        }).filter((field): field is CmsField => field !== null);
+        if (writableFields.length === 0) {
+          throw new Error("The CSV must include at least one writable field.");
+        }
+
+        for (const [index, row] of dataRows.entries()) {
+          if (row.length !== headers.length) {
+            throw new Error(`CSV row ${index + 2} has the wrong number of columns.`);
+          }
+          const values = Object.fromEntries(
+            writableFields.map((field) => [
+              field.name,
+              import_field_value(field, row[headers.indexOf(field.name)]),
+            ])
+          );
+          await cms_call("data_record_create", {
+            collection: selected.name,
+            values,
+          });
+          imported += 1;
+        }
+        toast.success(`Imported ${imported} record${imported === 1 ? "" : "s"}.`);
+        await refresh(selected.name, page, search);
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : "The import failed.";
+        toast.error(
+          imported > 0
+            ? `Imported ${imported} records before the import stopped: ${reason}`
+            : `Could not import records: ${reason}`
+        );
+      } finally {
+        setImportingRecords(false);
+      }
+    },
+    [fields, page, refresh, search, selected]
+  );
 
   useEffect(() => {
     if (
@@ -1346,81 +1528,87 @@ export default function ContentManager({ data }: EtViewProps) {
             </div>
           ) : viewMode === "record-form" ? (
             /* RECORD FORM WORKING AREA */
-            <div className="w-full md:w-4/5 space-y-6">
-              {formFields.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  This collection has no fields. Go to Data Studio to add columns.
-                </p>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void saveRecord();
-                  }}
-                  className="space-y-5"
-                >
-                  <CmsFieldForm
-                    fields={formFields}
-                    values={recordValues}
-                    collections={collections}
-                    media={{
-                      csrfToken: String(initial.csrf_token ?? ""),
-                      uploadUrl: String(
-                        initial.media_upload_url ?? "/api/media/upload"
-                      ),
-                      apiRoot: String(
-                        initial.media_api_root ?? "/api/xhr/media"
-                      ),
+            <div className="app-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
+              <div className="w-full space-y-6">
+                {formFields.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    This collection has no fields. Go to Data Studio to add columns.
+                  </p>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void saveRecord();
                     }}
-                    onChange={(name, value) =>
-                      setRecordValues((values) => ({
-                        ...values,
-                        [name]: value,
-                      }))
-                    }
-                  />
+                    className="space-y-5"
+                  >
+                    <CmsFieldForm
+                        fields={formFields}
+                        values={recordValues}
+                        collections={collections}
+                        media={{
+                          csrfToken: String(initial.csrf_token ?? ""),
+                          uploadUrl: String(
+                            initial.media_upload_url ?? "/api/media/upload"
+                          ),
+                          apiRoot: String(
+                            initial.media_api_root ?? "/api/xhr/media"
+                          ),
+                        }}
+                        onChange={(name, value) =>
+                          setRecordValues((values) => ({
+                            ...values,
+                            [name]: value,
+                          }))
+                        }
+                    />
 
-                  {/* Clean bottom buttons for form */}
-                  <div className="flex items-center justify-between pt-6 border-t border-border">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-lg"
-                      onClick={() => setViewMode("table")}
-                    >
-                      Cancel
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      {editingRecord ? (
+                    {/* Clean bottom buttons for form */}
+                    <div className="flex items-center justify-between pt-6 border-t border-border">
                         <Button
                           type="button"
-                          variant="destructive"
+                          variant="outline"
                           className="rounded-lg"
-                          onClick={() => deleteRecord(editingRecord)}
+                          onClick={() => setViewMode("table")}
                         >
-                          <Trash2 className="size-4" />
-                          Delete
+                          Cancel
                         </Button>
-                      ) : null}
-                      <BusyButton
-                        type="submit"
-                        busy={recordSaving}
-                        className="rounded-lg"
-                      >
-                        <Check className="size-4" />
-                        {editingRecord ? "Save changes" : "Create record"}
-                      </BusyButton>
+                        <div className="flex items-center gap-2">
+                          {editingRecord ? (
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="rounded-lg"
+                              onClick={() => deleteRecord(editingRecord)}
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </Button>
+                          ) : null}
+                          <BusyButton
+                            type="submit"
+                            busy={recordSaving}
+                            className="rounded-lg"
+                          >
+                            <Check className="size-4" />
+                            {editingRecord ? "Save changes" : "Create record"}
+                          </BusyButton>
+                        </div>
                     </div>
-                  </div>
-                </form>
-              )}
+                  </form>
+                )}
+              </div>
             </div>
           ) : (
             /* TABLE WORKING AREA */
             <div
               className={cn(
                 "flex min-h-0 min-w-0 flex-1 flex-col",
-                displayLayout === "cards" ? "gap-1" : "gap-4"
+                displayLayout === "map"
+                  ? "gap-0"
+                  : displayLayout === "cards"
+                    ? "gap-1"
+                    : "gap-4"
               )}
             >
               {displayLayout === "table" ? (
@@ -1953,7 +2141,7 @@ export default function ContentManager({ data }: EtViewProps) {
                     return (
                       <article
                         key={rowId}
-                        className="relative min-w-0"
+                        className="group/card relative min-w-0"
                       >
                         <button
                           type="button"
@@ -1963,10 +2151,10 @@ export default function ContentManager({ data }: EtViewProps) {
                             setRowSelected(rowId, !selectedRowIds.has(rowId))
                           }
                           className={cn(
-                            "absolute left-2 top-2 z-10 grid size-5 place-items-center rounded-full border-2 bg-card/90 transition-colors",
+                            "absolute left-2 top-2 z-10 grid size-5 place-items-center rounded-full border-2 bg-card/90 transition-[opacity,color,background-color,border-color]",
                             selectedRowIds.has(rowId)
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border text-transparent hover:border-foreground"
+                              : "border-border text-transparent opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 hover:border-foreground"
                           )}
                         >
                           {selectedRowIds.has(rowId) ? (
@@ -1977,11 +2165,11 @@ export default function ContentManager({ data }: EtViewProps) {
                           type="button"
                           onClick={() => openEditRecord(record)}
                           aria-label={`Edit record ${rowId}`}
-                          className="group block w-full overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-foreground/30 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                          className="group block w-full min-w-0 text-left focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                         >
-                          <div className="relative aspect-square overflow-hidden bg-muted">
+                          <div className="relative aspect-square overflow-hidden rounded-xl bg-border">
                             <div className="absolute inset-0 grid place-items-center text-muted-foreground">
-                              <Box className="size-9" strokeWidth={1.5} />
+                              <Box className="size-8" strokeWidth={1.5} />
                             </div>
                             {imageUrl ? (
                               <>
@@ -1998,34 +2186,48 @@ export default function ContentManager({ data }: EtViewProps) {
                               </>
                             ) : null}
                           </div>
-                          {resolvedCardTitleField || resolvedCardSubtitleField ? (
-                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden px-3 py-2 text-sm">
-                              {resolvedCardTitleField ? (
-                                <span className="min-w-0 truncate font-semibold">
-                                  <FieldValueDisplay
-                                    field={resolvedCardTitleField}
-                                    value={record[resolvedCardTitleField.name]}
-                                    userLabel={userLabels[String(record[resolvedCardTitleField.name])]}
-                                  />
-                                </span>
+                          {resolvedCardTitleFields.length > 0 ||
+                          resolvedCardSubtitleFields.length > 0 ? (
+                            <div className="min-w-0 space-y-1.5 overflow-hidden pt-1.5">
+                              {resolvedCardTitleFields.length > 0 ? (
+                                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs [&_*]:!text-foreground">
+                                  {resolvedCardTitleFields.map((field, fieldIndex) => (
+                                    <Fragment key={field.name}>
+                                      {fieldIndex > 0 ? (
+                                        <span className="shrink-0 text-muted-foreground">·</span>
+                                      ) : null}
+                                      <span className="min-w-0 truncate">
+                                        <FieldValueDisplay
+                                          field={field}
+                                          value={record[field.name]}
+                                          userLabel={userLabels[String(record[field.name])]}
+                                        />
+                                      </span>
+                                    </Fragment>
+                                  ))}
+                                </div>
                               ) : null}
-                              {resolvedCardSubtitleField ? (
-                                <>
-                                  {resolvedCardTitleField ? (
-                                    <span className="shrink-0 text-muted-foreground">·</span>
-                                  ) : null}
-                                  <span className="min-w-0 truncate text-xs text-muted-foreground">
-                                    <FieldValueDisplay
-                                      field={resolvedCardSubtitleField}
-                                      value={record[resolvedCardSubtitleField.name]}
-                                      userLabel={userLabels[String(record[resolvedCardSubtitleField.name])]}
-                                    />
-                                  </span>
-                                </>
+                              {resolvedCardSubtitleFields.length > 0 ? (
+                                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+                                  {resolvedCardSubtitleFields.map((field, fieldIndex) => (
+                                    <Fragment key={field.name}>
+                                      {fieldIndex > 0 ? (
+                                        <span className="shrink-0">·</span>
+                                      ) : null}
+                                      <span className="min-w-0 truncate">
+                                        <FieldValueDisplay
+                                          field={field}
+                                          value={record[field.name]}
+                                          userLabel={userLabels[String(record[field.name])]}
+                                        />
+                                      </span>
+                                    </Fragment>
+                                  ))}
+                                </div>
                               ) : null}
                             </div>
                           ) : (
-                            <p className="truncate px-3 py-2 font-mono text-xs text-muted-foreground">
+                            <p className="truncate pt-1.5 font-mono text-xs text-muted-foreground">
                               #{rowId}
                             </p>
                           )}
@@ -2524,88 +2726,31 @@ export default function ContentManager({ data }: EtViewProps) {
                   );
                 })()
               ) : (
-                (() => {
-                  const locationField = mapField || mapFields[0]?.name;
-                  const points = records.flatMap((record, index) => {
-                    const point = locationField ? coordinates(record[locationField]) : null;
-                    return point ? [{ record, index, ...point }] : [];
-                  });
-                  return (
-                    <div className="space-y-3">
-                      {mapFields.length > 0 ? (
-                        <label className="flex max-w-sm items-center gap-2 text-xs text-muted-foreground">
-                          Location field
-                          <select
-                            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            value={locationField}
-                            onChange={(event) => setMapField(event.target.value)}
-                          >
-                            {mapFields.map((field) => (
-                              <option key={field.name} value={field.name}>{field.label || field.name}</option>
-                            ))}
-                          </select>
-                        </label>
-                      ) : null}
-                      {points.length > 0 ? (
-                        <>
-                          <MapCanvas
-                            provider="openstreetmap"
-                            apiKey=""
-                            geometryType="MultiPoint"
-                            coordinates={points.map((point) => [
-                              point.longitude,
-                              point.latitude,
-                            ])}
-                            center={{
-                              lat: points.reduce((sum, point) => sum + point.latitude, 0) / points.length,
-                              lng: points.reduce((sum, point) => sum + point.longitude, 0) / points.length,
-                            }}
-                            zoom={points.length === 1 ? 12 : 4}
-                            height={420}
-                            disabled
-                            pointSelected={false}
-                            onClearPoint={() => {}}
-                            onMapClick={() => {}}
-                          />
-                          <div className="grid gap-3 sm:grid-cols-2" role="region" aria-label="Record locations">
-                            {points.map((point) => {
-                              const rowId = String(point.record[selected.primary_key] ?? point.index);
-                              return (
-                                <button
-                                  key={rowId}
-                                  type="button"
-                                  title={`Record #${rowId}`}
-                                  aria-label={`Open record ${rowId}`}
-                                  onClick={() => openEditRecord(point.record)}
-                                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-surface-subtle"
-                                >
-                                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                                  <span className="min-w-0">
-                                    <span className="block font-mono text-xs text-muted-foreground">
-                                      #{rowId}
-                                    </span>
-                                    <span className="mt-1 block text-sm">
-                                      {point.latitude}, {point.longitude}
-                                    </span>
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Showing {points.length} location {points.length === 1 ? "record" : "records"} from this page.
-                          </p>
-                        </>
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                          {mapFields.length
-                            ? "No values in this field contain latitude and longitude coordinates."
-                            : "Add a JSON or map field with latitude and longitude values to plot records."}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
+                <div className="min-h-0 min-w-0 flex-1">
+                  <MapCanvas
+                    provider="openstreetmap"
+                    apiKey=""
+                    geometryType="MultiPoint"
+                    coordinates={mapPointCoordinates}
+                    pointLabels={mapPointLabels}
+                    clusterNearbyData={clusterNearbyData}
+                    center={{
+                      lat: mapPoints.length
+                        ? mapPoints.reduce((sum, point) => sum + point.latitude, 0) / mapPoints.length
+                        : 20,
+                      lng: mapPoints.length
+                        ? mapPoints.reduce((sum, point) => sum + point.longitude, 0) / mapPoints.length
+                        : 0,
+                    }}
+                    zoom={mapPoints.length === 1 ? 12 : mapPoints.length > 1 ? 4 : 2}
+                    height={420}
+                    fill
+                    disabled
+                    pointSelected={false}
+                    onClearPoint={() => {}}
+                    onMapClick={() => {}}
+                  />
+                </div>
               )}
             </div>
           )}
@@ -2880,41 +3025,107 @@ export default function ContentManager({ data }: EtViewProps) {
                 </div>
                 <div className="space-y-2">
                   <span className="block text-sm font-semibold">Title</span>
-                  <Select
-                    value={resolvedCardTitleField?.name ?? "none"}
-                    onValueChange={setCardTitleField}
-                  >
-                    <SelectTrigger aria-label="Title" className="w-full font-normal">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
-                      <SelectItem value="none">No title</SelectItem>
-                      {cardTextFields.map((field) => (
-                        <SelectItem key={field.name} value={field.name}>
-                          {field.label || field.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background p-2">
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                      {resolvedCardTitleFields.length > 0 ? (
+                        resolvedCardTitleFields.map((field) => (
+                          <span
+                            key={field.name}
+                            className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                          >
+                            {field.label || field.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="px-1 text-sm text-muted-foreground">
+                          No title fields
+                        </span>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Add or remove title fields"
+                          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {cardTextFields.map((field) => (
+                          <DropdownMenuCheckboxItem
+                            key={field.name}
+                            checked={resolvedCardTitleFields.some(
+                              (selectedField) => selectedField.name === field.name
+                            )}
+                            onCheckedChange={(checked) =>
+                              toggleCardTitleField(field.name, checked)
+                            }
+                          >
+                            {field.label || field.name}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                        {cardTextFields.length === 0 ? (
+                          <DropdownMenuItem disabled>
+                            No text fields available
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <span className="block text-sm font-semibold">Subtitle</span>
-                  <Select
-                    value={resolvedCardSubtitleField?.name ?? "none"}
-                    onValueChange={setCardSubtitleField}
-                  >
-                    <SelectTrigger aria-label="Subtitle" className="w-full font-normal">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start" className="min-w-(--radix-select-trigger-width)">
-                      <SelectItem value="none">No subtitle</SelectItem>
-                      {cardSubtitleFields.map((field) => (
-                        <SelectItem key={field.name} value={field.name}>
-                          {field.label || field.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background p-2">
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                      {resolvedCardSubtitleFields.length > 0 ? (
+                        resolvedCardSubtitleFields.map((field) => (
+                          <span
+                            key={field.name}
+                            className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+                          >
+                            {field.label || field.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="px-1 text-sm text-muted-foreground">
+                          No subtitle fields
+                        </span>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Add or remove subtitle fields"
+                          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {cardSubtitleFields.map((field) => (
+                          <DropdownMenuCheckboxItem
+                            key={field.name}
+                            checked={resolvedCardSubtitleFields.some(
+                              (selectedField) => selectedField.name === field.name
+                            )}
+                            onCheckedChange={(checked) =>
+                              toggleCardSubtitleField(field.name, checked)
+                            }
+                          >
+                            {field.label || field.name}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                        {cardSubtitleFields.length === 0 ? (
+                          <DropdownMenuItem disabled>
+                            No additional text fields available
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </>
             ) : null}
@@ -3029,6 +3240,90 @@ export default function ContentManager({ data }: EtViewProps) {
                         </option>
                       ))}
                   </select>
+                </label>
+              </>
+            ) : null}
+            {displayLayout === "map" ? (
+              <>
+                <div className="space-y-2">
+                  <span className="block text-sm font-semibold">Basemap</span>
+                  <Select value="openstreetmap">
+                    <SelectTrigger aria-label="Basemap" className="w-full font-normal">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="openstreetmap">OpenStreetMap</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div
+                  aria-label="Location field"
+                  className={cn(
+                    "flex min-h-16 items-center rounded-xl border border-border px-4 text-sm",
+                    resolvedMapField
+                      ? "bg-background text-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {resolvedMapField ? (
+                    <Select
+                      value={resolvedMapField.name}
+                      onValueChange={setMapField}
+                    >
+                      <SelectTrigger
+                        aria-label="Location field"
+                        className="w-full border-0 bg-transparent p-0 font-normal shadow-none"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        {mapFields.map((field) => (
+                          <SelectItem key={field.name} value={field.name}>
+                            {field.label || field.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>No compatible fields</span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <span className="block text-sm font-semibold">Display Template</span>
+                  <Select
+                    value={mapDisplayTemplateValue}
+                    onValueChange={(value) =>
+                      setMapDisplayField(
+                        value === "collection-default" ? "" : value
+                      )
+                    }
+                  >
+                    <SelectTrigger aria-label="Display Template" className="w-full font-normal">
+                      <SelectValue placeholder="Using Collection Default..." />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="collection-default">
+                        Using Collection Default...
+                      </SelectItem>
+                      {visibleFields
+                        .filter((field) => !is_alias_field(field))
+                        .map((field) => (
+                          <SelectItem key={field.name} value={field.name}>
+                            {field.label || field.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+                  <Checkbox
+                    checked={clusterNearbyData}
+                    onCheckedChange={(checked) =>
+                      setClusterNearbyData(checked === true)
+                    }
+                    aria-label="Cluster Nearby Data"
+                  />
+                  Cluster Nearby Data
                 </label>
               </>
             ) : null}
@@ -3156,8 +3451,30 @@ export default function ContentManager({ data }: EtViewProps) {
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Import</h3>
                 <p className="text-xs text-muted-foreground">
-                  Record import is not available yet.
+                  Import CSV rows using field names as column headers.
                 </p>
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant="outline"
+                  disabled={importingRecords || !selected}
+                  onClick={() => importInputRef.current?.click()}
+                >
+                  <ArrowDownUp className="size-4" />
+                  {importingRecords ? "Importing..." : "Import CSV"}
+                </Button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  aria-label="Choose CSV file to import"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void importCsv(file);
+                  }}
+                />
               </div>
               <div className="space-y-2 border-t border-border pt-4">
                 <h3 className="text-sm font-semibold">Export</h3>
@@ -3174,42 +3491,25 @@ export default function ContentManager({ data }: EtViewProps) {
                   <ArrowDownUp className="size-4" />
                   Export current page
                 </Button>
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant="outline"
+                  onClick={exportSchema}
+                >
+                  <Database className="size-4" />
+                  Export schema
+                </Button>
               </div>
             </section>
           ) : (
-          <section className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-            <div className="cms-sidebar-scroll flex-1 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-3">
-              {chatMessages.length === 0 ? (
-                <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
-                  <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
-                    <MessageSquareText className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium">Build with AI Assistant</p>
-                    <p className="mt-1 text-xs text-muted-foreground">AI responses may be inaccurate</p>
-                  </div>
-                </div>
-              ) : chatMessages.map((message, index) => (
-                <p key={`${index}-${message}`} className="ml-auto w-fit max-w-[90%] rounded-lg bg-primary px-2.5 py-1.5 text-xs text-primary-foreground">
-                  {message}
-                </p>
-              ))}
-            </div>
-            <form
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-input p-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!chatInput.trim()) return;
-                setChatMessages((messages) => [...messages, chatInput.trim()]);
-                setChatInput("");
-              }}
-            >
-              <Input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Type your message here..."               className="h-9 min-w-0 border-0 px-1 text-xs shadow-none" />
-              <Button type="submit" size="icon" className="size-8 shrink-0" aria-label="Send question" disabled={!chatInput.trim()}>
-                <Send className="size-4" />
-              </Button>
-            </form>
-          </section>
+            <section className="space-y-2 p-4">
+              <p className="text-sm font-semibold">AI Assistant</p>
+              <p className="text-sm text-muted-foreground">
+                The assistant model runtime is not connected yet. No prompts are sent to an AI
+                service.
+              </p>
+            </section>
           )}
             </>
           )}

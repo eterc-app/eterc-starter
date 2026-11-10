@@ -15,6 +15,7 @@ import {
   PageRightSidebarSlot,
   usePageNavbarMeta,
 } from "@/components/app/PageActionsSlot";
+import { WorkspaceRightSidebar } from "@/components/app/WorkspaceRightSidebar";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -507,8 +508,10 @@ export function AdminTemplate({
       <div
         data-theme={theme}
         className={cn(
-          "min-h-screen bg-background text-foreground",
-          contentPage && "h-screen overflow-hidden",
+          "bg-background text-foreground",
+          contentPage
+            ? "fixed inset-0 overflow-hidden"
+            : "min-h-screen",
         )}
         onClick={() => setAccountOpen(false)}
       >
@@ -558,16 +561,18 @@ export function AdminTemplate({
             </main>
           </div>
 
-          {navbarMeta?.rightSidebar ? (
-            <aside
-              className={cn(
-                "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
-                navbarMeta.rightSidebarCollapsed ? "w-14" : "w-80",
-              )}
-            >
+          <aside
+            className={cn(
+              "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
+              navbarMeta?.rightSidebarCollapsed ? "w-14" : "w-80",
+            )}
+          >
+            {navbarMeta?.rightSidebar ? (
               <PageRightSidebarSlot />
-            </aside>
-          ) : null}
+            ) : (
+              <WorkspaceRightSidebar />
+            )}
+          </aside>
         </div>
 
         {mobileOpen ? (

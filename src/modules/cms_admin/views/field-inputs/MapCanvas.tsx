@@ -18,9 +18,12 @@ interface MapCanvasProps {
   apiKey: string;
   geometryType: MapGeometryType;
   coordinates: unknown;
+  pointLabels?: string[];
+  clusterNearbyData?: boolean;
   center: { lat: number; lng: number };
   zoom: number;
   height: number;
+  fill?: boolean;
   disabled: boolean;
   pointSelected: boolean;
   onClearPoint: () => void;
@@ -100,6 +103,9 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
 function OpenStreetMapCanvas({
   geometryType,
   coordinates,
+  pointLabels,
+  clusterNearbyData = false,
+  fill = false,
   center,
   zoom,
   disabled,
@@ -185,31 +191,102 @@ function OpenStreetMapCanvas({
     const layer = drawnRef.current;
     if (!ready || !L || !map || !layer) return;
 
-    layer.clearLayers();
     const brandColor =
       getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() || "navy";
     const points = allPositions(geometryType, coordinates);
     const latLngs = points.map(([lng, lat]) => [lat, lng] as [number, number]);
-    if (geometryType === "Point" && latLngs[0]) {
-      L.circleMarker(latLngs[0], { radius: 6, color: brandColor, fillOpacity: 0.9 }).addTo(layer);
-    } else if (geometryType === "MultiPoint") {
-      for (const point of latLngs) {
-        L.circleMarker(point, { radius: 5, color: brandColor, fillOpacity: 0.9 }).addTo(layer);
-      }
-    } else if (geometryType === "LineString" && latLngs.length > 0) {
-      L.polyline(latLngs, { color: brandColor, weight: 4 }).addTo(layer);
-    } else if (geometryType === "Polygon" && latLngs.length > 0) {
-      L.polygon(latLngs, { color: brandColor, fillOpacity: 0.2 }).addTo(layer);
-    } else if (geometryType === "MultiLineString" && Array.isArray(coordinates)) {
-      for (const line of coordinates) {
-        const linePoints = asPositions(line).map(([lng, lat]) => [lat, lng] as [number, number]);
-        if (linePoints.length > 0) {
-          L.polyline(linePoints, { color: brandColor, weight: 4 }).addTo(layer);
+
+    const drawPoints = () => {
+      layer.clearLayers();
+      if (geometryType === "Point" && latLngs[0]) {
+        L.circleMarker(latLngs[0], { radius: 6, color: brandColor, fillOpacity: 0.9 }).addTo(layer);
+      } else if (geometryType === "MultiPoint" && clusterNearbyData) {
+        const groups: [number, number][][] = [];
+        for (const point of latLngs) {
+          const pixel = map.latLngToContainerPoint(point);
+          const nearbyGroup = groups.find((group) => {
+            const center = group.reduce(
+              ([sumLat, sumLng], [lat, lng]) => [sumLat + lat, sumLng + lng],
+              [0, 0]
+            );
+            const groupCenter = L.latLng(
+              center[0] / group.length,
+              center[1] / group.length
+            );
+            return map.latLngToContainerPoint(groupCenter).distanceTo(pixel) <= 40;
+          });
+          if (nearbyGroup) nearbyGroup.push(point);
+          else groups.push([point]);
+        }
+        for (const group of groups) {
+          const center = group.reduce(
+            ([sumLat, sumLng], [lat, lng]) => [sumLat + lat, sumLng + lng],
+            [0, 0]
+          );
+          const position: [number, number] = [
+            center[0] / group.length,
+            center[1] / group.length,
+          ];
+          const marker = L.circleMarker(position, {
+            radius: group.length === 1 ? 5 : 14,
+            color: brandColor,
+            fillOpacity: group.length === 1 ? 0.9 : 0.8,
+          }).addTo(layer);
+          if (group.length > 1) {
+            marker.bindTooltip(String(group.length), {
+              permanent: true,
+              direction: "center",
+            });
+          } else {
+            const pointIndex = latLngs.indexOf(group[0]);
+            const label = pointLabels?.[pointIndex];
+            if (label) {
+              const tooltip = document.createElement("span");
+              tooltip.textContent = label;
+              marker.bindTooltip(tooltip, { direction: "top", offset: [0, -6] });
+            }
+          }
+        }
+      } else if (geometryType === "MultiPoint") {
+        for (const [index, point] of latLngs.entries()) {
+          const marker = L.circleMarker(point, {
+            radius: 5,
+            color: brandColor,
+            fillOpacity: 0.9,
+          }).addTo(layer);
+          const label = pointLabels?.[index];
+          if (label) {
+            const tooltip = document.createElement("span");
+            tooltip.textContent = label;
+            marker.bindTooltip(tooltip, { direction: "top", offset: [0, -6] });
+          }
+        }
+      } else if (geometryType === "LineString" && latLngs.length > 0) {
+        L.polyline(latLngs, { color: brandColor, weight: 4 }).addTo(layer);
+      } else if (geometryType === "Polygon" && latLngs.length > 0) {
+        L.polygon(latLngs, { color: brandColor, fillOpacity: 0.2 }).addTo(layer);
+      } else if (geometryType === "MultiLineString" && Array.isArray(coordinates)) {
+        for (const line of coordinates) {
+          const linePoints = asPositions(line).map(([lng, lat]) => [lat, lng] as [number, number]);
+          if (linePoints.length > 0) {
+            L.polyline(linePoints, { color: brandColor, weight: 4 }).addTo(layer);
+          }
         }
       }
-    }
+    };
+    drawPoints();
+    map.on("zoomend moveend", drawPoints);
+    return () => {
+      map.off("zoomend moveend", drawPoints);
+    };
+  }, [clusterNearbyData, coordinates, geometryType, pointLabels, ready]);
 
-    const bounds = points.map(([lng, lat]) => [lat, lng] as [number, number]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const bounds = allPositions(geometryType, coordinates).map(
+      ([lng, lat]) => [lat, lng] as [number, number]
+    );
     if (bounds.length > 1) map.fitBounds(bounds, { padding: [24, 24], maxZoom: zoom });
     else if (bounds.length === 1) map.panTo(bounds[0]);
   }, [coordinates, geometryType, ready, zoom]);
@@ -271,7 +348,11 @@ function OpenStreetMapCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden rounded-xl border border-foreground bg-surface-subtle shadow-[0_3px_10px_rgb(0_0_0/0.18)]"
+      className={`relative h-full w-full overflow-hidden bg-surface-subtle ${
+        fill
+          ? ""
+          : "rounded-xl border border-foreground shadow-[0_3px_10px_rgb(0_0_0/0.18)]"
+      }`}
     >
       <div ref={elementRef} className="h-full w-full" aria-label="OpenStreetMap map" />
       <div className="absolute left-3 top-3 z-[1000] flex flex-col gap-2">
@@ -502,12 +583,14 @@ function GoogleMapsCanvas({
 }
 
 export function MapCanvas(props: MapCanvasProps) {
-  const { provider, apiKey, height } = props;
+  const { provider, apiKey, height, fill = false } = props;
   if (provider === "google" && !apiKey) {
     return (
       <div
-        className="grid place-items-center rounded-lg border border-border bg-surface-subtle px-5 text-center text-sm text-muted-foreground"
-        style={{ height: `${Math.max(120, height)}px` }}
+        className={`grid place-items-center rounded-lg border border-border bg-surface-subtle px-5 text-center text-sm text-muted-foreground ${
+          fill ? "h-full min-h-[420px]" : ""
+        }`}
+        style={fill ? undefined : { height: `${Math.max(120, height)}px` }}
       >
         Add a Google Maps API key in Eterc Desktop Settings to use Google Maps.
       </div>
@@ -516,8 +599,12 @@ export function MapCanvas(props: MapCanvasProps) {
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-foreground bg-surface-subtle shadow-[0_3px_10px_rgb(0_0_0/0.18)]"
-      style={{ height: `${Math.max(120, height)}px` }}
+      className={`overflow-hidden bg-surface-subtle ${
+        fill
+          ? "h-full min-h-[420px] w-full"
+          : "rounded-xl border border-foreground shadow-[0_3px_10px_rgb(0_0_0/0.18)]"
+      }`}
+      style={fill ? undefined : { height: `${Math.max(120, height)}px` }}
     >
       {provider === "google" ? (
         <GoogleMapsCanvas {...props} />
