@@ -437,6 +437,10 @@ export default class Cms_admin extends Eterc {
         unique: typeof payload.unique === "boolean" ? payload.unique : undefined,
         hidden: typeof payload.hidden === "boolean" ? payload.hidden : undefined,
         readonly: typeof payload.readonly === "boolean" ? payload.readonly : undefined,
+        clear_hidden_value_on_save:
+          typeof payload.clear_hidden_value_on_save === "boolean"
+            ? payload.clear_hidden_value_on_save
+            : undefined,
         group:
           payload.group === null || typeof payload.group === "string"
             ? (payload.group as string | null)

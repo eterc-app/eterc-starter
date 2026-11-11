@@ -73,6 +73,7 @@ function fieldFromRow(row: Row): CmsField {
     unique: bool(row.unique),
     hidden: bool(row.hidden),
     readonly: bool(row.readonly),
+    clear_hidden_value_on_save: bool(row.clear_hidden_value_on_save),
     validation:
       parsedValidation.match === "any" || parsedValidation.match === "all"
         ? (parsedValidation as unknown as CmsFieldRuleGroup)
@@ -80,7 +81,6 @@ function fieldFromRow(row: Row): CmsField {
     validation_message: String(row.validation_message ?? ""),
     conditions: parsedConditions as CmsFieldCondition[],
     display_options: parse_json_object(row.display_options) as CmsFieldDisplayOptions,
-    clear_hidden_value_on_save: false,
     group:
       row.group === null || row.group === undefined || row.group === ""
         ? null
@@ -823,7 +823,6 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
     ...field,
     id: 0,
     collection_id: collection.id,
-    clear_hidden_value_on_save: false,
     sort: 0,
     created_at: 0,
     updated_at: 0,
@@ -846,8 +845,8 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
     const result = sqlite()
       .prepare(
         `INSERT INTO cms_fields
-          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", validation, validation_message, conditions, display_options, sort, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, clear_hidden_value_on_save, "group", validation, validation_message, conditions, display_options, sort, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         collection.id,
@@ -860,6 +859,7 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
         field.unique ? 1 : 0,
         field.hidden ? 1 : 0,
         field.readonly ? 1 : 0,
+        field.clear_hidden_value_on_save ? 1 : 0,
         field.group,
         JSON.stringify(field.validation),
         field.validation_message,
@@ -900,6 +900,7 @@ export function update_field(
       | "unique"
       | "hidden"
       | "readonly"
+      | "clear_hidden_value_on_save"
       | "group"
       | "validation"
       | "validation_message"
@@ -961,6 +962,10 @@ export function update_field(
   assert_group_reference(fields, nextGroup, field.name);
   const nextUnique = requestedAlias ? false : (patch.unique ?? field.unique);
   const nextRequired = requestedAlias ? false : (patch.required ?? field.required);
+  const nextHidden = patch.hidden ?? field.hidden;
+  const nextClearHiddenValue =
+    Boolean(patch.clear_hidden_value_on_save ?? field.clear_hidden_value_on_save) &&
+    nextHidden;
   const validation = patch.validation === undefined
     ? field.validation
     : normalize_field_rule(patch.validation, fields);
@@ -985,6 +990,8 @@ export function update_field(
     ...field,
     required: nextRequired,
     options: patch.options ?? field.options,
+    hidden: nextHidden,
+    clear_hidden_value_on_save: nextClearHiddenValue,
     conditions,
   });
   const apply = sqlite().transaction(() => {
@@ -995,7 +1002,7 @@ export function update_field(
     sqlite()
       .prepare(
         `UPDATE cms_fields
-         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, "group" = ?, validation = ?, validation_message = ?, conditions = ?, display_options = ?, updated_at = ?
+         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, clear_hidden_value_on_save = ?, "group" = ?, validation = ?, validation_message = ?, conditions = ?, display_options = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(
@@ -1005,8 +1012,9 @@ export function update_field(
         JSON.stringify(patch.options ?? field.options),
         nextRequired ? 1 : 0,
         nextUnique ? 1 : 0,
-        (patch.hidden ?? field.hidden) ? 1 : 0,
+        nextHidden ? 1 : 0,
         (patch.readonly ?? field.readonly) ? 1 : 0,
+        nextClearHiddenValue ? 1 : 0,
         nextGroup,
         JSON.stringify(validation),
         validationMessage,
@@ -1173,6 +1181,8 @@ function normalize_field(input: CmsFieldInput): Required<CmsFieldInput> {
     unique: metadataOnly ? false : Boolean(input.unique),
     hidden: Boolean(input.hidden),
     readonly: Boolean(input.readonly),
+    clear_hidden_value_on_save:
+      Boolean(input.hidden) && Boolean(input.clear_hidden_value_on_save),
     group: group === "" ? null : group,
     validation: input.validation ?? empty_field_rule(),
     validation_message: String(input.validation_message ?? "").slice(0, 500),
@@ -1971,16 +1981,26 @@ function validate_effective_record(
 }
 
 function assert_hidden_clear_is_writable(
-  field: Pick<CmsField, "name" | "label" | "required" | "options" | "conditions">
+  field: Pick<
+    CmsField,
+    | "name"
+    | "label"
+    | "required"
+    | "options"
+    | "hidden"
+    | "clear_hidden_value_on_save"
+    | "conditions"
+  >
 ): void {
   const defaultValue = field.options.default;
   if (
     field.required &&
     (defaultValue === null || defaultValue === undefined || defaultValue === "") &&
-    field.conditions.some(
-      (condition) =>
-        condition.hidden === true && condition.clear_hidden_value_on_save === true
-    )
+    (field.hidden && field.clear_hidden_value_on_save) ||
+      field.conditions.some(
+        (condition) =>
+          condition.hidden === true && condition.clear_hidden_value_on_save === true
+      )
   ) {
     throw new EtHttpError(
       400,

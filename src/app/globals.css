@@ -819,7 +819,7 @@
 
 .field-drawer .drawer-control {
   display: grid;
-  grid-template-rows: 20px 40px;
+  grid-template-rows: 20px 48px;
   align-content: start;
   gap: 8px;
   min-width: 0;
@@ -840,10 +840,21 @@
 .field-drawer textarea:not(.field-choice-control),
 .field-drawer [data-slot="popover-trigger"]:not(.field-choice-control) {
   box-sizing: border-box;
-  height: 40px !important;
-  max-height: 40px !important;
-  min-height: 40px !important;
+  height: 48px !important;
+  max-height: 48px !important;
+  min-height: 48px !important;
   white-space: nowrap;
+}
+
+.field-drawer input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.field-drawer select,
+.field-drawer textarea,
+.field-drawer [data-slot="popover-trigger"],
+.field-drawer-popover input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.field-drawer-popover select,
+.field-drawer-popover textarea {
+  border: 1px solid var(--input);
+  background-color: var(--card);
 }
 
 .field-drawer textarea {
@@ -914,9 +925,9 @@
 .field-drawer-popover select,
 .field-drawer-popover textarea {
   box-sizing: border-box;
-  height: 40px !important;
-  max-height: 40px !important;
-  min-height: 40px !important;
+  height: 48px !important;
+  max-height: 48px !important;
+  min-height: 48px !important;
   white-space: nowrap;
 }
 

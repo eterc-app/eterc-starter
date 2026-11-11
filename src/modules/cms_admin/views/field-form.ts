@@ -29,6 +29,7 @@ export interface FieldFormState {
   unique: boolean;
   hidden: boolean;
   readonly: boolean;
+  clear_hidden_value_on_save: boolean;
   choices: CmsChoice[];
   defaultValue: string;
   group: string | null;
@@ -77,6 +78,7 @@ export function empty_field_form(
     unique: false,
     hidden: false,
     readonly: false,
+    clear_hidden_value_on_save: false,
     choices: [],
     defaultValue: "",
     group: null,
@@ -98,6 +100,7 @@ export function field_form_from_field(field: CmsField): FieldFormState {
     unique: field.unique,
     hidden: field.hidden,
     readonly: field.readonly,
+    clear_hidden_value_on_save: field.clear_hidden_value_on_save,
     choices: cms_normalize_choices(field.options?.choices),
     defaultValue: default_text(field.options?.default),
     group: field.group ?? null,

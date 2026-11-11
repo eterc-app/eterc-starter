@@ -117,6 +117,7 @@ export function collection_schema(collections: CmsCollectionWithFields[]) {
         unique: field.unique,
         hidden: field.hidden,
         readonly: field.readonly,
+        clear_hidden_value_on_save: field.clear_hidden_value_on_save,
         group: field.group,
         options: field.options,
       })),

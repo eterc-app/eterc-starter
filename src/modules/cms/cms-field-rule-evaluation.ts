@@ -102,6 +102,7 @@ export function effective_field(
     hidden: condition.hidden ?? field.hidden,
     required: condition.required ?? field.required,
     readonly: condition.readonly ?? field.readonly,
-    clear_hidden_value_on_save: condition.clear_hidden_value_on_save ?? false,
+    clear_hidden_value_on_save:
+      condition.clear_hidden_value_on_save ?? field.clear_hidden_value_on_save,
   };
 }

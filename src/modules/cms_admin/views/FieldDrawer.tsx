@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sheet,
   SheetBody,
@@ -304,7 +305,7 @@ export function FieldDrawer({
         validation_message: form.validation_message,
         conditions: form.conditions,
         display_options: form.display_options,
-        clear_hidden_value_on_save: false,
+        clear_hidden_value_on_save: form.clear_hidden_value_on_save,
       },
     ];
   }, [collectionFields, form]);
@@ -379,7 +380,7 @@ export function FieldDrawer({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="field-drawer flex max-w-[680px] flex-col gap-0 border-l border-border bg-card p-0"
+        className="field-drawer flex max-w-[800px] flex-col gap-0 border-l border-border bg-card p-0"
       >
         <SheetHeader className="border-b border-border bg-card px-4 py-2 pr-12">
           <div className="flex items-center justify-between gap-3">
@@ -475,7 +476,7 @@ export function FieldDrawer({
               </div>
             </div>
           ) : (
-            <div className="flex h-full min-h-0 bg-surface-subtle">
+            <div className="flex h-full min-h-0 bg-background">
               <nav
                 aria-label="Field configuration sections"
                 className="app-scrollbar w-32 shrink-0 space-y-1 overflow-y-auto border-r border-border bg-card p-2 sm:w-40 sm:p-3"
@@ -498,7 +499,7 @@ export function FieldDrawer({
               </nav>
 
               <div className="app-scrollbar min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
-                <div className="mx-auto max-w-2xl space-y-5">
+                <div className="mx-auto max-w-4xl space-y-7">
                   {activeSection === "schema" ? (
                     <>
                       <section className="space-y-4">
@@ -563,7 +564,7 @@ export function FieldDrawer({
                               }
                             />
                           </section>
-                          <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3">
+                          <div className="flex h-12 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3">
                             <div className="min-w-0">
                               <span className="text-sm font-medium text-foreground">Unique</span>
                             </div>
@@ -624,40 +625,96 @@ export function FieldDrawer({
                           </div>
                         </div>
                       </section>
-                      {!alias ? (
-                        <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3">
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium text-foreground">Required</span>
-                          </div>
-                          <Switch
-                            checked={form.required}
-                            onCheckedChange={(checked) =>
-                              setForm((current) => ({ ...current, required: checked }))
-                            }
-                          />
-                        </div>
-                      ) : null}
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {[
-                          ["Hidden", "hidden"],
-                          ["Read only", "readonly"],
-                        ].map(([label, key]) => (
-                          <div
-                            key={key}
-                            className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3"
-                          >
-                            <span className="text-sm font-medium text-foreground">{label}</span>
-                            <Switch
-                              checked={key === "hidden" ? form.hidden : form.readonly}
+                      <div className="grid max-w-3xl gap-x-10 gap-y-6 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Readonly</Label>
+                          <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card p-2">
+                            <Checkbox
+                              className="size-4 border-foreground/60"
+                              checked={form.readonly}
                               onCheckedChange={(checked) =>
                                 setForm((current) => ({
                                   ...current,
-                                  [key]: checked,
+                                  readonly: checked === true,
                                 }))
                               }
                             />
+                            <span className="min-w-0 truncate whitespace-nowrap text-xs text-foreground">
+                              Disable the field in the app
+                            </span>
+                          </label>
+                        </div>
+                        {!alias ? (
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Required</Label>
+                            <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card p-2">
+                              <Checkbox
+                                className="size-4 border-foreground/60"
+                                checked={form.required}
+                                onCheckedChange={(checked) =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    required: checked === true,
+                                  }))
+                                }
+                              />
+                              <span className="min-w-0 truncate whitespace-nowrap text-xs text-foreground">
+                                Require value to be set on creation
+                              </span>
+                            </label>
                           </div>
-                        ))}
+                        ) : null}
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Hidden</Label>
+                          <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card p-2">
+                            <Checkbox
+                              className="size-4 border-foreground/60"
+                              checked={form.hidden}
+                              onCheckedChange={(checked) => {
+                                const hidden = checked === true;
+                                setForm((current) => ({
+                                  ...current,
+                                  hidden,
+                                  clear_hidden_value_on_save: hidden
+                                    ? current.clear_hidden_value_on_save
+                                    : false,
+                                }));
+                              }}
+                            />
+                            <span className="min-w-0 truncate whitespace-nowrap text-xs text-foreground">
+                              Hidden on Detail
+                            </span>
+                          </label>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Clear Value(s)</Label>
+                          <label
+                            className={`flex h-12 items-center gap-2 rounded-lg border p-2 ${
+                              form.hidden
+                                ? "cursor-pointer border-input bg-card"
+                                : "cursor-not-allowed border-input bg-border text-muted-foreground"
+                            }`}
+                          >
+                            <Checkbox
+                              className="size-4 border-foreground/60"
+                              checked={form.clear_hidden_value_on_save}
+                              disabled={!form.hidden}
+                              onCheckedChange={(checked) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  clear_hidden_value_on_save: checked === true,
+                                }))
+                              }
+                            />
+                            <span
+                              className={`min-w-0 truncate whitespace-nowrap text-xs ${
+                                form.hidden ? "text-foreground" : "text-muted-foreground"
+                              }`}
+                            >
+                              Clear value(s) on save when hidden
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     </>
                   ) : null}
@@ -896,47 +953,45 @@ export function FieldDrawer({
                               const setting =
                                 condition[key as "hidden" | "required" | "readonly"];
                               return (
-                                <label key={key} className="drawer-control">
+                                <label
+                                  key={key}
+                                  className="flex h-12 items-center justify-between gap-2 rounded-md border border-input bg-card px-3"
+                                >
                                   <span className="text-xs font-medium">{label}</span>
-                                  <select
+                                  <Checkbox
                                     aria-label={`${label} when condition matches`}
-                                    value={
-                                      setting === undefined
-                                        ? "inherit"
-                                        : setting
-                                          ? "true"
-                                          : "false"
-                                    }
-                                    onChange={(event) =>
+                                    checked={setting ?? "indeterminate"}
+                                    onCheckedChange={() =>
                                       setForm((current) => ({
                                         ...current,
                                         conditions: current.conditions.map((item, itemIndex) => {
                                           if (itemIndex !== index) return item;
                                           const next = { ...item };
-                                          if (event.target.value === "inherit") {
+                                          const nextSetting =
+                                            setting === undefined
+                                              ? true
+                                              : setting
+                                                ? false
+                                                : undefined;
+                                          if (nextSetting === undefined) {
                                             delete next[key as "hidden" | "required" | "readonly"];
                                           } else {
                                             next[key as "hidden" | "required" | "readonly"] =
-                                              event.target.value === "true";
+                                              nextSetting;
                                           }
-                                          if (key === "hidden" && event.target.value !== "true") {
+                                          if (key === "hidden" && nextSetting !== true) {
                                             delete next.clear_hidden_value_on_save;
                                           }
                                           return next;
                                         }),
                                       }))
                                     }
-                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs"
-                                  >
-                                    <option value="inherit">Use field setting</option>
-                                    <option value="true">Yes</option>
-                                    <option value="false">No</option>
-                                  </select>
+                                  />
                                 </label>
                               );
                             })}
                             {condition.hidden ? (
-                              <label className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-card px-3">
+                              <label className="flex h-12 items-center justify-between gap-2 rounded-md border border-input bg-card px-3">
                                 <span className="text-xs font-medium">Clear value when hidden on save</span>
                                 <Switch
                                   checked={condition.clear_hidden_value_on_save ?? false}

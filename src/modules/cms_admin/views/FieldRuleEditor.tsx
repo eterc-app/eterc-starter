@@ -488,25 +488,27 @@ function RuleGroupEditor({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 px-1">
-        <button
-          type="button"
-          className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={fields.length === 0}
-          onClick={() => addCondition(path)}
-        >
-          Add Filter
-        </button>
-        {level < 5 ? (
+      {level > 0 ? (
+        <div className="flex items-center gap-4 px-1">
           <button
             type="button"
-            className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70"
-            onClick={() => addGroup(path)}
+            className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={fields.length === 0}
+            onClick={() => addCondition(path)}
           >
-            And / Or group
+            Add Filter
           </button>
-        ) : null}
-      </div>
+          {level < 5 ? (
+            <button
+              type="button"
+              className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70"
+              onClick={() => addGroup(path)}
+            >
+              And / Or group
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
     );
   };
@@ -524,10 +526,45 @@ export function FieldRuleEditor({
   onChange: (value: CmsFieldRuleGroup) => void;
 }) {
   return (
-    <RuleGroupEditor
-      group={value}
-      fields={fields}
-      onChange={onChange}
-    />
+    <div className="space-y-2">
+      <div className="flex justify-end gap-4 px-1">
+        <button
+          type="button"
+          className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={fields.length === 0}
+          onClick={() =>
+            onChange({
+              ...value,
+              conditions: [
+                ...value.conditions,
+                { field: fields[0]?.name ?? "", operator: "_eq", value: "" },
+              ],
+            })
+          }
+        >
+          Add Filter
+        </button>
+        <button
+          type="button"
+          className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() =>
+            onChange({
+              ...value,
+              conditions: [
+                ...value.conditions,
+                { match: "all", conditions: [] },
+              ],
+            })
+          }
+        >
+          And / Or group
+        </button>
+      </div>
+      <RuleGroupEditor
+        group={value}
+        fields={fields}
+        onChange={onChange}
+      />
+    </div>
   );
 }

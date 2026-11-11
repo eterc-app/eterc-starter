@@ -354,7 +354,7 @@ function ToggleField({
   return (
     <div className="drawer-control">
       <Label className="text-sm font-semibold" title={label}>{label}</Label>
-      <div className="flex h-10 min-h-10 items-center justify-end rounded-lg border border-input bg-card px-3">
+      <div className="flex h-12 min-h-12 items-center justify-end rounded-lg border border-input bg-card px-3">
         <Switch checked={checked} onCheckedChange={onChange} />
       </div>
     </div>
@@ -970,7 +970,7 @@ function RepeaterFieldsEditor({
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <div className="flex h-10 items-center justify-between rounded-lg border border-input bg-card px-3">
+                <div className="flex h-12 items-center justify-between rounded-lg border border-input bg-card px-3">
                   <span className="text-xs font-medium text-foreground">
                     Required
                   </span>

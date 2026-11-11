@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS "cms_fields" (
   "unique" INTEGER NOT NULL DEFAULT 0,
   "hidden" INTEGER NOT NULL DEFAULT 0,
   "readonly" INTEGER NOT NULL DEFAULT 0,
+  "clear_hidden_value_on_save" INTEGER NOT NULL DEFAULT 0,
   "group" TEXT,
   "validation" TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}',
   "validation_message" TEXT NOT NULL DEFAULT '',
@@ -170,6 +171,11 @@ function migrate_access_schema(): void {
   ensure_column("cms_collections", "ordering_mode", "TEXT NOT NULL DEFAULT ''");
   ensure_column("cms_collections", "default_order", "TEXT NOT NULL DEFAULT '[]'");
   ensure_column("cms_fields", "group", "TEXT");
+  ensure_column(
+    "cms_fields",
+    "clear_hidden_value_on_save",
+    "INTEGER NOT NULL DEFAULT 0"
+  );
   ensure_column(
     "cms_fields",
     "validation",

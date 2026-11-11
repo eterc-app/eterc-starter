@@ -186,6 +186,7 @@ export interface CmsFieldInput {
   unique?: boolean;
   hidden?: boolean;
   readonly?: boolean;
+  clear_hidden_value_on_save?: boolean;
   group?: string | null;
   validation?: CmsFieldRuleGroup;
   validation_message?: string;
