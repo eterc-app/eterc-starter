@@ -564,10 +564,14 @@ export function AdminTemplate({
           <aside
             className={cn(
               "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
-              navbarMeta?.rightSidebarCollapsed ? "w-14" : "w-64",
+              navbarMeta?.rightSidebarCollapsed || (contentPage && !navbarMeta)
+                ? "w-14"
+                : "w-64",
             )}
           >
-            {navbarMeta?.rightSidebar ? (
+            {contentPage && !navbarMeta ? (
+              <div className="h-full w-full bg-assistant-sidebar" />
+            ) : navbarMeta?.rightSidebar ? (
               <PageRightSidebarSlot />
             ) : (
               <WorkspaceRightSidebar />

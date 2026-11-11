@@ -264,13 +264,13 @@ export function WorkspaceRightSidebar() {
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
-            <div className="flex size-20 items-center justify-center rounded-full bg-muted">
+            <div className="flex size-20 items-center justify-center rounded-full bg-assistant-icon-surface">
               <Sparkles className="size-8" />
             </div>
-            <h3 className="mt-4 text-lg font-medium">Build with AI Assistant</h3>
-             <p className="text-muted-foreground">
-                  AI responses may be inaccurate 
-                </p>
+            <h3 className="mt-4 text-base font-medium">Build with AI Assistant</h3>
+            <p className="text-xs text-muted-foreground">
+              AI responses may be inaccurate
+            </p>
           </div>
           <div className="shrink-0 px-3 pb-3">
             <div className="rounded-xl border border-input bg-card p-3">

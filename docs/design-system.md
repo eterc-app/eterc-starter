@@ -42,6 +42,7 @@ accents.
 | `--background` | `#ededed` | App canvas behind cards |
 | `--card` / `--popover` | `#ffffff` | Sidebar, top bar, cards, menus |
 | `--assistant-sidebar` | subtle cool tint | AI, right workspace-tools, and Content collections panel backgrounds |
+| `--assistant-icon-surface` | pale lavender | AI welcome-state icon circle |
 | `--foreground` | `#000000` | Primary text and primary actions |
 | `--muted-foreground` | `#666666` | Secondary text, notes, placeholders |
 | `--border` | `#d9d9d9` | Card, table, and divider borders |

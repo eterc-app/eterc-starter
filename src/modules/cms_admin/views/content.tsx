@@ -3390,12 +3390,12 @@ export default function ContentManager({ data }: EtViewProps) {
           ) : (
             <>
               <div className="cms-sidebar-scroll min-h-0 flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 text-center">
-                <div className="grid size-20 place-items-center rounded-full bg-muted">
+                <div className="grid size-20 place-items-center rounded-full bg-assistant-icon-surface">
                   <Sparkles className="size-8" />
                 </div>
-                <h3 className="mt-4 text-lg font-medium">Build with AI Assistant</h3>
-                <p className="text-muted-foreground">
-                  AI responses may be inaccurate 
+                <h3 className="mt-4 text-base font-medium">Build with AI Assistant</h3>
+                <p className="text-xs text-muted-foreground">
+                  AI responses may be inaccurate
                 </p>
               </div>
               <div className="shrink-0 px-3 pb-3">
