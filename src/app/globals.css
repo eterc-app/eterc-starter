@@ -816,3 +816,113 @@
     margin-right: -0.15em;
   }
 }
+
+.field-drawer .drawer-control {
+  display: grid;
+  grid-template-rows: 20px 40px;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-drawer .drawer-control > label,
+.field-drawer label.drawer-control > span {
+  display: block;
+  height: 20px;
+  overflow: hidden;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-drawer input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.field-rule-value):not(.field-choice-control),
+.field-drawer select:not(.field-choice-control),
+.field-drawer textarea:not(.field-choice-control),
+.field-drawer [data-slot="popover-trigger"]:not(.field-choice-control) {
+  box-sizing: border-box;
+  height: 40px !important;
+  max-height: 40px !important;
+  min-height: 40px !important;
+  white-space: nowrap;
+}
+
+.field-drawer textarea {
+  overflow: hidden;
+  resize: none;
+}
+
+.field-drawer p,
+.field-drawer h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-drawer [data-slot="button"] {
+  background-color: #000;
+  color: #fff;
+}
+
+.field-drawer [data-slot="button"][data-size="default"],
+.field-drawer [data-slot="button"][data-size="lg"] {
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 10px !important;
+}
+
+.field-drawer [data-slot="button"][data-size="sm"] {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 8px !important;
+}
+
+.field-drawer [data-slot="button"][data-size="icon"],
+.field-drawer [data-slot="button"][data-size="icon-sm"],
+.field-drawer [data-slot="button"][data-size="icon-lg"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 6px !important;
+}
+
+.field-drawer [data-slot="button"][data-size="icon-xs"],
+.field-drawer button[class*="size-7"] {
+  width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  padding: 4px !important;
+}
+
+.field-drawer [data-slot="button"]:hover:not(:disabled) {
+  background-color: #222;
+}
+
+.field-drawer [data-slot="sheet-close"] [data-slot="button"] {
+  background-color: transparent;
+  color: var(--muted-foreground);
+}
+
+.field-drawer [data-slot="sheet-close"] [data-slot="button"]:hover:not(:disabled) {
+  background-color: var(--muted);
+}
+
+.field-drawer-popover input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.field-drawer-popover select,
+.field-drawer-popover textarea {
+  box-sizing: border-box;
+  height: 40px !important;
+  max-height: 40px !important;
+  min-height: 40px !important;
+  white-space: nowrap;
+}
+
+.field-drawer input.field-rule-value {
+  box-sizing: border-box;
+  height: 24px !important;
+  max-height: 24px !important;
+  min-height: 24px !important;
+}

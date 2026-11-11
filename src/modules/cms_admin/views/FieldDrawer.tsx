@@ -24,15 +24,19 @@ import {
   MapPin,
   Minus,
   MousePointer,
+  Plus,
   Palette,
   Radio,
   Repeat,
+  Save,
   Search,
   Sliders,
   Sparkles,
   Tag,
   ToggleLeft,
   Type,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogTitle } from "@/components/ui/dialog";
@@ -51,6 +55,7 @@ import type {
   CmsField,
   CmsFieldInterface,
   CmsFieldType,
+  CmsFieldRuleGroup,
 } from "@/modules/cms/cms-types";
 import {
   CMS_INTERFACE_GROUPS,
@@ -63,7 +68,25 @@ import {
 import type { FieldFormState } from "./field-form";
 import { slugify_field_name } from "./field-form";
 import { DefaultValueEditor, InterfaceOptions } from "./FieldOptions";
+import { FieldRuleEditor } from "./FieldRuleEditor";
 import { BusyButton, FIELD_TYPE_OPTIONS } from "./ui";
+
+type FieldSection =
+  | "schema"
+  | "field"
+  | "interface"
+  | "display"
+  | "validations"
+  | "conditions";
+
+const FIELD_SECTIONS: Array<{ id: FieldSection; label: string }> = [
+  { id: "schema", label: "Schema" },
+  { id: "field", label: "Field" },
+  { id: "interface", label: "Interface" },
+  { id: "display", label: "Display" },
+  { id: "validations", label: "Validations" },
+  { id: "conditions", label: "Conditions" },
+];
 
 const INTERFACE_DEFINITIONS = Object.values(CMS_INTERFACES);
 const LEGACY_INTERFACES = new Set<CmsFieldInterface>([
@@ -79,6 +102,11 @@ const TYPE_LABELS: Record<CmsFieldType, string> = {
   ),
   alias: "Alias (metadata only)",
 } as Record<CmsFieldType, string>;
+
+const INTERFACE_DESCRIPTIONS: Partial<Record<CmsFieldInterface, string>> = {
+  dropdown: "Select a value from a dropdown",
+  select: "Select a value from a dropdown",
+};
 
 const INTERFACE_ICONS: Record<
   CmsFieldInterface,
@@ -195,6 +223,7 @@ export function FieldDrawer({
   const [step, setStep] = useState<"select-type" | "configure">(
     editingField ? "configure" : "select-type"
   );
+  const [activeSection, setActiveSection] = useState<FieldSection>("schema");
   const [search, setSearch] = useState("");
   const [previousSession, setPreviousSession] = useState({
     open,
@@ -207,6 +236,7 @@ export function FieldDrawer({
     setPreviousSession({ open, editingField });
     if (open) {
       setStep(editingField ? "configure" : "select-type");
+      setActiveSection("schema");
       setSearch("");
     }
   }
@@ -229,6 +259,7 @@ export function FieldDrawer({
   }, [availableInterfaces, search]);
 
   const definition = cms_interface_definition(form.interface);
+  const SelectedInterfaceIcon = INTERFACE_ICONS[form.interface] ?? Box;
   const alias = cms_is_alias_interface(form.interface);
 
   const typeOptions = useMemo(() => {
@@ -247,6 +278,36 @@ export function FieldDrawer({
       ),
     [collectionFields, form.name]
   );
+  const ruleFields = useMemo(() => {
+    if (!form.name || collectionFields.some((field) => field.name === form.name)) {
+      return collectionFields;
+    }
+    return [
+      ...collectionFields,
+      {
+        id: -1,
+        collection_id: -1,
+        name: form.name,
+        label: form.label || form.name,
+        type: form.type,
+        interface: form.interface,
+        options: form.options,
+        required: form.required,
+        unique: form.unique,
+        hidden: form.hidden,
+        readonly: form.readonly,
+        group: form.group,
+        sort: collectionFields.length,
+        created_at: 0,
+        updated_at: 0,
+        validation: form.validation,
+        validation_message: form.validation_message,
+        conditions: form.conditions,
+        display_options: form.display_options,
+        clear_hidden_value_on_save: false,
+      },
+    ];
+  }, [collectionFields, form]);
 
   const selectInterface = (nextInterface: CmsFieldInterface) => {
     const nextDefinition = cms_interface_definition(nextInterface);
@@ -268,6 +329,7 @@ export function FieldDrawer({
               : cms_interface_defaults(nextInterface),
       };
     });
+    setActiveSection("interface");
     setStep("configure");
   };
 
@@ -317,17 +379,24 @@ export function FieldDrawer({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="flex max-w-[680px] flex-col gap-0 border-l border-border bg-card p-0"
+        className="field-drawer flex max-w-[680px] flex-col gap-0 border-l border-border bg-card p-0"
       >
-        <SheetHeader className="border-b border-border bg-card p-4 pr-12">
+        <SheetHeader className="border-b border-border bg-card px-4 py-2 pr-12">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              {step === "configure" && !editingField ? (
+              {(step === "configure" && !editingField) ||
+              (step === "select-type" && editingField) ? (
                 <button
                   type="button"
-                  onClick={() => setStep("select-type")}
-                  className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-surface-subtle hover:text-foreground"
-                  aria-label="Back to interface selection"
+                  onClick={() =>
+                    setStep(step === "configure" ? "select-type" : "configure")
+                  }
+                  className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-surface-subtle hover:text-foreground"
+                  aria-label={
+                    step === "configure"
+                      ? "Back to interface selection"
+                      : "Back to field options"
+                  }
                 >
                   <ArrowLeft className="size-4" />
                 </button>
@@ -337,7 +406,9 @@ export function FieldDrawer({
                 </span>
               )}
               <DialogTitle className="truncate text-sm font-semibold text-foreground">
-                {editingField
+                {step === "select-type" && editingField
+                  ? "Change interface"
+                  : editingField
                   ? form.label.trim() || "Edit field"
                   : step === "select-type"
                     ? `New field · ${collectionName}`
@@ -359,315 +430,561 @@ export function FieldDrawer({
           </div>
         </SheetHeader>
 
-        <SheetBody className="app-scrollbar flex-1 overflow-y-auto p-6">
+        <SheetBody className="app-scrollbar min-h-0 flex-1 overflow-hidden p-0">
           {step === "select-type" ? (
-            <div className="space-y-6">
-              {CMS_INTERFACE_GROUPS.map((group) => {
-                const items = filteredInterfaces.filter(
-                  (item) => item.group === group
-                );
-                if (items.length === 0) return null;
-                return (
-                  <div key={group} className="space-y-2.5">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {group}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                      {items.map((item) => {
-                        const Icon = INTERFACE_ICONS[item.id] ?? Box;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => selectInterface(item.id)}
-                            className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle/40 p-3 text-center transition-all hover:border-foreground/30 hover:bg-surface-subtle"
-                          >
-                            <span className="grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground shadow-xs transition-colors group-hover:text-foreground">
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="w-full truncate text-xs font-medium text-foreground">
-                              {item.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {filteredInterfaces.length === 0 ? (
-                <div className="rounded-xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">
-                  No interface matches “{search}”.
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <section className="space-y-4 rounded-xl border border-border bg-surface-subtle/40 p-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="field-key" className="text-sm font-semibold">
-                      Key <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="field-key"
-                      value={form.name}
-                      disabled={editingField !== null}
-                      placeholder="e.g. first_name"
-                      className="rounded-lg border-input bg-card font-mono text-sm"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          name: slugify_field_name(event.target.value),
-                        }))
-                      }
-                      onBlur={() =>
-                        setForm((current) =>
-                          current.label.trim() || !current.name
-                            ? current
-                            : { ...current, label: display_label(current.name) }
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="field-label" className="text-sm font-semibold">
-                      Label
-                    </Label>
-                    <Input
-                      id="field-label"
-                      value={form.label}
-                      placeholder="Field label"
-                      className="rounded-lg border-input bg-card"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          label: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label
-                      htmlFor="field-interface"
-                      className="text-sm font-semibold"
-                    >
-                      Interface
-                    </Label>
-                    <div className="relative">
-                      <select
-                        id="field-interface"
-                        value={form.interface}
-                        onChange={(event) =>
-                          selectInterface(
-                            event.target.value as CmsFieldInterface
-                          )
-                        }
-                        disabled={!editingField}
-                        className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                      >
-                        {CMS_INTERFACE_GROUPS.map((group) => {
-                          const items = availableInterfaces.filter(
-                            (item) => item.group === group
-                          );
-                          if (items.length === 0) return null;
+            <div className="app-scrollbar h-full overflow-y-auto p-6">
+              <div className="space-y-6">
+                {CMS_INTERFACE_GROUPS.map((group) => {
+                  const items = filteredInterfaces.filter(
+                    (item) => item.group === group
+                  );
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={group} className="space-y-2.5">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {group}
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                        {items.map((item) => {
+                          const Icon = INTERFACE_ICONS[item.id] ?? Box;
                           return (
-                            <optgroup key={group} label={group}>
-                              {items.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.label}
-                                </option>
-                              ))}
-                            </optgroup>
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => selectInterface(item.id)}
+                              className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle/40 p-3 text-center transition-all hover:border-foreground/30 hover:bg-surface-subtle"
+                            >
+                              <span className="grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground shadow-xs transition-colors group-hover:text-foreground">
+                                <Icon className="size-4" />
+                              </span>
+                              <span className="w-full truncate text-xs font-medium text-foreground">
+                                {item.label}
+                              </span>
+                            </button>
                           );
                         })}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="field-type" className="text-sm font-semibold">
-                      Storage type
-                    </Label>
-                    <div className="relative">
-                      <select
-                        id="field-type"
-                        value={form.type}
-                        onChange={(event) =>
-                          changeType(event.target.value as CmsFieldType)
-                        }
-                        disabled={alias || Boolean(editingField)}
-                        className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                      >
-                        {typeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label} ({option.value})
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="field-group" className="text-sm font-semibold">
-                    Group
-                  </Label>
-                  <div className="relative">
-                    <select
-                      id="field-group"
-                      value={form.group ?? ""}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          group: event.target.value || null,
-                        }))
-                      }
-                      disabled={groupFields.length === 0}
-                      className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                    >
-                      <option value="">No group</option>
-                      {groupFields.map((field) => (
-                        <option key={field.name} value={field.name}>
-                          {field.label || field.name} ({field.name})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-xl border border-border p-4">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Interface settings
-                  </p>
-                </div>
-                <InterfaceOptions
-                  form={form}
-                  onOption={updateOption}
-                  onChoices={(choices) =>
-                    setForm((current) => ({ ...current, choices }))
-                  }
-                  collections={collections}
-                />
-              </section>
-
-              {!alias ? (
-                <section className="space-y-3 rounded-xl border border-border p-4">
-                  <DefaultValueEditor
-                    form={form}
-                    onChange={(defaultValue) =>
-                      setForm((current) => ({ ...current, defaultValue }))
-                    }
-                  />
-                </section>
-              ) : null}
-
-              <section className="space-y-3 rounded-xl border border-border p-4">
-                <p className="text-sm font-semibold text-foreground">
-                  Field behavior
-                </p>
-
-                {!alias ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="flex min-h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4 py-2">
-                      <div className="min-w-0">
-                        <span className="text-sm font-medium text-foreground">
-                          Required
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          Require value to be set on creation
-                        </p>
                       </div>
-                      <Switch
-                        checked={form.required}
-                        onCheckedChange={(checked) =>
-                          setForm((current) => ({
-                            ...current,
-                            required: checked,
-                          }))
-                        }
-                      />
                     </div>
-
-                    <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
-                      <div className="min-w-0">
-                        <span className="text-sm font-medium text-foreground">
-                          Unique
-                        </span>
-                      </div>
-                      <Switch
-                        checked={form.unique}
-                        onCheckedChange={(checked) =>
-                          setForm((current) => ({ ...current, unique: checked }))
-                        }
-                      />
-                    </div>
+                  );
+                })}
+                {filteredInterfaces.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">
+                    No interface matches “{search}”.
                   </div>
                 ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0 bg-surface-subtle">
+              <nav
+                aria-label="Field configuration sections"
+                className="app-scrollbar w-32 shrink-0 space-y-1 overflow-y-auto border-r border-border bg-card p-2 sm:w-40 sm:p-3"
+              >
+                {FIELD_SECTIONS.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    aria-current={activeSection === section.id ? "page" : undefined}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`w-full rounded-md px-2 py-1.5 text-left text-xs font-medium transition-colors sm:text-sm ${
+                      activeSection === section.id
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </nav>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-foreground">
-                        Hidden
-                      </span>
-                    </div>
-                    <Switch
-                      checked={form.hidden}
-                      onCheckedChange={(checked) =>
-                        setForm((current) => ({ ...current, hidden: checked }))
-                      }
-                    />
-                  </div>
+              <div className="app-scrollbar min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                <div className="mx-auto max-w-2xl space-y-5">
+                  {activeSection === "schema" ? (
+                    <>
+                      <section className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="drawer-control">
+                            <Label htmlFor="field-key" className="text-sm font-semibold">
+                              Key <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id="field-key"
+                              value={form.name}
+                              disabled={editingField !== null}
+                              placeholder="e.g. first_name"
+                              className="rounded-lg border-input bg-card font-mono text-sm"
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  name: slugify_field_name(event.target.value),
+                                }))
+                              }
+                              onBlur={() =>
+                                setForm((current) =>
+                                  current.label.trim() || !current.name
+                                    ? current
+                                    : { ...current, label: display_label(current.name) }
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="drawer-control">
+                            <Label htmlFor="field-type" className="text-sm font-semibold">
+                              Storage type
+                            </Label>
+                            <div className="relative">
+                              <select
+                                id="field-type"
+                                value={form.type}
+                                onChange={(event) =>
+                                  changeType(event.target.value as CmsFieldType)
+                                }
+                                disabled={alias || Boolean(editingField)}
+                                className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                              >
+                                {typeOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label} ({option.value})
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                      {!alias ? (
+                        <>
+                          <section className="space-y-3">
+                            <DefaultValueEditor
+                              form={form}
+                              onChange={(defaultValue) =>
+                                setForm((current) => ({ ...current, defaultValue }))
+                              }
+                            />
+                          </section>
+                          <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3">
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium text-foreground">Unique</span>
+                            </div>
+                            <Switch
+                              checked={form.unique}
+                              onCheckedChange={(checked) =>
+                                setForm((current) => ({ ...current, unique: checked }))
+                              }
+                            />
+                          </div>
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
 
-                  <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-foreground">
-                        Read only
-                      </span>
-                    </div>
-                    <Switch
-                      checked={form.readonly}
-                      onCheckedChange={(checked) =>
-                        setForm((current) => ({
-                          ...current,
-                          readonly: checked,
-                        }))
-                      }
-                    />
-                  </div>
+                  {activeSection === "field" ? (
+                    <>
+                      <section className="space-y-4">
+                        <div className="drawer-control">
+                          <Label htmlFor="field-label" className="text-sm font-semibold">
+                            Label
+                          </Label>
+                          <Input
+                            id="field-label"
+                            value={form.label}
+                            placeholder="Field label"
+                            className="rounded-lg border-input bg-card"
+                            onChange={(event) =>
+                              setForm((current) => ({ ...current, label: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="drawer-control">
+                          <Label htmlFor="field-group" className="text-sm font-semibold">
+                            Group
+                          </Label>
+                          <div className="relative">
+                            <select
+                              id="field-group"
+                              value={form.group ?? ""}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  group: event.target.value || null,
+                                }))
+                              }
+                              disabled={groupFields.length === 0}
+                              className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                            >
+                              <option value="">No group</option>
+                              {groupFields.map((field) => (
+                                <option key={field.name} value={field.name}>
+                                  {field.label || field.name} ({field.name})
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </section>
+                      {!alias ? (
+                        <div className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3">
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium text-foreground">Required</span>
+                          </div>
+                          <Switch
+                            checked={form.required}
+                            onCheckedChange={(checked) =>
+                              setForm((current) => ({ ...current, required: checked }))
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {[
+                          ["Hidden", "hidden"],
+                          ["Read only", "readonly"],
+                        ].map(([label, key]) => (
+                          <div
+                            key={key}
+                            className="flex h-10 items-center justify-between gap-3 rounded-lg border border-input bg-card px-3"
+                          >
+                            <span className="text-sm font-medium text-foreground">{label}</span>
+                            <Switch
+                              checked={key === "hidden" ? form.hidden : form.readonly}
+                              onCheckedChange={(checked) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  [key]: checked,
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {activeSection === "interface" ? (
+                    <>
+                      <section className="space-y-3">
+                        {form.interface === "dropdown" ||
+                        form.interface === "select" ? (
+                          <div className="flex min-h-14 items-center gap-2.5 rounded-xl border border-border bg-muted p-2">
+                            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-card text-foreground">
+                              <SelectedInterfaceIcon className="size-5" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="truncate text-sm font-semibold text-foreground">
+                                {definition.label}
+                              </h3>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {INTERFACE_DESCRIPTIONS[form.interface]}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              aria-label="Change interface"
+                              title="Change interface"
+                              onClick={() => setStep("select-type")}
+                              className="grid size-7 shrink-0 place-items-center rounded-full text-foreground transition-colors hover:bg-card"
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="drawer-control">
+                            <Label htmlFor="field-interface" className="text-sm font-semibold">
+                              Interface
+                            </Label>
+                            <div className="relative">
+                              <select
+                                id="field-interface"
+                                value={form.interface}
+                                onChange={(event) =>
+                                  selectInterface(event.target.value as CmsFieldInterface)
+                                }
+                                disabled={!editingField}
+                                className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                              >
+                                {CMS_INTERFACE_GROUPS.map((group) => {
+                                  const items = availableInterfaces.filter(
+                                    (item) => item.group === group
+                                  );
+                                  if (items.length === 0) return null;
+                                  return (
+                                    <optgroup key={group} label={group}>
+                                      {items.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                          {item.label}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                              </select>
+                              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            </div>
+                          </div>
+                        )}
+                      </section>
+                      <section className="space-y-4">
+                        {form.interface !== "dropdown" &&
+                        form.interface !== "select" ? (
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Interface settings
+                          </h3>
+                        ) : null}
+                        <InterfaceOptions
+                          form={form}
+                          onOption={updateOption}
+                          onChoices={(choices) =>
+                            setForm((current) => ({ ...current, choices }))
+                          }
+                          collections={collections}
+                        />
+                      </section>
+                    </>
+                  ) : null}
+
+                  {activeSection === "display" ? (
+                    <section className="space-y-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Display formatting</h3>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="drawer-control">
+                          <Label htmlFor="display-prefix">Prefix</Label>
+                          <Input
+                            id="display-prefix"
+                            value={form.display_options.prefix ?? ""}
+                            maxLength={100}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                display_options: {
+                                  ...current.display_options,
+                                  prefix: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="e.g. $"
+                          />
+                        </div>
+                        <div className="drawer-control">
+                          <Label htmlFor="display-suffix">Suffix</Label>
+                          <Input
+                            id="display-suffix"
+                            value={form.display_options.suffix ?? ""}
+                            maxLength={100}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                display_options: {
+                                  ...current.display_options,
+                                  suffix: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="e.g. kg"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {activeSection === "validations" ? (
+                    <section className="space-y-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Validation</h3>
+                      </div>
+                      <FieldRuleEditor
+                        value={form.validation}
+                        fields={ruleFields}
+                        onChange={(validation: CmsFieldRuleGroup) =>
+                          setForm((current) => ({ ...current, validation }))
+                        }
+                      />
+                      <div className="drawer-control">
+                        <Label htmlFor="field-validation-message">
+                          Custom Validation Message
+                        </Label>
+                        <Input
+                          id="field-validation-message"
+                          value={form.validation_message}
+                          maxLength={500}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              validation_message: event.target.value,
+                            }))
+                          }
+                          placeholder="This value does not meet the requirements."
+                        />
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {activeSection === "conditions" ? (
+                    <section className="space-y-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Conditions</h3>
+                      </div>
+                      {form.conditions.map((condition, index) => (
+                        <div
+                          key={`${index}-${condition.name}`}
+                          className="space-y-3 border-b border-border pb-3 last:border-b-0"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-foreground">
+                                Name
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label="Delete condition"
+                                onClick={() =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    conditions: current.conditions.filter(
+                                      (_, itemIndex) => itemIndex !== index
+                                    ),
+                                  }))
+                                }
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                            <Input
+                              aria-label="Condition name"
+                              value={condition.name}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  conditions: current.conditions.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, name: event.target.value }
+                                      : item
+                                  ),
+                                }))
+                              }
+                              placeholder="Condition name"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-semibold text-foreground">
+                              Rule
+                            </span>
+                            <FieldRuleEditor
+                              value={condition.rule}
+                              fields={ruleFields}
+                              onChange={(rule) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  conditions: current.conditions.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, rule } : item
+                                  ),
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {[
+                              ["Hidden", "hidden"],
+                              ["Required", "required"],
+                              ["Read only", "readonly"],
+                            ].map(([label, key]) => {
+                              const setting =
+                                condition[key as "hidden" | "required" | "readonly"];
+                              return (
+                                <label key={key} className="drawer-control">
+                                  <span className="text-xs font-medium">{label}</span>
+                                  <select
+                                    aria-label={`${label} when condition matches`}
+                                    value={
+                                      setting === undefined
+                                        ? "inherit"
+                                        : setting
+                                          ? "true"
+                                          : "false"
+                                    }
+                                    onChange={(event) =>
+                                      setForm((current) => ({
+                                        ...current,
+                                        conditions: current.conditions.map((item, itemIndex) => {
+                                          if (itemIndex !== index) return item;
+                                          const next = { ...item };
+                                          if (event.target.value === "inherit") {
+                                            delete next[key as "hidden" | "required" | "readonly"];
+                                          } else {
+                                            next[key as "hidden" | "required" | "readonly"] =
+                                              event.target.value === "true";
+                                          }
+                                          if (key === "hidden" && event.target.value !== "true") {
+                                            delete next.clear_hidden_value_on_save;
+                                          }
+                                          return next;
+                                        }),
+                                      }))
+                                    }
+                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                                  >
+                                    <option value="inherit">Use field setting</option>
+                                    <option value="true">Yes</option>
+                                    <option value="false">No</option>
+                                  </select>
+                                </label>
+                              );
+                            })}
+                            {condition.hidden ? (
+                              <label className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-card px-3">
+                                <span className="text-xs font-medium">Clear value when hidden on save</span>
+                                <Switch
+                                  checked={condition.clear_hidden_value_on_save ?? false}
+                                  onCheckedChange={(checked) =>
+                                    setForm((current) => ({
+                                      ...current,
+                                      conditions: current.conditions.map((item, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...item, clear_hidden_value_on_save: checked }
+                                          : item
+                                      ),
+                                    }))
+                                  }
+                                />
+                              </label>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            conditions: [
+                              ...current.conditions,
+                              {
+                                name: `Condition ${current.conditions.length + 1}`,
+                                rule: { match: "all", conditions: [] },
+                              },
+                            ],
+                          }))
+                        }
+                      >
+                        <Plus className="size-4" />
+                        Create new
+                      </Button>
+                    </section>
+                  ) : null}
                 </div>
-              </section>
+              </div>
             </div>
           )}
         </SheetBody>
 
         {step === "configure" ? (
-          <SheetFooter className="border-t border-border bg-surface-subtle p-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-lg"
-              onClick={() => {
-                if (editingField) {
-                  onOpenChange(false);
-                } else {
-                  setStep("select-type");
-                }
-              }}
-            >
-              Cancel
-            </Button>
+          <SheetFooter className="border-t border-border bg-surface-subtle px-4 py-2">
             <BusyButton
               type="button"
               busy={saving}
@@ -675,6 +992,7 @@ export function FieldDrawer({
               className="rounded-lg"
               onClick={onSave}
             >
+               {!saving ? <Save className="size-4" /> : null}
               {editingField ? "Save field" : "Create field"}
             </BusyButton>
           </SheetFooter>

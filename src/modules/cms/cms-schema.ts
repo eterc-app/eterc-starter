@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS "cms_fields" (
   "hidden" INTEGER NOT NULL DEFAULT 0,
   "readonly" INTEGER NOT NULL DEFAULT 0,
   "group" TEXT,
+  "validation" TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}',
+  "validation_message" TEXT NOT NULL DEFAULT '',
+  "conditions" TEXT NOT NULL DEFAULT '[]',
+  "display_options" TEXT NOT NULL DEFAULT '{}',
   "sort" INTEGER NOT NULL DEFAULT 0,
   "created_at" INTEGER NOT NULL,
   "updated_at" INTEGER NOT NULL,
@@ -166,6 +170,14 @@ function migrate_access_schema(): void {
   ensure_column("cms_collections", "ordering_mode", "TEXT NOT NULL DEFAULT ''");
   ensure_column("cms_collections", "default_order", "TEXT NOT NULL DEFAULT '[]'");
   ensure_column("cms_fields", "group", "TEXT");
+  ensure_column(
+    "cms_fields",
+    "validation",
+    `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
+  );
+  ensure_column("cms_fields", "validation_message", "TEXT NOT NULL DEFAULT ''");
+  ensure_column("cms_fields", "conditions", "TEXT NOT NULL DEFAULT '[]'");
+  ensure_column("cms_fields", "display_options", "TEXT NOT NULL DEFAULT '{}'");
   ensure_column("eterc_roles", "parent_role_id", "INTEGER");
   sqlite().exec(
     `CREATE INDEX IF NOT EXISTS "eterc_roles_parent_idx" ON "eterc_roles"("parent_role_id")`

@@ -23,6 +23,7 @@ export interface IconPickerProps {
   color?: string;
   disabled?: boolean;
   className?: string;
+  popoverClassName?: string;
   placeholder?: string;
 }
 
@@ -32,6 +33,7 @@ export function IconPicker({
   color,
   disabled = false,
   className,
+  popoverClassName,
   placeholder = "Select an icon",
 }: IconPickerProps) {
   const [open, setOpen] = useState(false);
@@ -116,7 +118,7 @@ export function IconPicker({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-3" align="start">
+      <PopoverContent className={cn("w-80 p-3", popoverClassName)} align="start">
         <div className="grid gap-2.5">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

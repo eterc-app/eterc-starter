@@ -64,6 +64,7 @@ export interface ColorPickerProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
+  popoverClassName?: string;
 }
 
 export function ColorPicker({
@@ -71,6 +72,7 @@ export function ColorPicker({
   onChange,
   disabled = false,
   className,
+  popoverClassName,
 }: ColorPickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -124,7 +126,10 @@ export function ColorPicker({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-64 rounded-xl border border-border bg-popover p-4 shadow-xs space-y-4"
+        className={cn(
+          "w-64 rounded-xl border border-border bg-popover p-4 shadow-xs space-y-4",
+          popoverClassName
+        )}
       >
         {/* Color preview box */}
         <div

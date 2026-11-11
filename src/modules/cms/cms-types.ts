@@ -77,11 +77,43 @@ export interface CmsField {
   unique: boolean;
   hidden: boolean;
   readonly: boolean;
+  validation: CmsFieldRuleGroup;
+  validation_message: string;
+  conditions: CmsFieldCondition[];
+  display_options: CmsFieldDisplayOptions;
+  clear_hidden_value_on_save: boolean;
   /** Name of the parent group field, if this field is inside a group. */
   group: string | null;
   sort: number;
   created_at: number;
   updated_at: number;
+}
+
+export type CmsFieldRuleOperator = CmsRuleOperator;
+
+export interface CmsFieldRuleCondition {
+  field: string;
+  operator: CmsFieldRuleOperator;
+  value?: unknown;
+}
+
+export interface CmsFieldRuleGroup {
+  match: "all" | "any";
+  conditions: Array<CmsFieldRuleGroup | CmsFieldRuleCondition>;
+}
+
+export interface CmsFieldCondition {
+  name: string;
+  rule: CmsFieldRuleGroup;
+  hidden?: boolean;
+  required?: boolean;
+  readonly?: boolean;
+  clear_hidden_value_on_save?: boolean;
+}
+
+export interface CmsFieldDisplayOptions {
+  prefix?: string;
+  suffix?: string;
 }
 
 /** A Directus-style choice used by dropdown, radio and checkbox interfaces. */
@@ -155,6 +187,10 @@ export interface CmsFieldInput {
   hidden?: boolean;
   readonly?: boolean;
   group?: string | null;
+  validation?: CmsFieldRuleGroup;
+  validation_message?: string;
+  conditions?: CmsFieldCondition[];
+  display_options?: CmsFieldDisplayOptions;
 }
 
 export type CmsPrimaryKeyType = "integer" | "bigInteger" | "uuid" | "string";

@@ -52,7 +52,10 @@ import type {
   CmsCollectionOrderingMode,
   CmsCollectionSort,
   CmsCollectionInput,
+  CmsFieldCondition,
+  CmsFieldDisplayOptions,
   CmsFieldInput,
+  CmsFieldRuleGroup,
   CmsPermissionInput,
   CmsPrincipal,
 } from "@/modules/cms/cms-types";
@@ -353,6 +356,18 @@ export default class Cms_api extends Eterc {
             payload.group === null || typeof payload.group === "string"
               ? (payload.group as string | null)
               : undefined,
+          validation: payload.validation === undefined
+            ? undefined
+            : (payload.validation as CmsFieldRuleGroup),
+          validation_message: payload.validation_message === undefined
+            ? undefined
+            : (payload.validation_message as string),
+          conditions: payload.conditions === undefined
+            ? undefined
+            : (payload.conditions as CmsFieldCondition[]),
+          display_options: payload.display_options === undefined
+            ? undefined
+            : (payload.display_options as CmsFieldDisplayOptions),
         }),
       });
     }

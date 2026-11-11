@@ -9,7 +9,10 @@ import {
   type CmsCollectionSort,
   type CmsCollectionWithFields,
   type CmsField,
+  type CmsFieldCondition,
+  type CmsFieldDisplayOptions,
   type CmsFieldInput,
+  type CmsFieldRuleGroup,
   type CmsFieldType,
   type CmsRecordListOptions,
   type CmsRecordListResult,
@@ -30,6 +33,14 @@ import {
   cms_is_group_interface,
 } from "./cms-interfaces";
 import { get_runtime_config } from "./cms-runtime";
+import {
+  empty_field_rule,
+  effective_field,
+  field_rule_matches,
+  normalize_field_conditions,
+  normalize_field_rule,
+  remove_field_from_rule,
+} from "./cms-field-rules";
 
 const RESERVED_PREFIXES = ["eterc_", "cms_", "sqlite_", "et_", "login_", "password_"];
 const DEFAULT_LIMIT = 25;
@@ -48,6 +59,8 @@ function bool(value: unknown): boolean {
 }
 
 function fieldFromRow(row: Row): CmsField {
+  const parsedValidation = parse_json_object(row.validation);
+  const parsedConditions = parse_json_array(row.conditions);
   return {
     id: Number(row.id),
     collection_id: Number(row.collection_id),
@@ -60,6 +73,14 @@ function fieldFromRow(row: Row): CmsField {
     unique: bool(row.unique),
     hidden: bool(row.hidden),
     readonly: bool(row.readonly),
+    validation:
+      parsedValidation.match === "any" || parsedValidation.match === "all"
+        ? (parsedValidation as unknown as CmsFieldRuleGroup)
+        : empty_field_rule(),
+    validation_message: String(row.validation_message ?? ""),
+    conditions: parsedConditions as CmsFieldCondition[],
+    display_options: parse_json_object(row.display_options) as CmsFieldDisplayOptions,
+    clear_hidden_value_on_save: false,
     group:
       row.group === null || row.group === undefined || row.group === ""
         ? null
@@ -68,6 +89,16 @@ function fieldFromRow(row: Row): CmsField {
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
   };
+}
+
+function parse_json_array(value: unknown): unknown[] {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function collectionFromRow(row: Row): CmsCollection {
@@ -788,6 +819,18 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
   }
 
   const field = normalize_field({ ...input, name });
+  const knownFields = [...fields, {
+    ...field,
+    id: 0,
+    collection_id: collection.id,
+    clear_hidden_value_on_save: false,
+    sort: 0,
+    created_at: 0,
+    updated_at: 0,
+  }];
+  field.validation = normalize_field_rule(field.validation, knownFields);
+  field.conditions = normalize_field_conditions(field.conditions, knownFields);
+  assert_hidden_clear_is_writable(field);
   assert_group_reference(fields, field.group, field.name);
   const metadataOnly = field.type === "alias";
   const ddl = metadataOnly ? "" : default_field_sql(field, false);
@@ -803,8 +846,8 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
     const result = sqlite()
       .prepare(
         `INSERT INTO cms_fields
-          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", sort, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", validation, validation_message, conditions, display_options, sort, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         collection.id,
@@ -818,6 +861,10 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
         field.hidden ? 1 : 0,
         field.readonly ? 1 : 0,
         field.group,
+        JSON.stringify(field.validation),
+        field.validation_message,
+        JSON.stringify(field.conditions),
+        JSON.stringify(field.display_options),
         sort,
         now,
         now
@@ -854,6 +901,10 @@ export function update_field(
       | "hidden"
       | "readonly"
       | "group"
+      | "validation"
+      | "validation_message"
+      | "conditions"
+      | "display_options"
     >
   >
 ): CmsField {
@@ -910,6 +961,32 @@ export function update_field(
   assert_group_reference(fields, nextGroup, field.name);
   const nextUnique = requestedAlias ? false : (patch.unique ?? field.unique);
   const nextRequired = requestedAlias ? false : (patch.required ?? field.required);
+  const validation = patch.validation === undefined
+    ? field.validation
+    : normalize_field_rule(patch.validation, fields);
+  const conditions = patch.conditions === undefined
+    ? field.conditions
+    : normalize_field_conditions(patch.conditions, fields);
+  if (
+    patch.validation_message !== undefined &&
+    typeof patch.validation_message !== "string"
+  ) {
+    throw new EtHttpError(400, "A custom validation message must be text.");
+  }
+  const validationMessage =
+    patch.validation_message === undefined
+      ? field.validation_message
+      : patch.validation_message.slice(0, 500);
+  const displayOptions =
+    patch.display_options === undefined
+      ? field.display_options
+      : normalize_display_options(patch.display_options);
+  assert_hidden_clear_is_writable({
+    ...field,
+    required: nextRequired,
+    options: patch.options ?? field.options,
+    conditions,
+  });
   const apply = sqlite().transaction(() => {
     if (!requestedAlias) {
       if (nextUnique && !field.unique) create_unique_index(collectionName, field.name);
@@ -918,7 +995,7 @@ export function update_field(
     sqlite()
       .prepare(
         `UPDATE cms_fields
-         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, "group" = ?, updated_at = ?
+         SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, "group" = ?, validation = ?, validation_message = ?, conditions = ?, display_options = ?, updated_at = ?
          WHERE id = ?`
       )
       .run(
@@ -931,6 +1008,10 @@ export function update_field(
         (patch.hidden ?? field.hidden) ? 1 : 0,
         (patch.readonly ?? field.readonly) ? 1 : 0,
         nextGroup,
+        JSON.stringify(validation),
+        validationMessage,
+        JSON.stringify(conditions),
+        JSON.stringify(displayOptions),
         nowSeconds(),
         field.id
       );
@@ -989,6 +1070,25 @@ export function delete_field(collectionName: string, fieldName: string): void {
   }
   const metadataOnly = field.type === "alias" || cms_is_alias_interface(field.interface);
   const apply = sqlite().transaction(() => {
+    const updateRules = sqlite().prepare(
+      `UPDATE cms_fields SET validation = ?, conditions = ?, updated_at = ?
+       WHERE id = ?`
+    );
+    for (const other of fields) {
+      if (other.id === field.id) continue;
+      const conditions = other.conditions
+        .map((condition) => ({
+          ...condition,
+          rule: remove_field_from_rule(condition.rule, field.name),
+        }))
+        .filter((condition) => condition.rule.conditions.length > 0);
+      updateRules.run(
+        JSON.stringify(remove_field_from_rule(other.validation, field.name)),
+        JSON.stringify(conditions),
+        nowSeconds(),
+        other.id
+      );
+    }
     if (!metadataOnly) {
       drop_unique_index(collectionName, field.name);
       sqlite().exec(
@@ -1053,6 +1153,12 @@ function normalize_field(input: CmsFieldInput): Required<CmsFieldInput> {
   }
   const type: CmsFieldType = metadataOnly ? "alias" : requestedType;
   const group = String(input.group ?? "").trim();
+  if (
+    input.validation_message !== undefined &&
+    typeof input.validation_message !== "string"
+  ) {
+    throw new EtHttpError(400, "A custom validation message must be text.");
+  }
   return {
     name: String(input.name ?? "").trim(),
     label: String(input.label ?? humanize_name(String(input.name ?? ""))),
@@ -1068,6 +1174,21 @@ function normalize_field(input: CmsFieldInput): Required<CmsFieldInput> {
     hidden: Boolean(input.hidden),
     readonly: Boolean(input.readonly),
     group: group === "" ? null : group,
+    validation: input.validation ?? empty_field_rule(),
+    validation_message: String(input.validation_message ?? "").slice(0, 500),
+    conditions: input.conditions ?? [],
+    display_options: normalize_display_options(input.display_options ?? {}),
+  };
+}
+
+function normalize_display_options(value: unknown): CmsFieldDisplayOptions {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new EtHttpError(400, "Field display options must be an object.");
+  }
+  const options = value as Record<string, unknown>;
+  return {
+    prefix: typeof options.prefix === "string" ? options.prefix.slice(0, 100) : "",
+    suffix: typeof options.suffix === "string" ? options.suffix.slice(0, 100) : "",
   };
 }
 
@@ -1524,6 +1645,13 @@ export function create_record(
         field.name === "user_created")
   );
   if (createdByField) values[createdByField.name] = actorUserId;
+  const validationValues = Object.fromEntries(
+    fields
+      .filter((field) => field.type !== "alias")
+      .map((field) => [field.name, field.options.default ?? null])
+  );
+  Object.assign(validationValues, values);
+  validate_effective_record(fields, validationValues, values);
   try {
     const create = sqlite().transaction(() => {
       if (sortField) {
@@ -1690,6 +1818,7 @@ export function update_record(
   actorUserId: number | null = null
 ): Record<string, unknown> {
   const { collection, fields } = require_collection(collectionName);
+  const currentRecord = get_record(collectionName, id);
   const sortField = system_sort_field(fields);
   const writeInput = sortField
     ? Object.fromEntries(
@@ -1697,6 +1826,8 @@ export function update_record(
       )
     : input;
   const values = prepare_write_values(fields, writeInput, true, collection.primary_key);
+  const validationValues = { ...currentRecord, ...values };
+  validate_effective_record(fields, validationValues, values);
   const updatedByField = fields.find(
     (field) =>
       field.name !== collection.primary_key &&
@@ -1788,25 +1919,74 @@ function prepare_write_values(
     if (raw === undefined) continue;
     if (raw === null || raw === "") {
       if (raw === "" && !updating && !field.required) continue;
-      if (field.required && !updating) {
-        throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
-      }
       values[field.name] = null;
       continue;
     }
     values[field.name] = coerce_value(field, raw);
   }
 
-  if (!updating) {
-    for (const field of fields) {
-      if (field.type === "alias" || field.readonly || !field.required) continue;
-      if (values[field.name] === undefined || values[field.name] === null) {
-        throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
-      }
+  return values;
+}
+
+function validate_effective_record(
+  fields: CmsField[],
+  record: Record<string, unknown>,
+  writes: Record<string, unknown>
+): void {
+  const effectiveFields = new Map(
+    fields.map((field) => [field.name, effective_field(field, record)])
+  );
+  for (const field of fields) {
+    if (field.type === "alias") continue;
+    const effective = effectiveFields.get(field.name)!;
+    if (effective.hidden && effective.clear_hidden_value_on_save) {
+      const defaultValue = field.options.default ?? null;
+      record[field.name] = defaultValue;
+      writes[field.name] = defaultValue;
     }
   }
+  for (const field of fields) {
+    if (field.type === "alias") continue;
+    const effective = effectiveFields.get(field.name)!;
+    const value = record[field.name];
+    if (
+      !effective.readonly &&
+      !(effective.hidden && effective.clear_hidden_value_on_save) &&
+      effective.required &&
+      (value === null || value === undefined || value === "")
+    ) {
+      throw new EtHttpError(422, `Field '${field.label || field.name}' is required.`);
+    }
+    if (
+      field.validation.conditions.length > 0 &&
+      !field_rule_matches(field.validation, record)
+    ) {
+      throw new EtHttpError(
+        422,
+        field.validation_message ||
+          `Field '${field.label || field.name}' does not meet its validation rules.`
+      );
+    }
+  }
+}
 
-  return values;
+function assert_hidden_clear_is_writable(
+  field: Pick<CmsField, "name" | "label" | "required" | "options" | "conditions">
+): void {
+  const defaultValue = field.options.default;
+  if (
+    field.required &&
+    (defaultValue === null || defaultValue === undefined || defaultValue === "") &&
+    field.conditions.some(
+      (condition) =>
+        condition.hidden === true && condition.clear_hidden_value_on_save === true
+    )
+  ) {
+    throw new EtHttpError(
+      400,
+      `Field '${field.label || field.name}' cannot clear a hidden value while required without a default value.`
+    );
+  }
 }
 
 function coerce_value(field: CmsField, raw: unknown): unknown {

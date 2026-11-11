@@ -103,6 +103,10 @@ import {
 } from "./field-inputs";
 import { field_choices } from "./field-inputs/types";
 import { MapCanvas } from "./field-inputs/MapCanvas";
+import {
+  effective_field,
+  field_rule_matches,
+} from "@/modules/cms/cms-field-rule-evaluation";
 import { BusyButton, EmptyState, cms_call } from "./ui";
 import {
   collection_schema,
@@ -718,8 +722,12 @@ export default function ContentManager({ data }: EtViewProps) {
     setRecordSaving(true);
     try {
       const values: Record<string, unknown> = {};
+      const effectiveFields = new Map(
+        fields.map((field) => [field.name, effective_field(field, recordValues)])
+      );
       for (const field of fields) {
-        if (field.hidden || field.readonly) continue;
+        const effective = effectiveFields.get(field.name)!;
+        if (effective.hidden || effective.readonly) continue;
         if (is_alias_field(field)) continue;
         if (editingRecord && field.name === selected.primary_key) continue;
         const rawValue = recordValues[field.name];
@@ -729,6 +737,36 @@ export default function ContentManager({ data }: EtViewProps) {
             ? "draft"
             : rawValue;
         if (value !== undefined) values[field.name] = value;
+      }
+
+      const validationValues = { ...recordValues, ...values };
+      for (const field of fields) {
+        const effective = effectiveFields.get(field.name)!;
+        if (effective.hidden && effective.clear_hidden_value_on_save) {
+          validationValues[field.name] = field.options.default ?? null;
+        }
+      }
+      for (const field of fields) {
+        if (is_alias_field(field)) continue;
+        const effective = effectiveFields.get(field.name)!;
+        if (
+          !(effective.hidden && effective.clear_hidden_value_on_save) &&
+          effective.required &&
+          (validationValues[field.name] === null ||
+            validationValues[field.name] === undefined ||
+            validationValues[field.name] === "")
+        ) {
+          throw new Error(`Field '${field.label || field.name}' is required.`);
+        }
+        if (
+          field.validation.conditions.length > 0 &&
+          !field_rule_matches(field.validation, validationValues)
+        ) {
+          throw new Error(
+            field.validation_message ||
+              `Field '${field.label || field.name}' does not meet its validation rules.`
+          );
+        }
       }
 
       if (editingRecord) {
@@ -1133,12 +1171,14 @@ export default function ContentManager({ data }: EtViewProps) {
   );
   const formFields = useMemo(
     () =>
-      fields.filter(
-        (field) =>
-          !field.hidden &&
-          (!editingRecord || field.name !== selected?.primary_key)
-      ),
-    [editingRecord, fields, selected?.primary_key]
+      fields
+        .map((field) => effective_field(field, recordValues))
+        .filter(
+          (field) =>
+            !field.hidden &&
+            (!editingRecord || field.name !== selected?.primary_key)
+        ),
+    [editingRecord, fields, recordValues, selected?.primary_key]
   );
   const editableFields = useMemo(
     () =>
@@ -1949,14 +1989,22 @@ export default function ContentManager({ data }: EtViewProps) {
                                       width: columnWidths[`${selected.name}:${field.name}`] ?? 180,
                                     }}
                                   >
-                                    <FieldValueDisplay
-                                      field={field}
-                                      value={value}
-                                      userLabel={
-                                        userLabels[String(Number(value))] ??
-                                        userLabels[String(value)]
-                                      }
-                                    />
+                                    <div className="flex items-center gap-1">
+                                      {field.display_options.prefix ? (
+                                        <span>{field.display_options.prefix}</span>
+                                      ) : null}
+                                      <FieldValueDisplay
+                                        field={field}
+                                        value={value}
+                                        userLabel={
+                                          userLabels[String(Number(value))] ??
+                                          userLabels[String(value)]
+                                        }
+                                      />
+                                      {field.display_options.suffix ? (
+                                        <span>{field.display_options.suffix}</span>
+                                      ) : null}
+                                    </div>
                                   </td>
                                 );
                               })}

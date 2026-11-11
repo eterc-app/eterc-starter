@@ -290,6 +290,10 @@ export default function DataStudio({ data }: EtViewProps) {
           hidden: fieldForm.hidden,
           readonly: fieldForm.readonly,
           group: fieldForm.group,
+          validation: fieldForm.validation,
+          validation_message: fieldForm.validation_message,
+          conditions: fieldForm.conditions,
+          display_options: fieldForm.display_options,
         });
         toast.success(`Field '${editingField.name}' updated.`);
       } else {
@@ -305,6 +309,10 @@ export default function DataStudio({ data }: EtViewProps) {
           hidden: fieldForm.hidden,
           readonly: fieldForm.readonly,
           group: fieldForm.group,
+          validation: fieldForm.validation,
+          validation_message: fieldForm.validation_message,
+          conditions: fieldForm.conditions,
+          display_options: fieldForm.display_options,
         });
         toast.success(`Field '${fieldForm.name}' added.`);
       }

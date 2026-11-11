@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
+  GripHorizontal,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -14,7 +16,6 @@ import { IconPicker } from "@/components/ui/icon-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type {
   CmsChoice,
@@ -252,8 +253,8 @@ function TextField({
   className?: string;
 }) {
   return (
-    <div className={cn("grid gap-2", className)}>
-      <Label className="text-sm font-semibold">{label}</Label>
+    <div className={cn("drawer-control", className)}>
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
       <Input
         type={type}
         step={step}
@@ -266,25 +267,22 @@ function TextField({
   );
 }
 
-function TextAreaField({
+function SingleLineField({
   label,
   value,
   onChange,
   placeholder,
-  rows = 4,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  rows?: number;
 }) {
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-semibold">{label}</Label>
-      <Textarea
+    <div className="drawer-control">
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
+      <Input
         value={value}
-        rows={rows}
         placeholder={placeholder}
         className="rounded-lg border-input bg-card"
         onChange={(event) => onChange(event.target.value)}
@@ -324,8 +322,8 @@ function SelectField({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-semibold">{label}</Label>
+    <div className="drawer-control">
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
       <div className="relative">
         <select
           value={value}
@@ -354,11 +352,11 @@ function ToggleField({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex h-13 items-center justify-between gap-3 rounded-lg border border-input bg-card px-4">
-      <div className="min-w-0">
-        <span className="text-sm font-medium text-foreground">{label}</span>
+    <div className="drawer-control">
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
+      <div className="flex h-10 min-h-10 items-center justify-end rounded-lg border border-input bg-card px-3">
+        <Switch checked={checked} onCheckedChange={onChange} />
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -375,12 +373,13 @@ function IconField({
   placeholder?: string;
 }) {
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-semibold">{label}</Label>
+    <div className="drawer-control">
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
       <IconPicker
         value={value}
         placeholder={placeholder}
-        className="h-13 rounded-lg"
+        className="rounded-lg"
+        popoverClassName="field-drawer-popover"
         onChange={onChange}
       />
     </div>
@@ -397,9 +396,14 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-semibold">{label}</Label>
-      <ColorPicker value={value} className="rounded-lg" onChange={onChange} />
+    <div className="drawer-control">
+      <Label className="text-sm font-semibold" title={label}>{label}</Label>
+      <ColorPicker
+        value={value}
+        className="rounded-lg"
+        popoverClassName="field-drawer-popover"
+        onChange={onChange}
+      />
     </div>
   );
 }
@@ -415,6 +419,9 @@ function ChoiceEditor({
   type: CmsFieldType;
   tree?: boolean;
 }) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+
   const patch = (index: number, change: Partial<CmsChoice>) => {
     onChange(
       choices.map((choice, choiceIndex) =>
@@ -423,171 +430,198 @@ function ChoiceEditor({
     );
   };
 
-  const move = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
+  const move = (index: number, target: number) => {
     if (target < 0 || target >= choices.length) return;
     const next = [...choices];
     const [choice] = next.splice(index, 1);
     next.splice(target, 0, choice);
     onChange(next);
+    setExpandedIndex((expanded) => {
+      if (expanded === index) return target;
+      if (expanded === null) return null;
+      if (index < expanded && target >= expanded) return expanded - 1;
+      if (index > expanded && target <= expanded) return expanded + 1;
+      return expanded;
+    });
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Choices</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-lg"
-          onClick={() =>
-            onChange([...choices, new_choice(choices.length + 1, type)])
-          }
-        >
-          <Plus className="size-4" />
-          Add choice
-        </Button>
-      </div>
+    <div className="space-y-2.5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />
+        Choices
+      </h3>
 
       {choices.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-4 text-center text-xs text-muted-foreground">
-          No choices yet. Add the first choice above.
-        </div>
+        <p className="text-xs text-muted-foreground">No choices</p>
       ) : (
         choices.map((choice, index) => (
           <div
             key={index}
-            className="space-y-3 rounded-lg border border-border bg-card p-3"
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (draggingIndex !== null) move(draggingIndex, index);
+              setDraggingIndex(null);
+            }}
+            className={`space-y-1.5 rounded-xl border border-border bg-card p-1.5 ${
+              draggingIndex === index ? "opacity-50" : ""
+            }`}
           >
-            <div className="flex items-start gap-2">
-              <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]">
-                <Input
-                  value={choice.text}
-                  placeholder="Label"
-                  className="rounded-lg border-input bg-card"
-                  onChange={(event) => {
-                    const text = event.target.value;
-                    const followsLabel = String(choice.value) === choice.text;
-                    patch(index, {
-                      text,
-                      value: followsLabel
-                        ? parse_choice_value(text, type)
-                        : choice.value,
-                    });
-                  }}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <button
+                type="button"
+                draggable
+                aria-label={`Drag ${choice.text || "choice"} to reorder`}
+                title="Drag to reorder"
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", String(index));
+                  setDraggingIndex(index);
+                }}
+                onDragEnd={() => setDraggingIndex(null)}
+                className="grid size-7 shrink-0 cursor-grab place-items-center rounded-lg text-foreground hover:bg-muted active:cursor-grabbing"
+              >
+                <GripHorizontal className="size-5" />
+              </button>
+              <Input
+                value={choice.text}
+                placeholder="Choice"
+                className="field-choice-control h-8 min-w-0 border-transparent bg-transparent px-1 text-sm font-medium shadow-none focus-visible:border-input focus-visible:shadow-none"
+                onChange={(event) => {
+                  const text = event.target.value;
+                  const followsLabel = String(choice.value) === choice.text;
+                  patch(index, {
+                    text,
+                    value: followsLabel
+                      ? parse_choice_value(text, type)
+                      : choice.value,
+                  });
+                }}
+              />
+              <button
+                type="button"
+                aria-label={
+                  expandedIndex === index
+                    ? "Hide choice options"
+                    : "Show choice options"
+                }
+                aria-expanded={expandedIndex === index}
+                title="More options"
+                onClick={() =>
+                  setExpandedIndex(expandedIndex === index ? null : index)
+                }
+                className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronDown
+                  className={`size-4 transition-transform ${
+                    expandedIndex === index ? "rotate-180" : ""
+                  }`}
                 />
+              </button>
+              <button
+                type="button"
+                aria-label="Remove choice"
+                title="Remove choice"
+                onClick={() => {
+                  onChange(
+                    choices.filter(
+                      (_choice, choiceIndex) => choiceIndex !== index
+                    )
+                  );
+                  setExpandedIndex((expanded) =>
+                    expanded === index
+                      ? null
+                      : expanded !== null && expanded > index
+                        ? expanded - 1
+                        : expanded
+                  );
+                }}
+                className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+            {expandedIndex === index ? (
+              <div className="grid gap-2 pl-9">
                 <Input
                   value={String(choice.value)}
                   placeholder="Value"
-                  className="rounded-lg border-input bg-card font-mono text-xs"
+                  className="field-choice-control h-8 rounded-lg border-input bg-card font-mono text-xs"
                   onChange={(event) =>
                     patch(index, {
                       value: parse_choice_value(event.target.value, type),
                     })
                   }
                 />
-              </div>
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Move choice up"
-                  disabled={index === 0}
-                  onClick={() => move(index, -1)}
-                >
-                  <ArrowUp className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Move choice down"
-                  disabled={index === choices.length - 1}
-                  onClick={() => move(index, 1)}
-                >
-                  <ArrowDown className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Remove choice"
-                  onClick={() =>
-                    onChange(
-                      choices.filter(
-                        (_choice, choiceIndex) => choiceIndex !== index
-                      )
-                    )
+                <IconPicker
+                  value={choice.icon ?? ""}
+                  placeholder="Optional icon"
+                  className="field-choice-control h-8 rounded-lg"
+                  popoverClassName="field-drawer-popover"
+                  onChange={(icon) =>
+                    patch(index, { icon: icon || undefined })
                   }
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                />
+                <ColorPicker
+                  value={choice.color ?? ""}
+                  className="field-choice-control h-8 rounded-lg px-2.5"
+                  popoverClassName="field-drawer-popover"
+                  onChange={(color) =>
+                    patch(index, { color: color || undefined })
+                  }
+                />
+                {tree ? (
+                  <div className="relative">
+                    <select
+                      value={
+                        choice.parent === undefined
+                          ? ""
+                          : String(choice.parent)
+                      }
+                      onChange={(event) =>
+                        patch(index, {
+                          parent:
+                            event.target.value === ""
+                              ? undefined
+                              : parse_choice_value(event.target.value, type),
+                        })
+                      }
+                      className="field-choice-control h-8 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
+                    >
+                      <option value="">No parent</option>
+                      {choices
+                        .filter((_entry, entryIndex) => entryIndex !== index)
+                        .map((parent) => (
+                          <option
+                            key={String(parent.value)}
+                            value={String(parent.value)}
+                          >
+                            {parent.text}
+                          </option>
+                        ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                ) : null}
               </div>
-            </div>
-
-            <div
-              className={cn(
-                "grid gap-2",
-                tree ? "sm:grid-cols-3" : "sm:grid-cols-2"
-              )}
-            >
-              <IconPicker
-                value={choice.icon ?? ""}
-                placeholder="Optional icon"
-                className="h-13 rounded-lg"
-                onChange={(icon) =>
-                  patch(index, { icon: icon || undefined })
-                }
-              />
-              <Input
-                value={choice.color ?? ""}
-                placeholder="Color token or value"
-                className="rounded-lg border-input bg-card"
-                onChange={(event) =>
-                  patch(index, { color: event.target.value || undefined })
-                }
-              />
-              {tree ? (
-                <div className="relative">
-                  <select
-                    value={
-                      choice.parent === undefined
-                        ? ""
-                        : String(choice.parent)
-                    }
-                    onChange={(event) =>
-                      patch(index, {
-                        parent:
-                          event.target.value === ""
-                            ? undefined
-                            : parse_choice_value(event.target.value, type),
-                      })
-                    }
-                    className="h-13 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-xs text-foreground outline-none"
-                  >
-                    <option value="">No parent</option>
-                    {choices
-                      .filter((_entry, entryIndex) => entryIndex !== index)
-                      .map((parent) => (
-                        <option
-                          key={String(parent.value)}
-                          value={String(parent.value)}
-                        >
-                          {parent.text}
-                        </option>
-                      ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                </div>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         ))
       )}
+
+      <button
+        type="button"
+        onClick={() =>
+          onChange([...choices, new_choice(choices.length + 1, type)])
+        }
+        className="inline-flex h-8 cursor-pointer items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
+      >
+        Create
+      </button>
     </div>
   );
 }
@@ -611,7 +645,7 @@ function LinkEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-foreground">Buttons</p>
+          <h3 className="text-sm font-semibold text-foreground">Buttons</h3>
         </div>
         <Button
           type="button"
@@ -669,7 +703,8 @@ function LinkEditor({
               <IconPicker
                 value={link.icon ?? ""}
                 placeholder="Optional icon"
-                className="h-13 rounded-lg"
+                className="rounded-lg"
+                popoverClassName="field-drawer-popover"
                 onChange={(icon) =>
                   patch(index, { icon: icon || undefined })
                 }
@@ -766,7 +801,7 @@ function RepeaterFieldsEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-foreground">Sub-fields</p>
+          <h3 className="text-sm font-semibold text-foreground">Sub-fields</h3>
         </div>
         <Button
           type="button"
@@ -935,7 +970,7 @@ function RepeaterFieldsEditor({
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <div className="flex h-13 items-center justify-between rounded-lg border border-input bg-card px-3">
+                <div className="flex h-10 items-center justify-between rounded-lg border border-input bg-card px-3">
                   <span className="text-xs font-medium text-foreground">
                     Required
                   </span>
@@ -974,7 +1009,7 @@ function LanguagesEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-foreground">Languages</p>
+          <h3 className="text-sm font-semibold text-foreground">Languages</h3>
         </div>
         <Button
           type="button"
@@ -1055,9 +1090,9 @@ function CollectionMultiSelect({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-foreground">
+          <h3 className="text-sm font-semibold text-foreground">
             Allowed collections
-          </p>
+          </h3>
         </div>
         <Button
           type="button"
@@ -1072,7 +1107,7 @@ function CollectionMultiSelect({
       <div className="app-scrollbar max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-card p-2">
         {available.length === 0 ? (
           <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-            No collections available.
+            No collections
           </p>
         ) : (
           available.map((collection) => (
@@ -1561,9 +1596,6 @@ export function InterfaceOptions({
             onChange={(value) => onOption("relative", value)}
           />
         </div>
-        <p className="-mt-2 text-xs text-muted-foreground">
-          Show relative time, for example “5 minutes ago”.
-        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Format"
@@ -1795,10 +1827,6 @@ export function InterfaceOptions({
           placeholder="e.g. catalog/products"
           onChange={(value) => onOption("folder", value)}
         />
-        <p className="-mt-2 text-xs text-muted-foreground">
-          Default destination under uploads. Editors can choose another folder
-          or create a subfolder from the upload field.
-        </p>
       </div>
     );
   }
@@ -2039,7 +2067,7 @@ export function InterfaceOptions({
   if (iface === "notice") {
     return (
       <div className="space-y-4">
-        <TextAreaField
+        <SingleLineField
           label="Notice text"
           value={text_option(form, "text") || form.label}
           placeholder="Helpful instruction or callout notice..."
@@ -2313,10 +2341,9 @@ export function DefaultValueEditor({
     iface === "collection_item_dropdown_multiple"
   ) {
     return (
-      <TextAreaField
+      <SingleLineField
         label="Default value (JSON)"
         value={value}
-        rows={5}
         placeholder="[]"
         onChange={onChange}
       />
@@ -2352,10 +2379,9 @@ export function DefaultValueEditor({
     iface === "code"
   ) {
     return (
-      <TextAreaField
+      <SingleLineField
         label="Default value"
         value={value}
-        rows={4}
         onChange={onChange}
       />
     );

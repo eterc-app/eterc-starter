@@ -1,7 +1,10 @@
 import type {
   CmsChoice,
   CmsField,
+  CmsFieldCondition,
+  CmsFieldDisplayOptions,
   CmsFieldInterface,
+  CmsFieldRuleGroup,
   CmsFieldType,
 } from "@/modules/cms/cms-types";
 import {
@@ -30,6 +33,14 @@ export interface FieldFormState {
   defaultValue: string;
   group: string | null;
   options: Record<string, unknown>;
+  validation: CmsFieldRuleGroup;
+  validation_message: string;
+  conditions: CmsFieldCondition[];
+  display_options: CmsFieldDisplayOptions;
+}
+
+function empty_rule(): CmsFieldRuleGroup {
+  return { match: "all", conditions: [] };
 }
 
 export function slugify_field_name(value: string): string {
@@ -70,6 +81,10 @@ export function empty_field_form(
     defaultValue: "",
     group: null,
     options: cms_interface_defaults(interfaceId),
+    validation: empty_rule(),
+    validation_message: "",
+    conditions: [],
+    display_options: {},
   };
 }
 
@@ -87,6 +102,10 @@ export function field_form_from_field(field: CmsField): FieldFormState {
     defaultValue: default_text(field.options?.default),
     group: field.group ?? null,
     options: { ...(field.options ?? {}) },
+    validation: field.validation ?? empty_rule(),
+    validation_message: field.validation_message ?? "",
+    conditions: field.conditions ?? [],
+    display_options: { ...(field.display_options ?? {}) },
   };
 }
 
