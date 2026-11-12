@@ -846,7 +846,7 @@
   white-space: nowrap;
 }
 
-.field-drawer input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.field-drawer input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.field-rule-value),
 .field-drawer select,
 .field-drawer textarea,
 .field-drawer [data-slot="popover-trigger"],

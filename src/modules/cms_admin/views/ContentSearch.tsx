@@ -475,7 +475,7 @@ export function reorder_filter_nodes(
 /* Field picker                                                               */
 /* -------------------------------------------------------------------------- */
 
-function AddFilterMenu({
+export function AddFilterMenu({
   groupId,
   targetGroups,
   fields,
@@ -485,7 +485,7 @@ function AddFilterMenu({
   groupId: string;
   targetGroups: { id: string; label: string }[];
   fields: CmsField[];
-  onAddCondition: (groupId: string, field: CmsField) => string;
+  onAddCondition: (groupId: string, field: CmsField) => string | void;
   onAddGroup: (groupId: string) => void;
 }) {
   const [open, setOpen] = useState(false);

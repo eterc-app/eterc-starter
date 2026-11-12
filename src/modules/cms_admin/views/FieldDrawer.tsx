@@ -882,35 +882,16 @@ export function FieldDrawer({
                   {activeSection === "conditions" ? (
                     <section className="space-y-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground">Conditions</h3>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Conditions Name
+                        </h3>
                       </div>
                       {form.conditions.map((condition, index) => (
                         <div
                           key={`${index}-${condition.name}`}
                           className="space-y-3 border-b border-border pb-3 last:border-b-0"
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-foreground">
-                                Name
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                aria-label="Delete condition"
-                                onClick={() =>
-                                  setForm((current) => ({
-                                    ...current,
-                                    conditions: current.conditions.filter(
-                                      (_, itemIndex) => itemIndex !== index
-                                    ),
-                                  }))
-                                }
-                              >
-                                <Trash2 className="size-3.5" />
-                              </Button>
-                            </div>
+                          <div className="flex items-center gap-2">
                             <Input
                               aria-label="Condition name"
                               value={condition.name}
@@ -926,6 +907,22 @@ export function FieldDrawer({
                               }
                               placeholder="Condition name"
                             />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Delete condition"
+                              onClick={() =>
+                                setForm((current) => ({
+                                  ...current,
+                                  conditions: current.conditions.filter(
+                                    (_, itemIndex) => itemIndex !== index
+                                  ),
+                                }))
+                              }
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
                           </div>
                           <div className="space-y-1.5">
                             <span className="text-xs font-semibold text-foreground">

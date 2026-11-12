@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { AddFilterMenu } from "./ContentSearch";
 import type {
   CmsField,
   CmsFieldRuleCondition,
@@ -61,6 +62,42 @@ function parse_list(value: string): string[] {
   return value.split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
+function default_rule_operator(field: CmsField): CmsRuleOperator {
+  if (field.type === "json") return "_null";
+  if (
+    field.type === "integer" ||
+    field.type === "decimal" ||
+    field.type === "datetime" ||
+    field.type === "boolean" ||
+    field.type === "select"
+  ) {
+    return "_eq";
+  }
+  return "_contains";
+}
+
+function rule_group_targets(
+  group: CmsFieldRuleGroup,
+  path: number[] = []
+): { id: string; label: string }[] {
+  const isRoot = path.length === 0;
+  const label = isRoot
+    ? "All rules"
+    : `${group.match === "all" ? "AND" : "OR"} group — ${
+        group.match === "all" ? "All" : "Any"
+      } of the following`;
+  return [
+    { id: isRoot ? "root" : path.join("."), label },
+    ...group.conditions.flatMap((node, index) =>
+      is_group(node) ? rule_group_targets(node, [...path, index]) : []
+    ),
+  ];
+}
+
+function rule_group_path(id: string): number[] {
+  return id === "root" ? [] : id.split(".").map(Number);
+}
+
 function RuleGroupEditor({
   group,
   fields,
@@ -110,15 +147,20 @@ function RuleGroupEditor({
     setDraggingNode(null);
   };
 
-  const addCondition = (parentPath: number[]) => {
-    if (fields.length === 0) return;
+  const addCondition = (parentPath: number[], field: CmsField) => {
+    const operator = default_rule_operator(field);
     updateAt(parentPath, (node) => {
       if (!is_group(node)) return node;
       return {
         ...node,
         conditions: [
           ...node.conditions,
-          { field: fields[0].name, operator: "_eq", value: "" },
+          {
+            field: field.name,
+            operator,
+            value:
+              operator === "_null" ? true : operator === "_in" ? [] : "",
+          },
         ],
       };
     });
@@ -162,9 +204,7 @@ function RuleGroupEditor({
         }
       >
         {current.conditions.length === 0 ? (
-          <p className="px-1 py-1 text-xs text-muted-foreground">
-            No configured rules
-          </p>
+          <></>
         ) : (
           current.conditions.map((node, index) => {
             const nodePath = [...path, index];
@@ -200,6 +240,21 @@ function RuleGroupEditor({
                 }`}
               >
                 <div className="inline-flex min-h-7 min-w-0 max-w-full items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card px-1.5 text-xs">
+                  <button
+                    type="button"
+                    draggable
+                    aria-label="Drag filter to reorder"
+                    title="Drag to reorder"
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", pillId);
+                      setDraggingNode({ parentPath: [...path], index });
+                    }}
+                    onDragEnd={() => setDraggingNode(null)}
+                    className="grid size-3 shrink-0 cursor-grab place-items-center rounded-full text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                  >
+                    <GripVertical className="size-2.5" />
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -322,7 +377,7 @@ function RuleGroupEditor({
                           ? node.value.join(", ")
                           : String(node.value ?? "")
                       }
-                      placeholder="--"
+                      placeholder="---"
                       onChange={(event) =>
                         updateAt(nodePath, (entry) =>
                           is_group(entry)
@@ -360,25 +415,22 @@ function RuleGroupEditor({
                 >
                   <X className="size-2.5" />
                 </button>
-                <button
-                  type="button"
-                  draggable
-                  aria-label="Drag filter to reorder"
-                  title="Drag to reorder"
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", pillId);
-                    setDraggingNode({ parentPath: [...path], index });
-                  }}
-                  onDragEnd={() => setDraggingNode(null)}
-                  className="grid size-4 shrink-0 cursor-grab place-items-center rounded-full text-muted-foreground hover:bg-muted active:cursor-grabbing"
-                >
-                  <GripVertical className="size-3" />
-                </button>
               </div>
             );
           })
         )}
+
+        {level === 0 ? (
+          <AddFilterMenu
+            groupId="root"
+            fields={fields}
+            targetGroups={rule_group_targets(group)}
+            onAddCondition={(groupId, field) =>
+              addCondition(rule_group_path(groupId), field)
+            }
+            onAddGroup={(groupId) => addGroup(rule_group_path(groupId))}
+          />
+        ) : null}
 
         <div
           onDragOver={
@@ -396,9 +448,29 @@ function RuleGroupEditor({
           }
           className={`group/group-row flex w-fit max-w-full items-center gap-1 ${
             dragging ? "opacity-50" : ""
+          } ${
+            level === 0 ? "hidden" : ""
           }`}
         >
           <div className="inline-flex min-h-7 min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-full border border-border bg-card px-1.5 text-xs">
+            <button
+              type="button"
+              draggable
+              aria-label="Drag filter group to reorder"
+              title="Drag to reorder"
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", "filter-group");
+                setDraggingNode({
+                  parentPath: [...parentPath],
+                  index: groupIndex,
+                });
+              }}
+              onDragEnd={() => setDraggingNode(null)}
+              className="grid size-3 shrink-0 cursor-grab place-items-center rounded-full text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            >
+              <GripVertical className="size-2.5" />
+            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -465,50 +537,9 @@ function RuleGroupEditor({
               <X className="size-2.5" />
             </button>
           ) : null}
-          {level > 0 ? (
-            <button
-              type="button"
-              draggable
-              aria-label="Drag filter group to reorder"
-              title="Drag to reorder"
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", "filter-group");
-                setDraggingNode({
-                  parentPath: [...parentPath],
-                  index: groupIndex,
-                });
-              }}
-              onDragEnd={() => setDraggingNode(null)}
-              className="grid size-4 shrink-0 cursor-grab place-items-center rounded-full text-muted-foreground hover:bg-muted active:cursor-grabbing"
-            >
-              <GripVertical className="size-3" />
-            </button>
-          ) : null}
         </div>
       </div>
 
-      {level > 0 ? (
-        <div className="flex items-center gap-4 px-1">
-          <button
-            type="button"
-            className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={fields.length === 0}
-            onClick={() => addCondition(path)}
-          >
-            Add Filter
-          </button>
-          {level < 5 ? (
-            <button
-              type="button"
-              className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70"
-              onClick={() => addGroup(path)}
-            >
-              And / Or group
-            </button>
-          ) : null}
-        </div>
-      ) : null}
     </div>
     );
   };
@@ -526,40 +557,7 @@ export function FieldRuleEditor({
   onChange: (value: CmsFieldRuleGroup) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end gap-4 px-1">
-        <button
-          type="button"
-          className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={fields.length === 0}
-          onClick={() =>
-            onChange({
-              ...value,
-              conditions: [
-                ...value.conditions,
-                { field: fields[0]?.name ?? "", operator: "_eq", value: "" },
-              ],
-            })
-          }
-        >
-          Add Filter
-        </button>
-        <button
-          type="button"
-          className="cursor-pointer text-xs font-medium text-foreground hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() =>
-            onChange({
-              ...value,
-              conditions: [
-                ...value.conditions,
-                { match: "all", conditions: [] },
-              ],
-            })
-          }
-        >
-          And / Or group
-        </button>
-      </div>
+    <div>
       <RuleGroupEditor
         group={value}
         fields={fields}
