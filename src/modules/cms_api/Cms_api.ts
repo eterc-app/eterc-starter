@@ -33,11 +33,9 @@ import {
   add_field,
   collection_fields,
   create_collection,
-  create_record,
   create_starter_collection,
   delete_collection,
   delete_field,
-  delete_record,
   format_record_for_api,
   get_collection,
   get_record,
@@ -45,8 +43,12 @@ import {
   list_records,
   update_collection,
   update_field,
-  update_record,
 } from "@/modules/cms/cms-store";
+import {
+  create_record_with_flows,
+  delete_record_with_flows,
+  update_record_with_flows,
+} from "@/modules/flows/flow-event-hooks";
 import { refresh_cms_schema } from "@/modules/cms/cms-schema";
 import type {
   CmsCollectionOrderingMode,
@@ -382,7 +384,7 @@ export default class Cms_api extends Eterc {
     not_found();
   }
 
-  items(): EtApiResponse {
+  async items(): Promise<EtApiResponse> {
     const principal = resolve_principal();
     const parts = params();
     const collection = parts[0];
@@ -440,9 +442,13 @@ export default class Cms_api extends Eterc {
       const values = apply_presets(payload, policy.presets, principal, collection);
       assert_rule_group(values, policy.filter, principal, collection, "create");
       assert_rule_group(values, policy.validation, principal, collection, "field validation");
-      const row = create_record(collection, values, principal.user_id, {
-        allowSortOverride: true,
-      });
+      const row = await create_record_with_flows(
+        collection,
+        values,
+        principal.user_id,
+        principal,
+        { allowSortOverride: true }
+      );
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response(
         { data: filter_row(principal, collection, formatted, policy.fields) },
@@ -461,7 +467,13 @@ export default class Cms_api extends Eterc {
       const merged = { ...existing, ...payload };
       assert_rule_group(merged, policy.filter, principal, collection, "update");
       assert_rule_group(merged, policy.validation, principal, collection, "field validation");
-      const row = update_record(collection, id, payload, principal.user_id);
+      const row = await update_record_with_flows(
+        collection,
+        id,
+        payload,
+        principal.user_id,
+        principal
+      );
       const formatted = format_record_for_api(row, collection_fields(collection));
       return api_response({
         data: filter_row(principal, collection, formatted, policy.fields),
@@ -474,7 +486,7 @@ export default class Cms_api extends Eterc {
       if (!row_matches_rule_group(existing, policy.filter, principal, collection)) {
         throw new EtHttpError(403, "This record is outside the role's delete policy.");
       }
-      delete_record(collection, id);
+      await delete_record_with_flows(collection, id, principal);
       return api_response({ data: { deleted: true } });
     }
 

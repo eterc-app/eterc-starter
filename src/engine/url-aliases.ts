@@ -14,6 +14,7 @@
 
 /** Longest legacy prefixes first so child modules win over the parent. */
 const PUBLIC_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["flows_admin", "admin/flows"],
   ["cms_admin", "admin"],
   ["eterc_administrators", "administrators"],
 ];
@@ -31,6 +32,10 @@ export function resolve_public_route(segments: string[]): string[] {
     }
     if (segments[1]?.toLowerCase() === "media") {
       return ["media", "index"];
+    }
+    if (segments[1]?.toLowerCase() === "flows") {
+      if (segments.length === 2) return ["flows_admin", "index"];
+      return ["flows_admin", ...segments.slice(2)];
     }
     return ["cms_admin", ...segments.slice(1)];
   }

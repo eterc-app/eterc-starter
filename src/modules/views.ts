@@ -7,6 +7,7 @@ import { views as paginationViews } from "./pagination/views";
 import { views as dbViews } from "./db/views";
 import { views as mediaViews } from "./media/views";
 import { views as cmsAdminViews } from "./cms_admin/views";
+import { views as flowAdminViews } from "./flows_admin/views";
 
 register_views(welcomeViews);
 register_views(setupViews);
@@ -16,3 +17,4 @@ register_views(paginationViews);
 register_views(dbViews);
 register_views(mediaViews);
 register_views(cmsAdminViews);
+register_views(flowAdminViews);

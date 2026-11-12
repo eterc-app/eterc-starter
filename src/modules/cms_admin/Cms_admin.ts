@@ -31,19 +31,21 @@ import {
   add_field,
   reorder_fields,
   create_collection,
-  create_record,
   create_starter_collection,
   delete_collection,
   delete_field,
-  delete_record,
   get_collection,
   list_collections,
   list_records,
   reorder_records,
   update_collection,
   update_field,
-  update_record,
 } from "@/modules/cms/cms-store";
+import {
+  create_record_with_flows,
+  delete_record_with_flows,
+  update_record_with_flows,
+} from "@/modules/flows/flow-event-hooks";
 import {
   bootstrap_database,
   refresh_cms_schema,
@@ -537,31 +539,37 @@ export default class Cms_admin extends Eterc {
     };
   }
 
-  data_record_create() {
+  async data_record_create() {
     const principal = this.principal();
     const payload = body();
-    return create_record(
+    return create_record_with_flows(
       text_value(payload.collection),
       object_value(payload.values),
-      principal.user_id
+      principal.user_id,
+      principal
     );
   }
 
-  data_record_update() {
+  async data_record_update() {
     const principal = this.principal();
     const payload = body();
-    return update_record(
+    return update_record_with_flows(
       text_value(payload.collection),
       record_id_value(payload.id),
       object_value(payload.values),
-      principal.user_id
+      principal.user_id,
+      principal
     );
   }
 
-  data_record_delete() {
-    this.principal();
+  async data_record_delete() {
+    const principal = this.principal();
     const payload = body();
-    delete_record(text_value(payload.collection), record_id_value(payload.id));
+    await delete_record_with_flows(
+      text_value(payload.collection),
+      record_id_value(payload.id),
+      principal
+    );
     return { deleted: true };
   }
 

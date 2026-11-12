@@ -14,6 +14,7 @@ export const controllerLoaders: Record<
   system_api: () => import("@/modules/system_api/System_api"),
   cms_api: () => import("@/modules/cms_api/Cms_api"),
   cms_admin: () => import("@/modules/cms_admin/Cms_admin"),
+  flows_admin: () => import("@/modules/flows_admin/Flows_admin"),
   media: () => import("@/modules/media/Media"),
   pagination: () => import("@/modules/pagination/Pagination"),
   db: () => import("@/modules/db/Db"),

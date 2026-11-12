@@ -1,4 +1,5 @@
 import { sqlite, type Row } from "@/engine/db";
+import { ensure_flow_schema } from "@/modules/flows/flow-schema";
 import {
   cms_field_interface,
   type CmsBootstrapReport,
@@ -282,6 +283,7 @@ function inferInterface(name: string, type: CmsFieldType): CmsFieldInterface {
 export function ensure_cms_schema(): void {
   if (schemaReady) return;
   sqlite().exec(CMS_DDL);
+  ensure_flow_schema();
   migrate_access_schema();
   seed_roles();
   sync_collections();
