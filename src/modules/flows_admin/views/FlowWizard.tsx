@@ -189,7 +189,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
   const [trigger, setTrigger] = useState<FlowTrigger | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<"active" | "inactive">("active");
+  const [status, setStatus] = useState<"active" | "inactive">("inactive");
   const [icon, setIcon] = useState("zap");
   const [color, setColor] = useState("#000000");
   const [accountability, setAccountability] = useState<Accountability>("all");
@@ -232,7 +232,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
     setTrigger(null);
     setName("");
     setDescription("");
-    setStatus("active");
+    setStatus("inactive");
     setIcon("zap");
     setColor("#000000");
     setAccountability("all");

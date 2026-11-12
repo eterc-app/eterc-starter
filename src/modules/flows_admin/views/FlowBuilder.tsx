@@ -1,44 +1,47 @@
 "use client";
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type ComponentType,
 } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  Activity,
   AlertTriangle,
   ArrowLeft,
   Check,
-  ChevronRight,
-  CircleDot,
-  Clock3,
-  Copy,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   History,
   LayoutGrid,
   Loader2,
   Lock,
   MoreHorizontal,
+  MoreVertical,
+  PanelRight,
   Pencil,
   Play,
   Plus,
-  Power,
   RefreshCw,
-  Save,
+  Sparkles,
   Trash2,
-  Webhook,
   Workflow,
   X,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import dagre from "@dagrejs/dagre";
 import {
+  Background,
+  BackgroundVariant,
   Handle,
   MarkerType,
   Position,
@@ -57,7 +60,11 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
-import { Badge } from "@/components/ui/badge";
+import {
+  PageActionsPortal,
+  usePageRightSidebar,
+  useSetNavbarMeta,
+} from "@/components/app/PageActionsSlot";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -147,6 +154,17 @@ interface BuilderNodeData extends Record<string, unknown> {
 
 type BuilderNode = Node<BuilderNodeData>;
 
+interface NodeActions {
+  edit_mode: boolean;
+  change_status: (status: "active" | "inactive") => void;
+  edit_trigger: () => void;
+  edit_operation: (id: string) => void;
+  delete_operation: (id: string) => void;
+  add_after: (source: string, handle: "resolve" | "reject") => void;
+}
+
+const NodeActionsContext = createContext<NodeActions | null>(null);
+
 interface RunDetail {
   run: FlowRunRecord;
   steps: FlowRunStepRecord[];
@@ -214,6 +232,14 @@ function compact_json(value: unknown): string {
 
 function response_label(value: unknown): string {
   return value === "all" ? "All data" : value === "other" ? "Other" : "Last operation";
+}
+
+function format_time(value: number): string {
+  return new Date(value * 1000).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function trigger_details(
@@ -399,7 +425,7 @@ function operation_edge(
     label: handle === "reject" ? "reject" : undefined,
     style: {
       strokeWidth: 1.6,
-      stroke: handle === "reject" ? "var(--destructive)" : "var(--success)",
+      stroke: handle === "reject" ? "var(--filter-or)" : "var(--foreground)",
     },
     labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
     labelBgStyle: { fill: "var(--card)" },
@@ -407,7 +433,7 @@ function operation_edge(
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
-      color: handle === "reject" ? "var(--destructive)" : "var(--success)",
+      color: handle === "reject" ? "var(--filter-or)" : "var(--foreground)",
     },
   };
 }
@@ -442,7 +468,7 @@ function layout_graph(nodes: BuilderNode[], edges: Edge[]): BuilderNode[] {
     marginy: 24,
   });
   for (const node of nodes) {
-    graph.setNode(node.id, { width: 280, height: 180 });
+    graph.setNode(node.id, { width: 300, height: 190 });
   }
   for (const edge of edges) {
     if (edge.source === edge.target) continue;
@@ -458,7 +484,7 @@ function layout_graph(nodes: BuilderNode[], edges: Edge[]): BuilderNode[] {
     }
     return {
       ...node,
-      position: { x: position.x - 140, y: position.y - 90 },
+      position: { x: position.x - 150, y: position.y - 95 },
     };
   });
 }
@@ -480,7 +506,8 @@ function unique_key(base: string, nodes: BuilderNode[]): string {
   return `${candidate}_${Date.now()}`;
 }
 
-const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
+const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
+  const actions = useContext(NodeActionsContext);
   const is_trigger = data.kind === "trigger";
   const definition = is_trigger ? null : get_operation_definition(data.type);
   const header = is_trigger ? "Trigger" : definition?.label ?? data.type;
@@ -490,13 +517,18 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
   const details = is_trigger
     ? trigger_details(data.type as FlowTrigger, data.options)
     : operation_details(data.type, data.options);
+  const status = data.status === "active" ? "Active" : "Inactive";
+
+  const stop_pointer = (event: React.PointerEvent) => {
+    event.stopPropagation();
+  };
 
   return (
     <div
       className={cn(
-        "w-[280px] rounded-xl border text-left transition-colors",
+        "flow-card relative w-[300px] rounded-xl border text-left transition-colors",
         is_trigger ? "bg-surface-subtle" : "bg-card",
-        selected ? "border-foreground" : "border-border"
+        selected ? "flow-card-selected border-foreground" : "border-border"
       )}
     >
       {!is_trigger ? (
@@ -504,7 +536,7 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
           type="target"
           position={Position.Left}
           id="in"
-          className="!size-2.5 !border-2 !border-card !bg-foreground"
+          className="!size-4 !border-2 !border-foreground !bg-card"
         />
       ) : null}
 
@@ -516,11 +548,55 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
           <p className="truncate text-sm font-semibold">{header}</p>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
-        {is_trigger ? (
-          <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            Start
-          </span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {actions?.edit_mode ? (
+            <button
+              type="button"
+              title={is_trigger ? "Edit flow and trigger" : "Edit step"}
+              aria-label={is_trigger ? "Edit flow and trigger" : "Edit step"}
+              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onPointerDown={stop_pointer}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (is_trigger) actions.edit_trigger();
+                else actions.edit_operation(id);
+              }}
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          ) : null}
+          {!is_trigger && actions?.edit_mode ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title="Step actions"
+                  aria-label="Step actions"
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onPointerDown={stop_pointer}
+                >
+                  <MoreVertical className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onSelect={() => actions?.edit_operation(id)}
+                >
+                  <Pencil />
+                  Edit step
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => actions?.delete_operation(id)}
+                >
+                  <Trash2 />
+                  Delete step
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
       </div>
 
       {details.length > 0 ? (
@@ -542,26 +618,40 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
       ) : null}
 
       {is_trigger ? (
-        <div className="flex items-center gap-2 border-t border-border px-4 py-2 text-xs text-muted-foreground">
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              data.status === "active" ? "bg-foreground" : "bg-muted-foreground"
-            )}
-          />
-          {data.status === "active" ? "Active" : "Inactive"}
+        <div className="flex items-center justify-between border-t border-border px-4 py-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground"
+                onPointerDown={stop_pointer}
+                title="Change flow status"
+                aria-label="Change flow status"
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    data.status === "active"
+                      ? "bg-foreground"
+                      : "bg-muted-foreground"
+                  )}
+                />
+                {status}
+                <ChevronDown className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-36">
+              <DropdownMenuItem onSelect={() => actions?.change_status("active")}>
+                Active
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => actions?.change_status("inactive")}>
+                Inactive
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ) : (
-        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-success" />
-            Resolve
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-destructive" />
-            Reject
-          </span>
-        </div>
+        <div className="relative h-12 border-t border-border" />
       )}
 
       {is_trigger ? (
@@ -569,7 +659,7 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
           type="source"
           position={Position.Right}
           id="root"
-          className="!top-1/2 !size-2.5 !border-2 !border-card !bg-foreground"
+          className="!top-1/2 !size-4 !border-2 !border-foreground !bg-card"
         />
       ) : (
         <>
@@ -577,14 +667,51 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
             type="source"
             position={Position.Right}
             id="resolve"
-            className="!top-[84%] !size-2.5 !border-2 !border-card !bg-success"
-          />
+            className="!top-[74%] !size-5 !border-0 !bg-foreground !text-background"
+          >
+            <Check className="pointer-events-none size-3" />
+          </Handle>
           <Handle
             type="source"
             position={Position.Right}
             id="reject"
-            className="!top-[93%] !size-2.5 !border-2 !border-card !bg-destructive"
-          />
+            className="!top-[88%] !size-5 !border-0 !bg-filter-or !text-background"
+          >
+            <X className="pointer-events-none size-3" />
+          </Handle>
+
+          <div className="absolute left-full top-[74%] ml-1 flex -translate-y-1/2 items-center gap-1">
+            <span className="h-0.5 w-5 bg-foreground" />
+            <button
+              type="button"
+              title="Add a step after resolve"
+              aria-label="Add a step after resolve"
+              className="grid size-5 place-items-center rounded-full bg-foreground text-background transition-transform hover:scale-105"
+              onPointerDown={stop_pointer}
+              onClick={(event) => {
+                event.stopPropagation();
+                actions?.add_after(id, "resolve");
+              }}
+            >
+              <Plus className="size-3" />
+            </button>
+          </div>
+          <div className="absolute left-full top-[88%] ml-1 flex -translate-y-1/2 items-center gap-1">
+            <span className="h-0.5 w-5 bg-filter-or" />
+            <button
+              type="button"
+              title="Add a step after reject"
+              aria-label="Add a step after reject"
+              className="grid size-5 place-items-center rounded-full border border-filter-or bg-card text-filter-or transition-transform hover:scale-105"
+              onPointerDown={stop_pointer}
+              onClick={(event) => {
+                event.stopPropagation();
+                actions?.add_after(id, "reject");
+              }}
+            >
+              <Plus className="size-3" />
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -606,8 +733,8 @@ function FieldShell({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-semibold text-foreground">{label}</span>
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
       {children}
       {hint ? (
         <span className="text-xs leading-snug text-muted-foreground">
@@ -818,6 +945,143 @@ function OptionField({
   );
 }
 
+function CollectionPicker({
+  collections,
+  is_checked,
+  on_toggle,
+}: {
+  collections: CollectionOption[];
+  is_checked: (name: string) => boolean;
+  on_toggle: (name: string) => void;
+}) {
+  const [expanded, set_expanded] = useState(false);
+  const visible = expanded ? collections : collections.slice(0, 8);
+  const remaining = collections.length - visible.length;
+
+  return (
+    <div className="grid gap-2">
+      <div className="grid gap-1">
+        {collections.length === 0 ? (
+          <p className="rounded-lg border border-border bg-surface-subtle p-3 text-xs text-muted-foreground">
+            No collections yet.
+          </p>
+        ) : (
+          visible.map((collection) => (
+            <label
+              key={collection.name}
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-muted/40"
+            >
+              <Checkbox
+                checked={is_checked(collection.name)}
+                onCheckedChange={() => on_toggle(collection.name)}
+              />
+              <span className="min-w-0 truncate">{collection.label}</span>
+            </label>
+          ))
+        )}
+      </div>
+      {collections.length > 8 ? (
+        <button
+          type="button"
+          className="flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => set_expanded((current) => !current)}
+        >
+          <ChevronDown
+            className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
+          />
+          {expanded ? "Show less" : `Show ${remaining} more`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function HeadersField({
+  value,
+  onChange,
+}: {
+  value: unknown;
+  onChange: (value: Record<string, string>) => void;
+}) {
+  const initial = useMemo(() => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    return Object.entries(value as Record<string, unknown>).map(([key, entry]) => ({
+      key,
+      value: String(entry ?? ""),
+    }));
+  }, [value]);
+  const [rows, set_rows] = useState(initial);
+
+  const commit = (next: Array<{ key: string; value: string }>) => {
+    set_rows(next);
+    const output: Record<string, string> = {};
+    for (const row of next) {
+      const key = row.key.trim();
+      if (key) output[key] = row.value;
+    }
+    onChange(output);
+  };
+
+  return (
+    <div className="grid gap-2">
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No headers yet.</p>
+      ) : null}
+      {rows.map((row, index) => (
+        <div
+          key={index}
+          className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-2"
+        >
+          <Input
+            value={row.key}
+            onChange={(event) =>
+              commit(
+                rows.map((entry, entry_index) =>
+                  entry_index === index ? { ...entry, key: event.target.value } : entry
+                )
+              )
+            }
+            placeholder="Header"
+            className="h-10 font-mono text-xs"
+          />
+          <Input
+            value={row.value}
+            onChange={(event) =>
+              commit(
+                rows.map((entry, entry_index) =>
+                  entry_index === index
+                    ? { ...entry, value: event.target.value }
+                    : entry
+                )
+              )
+            }
+            placeholder="Value"
+            className="h-10 text-xs"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            title="Remove header"
+            aria-label="Remove header"
+            onClick={() => commit(rows.filter((_, entry_index) => entry_index !== index))}
+          >
+            <Trash2 className="size-3.5 text-destructive" />
+          </Button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="inline-flex h-8 w-fit items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
+        onClick={() => commit([...rows, { key: "", value: "" }])}
+      >
+        <Plus className="size-3.5" />
+        Create New
+      </button>
+    </div>
+  );
+}
+
 function use_dirty_guard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return;
@@ -834,6 +1098,8 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   const flow = data.flow;
   const { fitView } = useReactFlow();
   const { confirm, dialog: confirm_dialog } = useConfirm();
+  const { collapsed: right_sidebar_collapsed, setCollapsed: set_right_sidebar_collapsed } =
+    usePageRightSidebar();
 
   const initial_root = useMemo(() => root_of(flow), [flow]);
   const [nodes, set_nodes] = useState<BuilderNode[]>(() => {
@@ -844,7 +1110,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       ];
     }
     const root = operations.find((node) => node.id === initial_root) ?? operations[0];
-    const trigger_x = root.position.x - 360;
+    const trigger_x = root.position.x - 380;
     return [
       trigger_node(flow.trigger, trigger_x, root.position.y, flow.options, flow.status),
       ...operations,
@@ -856,6 +1122,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   const [root_id, set_root_id] = useState<string | null>(initial_root);
   const [selected_id, set_selected_id] = useState<string | null>(null);
   const [inspector_open, set_inspector_open] = useState(false);
+  const [edit_mode, set_edit_mode] = useState(false);
+  const [editor_tab, set_editor_tab] = useState<"flow" | "trigger">("flow");
+  const [add_target, set_add_target] = useState<{
+    source: string;
+    handle: "resolve" | "reject";
+  } | null>(null);
+  const [logs_failed_only, set_logs_failed_only] = useState(false);
   const [revision, set_revision] = useState(flow.revision);
   const [current_flow, set_current_flow] = useState<FlowRecord>(flow);
   const [dirty, set_dirty] = useState(false);
@@ -875,6 +1148,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   );
   const [trigger_saving, set_trigger_saving] = useState(false);
   const [meta_saving, set_meta_saving] = useState(false);
+  const [editor_saving, set_editor_saving] = useState(false);
   const [secret, set_secret] = useState<{
     secret: string;
     url: string | null;
@@ -1007,58 +1281,93 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      set_nodes((current) => {
-        const key = unique_key(type, current);
-        const selected = current.find((node) => node.id === selected_id);
-        const base_x = selected ? selected.position.x + 360 : 420;
-        const base_y = selected
-          ? selected.position.y + current.length * 8
-          : 120 + current.length * 30;
-        const next: BuilderNode = {
-          id,
-          type: "flow",
-          position: { x: base_x, y: base_y },
-          data: {
-            kind: "operation",
-            name: definition.label,
-            key,
-            type,
-            options: structuredClone(definition.defaultOptions),
-            icon: definition.icon,
-            color: definition.color,
-            resolve: null,
-            reject: null,
-          },
-        };
-        const updated = current.map((node) => ({
-          ...node,
-          selected: false,
-          data:
-            selected && !selected.data.resolve && node.id === selected.id
-              ? { ...node.data, resolve: id }
-              : node.data,
-        }));
-        return [...updated, { ...next, selected: true }];
-      });
-
+      const key = unique_key(type, nodes);
       const selected = nodes.find((node) => node.id === selected_id);
-      if (selected && !selected.data.resolve) {
-        set_edges((current) => [
-          ...current.filter(
-            (edge) =>
-              !(edge.source === selected.id && edge.sourceHandle === "resolve")
-          ),
-          operation_edge(selected.id, "resolve", id),
-        ]);
+      const anchor = add_target
+        ? nodes.find((node) => node.id === add_target.source)
+        : selected;
+      const base_x = anchor ? anchor.position.x + 380 : 440;
+      const base_y = anchor
+        ? anchor.position.y + nodes.length * 6
+        : 140 + nodes.length * 24;
+      const next: BuilderNode = {
+        id,
+        type: "flow",
+        position: { x: base_x, y: base_y },
+        data: {
+          kind: "operation",
+          name: definition.label,
+          key,
+          type,
+          options: structuredClone(definition.defaultOptions),
+          icon: definition.icon,
+          color: definition.color,
+          resolve: null,
+          reject: null,
+        },
+      };
+
+      let connect_source: string | null = null;
+      let connect_handle: "root" | "resolve" | "reject" = "resolve";
+      if (add_target) {
+        connect_source = add_target.source;
+        connect_handle =
+          add_target.source === TRIGGER_NODE_ID ? "root" : add_target.handle;
+      } else if (
+        selected &&
+        selected.data.kind === "operation" &&
+        !selected.data.resolve
+      ) {
+        connect_source = selected.id;
+        connect_handle = "resolve";
       } else if (!root_id) {
+        connect_source = TRIGGER_NODE_ID;
+        connect_handle = "root";
+      }
+
+      set_nodes((current) =>
+        [
+          ...current.map((node) => {
+            const base = { ...node, selected: false };
+            if (
+              connect_source &&
+              node.id === connect_source &&
+              connect_handle !== "root"
+            ) {
+              return {
+                ...base,
+                data: { ...node.data, [connect_handle]: id },
+              };
+            }
+            return base;
+          }),
+          { ...next, selected: true },
+        ] as BuilderNode[]
+      );
+
+      if (connect_source === TRIGGER_NODE_ID) {
         set_root_id(id);
         set_edges((current) => [
           ...current.filter((edge) => edge.id !== ROOT_EDGE_ID),
           root_edge(id),
         ]);
+      } else if (connect_source) {
+        set_edges((current) => [
+          ...current.filter(
+            (edge) =>
+              !(
+                edge.source === connect_source &&
+                edge.sourceHandle === connect_handle
+              )
+          ),
+          operation_edge(connect_source, connect_handle as "resolve" | "reject", id),
+        ]);
       }
+
       set_selected_id(id);
+      set_add_target(null);
       set_inspector_open(true);
+      set_edit_mode(true);
       set_palette_open(false);
       set_palette_query("");
       set_dirty(true);
@@ -1066,33 +1375,42 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         void fitView({ padding: 0.24, duration: 250, maxZoom: 1 });
       }, 120);
     },
-    [fitView, nodes, root_id, selected_id]
+    [add_target, fitView, nodes, root_id, selected_id]
+  );
+
+  const delete_operation = useCallback(
+    async (id: string) => {
+      const node = nodes.find((entry) => entry.id === id);
+      if (!node || node.data.kind === "trigger") return;
+      const approved = await confirm({
+        title: "Delete this step?",
+        description: (
+          <>
+            <span className="font-semibold">{node.data.name}</span> will be
+            removed and its links cleared.
+          </>
+        ),
+        confirmLabel: "Delete step",
+        tone: "destructive",
+      });
+      if (!approved) return;
+      set_nodes((current) => current.filter((entry) => entry.id !== id));
+      set_edges((current) =>
+        current.filter((edge) => edge.source !== id && edge.target !== id)
+      );
+      if (root_id === id) set_root_id(null);
+      set_selected_id(null);
+      set_inspector_open(false);
+      set_add_target(null);
+      set_dirty(true);
+    },
+    [confirm, nodes, root_id]
   );
 
   const delete_selected = useCallback(async () => {
-    if (!selected_node || selected_node.data.kind === "trigger") return;
-    const approved = await confirm({
-      title: "Delete this step?",
-      description: (
-        <>
-          <span className="font-semibold">{selected_node.data.name}</span> will
-          be removed and its links cleared.
-        </>
-      ),
-      confirmLabel: "Delete step",
-      tone: "destructive",
-    });
-    if (!approved) return;
-    const id = selected_node.id;
-    set_nodes((current) => current.filter((node) => node.id !== id));
-    set_edges((current) =>
-      current.filter((edge) => edge.source !== id && edge.target !== id)
-    );
-    if (root_id === id) set_root_id(null);
-    set_selected_id(null);
-    set_inspector_open(false);
-    set_dirty(true);
-  }, [confirm, root_id, selected_node]);
+    if (!selected_node) return;
+    await delete_operation(selected_node.id);
+  }, [delete_operation, selected_node]);
 
   const tidy = useCallback(() => {
     set_nodes((current) => layout_graph(current, edges));
@@ -1205,33 +1523,51 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     }
   }, [flow.id, flow.trigger, trigger_options]);
 
-  const toggle_status = useCallback(async () => {
-    set_activating(true);
+  const save_editor = useCallback(async () => {
+    set_editor_saving(true);
     try {
-      const next = current_flow.status === "active" ? "inactive" : "active";
-      const result = await flows_call<{ flow: FlowRecord }>("set_status", {
-        id: flow.id,
-        status: next,
-      });
-      set_current_flow(result.flow);
-      set_nodes((current) =>
-        current.map((node) =>
-          node.id === TRIGGER_NODE_ID
-            ? { ...node, data: { ...node.data, status: result.flow.status } }
-            : node
-        )
-      );
-      toast.success(
-        next === "active" ? "Flow activated." : "Flow deactivated."
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not change the status."
-      );
+      if (selected_node && selected_node.data.kind === "operation") {
+        await save_graph();
+      } else {
+        await save_meta();
+        await save_trigger();
+      }
+      set_inspector_open(false);
+      set_edit_mode(false);
     } finally {
-      set_activating(false);
+      set_editor_saving(false);
     }
-  }, [current_flow.status, flow.id]);
+  }, [save_graph, save_meta, save_trigger, selected_node]);
+
+  const change_status = useCallback(
+    async (next: "active" | "inactive") => {
+      set_activating(true);
+      try {
+        const result = await flows_call<{ flow: FlowRecord }>("set_status", {
+          id: flow.id,
+          status: next,
+        });
+        set_current_flow(result.flow);
+        set_nodes((current) =>
+          current.map((node) =>
+            node.id === TRIGGER_NODE_ID
+              ? { ...node, data: { ...node.data, status: result.flow.status } }
+              : node
+          )
+        );
+        toast.success(
+          next === "active" ? "Flow activated." : "Flow deactivated."
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not change the status."
+        );
+      } finally {
+        set_activating(false);
+      }
+    },
+    [flow.id]
+  );
 
   const load_runs = useCallback(async () => {
     set_logs_loading(true);
@@ -1252,9 +1588,32 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
 
   const open_logs = useCallback(() => {
     set_logs_open(true);
+    set_inspector_open(false);
+    set_edit_mode(false);
     set_run_detail(null);
     void load_runs();
   }, [load_runs]);
+
+  const open_editor = useCallback(
+    (tab: "flow" | "trigger", operationId: string | null = null) => {
+      set_logs_open(false);
+      set_edit_mode(true);
+      set_editor_tab(tab);
+      set_selected_id(operationId);
+      set_inspector_open(true);
+    },
+    []
+  );
+
+  const toggle_edit_mode = useCallback(() => {
+    if (edit_mode) {
+      set_edit_mode(false);
+      set_inspector_open(false);
+      return;
+    }
+    set_edit_mode(true);
+    set_logs_open(false);
+  }, [edit_mode]);
 
   const open_run_detail = useCallback(async (run: FlowRunRecord) => {
     set_detail_loading(true);
@@ -1405,141 +1764,215 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
 
   const inspector_is_trigger =
     !selected_node || selected_node.data.kind === "trigger";
+  const selected_definition = selected_node
+    ? get_operation_definition(selected_node.data.type)
+    : null;
+  const selected_fields = selected_definition?.fields ?? [];
+  const render_operation_field = (field: FlowFieldDefinition) => {
+    if (!selected_node) return null;
+    if (selected_node.data.type === "request" && field.name === "headers") {
+      return (
+        <FieldShell key={field.name} label="Headers">
+          <HeadersField
+            key={selected_node.id}
+            value={selected_node.data.options.headers}
+            onChange={(value) =>
+              update_node(selected_node.id, {
+                options: {
+                  ...selected_node.data.options,
+                  headers: value,
+                },
+              })
+            }
+          />
+        </FieldShell>
+      );
+    }
+    return (
+      <OptionField
+        key={field.name}
+        field={field}
+        value={selected_node.data.options[field.name]}
+        onChange={(value) =>
+          update_node(selected_node.id, {
+            options: {
+              ...selected_node.data.options,
+              [field.name]: value,
+            },
+          })
+        }
+        collections={data.collections}
+        flows={data.flows}
+      />
+    );
+  };
+  const event_scope_value = (() => {
+    const actions = Array.isArray(trigger_options.actions)
+      ? trigger_options.actions
+      : [];
+    const first = String(actions[0] ?? "create");
+    return first.startsWith("items.") ? first : `items.${first}`;
+  })();
+  const visible_runs = useMemo(() => {
+    if (!logs_failed_only) return runs;
+    return runs.filter(
+      (run) =>
+        run.status === "error" ||
+        run.status === "timeout" ||
+        run.status === "rejected"
+    );
+  }, [logs_failed_only, runs]);
+  const run_groups = useMemo(() => {
+    const groups = new Map<string, FlowRunRecord[]>();
+    for (const run of visible_runs) {
+      const key = new Date(run.started_at * 1000).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      const list = groups.get(key) ?? [];
+      list.push(run);
+      groups.set(key, list);
+    }
+    return [...groups.entries()];
+  }, [visible_runs]);
+  const node_actions = useMemo<NodeActions>(
+    () => ({
+      edit_mode,
+      change_status: (status) => void change_status(status),
+      edit_trigger: () => open_editor("trigger"),
+      edit_operation: (id) => open_editor("trigger", id),
+      delete_operation: (id) => void delete_operation(id),
+      add_after: (source, handle) => {
+        set_add_target({ source, handle });
+        set_palette_open(true);
+        set_palette_query("");
+      },
+    }),
+    [change_status, delete_operation, edit_mode, open_editor]
+  );
+  const router = useRouter();
+  const navbar_meta = useMemo(
+    () => ({
+      section: "Flows",
+      title: current_flow.name,
+      onBack: () => router.push("/admin/flows"),
+      icon: <DynamicIcon name={icon} size={16} />,
+      badge: dirty ? (
+        <span
+          className="ml-1 inline-block size-2 rounded-full bg-foreground"
+          title="Unsaved changes"
+          aria-label="Unsaved changes"
+        />
+      ) : undefined,
+    }),
+    [current_flow.name, dirty, icon, router]
+  );
+  useSetNavbarMeta(navbar_meta);
 
   return (
+    <NodeActionsContext.Provider value={node_actions}>
     <div className="space-y-4">
       {confirm_dialog}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <PageActionsPortal>
         <Button
           variant="ghost"
-          size="icon"
-          asChild
-          title="Back to flows"
-          aria-label="Back to flows"
+          size="icon-sm"
+          title="Run now"
+          aria-label="Run now"
+          onClick={() => void run_now()}
+          disabled={running}
         >
-          <Link href="/admin/flows">
-            <ArrowLeft className="size-4" />
-          </Link>
+          {running ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Play className="size-3.5" />
+          )}
         </Button>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-muted-foreground">Flows</p>
-          <div className="flex min-w-0 items-center gap-2">
-            <h1 className="type-title truncate">{current_flow.name}</h1>
-            {dirty ? (
-              <span
-                className="size-2 shrink-0 rounded-full bg-foreground"
-                title="Unsaved changes"
-                aria-label="Unsaved changes"
-              />
+        <Button
+          variant={logs_open ? "outline" : "ghost"}
+          size="icon-sm"
+          title="Activity & logs"
+          aria-label="Activity & logs"
+          onClick={open_logs}
+        >
+          <History className="size-3.5" />
+        </Button>
+        <Button
+          variant={edit_mode ? "outline" : "ghost"}
+          size="icon-sm"
+          title="Edit flow"
+          aria-label="Edit flow"
+          aria-pressed={edit_mode}
+          onClick={toggle_edit_mode}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+        <Button
+          size="icon-sm"
+          title="Save graph"
+          aria-label="Save graph"
+          onClick={() => void save_graph()}
+          disabled={saving}
+        >
+          {saving ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Check className="size-3.5" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Delete flow"
+          aria-label="Delete flow"
+          onClick={() => void delete_flow_action()}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="More flow actions"
+              aria-label="More flow actions"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onSelect={() => void export_flow()}>
+              <Download />
+              Export flow
+            </DropdownMenuItem>
+            {flow.trigger === "webhook" ? (
+              <DropdownMenuItem onSelect={() => void rotate_secret()}>
+                <Lock />
+                Rotate secret
+              </DropdownMenuItem>
             ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Run now"
-            aria-label="Run now"
-            onClick={() => void run_now()}
-            disabled={running}
-          >
-            {running ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Play className="size-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Activity & logs"
-            aria-label="Activity & logs"
-            onClick={open_logs}
-          >
-            <History className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            title="Edit flow setup"
-            aria-label="Edit flow setup"
-            onClick={() => {
-              set_selected_id(null);
-              set_inspector_open(true);
-            }}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            title={
-              current_flow.status === "active"
-                ? "Deactivate flow"
-                : "Activate flow"
-            }
-            aria-label={
-              current_flow.status === "active"
-                ? "Deactivate flow"
-                : "Activate flow"
-            }
-            onClick={() => void toggle_status()}
-            disabled={activating}
-          >
-            {activating ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Power className="size-4" />
-            )}
-          </Button>
-          <Button
-            size="icon"
-            title="Save graph"
-            aria-label="Save graph"
-            onClick={() => void save_graph()}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Check className="size-4" />
-            )}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                title="More flow actions"
-                aria-label="More flow actions"
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onSelect={() => void export_flow()}>
-                <Download />
-                Export flow
-              </DropdownMenuItem>
-              {flow.trigger === "webhook" ? (
-                <DropdownMenuItem onSelect={() => void rotate_secret()}>
-                  <Lock />
-                  Rotate secret
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => void delete_flow_action()}
-              >
-                <Trash2 />
-                Delete flow
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => void delete_flow_action()}
+            >
+              <Trash2 />
+              Delete flow
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Toggle right panel"
+          aria-label="Toggle right panel"
+          aria-pressed={!right_sidebar_collapsed}
+          onClick={() => set_right_sidebar_collapsed(!right_sidebar_collapsed)}
+        >
+          <PanelRight className="size-3.5" />
+        </Button>
+      </PageActionsPortal>
 
       {!data.runtime.enabled || data.runtime.missing.length > 0 ? (
         <Notice
@@ -1552,22 +1985,23 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         </Notice>
       ) : null}
 
-      <div
-        className={cn(
-          "grid gap-4",
-          inspector_open && "xl:grid-cols-[minmax(0,1fr)_360px]"
-        )}
-      >
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-            <Button size="sm" onClick={() => set_palette_open(true)}>
+      <div className="relative">
+        <div className="relative h-[calc(100dvh-8.5rem)] min-h-[560px] w-full overflow-hidden rounded-xl border border-border bg-background">
+          <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5">
+            <Button
+              size="sm"
+              onClick={() => {
+                set_add_target(null);
+                set_palette_open(true);
+              }}
+            >
               <Plus className="size-3.5" /> Add step
             </Button>
-            <Button variant="outline" size="sm" onClick={tidy}>
-              <LayoutGrid className="size-3.5" /> Tidy layout
+            <Button variant="ghost" size="sm" onClick={tidy}>
+              <LayoutGrid className="size-3.5" /> Tidy
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() =>
                 void fitView({ padding: 0.24, duration: 300, maxZoom: 1 })
@@ -1575,69 +2009,156 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             >
               <RefreshCw className="size-3.5" /> Fit
             </Button>
-            <span className="ml-auto text-xs text-muted-foreground">
-              Drag from a green dot for resolve, a red dot for reject.
+            <span className="hidden px-2 text-xs text-muted-foreground 2xl:inline">
+              Drag from a check for resolve, an X for reject.
             </span>
           </div>
-          <div className="h-[calc(100dvh-14rem)] min-h-[560px] w-full bg-background">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={NODE_TYPES}
-              onNodesChange={on_nodes_change}
-              onEdgesChange={on_edges_change}
-              onEdgesDelete={on_edges_delete}
-              onConnect={on_connect}
-              onSelectionChange={({ nodes: selected }) => {
-                const id = selected[0]?.id ?? null;
-                set_selected_id(id);
-                if (id) set_inspector_open(true);
-              }}
-              onPaneClick={() => {
-                set_selected_id(null);
-                set_inspector_open(false);
-              }}
-              fitView
-              fitViewOptions={{ padding: 0.24, maxZoom: 1 }}
-              proOptions={{ hideAttribution: false }}
-              className="bg-background"
-              defaultEdgeOptions={{
-                type: "smoothstep",
-                markerEnd: { type: MarkerType.ArrowClosed },
-              }}
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            onNodesChange={on_nodes_change}
+            onEdgesChange={on_edges_change}
+            onEdgesDelete={on_edges_delete}
+            onConnect={on_connect}
+            onSelectionChange={({ nodes: selected }) => {
+              set_selected_id(selected[0]?.id ?? null);
+            }}
+            onPaneClick={() => {
+              set_selected_id(null);
+              set_inspector_open(false);
+            }}
+            fitView
+            fitViewOptions={{ padding: 0.24, maxZoom: 1 }}
+            proOptions={{ hideAttribution: false }}
+            className="bg-background"
+            defaultEdgeOptions={{
+              type: "smoothstep",
+              markerEnd: { type: MarkerType.ArrowClosed },
+            }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={20}
+              size={1}
+              color="var(--border)"
             />
-          </div>
+          </ReactFlow>
         </div>
 
         {inspector_open ? (
-        <aside className="min-h-0 space-y-4 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto xl:pr-1">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-muted-foreground">
-              {inspector_is_trigger ? "Flow & trigger setup" : "Step settings"}
-            </p>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Close settings"
-              aria-label="Close settings"
-              onClick={() => set_inspector_open(false)}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
+          <>
+            <button
+              type="button"
+              aria-label="Close flow editor"
+              className="fixed inset-x-0 bottom-0 top-12 z-40 cursor-default bg-overlay/20 sm:top-14"
+              onClick={() => {
+                set_inspector_open(false);
+                set_edit_mode(false);
+              }}
+            />
+            <aside className="flow-panel fixed bottom-0 right-0 top-12 z-50 flex w-full max-w-[480px] flex-col border-l border-border bg-card sm:top-14">
+              <header className="flex shrink-0 items-center gap-2.5 border-b border-border px-4 py-3">
+                <span className="grid size-8 place-items-center rounded-full border border-border bg-surface-subtle text-muted-foreground">
+                  {inspector_is_trigger ? (
+                    <Sparkles className="size-4" />
+                  ) : (
+                    <Pencil className="size-4" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">
+                    {inspector_is_trigger ? "Updating Flow" : "Edit Operation"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {current_flow.name}
+                  </p>
+                </div>
+                <Button
+                  size="icon-sm"
+                  title="Save and close"
+                  aria-label="Save and close"
+                  onClick={() => void save_editor()}
+                  disabled={editor_saving || meta_saving || trigger_saving}
+                >
+                  {editor_saving || meta_saving || trigger_saving ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="size-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Close editor"
+                  aria-label="Close editor"
+                  onClick={() => {
+                    set_inspector_open(false);
+                    set_edit_mode(false);
+                  }}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </header>
+              <div className="flex min-h-0 flex-1">
+                {inspector_is_trigger ? (
+                  <aside className="w-40 shrink-0 border-r border-border bg-surface-subtle p-2">
+                    <nav className="space-y-1" aria-label="Flow editor sections">
+                      {[
+                        { id: "flow" as const, label: "Flow Setup" },
+                        { id: "trigger" as const, label: "Trigger Setup" },
+                      ].map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => set_editor_tab(entry.id)}
+                          className={cn(
+                            "flex h-9 w-full items-center rounded-lg px-3 text-left text-sm font-medium transition-colors",
+                            editor_tab === entry.id
+                              ? "border border-border bg-card text-foreground"
+                              : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                          )}
+                        >
+                          {entry.label}
+                        </button>
+                      ))}
+                    </nav>
+                  </aside>
+                ) : null}
+                <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
           {inspector_is_trigger ? (
             <>
-              <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+              {editor_tab === "flow" ? (
+              <section className="space-y-4">
                 <header className="flex items-center gap-2">
                   <Zap className="size-4 text-muted-foreground" />
                   <h2 className="text-sm font-semibold">Flow setup</h2>
                 </header>
-                <FieldShell label="Name">
-                  <Input
-                    value={name}
-                    onChange={(event) => set_name(event.target.value)}
-                  />
-                </FieldShell>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FieldShell label="Name *">
+                    <Input
+                      value={name}
+                      onChange={(event) => set_name(event.target.value)}
+                    />
+                  </FieldShell>
+                  <FieldShell label="Status">
+                    <Select
+                      value={current_flow.status}
+                      onValueChange={(value) =>
+                        void change_status(value as "active" | "inactive")
+                      }
+                      disabled={activating}
+                    >
+                      <SelectTrigger className="h-10 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldShell>
+                </div>
                 <FieldShell label="Description">
                   <Textarea
                     value={description}
@@ -1672,46 +2193,90 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                     </SelectContent>
                   </Select>
                 </FieldShell>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={save_meta}
-                  disabled={meta_saving}
-                >
-                  {meta_saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  Save setup
-                </Button>
               </section>
+              ) : null}
 
-              <section className="space-y-4 rounded-xl border border-border bg-card p-4">
-                <header className="flex items-center gap-2">
-                  <DynamicIcon
-                    name={trigger_definition?.icon ?? "zap"}
-                    size={16}
-                  />
-                  <div className="min-w-0">
-                    <h2 className="text-sm font-semibold">
+              {editor_tab === "trigger" ? (
+              <section className="space-y-4">
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-subtle p-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground">
+                    <DynamicIcon
+                      name={trigger_definition?.icon ?? "zap"}
+                      size={16}
+                    />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">
                       {trigger_definition?.label}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {trigger_definition?.description}
                     </p>
                   </div>
-                </header>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Close editor"
+                    aria-label="Close editor"
+                    onClick={() => {
+                      set_inspector_open(false);
+                      set_edit_mode(false);
+                    }}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
 
                 {flow.trigger === "event" ? (
                   <>
-                    <FieldShell label="Type">
+                    <FieldShell label="Type *">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {[
+                          {
+                            value: "filter" as const,
+                            title: "Filter (Blocking)",
+                            body: "Runs before the write and can block it.",
+                          },
+                          {
+                            value: "action" as const,
+                            title: "Action (Non-Blocking)",
+                            body: "Runs after the write, without slowing the request.",
+                          },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              set_trigger_options((current) => ({
+                                ...current,
+                                type: option.value,
+                              }))
+                            }
+                            className={cn(
+                              "rounded-lg border p-3 text-left text-sm transition-colors",
+                              trigger_options.type === option.value
+                                ? "border-foreground bg-surface-subtle"
+                                : "border-border bg-card hover:bg-muted/40"
+                            )}
+                          >
+                            <span className="block font-medium">{option.title}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {option.body}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </FieldShell>
+                    <FieldShell
+                      label="Scope *"
+                      hint="The hook runs for this item event."
+                    >
                       <Select
-                        value={String(trigger_options.type ?? "filter")}
+                        value={event_scope_value}
                         onValueChange={(value) =>
                           set_trigger_options((current) => ({
                             ...current,
-                            type: value,
+                            actions: [value.replace(/^items\./, "")],
                           }))
                         }
                       >
@@ -1719,59 +2284,18 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="filter">
-                            Filter (blocking)
-                          </SelectItem>
-                          <SelectItem value="action">
-                            Action (non-blocking)
-                          </SelectItem>
+                          <SelectItem value="items.create">items.create</SelectItem>
+                          <SelectItem value="items.update">items.update</SelectItem>
+                          <SelectItem value="items.delete">items.delete</SelectItem>
                         </SelectContent>
                       </Select>
                     </FieldShell>
-                    <FieldShell
-                      label="Collections"
-                      hint="The hook runs for these collections."
-                    >
-                      <div className="grid max-h-44 gap-1 overflow-y-auto rounded-lg border border-border bg-surface-subtle p-2">
-                        {data.collections.length === 0 ? (
-                          <p className="p-2 text-xs text-muted-foreground">
-                            No collections yet.
-                          </p>
-                        ) : (
-                          data.collections.map((collection) => (
-                            <label
-                              key={collection.name}
-                              className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
-                            >
-                              <Checkbox
-                                checked={check_option("collections", collection.name)}
-                                onCheckedChange={() =>
-                                  toggle_option("collections", collection.name)
-                                }
-                              />
-                              {collection.label}
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </FieldShell>
-                    <FieldShell label="Events">
-                      <div className="flex flex-wrap gap-3">
-                        {(["create", "update", "delete"] as const).map((action) => (
-                          <label
-                            key={action}
-                            className="flex items-center gap-2 text-sm capitalize"
-                          >
-                            <Checkbox
-                              checked={check_option("actions", action)}
-                              onCheckedChange={() =>
-                                toggle_option("actions", action)
-                              }
-                            />
-                            {action}
-                          </label>
-                        ))}
-                      </div>
+                    <FieldShell label="Collections *">
+                      <CollectionPicker
+                        collections={data.collections}
+                        is_checked={(name) => check_option("collections", name)}
+                        on_toggle={(name) => toggle_option("collections", name)}
+                      />
                     </FieldShell>
                   </>
                 ) : null}
@@ -2010,22 +2534,11 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                 {flow.trigger === "manual" ? (
                   <>
                     <FieldShell label="Collections">
-                      <div className="grid max-h-44 gap-1 overflow-y-auto rounded-lg border border-border bg-surface-subtle p-2">
-                        {data.collections.map((collection) => (
-                          <label
-                            key={collection.name}
-                            className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
-                          >
-                            <Checkbox
-                              checked={check_option("collections", collection.name)}
-                              onCheckedChange={() =>
-                                toggle_option("collections", collection.name)
-                              }
-                            />
-                            {collection.label}
-                          </label>
-                        ))}
-                      </div>
+                      <CollectionPicker
+                        collections={data.collections}
+                        is_checked={(name) => check_option("collections", name)}
+                        on_toggle={(name) => toggle_option("collections", name)}
+                      />
                     </FieldShell>
                     <FieldShell label="Location">
                       <div className="flex flex-wrap gap-3">
@@ -2100,160 +2613,239 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                     </div>
                   </>
                 ) : null}
-
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={save_trigger}
-                  disabled={trigger_saving}
-                >
-                  {trigger_saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  Save trigger
-                </Button>
               </section>
+              ) : null}
             </>
           ) : selected_node ? (
             <section
               key={selected_node.id}
-              className="space-y-4 rounded-xl border border-border bg-card p-4"
+              className="space-y-4"
             >
-              <header className="flex items-start gap-2.5">
-                <span
-                  className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle"
-                  style={{ color: selected_node.data.color }}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldShell label="Name">
+                  <Input
+                    value={selected_node.data.name}
+                    onChange={(event) =>
+                      update_node(selected_node.id, { name: event.target.value })
+                    }
+                  />
+                </FieldShell>
+                <FieldShell
+                  label="Key"
+                  hint="Letters, numbers and underscores. Used in templates."
                 >
+                  <Input
+                    value={selected_node.data.key}
+                    onChange={(event) =>
+                      update_node(selected_node.id, {
+                        key: event.target.value
+                          .replace(/[^a-z0-9_]/gi, "_")
+                          .toLowerCase(),
+                      })
+                    }
+                    className="font-mono"
+                  />
+                </FieldShell>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-subtle p-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-card text-foreground">
                   <DynamicIcon name={selected_node.data.icon} size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-sm font-semibold">
-                    {selected_node.data.name}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {selected_node.data.type} · {selected_node.data.key}
+                  <p className="text-sm font-semibold">
+                    {get_operation_definition(selected_node.data.type)?.label ??
+                      selected_node.data.type}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {get_operation_definition(selected_node.data.type)?.description}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  title="Delete step"
+                  title="Remove step"
+                  aria-label="Remove step"
                   onClick={() => void delete_selected()}
                 >
-                  <Trash2 className="size-3.5 text-destructive" />
+                  <X className="size-3.5" />
                 </Button>
-              </header>
-
-              <FieldShell label="Name">
-                <Input
-                  value={selected_node.data.name}
-                  onChange={(event) =>
-                    update_node(selected_node.id, { name: event.target.value })
-                  }
-                />
-              </FieldShell>
-              <FieldShell
-                label="Key"
-                hint="Letters, numbers and underscores. Used in templates."
-              >
-                <Input
-                  value={selected_node.data.key}
-                  onChange={(event) =>
-                    update_node(selected_node.id, {
-                      key: event.target.value
-                        .replace(/[^a-z0-9_]/gi, "_")
-                        .toLowerCase(),
-                    })
-                  }
-                  className="font-mono"
-                />
-              </FieldShell>
+              </div>
 
               <div className="grid gap-3 border-t border-border pt-3">
-                {(get_operation_definition(selected_node.data.type)?.fields ?? []).map(
-                  (field) => (
-                    <OptionField
-                      key={field.name}
-                      field={field}
-                      value={selected_node.data.options[field.name]}
-                      onChange={(value) =>
-                        update_node(selected_node.id, {
-                          options: {
-                            ...selected_node.data.options,
-                            [field.name]: value,
-                          },
-                        })
-                      }
-                      collections={data.collections}
-                      flows={data.flows}
-                    />
-                  )
+                {selected_node.data.type === "request" ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                      {["method", "url"].map((name) => {
+                        const field = selected_fields.find(
+                          (entry) => entry.name === name
+                        );
+                        return field ? render_operation_field(field) : null;
+                      })}
+                    </div>
+                    {["headers", "body", "timeout_ms"].map((name) => {
+                      const field = selected_fields.find(
+                        (entry) => entry.name === name
+                      );
+                      return field ? render_operation_field(field) : null;
+                    })}
+                  </>
+                ) : (
+                  selected_fields.map(render_operation_field)
                 )}
               </div>
 
-              <div className="flex items-center gap-2 border-t border-border pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    set_root_id(selected_node.id);
-                    set_edges((current) => [
-                      ...current.filter((edge) => edge.id !== ROOT_EDGE_ID),
-                      root_edge(selected_node.id),
-                    ]);
-                    set_dirty(true);
-                  }}
-                >
-                  <CircleDot className="size-3.5" /> Set as start step
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => set_palette_open(true)}
-                >
-                  <Plus className="size-3.5" /> Add next
-                </Button>
-              </div>
             </section>
           ) : null}
 
-          <section className="rounded-xl border border-border bg-card p-4">
-            <header className="flex items-center gap-2">
-              <Activity className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Runtime</h2>
-            </header>
-            <dl className="mt-3 grid gap-2 text-xs">
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Mode</dt>
-                <dd className="font-mono">{data.runtime.mode}</dd>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Scheduler</dt>
-                <dd>{data.runtime.scheduler ? "Embedded" : "External"}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Last run</dt>
-                <dd suppressHydrationWarning>
-                  {format_relative(current_flow.last_run_at)}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Next run</dt>
-                <dd suppressHydrationWarning>
-                  {format_datetime(current_flow.next_run_at)}
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </aside>
+            </aside>
+          </>
         ) : null}
       </div>
+
+      {logs_open ? (
+        <aside className="flow-panel fixed bottom-0 right-0 top-12 z-50 flex w-full max-w-[300px] flex-col border-l border-border bg-card sm:top-14">
+          <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold">Logs</p>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Close logs"
+              aria-label="Close logs"
+              onClick={() => set_logs_open(false)}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </header>
+
+          {detail_loading ? (
+            <div className="grid flex-1 place-items-center">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : run_detail ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Back to logs"
+                  aria-label="Back to logs"
+                  onClick={() => set_run_detail(null)}
+                >
+                  <ArrowLeft className="size-3.5" />
+                </Button>
+                <RunStatusBadge status={run_detail.run.status} />
+                <span className="truncate text-xs text-muted-foreground">
+                  {format_datetime(run_detail.run.started_at)}
+                </span>
+              </div>
+              <div className="app-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                {run_detail.run.error ? (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                    {run_detail.run.error}
+                  </div>
+                ) : null}
+                {run_detail.steps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No step details recorded.
+                  </p>
+                ) : (
+                  run_detail.steps.map((step) => (
+                    <div
+                      key={step.id}
+                      className="rounded-md border border-border bg-card p-2.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-mono font-semibold">{step.key}</span>
+                        <RunStatusBadge status={step.status} />
+                        <span className="ml-auto tabular-nums text-muted-foreground">
+                          {format_duration(step.duration_ms)}
+                        </span>
+                      </div>
+                      {step.error ? (
+                        <p className="mt-1 text-xs text-destructive">{step.error}</p>
+                      ) : null}
+                      <pre className="mt-2 max-h-28 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
+                        {JSON.stringify(step.output, null, 2)}
+                      </pre>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="shrink-0 border-b border-border px-4 py-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={logs_failed_only}
+                    onCheckedChange={(value) => set_logs_failed_only(value === true)}
+                  />
+                  Show Failed Only
+                </label>
+              </div>
+              <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto">
+                {logs_loading ? (
+                  <div className="grid h-24 place-items-center">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : run_groups.length === 0 ? (
+                  <p className="p-4 text-xs text-muted-foreground">
+                    No runs yet. Use Run now or trigger the flow.
+                  </p>
+                ) : (
+                  run_groups.map(([date, group]) => (
+                    <div key={date}>
+                      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground">
+                        <ChevronDown className="size-3.5" />
+                        {date}
+                      </div>
+                      {group.map((run) => {
+                        const failed =
+                          run.status === "error" ||
+                          run.status === "timeout" ||
+                          run.status === "rejected";
+                        return (
+                          <button
+                            key={run.id}
+                            type="button"
+                            onClick={() => void open_run_detail(run)}
+                            className="flex w-full items-center gap-2 border-b border-border px-4 py-2 text-left text-xs transition-colors hover:bg-muted/40"
+                          >
+                            {failed ? (
+                              <XCircle className="size-3.5 shrink-0 text-filter-or" />
+                            ) : (
+                              <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" />
+                            )}
+                            <span className="truncate text-foreground">
+                              {format_time(run.started_at)}
+                            </span>
+                            <span className="ml-auto shrink-0 text-muted-foreground">
+                              {format_relative(run.started_at)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            onClick={() => set_logs_open(false)}
+          >
+            <Sparkles className="size-3.5" />
+            AI Assistant
+            <ChevronUp className="ml-auto size-3.5" />
+          </button>
+        </aside>
+      ) : null}
 
       <Dialog open={palette_open} onOpenChange={set_palette_open}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
@@ -2262,8 +2854,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               <Workflow className="size-4" /> Add an operation
             </DialogTitle>
             <DialogDescription>
-              The new step is connected to the selected step&apos;s resolve path
-              when that path is free.
+              {add_target
+                ? "The new step will be connected to the selected output."
+                : "The new step is connected to the selected step's resolve path when that path is free."}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -2360,116 +2953,8 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={logs_open}
-        onOpenChange={(open) => {
-          if (!open) {
-            set_logs_open(false);
-            set_run_detail(null);
-          }
-        }}
-      >
-        <DialogContent className="grid max-h-[90vh] grid-rows-[auto_minmax(0,1fr)] gap-4 sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="size-4" /> Activity &amp; logs · {flow.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            <div className="min-h-36 overflow-y-auto rounded-lg border border-border">
-              {logs_loading ? (
-                <div className="grid h-32 place-items-center">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : runs.length === 0 ? (
-                <div className="grid h-32 place-items-center px-4 text-center text-sm text-muted-foreground">
-                  No runs yet. Use Run or trigger the flow.
-                </div>
-              ) : (
-                runs.map((run) => (
-                  <button
-                    key={run.id}
-                    type="button"
-                    onClick={() => void open_run_detail(run)}
-                    className={cn(
-                      "flex w-full flex-wrap items-center gap-2 border-b border-border px-3 py-2.5 text-left text-xs last:border-b-0 hover:bg-muted/60",
-                      run_detail?.run.id === run.id && "bg-muted"
-                    )}
-                  >
-                    <RunStatusBadge status={run.status} />
-                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                      {format_datetime(run.started_at)}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {format_duration(run.duration_ms)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="min-h-0 overflow-y-auto rounded-lg border border-border p-3">
-              {detail_loading ? (
-                <div className="grid h-32 place-items-center">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : run_detail ? (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <RunStatusBadge status={run_detail.run.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {format_datetime(run_detail.run.started_at)} ·{" "}
-                      {format_duration(run_detail.run.duration_ms)}
-                    </span>
-                  </div>
-                  {run_detail.run.error ? (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-                      {run_detail.run.error}
-                    </div>
-                  ) : null}
-                  {run_detail.steps.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No step details recorded.
-                    </p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {run_detail.steps.map((step) => (
-                        <li
-                          key={step.id}
-                          className="rounded-md border border-border bg-card p-2.5"
-                        >
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="font-mono font-semibold">
-                              {step.key}
-                            </span>
-                            <Badge variant="outline">{step.type}</Badge>
-                            <RunStatusBadge status={step.status} />
-                            <span className="ml-auto tabular-nums text-muted-foreground">
-                              {format_duration(step.duration_ms)}
-                            </span>
-                          </div>
-                          {step.error ? (
-                            <p className="mt-1 text-xs text-destructive">
-                              {step.error}
-                            </p>
-                          ) : null}
-                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
-                            {JSON.stringify(step.output, null, 2)}
-                          </pre>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Select a run to inspect each step.
-                </p>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
+    </NodeActionsContext.Provider>
   );
 }
 

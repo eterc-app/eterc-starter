@@ -212,7 +212,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
         name: "headers",
         label: "Headers",
         type: "json",
-        description: "JSON object. Values may use templates.",
+        description: "Add request headers. Values may use templates.",
         defaultValue: {},
       },
       {

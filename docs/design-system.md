@@ -237,6 +237,24 @@ Shell composition:
   page content.
 - The access page role list and media details remain drawers, not permanent second columns.
 
+### Flow canvas
+
+The flow builder is a deliberate canvas-only exception to the flat card rule. Flow
+nodes use the `.flow-card` class for a soft elevation and `.flow-card-selected` for
+the selected state; the fixed editor and logs surfaces use `.flow-panel`. Do not
+apply those classes to ordinary admin cards.
+
+- The navbar pencil toggles edit mode. Card edit and step-menu controls are hidden
+  until edit mode is active.
+- Trigger cards show an Active/Inactive dropdown and the trigger summary.
+- Operation cards show the operation type, name, and the two most useful settings.
+- Resolve is the foreground check port; reject is the `--filter-or` X port. The
+  adjacent plus buttons add and connect the next step.
+- The inspector is a fixed right drawer below the top bar, with a scrim. It uses a
+  vertical Flow Setup / Trigger Setup rail and a black check to save and close.
+- Logs use a fixed right drawer below the top bar, grouped by date, with a
+  failed-only filter and an AI Assistant footer that returns to the workspace rail.
+
 ### Content collection rail
 
 - Use the shared `ContentSidebar` for the collection rail. Do not build a page-specific

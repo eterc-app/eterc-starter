@@ -270,25 +270,33 @@ function RightSidebar({ contentPage }: { contentPage: boolean }) {
     <aside
       className={cn(
         "sticky top-0 hidden h-screen shrink-0 flex-col border-l border-border bg-sidebar lg:flex",
-        collapsed ? "w-14" : "w-64"
+        navbarMeta?.rightSidebar
+          ? navbarMeta.rightSidebarWidth === "wide"
+            ? "w-[420px]"
+            : "w-64"
+          : collapsed
+            ? "w-14"
+            : "w-64"
       )}
     >
-      <div className="flex h-10 shrink-0 items-center border-b border-border px-2">
-        <button
-          type="button"
-          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={collapsed ? "Show right sidebar" : "Hide right sidebar"}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Show right sidebar" : "Hide right sidebar"}
-          onClick={() => setCollapsed((current) => !current)}
-        >
-          {collapsed ? (
-            <PanelLeft className="size-4" strokeWidth={1.75} />
-          ) : (
-            <PanelRight className="size-4" strokeWidth={1.75} />
-          )}
-        </button>
-      </div>
+      {navbarMeta?.rightSidebarHeader === false ? null : (
+        <div className="flex h-10 shrink-0 items-center border-b border-border px-2">
+          <button
+            type="button"
+            className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={collapsed ? "Show right sidebar" : "Hide right sidebar"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Show right sidebar" : "Hide right sidebar"}
+            onClick={() => setCollapsed((current) => !current)}
+          >
+            {collapsed ? (
+              <PanelLeft className="size-4" strokeWidth={1.75} />
+            ) : (
+              <PanelRight className="size-4" strokeWidth={1.75} />
+            )}
+          </button>
+        </div>
+      )}
       <div className="min-h-0 flex-1">
         {contentPage && !navbarMeta ? (
           <div className="h-full w-full bg-assistant-sidebar" />

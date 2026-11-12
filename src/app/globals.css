@@ -667,6 +667,27 @@
 }
 
 @layer components {
+  /* Flow canvas cards keep a subtle elevation so nodes read as movable surfaces. */
+  .flow-card {
+    box-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.45);
+  }
+
+  .flow-card-selected {
+    box-shadow: 0 22px 50px -24px rgb(0 0 0 / 0.55);
+  }
+
+  .flow-panel {
+    box-shadow: -24px 0 64px -40px rgb(0 0 0 / 0.45);
+  }
+
+  .dark .flow-card {
+    box-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.85);
+  }
+
+  .dark .flow-card-selected {
+    box-shadow: 0 22px 50px -24px rgb(0 0 0 / 0.95);
+  }
+
   /* Eterc Icons - v0.1.0 (Beta) */
 
   /* Base icon class */

@@ -22,6 +22,8 @@ export interface PageNavbarMeta {
   search?: ReactNode;
   pageSidebar?: ReactNode;
   rightSidebar?: boolean;
+  rightSidebarWidth?: "default" | "wide";
+  rightSidebarHeader?: boolean;
   refresh?: {
     label: string;
     onRefresh: () => void;
@@ -85,9 +87,13 @@ export function setGlobalNavbarMeta(meta: PageNavbarMeta | null) {
     currentNavbarMeta?.section === meta?.section &&
     currentNavbarMeta?.title === meta?.title &&
     currentNavbarMeta?.onBack === meta?.onBack &&
+    currentNavbarMeta?.icon === meta?.icon &&
+    currentNavbarMeta?.badge === meta?.badge &&
     currentNavbarMeta?.search === meta?.search &&
     currentNavbarMeta?.pageSidebar === meta?.pageSidebar &&
     currentNavbarMeta?.rightSidebar === meta?.rightSidebar &&
+    currentNavbarMeta?.rightSidebarWidth === meta?.rightSidebarWidth &&
+    currentNavbarMeta?.rightSidebarHeader === meta?.rightSidebarHeader &&
     currentNavbarMeta?.refresh?.label === meta?.refresh?.label &&
     currentNavbarMeta?.refresh?.onRefresh === meta?.refresh?.onRefresh &&
     currentNavbarMeta?.refresh?.busy === meta?.refresh?.busy
