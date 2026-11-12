@@ -3,13 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity,
   AlertTriangle,
-  ArrowUpRight,
-  Boxes,
-  CalendarClock,
   CheckCircle2,
-  Clock3,
   Copy,
   Filter,
   History,
@@ -28,7 +23,6 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Notice } from "@/components/app/Notice";
-import { PageActions } from "@/components/app/PageActions";
 import {
   PageActionsPortal,
   useSetNavbarMeta,
@@ -64,8 +58,6 @@ import { FlowWizard } from "./FlowWizard";
 import {
   FlowIcon,
   RunStatusBadge,
-  StatusBadge,
-  TriggerBadge,
   flows_call,
   format_datetime,
   format_duration,
@@ -105,29 +97,6 @@ interface RunDetail {
 
 type StatusFilter = "all" | "active" | "inactive";
 
-function StatCard({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
-      {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
-}
-
 function FlowRowActions({
   flow,
   busy,
@@ -136,7 +105,6 @@ function FlowRowActions({
   onDuplicate,
   onLogs,
   onDelete,
-  onBuilder,
   onSecret,
 }: {
   flow: FlowRow;
@@ -146,7 +114,6 @@ function FlowRowActions({
   onDuplicate: () => void;
   onLogs: () => void;
   onDelete: () => void;
-  onBuilder: () => void;
   onSecret: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -154,10 +121,6 @@ function FlowRowActions({
 
   return (
     <div className="relative flex items-center gap-1.5">
-      <Button size="sm" variant="outline" onClick={onBuilder}>
-        Open
-        <ArrowUpRight className="size-3.5" />
-      </Button>
       <Button
         size="icon-sm"
         variant="ghost"
@@ -180,7 +143,7 @@ function FlowRowActions({
             className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-9 z-40 w-52 overflow-hidden rounded-lg border border-border bg-popover py-1 text-sm shadow-lg">
+          <div className="absolute right-0 top-9 z-40 w-52 overflow-hidden rounded-lg border border-border bg-popover py-1 text-sm">
             <button
               type="button"
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
@@ -486,44 +449,25 @@ export default function FlowsList({ data }: EtViewProps) {
 
   return (
     <div className="space-y-6">
-      <PageActions
-        items={[
-          {
-            label: "Refresh",
-            icon: <RefreshCw className="size-4" />,
-            onSelect: () => void refresh(),
-          },
-          {
-            label: "Create flow",
-            icon: <Plus className="size-4" />,
-            variant: "default",
-            onSelect: () => setWizardOpen(true),
-          },
-        ]}
-      />
       <PageActionsPortal>
-        <Button variant="outline" size="sm" onClick={refresh}>
-          <RefreshCw className="size-3.5" /> Refresh
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Refresh flows"
+          aria-label="Refresh flows"
+          onClick={() => void refresh()}
+        >
+          <RefreshCw className="size-4" />
         </Button>
-        <Button size="sm" onClick={() => setWizardOpen(true)}>
-          <Plus className="size-3.5" /> Create flow
+        <Button
+          size="icon"
+          title="Create flow"
+          aria-label="Create flow"
+          onClick={() => setWizardOpen(true)}
+        >
+          <Plus className="size-4" />
         </Button>
       </PageActionsPortal>
-
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <span className="grid size-9 place-items-center rounded-xl border border-border bg-card text-foreground">
-            <Zap className="size-4" strokeWidth={1.75} />
-          </span>
-          <div>
-            <h1 className="type-title">Flows</h1>
-            <p className="text-sm text-muted-foreground">
-              Automate content, HTTP integrations and scheduled jobs with a
-              visual graph.
-            </p>
-          </div>
-        </div>
-      </header>
 
       {runtimeBlocked ? (
         <Notice
@@ -543,41 +487,6 @@ export default function FlowsList({ data }: EtViewProps) {
           </p>
         </Notice>
       ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<Activity className="size-3.5" />}
-          label="Active flows"
-          value={payload.health.active}
-          hint={`${payload.health.inactive} inactive`}
-        />
-        <StatCard
-          icon={<CalendarClock className="size-3.5" />}
-          label="Schedules"
-          value={payload.health.schedules}
-          hint="Evaluated in UTC"
-        />
-        <StatCard
-          icon={<Boxes className="size-3.5" />}
-          label="Queue"
-          value={payload.health.queue.pending + payload.health.queue.running}
-          hint={
-            payload.health.queue.failed > 0
-              ? `${payload.health.queue.failed} failed`
-              : "No failed jobs"
-          }
-        />
-        <StatCard
-          icon={<Clock3 className="size-3.5" />}
-          label="Last run"
-          value={
-            <span className="text-base font-semibold" suppressHydrationWarning>
-              {format_relative(payload.health.last_run_at)}
-            </span>
-          }
-          hint={`Runtime: ${payload.runtime.mode}`}
-        />
-      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
@@ -624,64 +533,77 @@ export default function FlowsList({ data }: EtViewProps) {
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          {flows.map((flow, index) => (
+          <div className="hidden grid-cols-[190px_minmax(0,1.1fr)_minmax(0,1fr)_44px] items-center gap-4 border-b border-border bg-surface-subtle px-4 py-3 text-xs font-semibold text-muted-foreground md:grid">
+            <span>Status</span>
+            <span>Name</span>
+            <span>Description</span>
+            <span />
+          </div>
+          {flows.map((flow) => (
             <div
               key={flow.id}
-              className={cn(
-                "flex flex-wrap items-center gap-4 px-4 py-3.5",
-                index > 0 && "border-t border-border"
-              )}
+              className="grid grid-cols-1 items-start gap-3 border-t border-border px-4 py-4 first:border-t-0 hover:bg-muted/30 md:grid-cols-[190px_minmax(0,1.1fr)_minmax(0,1fr)_44px] md:items-center"
             >
-              <FlowIcon flow={flow} />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(`/admin/flows/builder?id=${flow.id}`)
-                    }
-                    className="truncate text-sm font-semibold hover:underline"
-                  >
-                    {flow.name}
-                  </button>
-                  <StatusBadge status={flow.status} />
-                  <TriggerBadge trigger={flow.trigger} />
-                </div>
-                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                  {flow.description || "No description."}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                  <span suppressHydrationWarning>
-                    Updated {format_relative(flow.updated_at)}
-                  </span>
-                  <span suppressHydrationWarning>
-                    Last run {format_relative(flow.last_run_at)}
-                  </span>
-                  {flow.trigger === "schedule" && flow.next_run_at ? (
-                    <span suppressHydrationWarning>
-                      Next run {format_datetime(flow.next_run_at)}
-                    </span>
-                  ) : null}
+              <div className="flex items-center gap-2.5">
+                <FlowIcon flow={flow} className="size-8" />
+                <Badge
+                  variant={flow.status === "active" ? "default" : "outline"}
+                  className={cn(
+                    "h-7 rounded-full px-3 text-xs",
+                    flow.status === "active" &&
+                      "bg-primary text-primary-foreground"
+                  )}
+                >
+                  {flow.status === "active" ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(`/admin/flows/builder?id=${flow.id}`)
+                  }
+                  className="block max-w-full truncate text-left text-sm font-semibold hover:underline"
+                >
+                  {flow.name}
+                </button>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>{TRIGGER_LABELS[flow.trigger]}</span>
                   {flow.secret_prefix ? (
-                    <span className="font-mono">
-                      secret {flow.secret_prefix}…
-                    </span>
+                    <span className="font-mono">{flow.secret_prefix}…</span>
                   ) : null}
                 </div>
               </div>
-              <FlowRowActions
-                flow={flow}
-                busy={busy}
-                onBuilder={() =>
-                  router.push(`/admin/flows/builder?id=${flow.id}`)
-                }
-                onToggle={() => void toggleStatus(flow)}
-                onRun={() => void runNow(flow)}
-                onDuplicate={() => void duplicate(flow)}
-                onLogs={() => void openLogs(flow)}
-                onDelete={() => void deleteFlow(flow)}
-                onSecret={() => void rotateSecret(flow)}
-              />
+
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-sm text-muted-foreground">
+                  {flow.description || "—"}
+                </p>
+                <p
+                  className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground"
+                  suppressHydrationWarning
+                >
+                  <span>Updated {format_relative(flow.updated_at)}</span>
+                  <span>Last run {format_relative(flow.last_run_at)}</span>
+                  {flow.trigger === "schedule" && flow.next_run_at ? (
+                    <span>Next {format_datetime(flow.next_run_at)}</span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <FlowRowActions
+                  flow={flow}
+                  busy={busy}
+                  onToggle={() => void toggleStatus(flow)}
+                  onRun={() => void runNow(flow)}
+                  onDuplicate={() => void duplicate(flow)}
+                  onLogs={() => void openLogs(flow)}
+                  onDelete={() => void deleteFlow(flow)}
+                  onSecret={() => void rotateSecret(flow)}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -840,7 +762,7 @@ export default function FlowsList({ data }: EtViewProps) {
                               {step.error}
                             </p>
                           ) : null}
-                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-[10px] leading-relaxed text-muted-foreground">
+                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
                             {JSON.stringify(step.output, null, 2)}
                           </pre>
                         </li>

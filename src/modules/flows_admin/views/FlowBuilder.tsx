@@ -23,8 +23,11 @@ import {
   LayoutGrid,
   Loader2,
   Lock,
+  MoreHorizontal,
+  Pencil,
   Play,
   Plus,
+  Power,
   RefreshCw,
   Save,
   Trash2,
@@ -36,11 +39,8 @@ import {
 import { toast } from "sonner";
 import dagre from "@dagrejs/dagre";
 import {
-  Background,
-  Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -70,6 +70,13 @@ import {
 } from "@/components/ui/dialog";
 import { DynamicIcon } from "@/components/ui/dynamic-icon";
 import { IconPicker } from "@/components/ui/icon-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -102,10 +109,7 @@ import type {
 import { TRIGGER_LABELS } from "@/modules/flows/flow-types";
 import { CopyButton } from "@/modules/cms_admin/views/ui";
 import {
-  FlowIcon,
   RunStatusBadge,
-  StatusBadge,
-  TriggerBadge,
   flows_call,
   format_datetime,
   format_duration,
@@ -138,6 +142,7 @@ interface BuilderNodeData extends Record<string, unknown> {
   color: string;
   resolve: string | null;
   reject: string | null;
+  status?: string;
 }
 
 type BuilderNode = Node<BuilderNodeData>;
@@ -184,6 +189,139 @@ function root_of(flow: FlowWithOperations): string | null {
   );
 }
 
+function node_text(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
+
+function node_list(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
+function short_text(value: unknown, max = 64): string {
+  const text = node_text(value);
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function compact_json(value: unknown): string {
+  try {
+    const text = JSON.stringify(value ?? {});
+    return text && text !== "{}" ? short_text(text, 72) : "—";
+  } catch {
+    return "—";
+  }
+}
+
+function response_label(value: unknown): string {
+  return value === "all" ? "All data" : value === "other" ? "Other" : "Last operation";
+}
+
+function trigger_details(
+  trigger: FlowTrigger,
+  options: Record<string, unknown>
+): Array<{ label: string; value: string }> {
+  if (trigger === "event") {
+    const actions = node_list(options.actions);
+    return [
+      { label: "Type", value: options.type === "action" ? "Action" : "Filter" },
+      {
+        label: "Scope",
+        value: actions.length ? actions.map((action) => `items.${action}`).join(", ") : "—",
+      },
+      { label: "Collections", value: node_list(options.collections).join(", ") || "—" },
+    ];
+  }
+  if (trigger === "webhook") {
+    return [
+      { label: "Method", value: node_text(options.method ?? "POST") },
+      { label: "Async", value: options.async === true ? "Enabled" : "Disabled" },
+      { label: "Response", value: response_label(options.response_body) },
+    ];
+  }
+  if (trigger === "schedule") {
+    return [
+      { label: "Interval", value: node_text(options.interval ?? "0 * * * *") },
+      { label: "Timezone", value: "UTC" },
+    ];
+  }
+  if (trigger === "manual") {
+    return [
+      { label: "Collections", value: node_list(options.collections).join(", ") || "—" },
+      { label: "Location", value: node_list(options.location).join(", ") || "—" },
+      { label: "Async", value: options.async === true ? "Enabled" : "Disabled" },
+    ];
+  }
+  return [{ label: "Response", value: response_label(options.response_body) }];
+}
+
+function operation_details(
+  type: string,
+  options: Record<string, unknown>
+): Array<{ label: string; value: string }> {
+  switch (type) {
+    case "condition":
+      return [{ label: "Filter", value: compact_json(options.filter) }];
+    case "item-read":
+      return [
+        { label: "Collection", value: node_text(options.collection) },
+        { label: "Item key", value: short_text(options.key) },
+      ];
+    case "item-create": {
+      const payload =
+        options.payload && typeof options.payload === "object"
+          ? Object.keys(options.payload as Record<string, unknown>)
+          : [];
+      return [
+        { label: "Collection", value: node_text(options.collection) },
+        { label: "Payload", value: payload.length ? payload.join(", ") : "—" },
+      ];
+    }
+    case "item-update":
+      return [
+        { label: "Collection", value: node_text(options.collection) },
+        { label: "Item key", value: short_text(options.key) },
+      ];
+    case "item-delete":
+      return [
+        { label: "Collection", value: node_text(options.collection) },
+        { label: "Item key", value: short_text(options.key) },
+      ];
+    case "request":
+      return [
+        { label: "URL", value: short_text(options.url) },
+        { label: "Method", value: node_text(options.method ?? "GET") },
+      ];
+    case "trigger":
+      return [
+        { label: "Flow", value: short_text(options.flow_id, 20) },
+        { label: "Response", value: response_label(options.response_body) },
+      ];
+    case "transform": {
+      const keys =
+        options.json && typeof options.json === "object"
+          ? Object.keys(options.json as Record<string, unknown>)
+          : [];
+      return [{ label: "Output", value: keys.length ? keys.join(", ") : "—" }];
+    }
+    case "log":
+      return [
+        { label: "Message", value: short_text(options.message) },
+        { label: "Level", value: node_text(options.level ?? "info") },
+      ];
+    case "sleep":
+      return [
+        {
+          label: "Duration",
+          value: `${Number(options.milliseconds) || 1000} ms`,
+        },
+      ];
+    case "throw-error":
+      return [{ label: "Message", value: short_text(options.message) }];
+    default:
+      return [];
+  }
+}
+
 function operation_node(operation: FlowOperationRecord): BuilderNode {
   const definition = get_operation_definition(operation.type);
   return {
@@ -197,14 +335,20 @@ function operation_node(operation: FlowOperationRecord): BuilderNode {
       type: operation.type,
       options: operation.options,
       icon: definition?.icon ?? "box",
-      color: definition?.color ?? "#64748b",
+      color: definition?.color ?? "var(--muted-foreground)",
       resolve: operation.resolve,
       reject: operation.reject,
     },
   };
 }
 
-function trigger_node(trigger: FlowTrigger, x: number, y: number): BuilderNode {
+function trigger_node(
+  trigger: FlowTrigger,
+  x: number,
+  y: number,
+  options: Record<string, unknown>,
+  status: string
+): BuilderNode {
   const definition = TRIGGER_DEFINITIONS.find((entry) => entry.type === trigger);
   return {
     id: TRIGGER_NODE_ID,
@@ -217,11 +361,12 @@ function trigger_node(trigger: FlowTrigger, x: number, y: number): BuilderNode {
       name: TRIGGER_LABELS[trigger],
       key: "trigger",
       type: trigger,
-      options: {},
+      options,
       icon: definition?.icon ?? "zap",
-      color: definition?.color ?? "#6366f1",
+      color: definition?.color ?? "var(--primary)",
       resolve: null,
       reject: null,
+      status,
     },
   };
 }
@@ -254,7 +399,7 @@ function operation_edge(
     label: handle === "reject" ? "reject" : undefined,
     style: {
       strokeWidth: 1.6,
-      stroke: handle === "reject" ? "#ef4444" : "#10b981",
+      stroke: handle === "reject" ? "var(--destructive)" : "var(--success)",
     },
     labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
     labelBgStyle: { fill: "var(--card)" },
@@ -262,7 +407,7 @@ function operation_edge(
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
-      color: handle === "reject" ? "#ef4444" : "#10b981",
+      color: handle === "reject" ? "var(--destructive)" : "var(--success)",
     },
   };
 }
@@ -297,7 +442,7 @@ function layout_graph(nodes: BuilderNode[], edges: Edge[]): BuilderNode[] {
     marginy: 24,
   });
   for (const node of nodes) {
-    graph.setNode(node.id, { width: 240, height: 92 });
+    graph.setNode(node.id, { width: 280, height: 180 });
   }
   for (const edge of edges) {
     if (edge.source === edge.target) continue;
@@ -313,7 +458,7 @@ function layout_graph(nodes: BuilderNode[], edges: Edge[]): BuilderNode[] {
     }
     return {
       ...node,
-      position: { x: position.x - 120, y: position.y - 46 },
+      position: { x: position.x - 140, y: position.y - 90 },
     };
   });
 }
@@ -337,16 +482,22 @@ function unique_key(base: string, nodes: BuilderNode[]): string {
 
 const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
   const is_trigger = data.kind === "trigger";
+  const definition = is_trigger ? null : get_operation_definition(data.type);
+  const header = is_trigger ? "Trigger" : definition?.label ?? data.type;
+  const subtitle = is_trigger
+    ? TRIGGER_LABELS[data.type as FlowTrigger]
+    : data.name;
+  const details = is_trigger
+    ? trigger_details(data.type as FlowTrigger, data.options)
+    : operation_details(data.type, data.options);
+
   return (
     <div
       className={cn(
-        "w-[240px] rounded-xl border bg-card px-3 py-2.5 text-left shadow-sm transition-shadow",
-        selected
-          ? "border-primary shadow-[0_0_0_3px_var(--ring)]"
-          : "border-border",
-        is_trigger && "bg-surface-subtle"
+        "w-[280px] rounded-xl border text-left transition-colors",
+        is_trigger ? "bg-surface-subtle" : "bg-card",
+        selected ? "border-foreground" : "border-border"
       )}
-      style={{ borderLeftColor: data.color, borderLeftWidth: 4 }}
     >
       {!is_trigger ? (
         <Handle
@@ -356,58 +507,83 @@ const FlowNodeCard = ({ data, selected }: NodeProps<BuilderNode>) => {
           className="!size-2.5 !border-2 !border-card !bg-foreground"
         />
       ) : null}
-      <div className="flex items-start gap-2.5">
-        <span
-          className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card"
-          style={{ color: data.color }}
-        >
+
+      <div className="flex items-start gap-2.5 px-4 pb-3 pt-3.5">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card text-foreground">
           <DynamicIcon name={data.icon} size={16} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold leading-5">{data.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {is_trigger ? "Trigger" : `${data.type} · ${data.key}`}
-          </p>
+          <p className="truncate text-sm font-semibold">{header}</p>
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
         {is_trigger ? (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+          <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground">
             Start
           </span>
         ) : null}
       </div>
+
+      {details.length > 0 ? (
+        <div className="grid gap-2 border-t border-border px-4 py-3">
+          {details.map((detail) => (
+            <div key={detail.label} className="grid gap-0.5">
+              <span className="text-xs font-semibold text-foreground">
+                {detail.label}
+              </span>
+              <span
+                className="line-clamp-2 text-xs text-muted-foreground"
+                title={detail.value}
+              >
+                {detail.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {is_trigger ? (
-        <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>Connect the trigger to the first step</span>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="root"
-            className="!size-2.5 !border-2 !border-card !bg-primary"
+        <div className="flex items-center gap-2 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              data.status === "active" ? "bg-foreground" : "bg-muted-foreground"
+            )}
           />
+          {data.status === "active" ? "Active" : "Inactive"}
         </div>
       ) : (
+        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-success" />
+            Resolve
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-destructive" />
+            Reject
+          </span>
+        </div>
+      )}
+
+      {is_trigger ? (
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="root"
+          className="!top-1/2 !size-2.5 !border-2 !border-card !bg-foreground"
+        />
+      ) : (
         <>
-          <div className="mt-2 flex items-center justify-between border-t border-border pt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <CircleDot className="size-2.5 text-emerald-500" /> Resolve
-            </span>
-            <span className="flex items-center gap-1">
-              <CircleDot className="size-2.5 text-red-500" /> Reject
-            </span>
-          </div>
           <Handle
             type="source"
             position={Position.Right}
             id="resolve"
-            style={{ top: "62%" }}
-            className="!size-2.5 !border-2 !border-card !bg-emerald-500"
+            className="!top-[84%] !size-2.5 !border-2 !border-card !bg-success"
           />
           <Handle
             type="source"
             position={Position.Right}
             id="reject"
-            style={{ top: "86%" }}
-            className="!size-2.5 !border-2 !border-card !bg-red-500"
+            className="!top-[93%] !size-2.5 !border-2 !border-card !bg-destructive"
           />
         </>
       )}
@@ -434,7 +610,7 @@ function FieldShell({
       <span className="text-xs font-semibold text-foreground">{label}</span>
       {children}
       {hint ? (
-        <span className="text-[11px] leading-snug text-muted-foreground">
+        <span className="text-xs leading-snug text-muted-foreground">
           {hint}
         </span>
       ) : null}
@@ -479,7 +655,7 @@ function JsonField({
           }
         }}
       />
-      {error ? <span className="text-[11px] text-destructive">{error}</span> : null}
+      {error ? <span className="text-xs text-destructive">{error}</span> : null}
     </div>
   );
 }
@@ -591,7 +767,7 @@ function OptionField({
               key={preset.value}
               type="button"
               onClick={() => onChange(preset.value)}
-              className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {preset.label}
             </button>
@@ -662,16 +838,24 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   const initial_root = useMemo(() => root_of(flow), [flow]);
   const [nodes, set_nodes] = useState<BuilderNode[]>(() => {
     const operations = flow.operations.map(operation_node);
-    if (operations.length === 0) return [trigger_node(flow.trigger, 40, 160)];
+    if (operations.length === 0) {
+      return [
+        trigger_node(flow.trigger, 40, 160, flow.options, flow.status),
+      ];
+    }
     const root = operations.find((node) => node.id === initial_root) ?? operations[0];
-    const trigger_x = root.position.x - 300;
-    return [trigger_node(flow.trigger, trigger_x, root.position.y), ...operations];
+    const trigger_x = root.position.x - 360;
+    return [
+      trigger_node(flow.trigger, trigger_x, root.position.y, flow.options, flow.status),
+      ...operations,
+    ];
   });
   const [edges, set_edges] = useState<Edge[]>(() =>
     build_edges(flow.operations, initial_root)
   );
   const [root_id, set_root_id] = useState<string | null>(initial_root);
   const [selected_id, set_selected_id] = useState<string | null>(null);
+  const [inspector_open, set_inspector_open] = useState(false);
   const [revision, set_revision] = useState(flow.revision);
   const [current_flow, set_current_flow] = useState<FlowRecord>(flow);
   const [dirty, set_dirty] = useState(false);
@@ -826,7 +1010,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       set_nodes((current) => {
         const key = unique_key(type, current);
         const selected = current.find((node) => node.id === selected_id);
-        const base_x = selected ? selected.position.x + 300 : 360;
+        const base_x = selected ? selected.position.x + 360 : 420;
         const base_y = selected
           ? selected.position.y + current.length * 8
           : 120 + current.length * 30;
@@ -874,11 +1058,15 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         ]);
       }
       set_selected_id(id);
+      set_inspector_open(true);
       set_palette_open(false);
       set_palette_query("");
       set_dirty(true);
+      window.setTimeout(() => {
+        void fitView({ padding: 0.24, duration: 250, maxZoom: 1 });
+      }, 120);
     },
-    [nodes, root_id, selected_id]
+    [fitView, nodes, root_id, selected_id]
   );
 
   const delete_selected = useCallback(async () => {
@@ -902,6 +1090,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     );
     if (root_id === id) set_root_id(null);
     set_selected_id(null);
+    set_inspector_open(false);
     set_dirty(true);
   }, [confirm, root_id, selected_node]);
 
@@ -909,7 +1098,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     set_nodes((current) => layout_graph(current, edges));
     set_dirty(true);
     window.setTimeout(() => {
-      void fitView({ padding: 0.2, duration: 300 });
+      void fitView({ padding: 0.24, duration: 300, maxZoom: 1 });
     }, 40);
   }, [edges, fitView]);
 
@@ -969,6 +1158,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         accountability: accountability === "none" ? null : accountability,
       });
       set_current_flow(result.flow);
+      set_nodes((current) =>
+        current.map((node) =>
+          node.id === TRIGGER_NODE_ID
+            ? { ...node, data: { ...node.data, icon, color } }
+            : node
+        )
+      );
       toast.success("Flow setup saved.");
     } catch (error) {
       toast.error(
@@ -989,6 +1185,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       });
       set_current_flow(result.flow);
       set_trigger_options({ ...result.flow.options });
+      set_nodes((current) =>
+        current.map((node) =>
+          node.id === TRIGGER_NODE_ID
+            ? { ...node, data: { ...node.data, options: { ...result.flow.options } } }
+            : node
+        )
+      );
       if (result.secret) {
         set_secret({ secret: result.secret, url: result.webhook_url });
       }
@@ -1011,6 +1214,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         status: next,
       });
       set_current_flow(result.flow);
+      set_nodes((current) =>
+        current.map((node) =>
+          node.id === TRIGGER_NODE_ID
+            ? { ...node, data: { ...node.data, status: result.flow.status } }
+            : node
+        )
+      );
       toast.success(
         next === "active" ? "Flow activated." : "Flow deactivated."
       );
@@ -1106,6 +1316,29 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     }
   }, [flow.id]);
 
+  const delete_flow_action = useCallback(async () => {
+    const approved = await confirm({
+      title: "Delete this flow?",
+      description: (
+        <>
+          <span className="font-semibold">{current_flow.name}</span> and its run
+          history will be deleted. This cannot be undone.
+        </>
+      ),
+      confirmLabel: "Delete flow",
+      tone: "destructive",
+    });
+    if (!approved) return;
+    try {
+      await flows_call("delete_flow", { id: flow.id });
+      window.location.href = "/admin/flows";
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete the flow."
+      );
+    }
+  }, [confirm, current_flow.name, flow.id]);
+
   const export_flow = useCallback(async () => {
     try {
       if (dirty) await save_graph();
@@ -1178,68 +1411,133 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       {confirm_dialog}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" size="icon-sm" asChild title="Back to flows">
+        <Button
+          variant="ghost"
+          size="icon"
+          asChild
+          title="Back to flows"
+          aria-label="Back to flows"
+        >
           <Link href="/admin/flows">
             <ArrowLeft className="size-4" />
           </Link>
         </Button>
-        <FlowIcon flow={{ icon, color }} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-semibold text-muted-foreground">Flows</p>
+          <div className="flex min-w-0 items-center gap-2">
             <h1 className="type-title truncate">{current_flow.name}</h1>
-            <StatusBadge status={current_flow.status} />
-            <TriggerBadge trigger={flow.trigger} />
-            <Badge variant="outline">rev {revision}</Badge>
-            {dirty ? <Badge variant="warning">Unsaved</Badge> : null}
+            {dirty ? (
+              <span
+                className="size-2 shrink-0 rounded-full bg-foreground"
+                title="Unsaved changes"
+                aria-label="Unsaved changes"
+              />
+            ) : null}
           </div>
-          <p className="text-xs text-muted-foreground" suppressHydrationWarning>
-            {flow.description || "No description."} · Updated{" "}
-            {format_relative(current_flow.updated_at)}
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={export_flow}>
-            <Download className="size-3.5" /> Export
-          </Button>
-          <Button variant="outline" size="sm" onClick={open_logs}>
-            <History className="size-3.5" /> Logs
-          </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={run_now}
+            variant="ghost"
+            size="icon"
+            title="Run now"
+            aria-label="Run now"
+            onClick={() => void run_now()}
             disabled={running}
           >
             {running ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Play className="size-3.5" />
+              <Play className="size-4" />
             )}
-            Run
           </Button>
           <Button
-            variant={current_flow.status === "active" ? "outline" : "default"}
-            size="sm"
-            onClick={toggle_status}
+            variant="ghost"
+            size="icon"
+            title="Activity & logs"
+            aria-label="Activity & logs"
+            onClick={open_logs}
+          >
+            <History className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            title="Edit flow setup"
+            aria-label="Edit flow setup"
+            onClick={() => {
+              set_selected_id(null);
+              set_inspector_open(true);
+            }}
+          >
+            <Pencil className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            title={
+              current_flow.status === "active"
+                ? "Deactivate flow"
+                : "Activate flow"
+            }
+            aria-label={
+              current_flow.status === "active"
+                ? "Deactivate flow"
+                : "Activate flow"
+            }
+            onClick={() => void toggle_status()}
             disabled={activating}
           >
             {activating ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : current_flow.status === "active" ? (
-              <X className="size-3.5" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Check className="size-3.5" />
+              <Power className="size-4" />
             )}
-            {current_flow.status === "active" ? "Deactivate" : "Activate"}
           </Button>
-          <Button size="sm" onClick={save_graph} disabled={saving}>
+          <Button
+            size="icon"
+            title="Save graph"
+            aria-label="Save graph"
+            onClick={() => void save_graph()}
+            disabled={saving}
+          >
             {saving ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Save className="size-3.5" />
+              <Check className="size-4" />
             )}
-            Save
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="More flow actions"
+                aria-label="More flow actions"
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => void export_flow()}>
+                <Download />
+                Export flow
+              </DropdownMenuItem>
+              {flow.trigger === "webhook" ? (
+                <DropdownMenuItem onSelect={() => void rotate_secret()}>
+                  <Lock />
+                  Rotate secret
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => void delete_flow_action()}
+              >
+                <Trash2 />
+                Delete flow
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -1254,7 +1552,12 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         </Notice>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div
+        className={cn(
+          "grid gap-4",
+          inspector_open && "xl:grid-cols-[minmax(0,1fr)_360px]"
+        )}
+      >
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
             <Button size="sm" onClick={() => set_palette_open(true)}>
@@ -1266,7 +1569,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void fitView({ padding: 0.2, duration: 300 })}
+              onClick={() =>
+                void fitView({ padding: 0.24, duration: 300, maxZoom: 1 })
+              }
             >
               <RefreshCw className="size-3.5" /> Fit
             </Button>
@@ -1274,7 +1579,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               Drag from a green dot for resolve, a red dot for reject.
             </span>
           </div>
-          <div className="h-[calc(100dvh-20rem)] min-h-[460px] w-full">
+          <div className="h-[calc(100dvh-14rem)] min-h-[560px] w-full bg-background">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -1283,32 +1588,43 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               onEdgesChange={on_edges_change}
               onEdgesDelete={on_edges_delete}
               onConnect={on_connect}
-              onSelectionChange={({ nodes: selected }) =>
-                set_selected_id(selected[0]?.id ?? null)
-              }
-              onPaneClick={() => set_selected_id(null)}
+              onSelectionChange={({ nodes: selected }) => {
+                const id = selected[0]?.id ?? null;
+                set_selected_id(id);
+                if (id) set_inspector_open(true);
+              }}
+              onPaneClick={() => {
+                set_selected_id(null);
+                set_inspector_open(false);
+              }}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
+              fitViewOptions={{ padding: 0.24, maxZoom: 1 }}
               proOptions={{ hideAttribution: false }}
+              className="bg-background"
               defaultEdgeOptions={{
                 type: "smoothstep",
                 markerEnd: { type: MarkerType.ArrowClosed },
               }}
-            >
-              <Background gap={18} size={1} />
-              <Controls showInteractive={false} />
-              <MiniMap
-                pannable
-                zoomable
-                nodeColor={(node) =>
-                  (node.data as BuilderNodeData)?.color ?? "#94a3b8"
-                }
-              />
-            </ReactFlow>
+            />
           </div>
         </div>
 
+        {inspector_open ? (
         <aside className="min-h-0 space-y-4 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto xl:pr-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-muted-foreground">
+              {inspector_is_trigger ? "Flow & trigger setup" : "Step settings"}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Close settings"
+              aria-label="Close settings"
+              onClick={() => set_inspector_open(false)}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
           {inspector_is_trigger ? (
             <>
               <section className="space-y-4 rounded-xl border border-border bg-card p-4">
@@ -1381,7 +1697,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                     <h2 className="text-sm font-semibold">
                       {trigger_definition?.label}
                     </h2>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {trigger_definition?.description}
                     </p>
                   </div>
@@ -1553,7 +1869,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                         >
                           <span>
                             {option.title}
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
                               {option.hint}
                             </span>
                           </span>
@@ -1580,7 +1896,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                           <Input
                             readOnly
                             value={data.webhook_url}
-                            className="h-10 font-mono text-[11px]"
+                            className="h-10 font-mono text-xs"
                           />
                           <CopyButton value={data.webhook_url} />
                         </div>
@@ -1594,7 +1910,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                             <Lock className="size-3.5" /> Rotate secret
                           </Button>
                           {current_flow.secret_prefix ? (
-                            <span className="font-mono text-[11px] text-muted-foreground">
+                            <span className="font-mono text-xs text-muted-foreground">
                               {current_flow.secret_prefix}…
                             </span>
                           ) : null}
@@ -1633,13 +1949,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                               interval: preset.value,
                             }))
                           }
-                          className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           {preset.label}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Next run:{" "}
                       {current_flow.next_run_at
                         ? format_datetime(current_flow.next_run_at)
@@ -1762,7 +2078,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                         >
                           <span>
                             {option.title}
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
                               {option.hint}
                             </span>
                           </span>
@@ -1816,7 +2132,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                   <h2 className="truncate text-sm font-semibold">
                     {selected_node.data.name}
                   </h2>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {selected_node.data.type} · {selected_node.data.key}
                   </p>
                 </div>
@@ -1936,6 +2252,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             </dl>
           </section>
         </aside>
+        ) : null}
       </div>
 
       <Dialog open={palette_open} onOpenChange={set_palette_open}>
@@ -1985,7 +2302,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                           <span className="block text-sm font-semibold">
                             {definition.label}
                           </span>
-                          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                             {definition.description}
                           </span>
                         </span>
@@ -2135,7 +2452,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                               {step.error}
                             </p>
                           ) : null}
-                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-[10px] leading-relaxed text-muted-foreground">
+                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
                             {JSON.stringify(step.output, null, 2)}
                           </pre>
                         </li>

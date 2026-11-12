@@ -151,7 +151,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
     <label className="grid gap-1.5">
       <span className="text-xs font-semibold text-foreground">{label}</span>
       {children}
-      {hint ? <span className="text-[11px] leading-snug text-muted-foreground">{hint}</span> : null}
+      {hint ? <span className="text-xs leading-snug text-muted-foreground">{hint}</span> : null}
     </label>
   );
 }
@@ -175,7 +175,7 @@ export function Segmented<T extends string>({
           className={cn(
             "inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors",
             value === option.value
-              ? "bg-card text-foreground shadow-sm"
+              ? "bg-card text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
