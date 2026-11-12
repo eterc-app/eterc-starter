@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -17,7 +17,6 @@ import {
   Link as LinkIcon,
   Loader2,
   Pencil,
-  RefreshCw,
   Settings2,
   Type,
   Users,
@@ -124,12 +123,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
   const [saving, setSaving] = useState(false);
   const [utilityBusy, setUtilityBusy] = useState(false);
 
-  useSetNavbarMeta({
-    section: "Settings",
-    title: "Settings",
-    icon: <Settings2 className="size-4" strokeWidth={1.75} />,
-  });
-
   const save = useCallback(async () => {
     setSaving(true);
     try {
@@ -188,6 +181,21 @@ export default function ProjectSettings({ data }: EtViewProps) {
       setUtilityBusy(false);
     }
   }, []);
+
+  const navbarMeta = useMemo(
+    () => ({
+      section: "Settings",
+      title: "Settings",
+      icon: <Settings2 className="size-4" strokeWidth={1.75} />,
+      refresh: {
+        label: "Refresh schema",
+        onRefresh: () => void refreshSchema(),
+        busy: utilityBusy,
+      },
+    }),
+    [refreshSchema, utilityBusy]
+  );
+  useSetNavbarMeta(navbarMeta);
 
   return (
     <div className="app-page max-w-5xl space-y-8">
@@ -370,16 +378,6 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </Button>
-            <BusyButton
-              type="button"
-              variant="outline"
-              busy={utilityBusy}
-              onClick={refreshSchema}
-              className="rounded-lg"
-            >
-              <RefreshCw className="size-4" />
-              Refresh schema
-            </BusyButton>
             <BusyButton
               type="button"
               variant="outline"

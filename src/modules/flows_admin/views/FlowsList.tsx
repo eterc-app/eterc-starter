@@ -1,22 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDownAZ,
+  ArrowUp,
+  ArrowUpAZ,
   AlertTriangle,
-  CheckCircle2,
-  Copy,
-  Filter,
-  History,
   Loader2,
-  MoreHorizontal,
-  Play,
+  ListFilter,
+  MoreVertical,
   Plus,
-  RefreshCw,
-  Search,
   Trash2,
-  Webhook,
-  XCircle,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,39 +24,29 @@ import {
 } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { EtViewProps } from "@/engine/views-registry";
 import type {
   FlowRecord,
-  FlowRunRecord,
-  FlowRunStepRecord,
   FlowRuntimeMode,
+  FlowStatus,
+  FlowTrigger,
 } from "@/modules/flows/flow-types";
-import { TRIGGER_LABELS } from "@/modules/flows/flow-types";
-import { CopyButton } from "@/modules/cms_admin/views/ui";
+import { FLOW_STATUSES, FLOW_TRIGGERS, TRIGGER_LABELS } from "@/modules/flows/flow-types";
 import { FlowWizard } from "./FlowWizard";
 import {
   FlowIcon,
-  RunStatusBadge,
   flows_call,
-  format_datetime,
-  format_duration,
-  format_relative,
 } from "./flow-ui";
 
 interface CollectionOption {
@@ -89,135 +74,156 @@ interface ListPayload {
   health: FlowHealth;
 }
 
-interface RunDetail {
-  run: FlowRunRecord;
-  steps: FlowRunStepRecord[];
-  flow: FlowRecord | null;
+type FlowSortKey = "status" | "name" | "description";
+
+interface FlowSort {
+  key: FlowSortKey;
+  direction: "asc" | "desc";
 }
 
-type StatusFilter = "all" | "active" | "inactive";
+type FlowStatusFilter = "all" | FlowStatus;
+type FlowTriggerFilter = "all" | FlowTrigger;
+
+function is_one_of<T extends string>(
+  value: string,
+  options: readonly T[]
+): value is T {
+  return options.some((option) => option === value);
+}
+
+function flow_sort_value(
+  flow: FlowRow,
+  key: FlowSortKey
+): string | number | null {
+  switch (key) {
+    case "status":
+    case "name":
+    case "description":
+      return flow[key];
+  }
+}
+
+function FlowTableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  filterActive = false,
+  showFilter = false,
+  children,
+}: {
+  label: string;
+  sortKey: FlowSortKey;
+  sort: FlowSort | null;
+  onSort: (sort: FlowSort | null) => void;
+  filterActive?: boolean;
+  showFilter?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="group inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-inherit transition-colors hover:bg-muted"
+          aria-label={`${label} column options`}
+        >
+          {label}
+          {filterActive || showFilter ? (
+            <ListFilter
+              className={cn(
+                "size-3",
+                filterActive ? "text-primary" : "text-muted-foreground"
+              )}
+              aria-label={filterActive ? "Filtered" : "Filter options"}
+            />
+          ) : null}
+          {sort?.key === sortKey ? (
+            sort.direction === "asc" ? (
+              <ArrowUpAZ className="size-3.5" />
+            ) : (
+              <ArrowDownAZ className="size-3.5" />
+            )
+          ) : (
+            <ArrowUp className="size-3 opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem onSelect={() => onSort({ key: sortKey, direction: "asc" })}>
+          <ArrowUpAZ />
+          Sort Ascending
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onSort({ key: sortKey, direction: "desc" })}>
+          <ArrowDownAZ />
+          Sort Descending
+        </DropdownMenuItem>
+        {sort?.key === sortKey ? (
+          <DropdownMenuItem onSelect={() => onSort(null)}>
+            Clear Sort
+          </DropdownMenuItem>
+        ) : null}
+        {children ? (
+          <>
+            <DropdownMenuSeparator />
+            {children}
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function FlowRowActions({
   flow,
   busy,
-  onToggle,
-  onRun,
-  onDuplicate,
-  onLogs,
+  onDeactivate,
+  onEdit,
   onDelete,
-  onSecret,
 }: {
   flow: FlowRow;
   busy: string | null;
-  onToggle: () => void;
-  onRun: () => void;
-  onDuplicate: () => void;
-  onLogs: () => void;
+  onDeactivate: () => void;
+  onEdit: () => void;
   onDelete: () => void;
-  onSecret: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const isBusy = busy === flow.id;
 
   return (
-    <div className="relative flex items-center gap-1.5">
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        title="Flow actions"
-        aria-label="Flow actions"
-        onClick={() => setOpen((current) => !current)}
-        disabled={isBusy}
-      >
-        {isBusy ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <MoreHorizontal className="size-4" />
-        )}
-      </Button>
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="fixed inset-0 z-30 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 top-9 z-40 w-52 overflow-hidden rounded-lg border border-border bg-popover py-1 text-sm">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-              onClick={() => {
-                setOpen(false);
-                onRun();
-              }}
-            >
-              <Play className="size-3.5" /> Run now
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-              onClick={() => {
-                setOpen(false);
-                onLogs();
-              }}
-            >
-              <History className="size-3.5" /> Activity &amp; logs
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-              onClick={() => {
-                setOpen(false);
-                onToggle();
-              }}
-            >
-              {flow.status === "active" ? (
-                <>
-                  <XCircle className="size-3.5" /> Deactivate
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="size-3.5" /> Activate
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-              onClick={() => {
-                setOpen(false);
-                onDuplicate();
-              }}
-            >
-              <Copy className="size-3.5" /> Duplicate
-            </button>
-            {flow.trigger === "webhook" ? (
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-                onClick={() => {
-                  setOpen(false);
-                  onSecret();
-                }}
-              >
-                <Webhook className="size-3.5" /> Rotate secret
-              </button>
-            ) : null}
-            <div className="my-1 h-px bg-border" />
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                setOpen(false);
-                onDelete();
-              }}
-            >
-              <Trash2 className="size-3.5" /> Delete
-            </button>
-          </div>
-        </>
-      ) : null}
+    <div className="flex w-full items-center justify-end gap-1.5">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hover:bg-foreground/10 dark:hover:bg-muted/80"
+            title="Flow actions"
+            aria-label="Flow actions"
+            disabled={isBusy}
+          >
+            {isBusy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MoreVertical className="size-4" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem
+            disabled={flow.status === "inactive" || isBusy}
+            onSelect={onDeactivate}
+          >
+            Set Flow to Inactive
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>
+            Edit Flow
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 className="size-3.5" /> Delete Flow
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -233,31 +239,17 @@ export default function FlowsList({ data }: EtViewProps) {
     health: initial.health,
   });
   const [collections] = useState<CollectionOption[]>(initial.collections ?? []);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<FlowStatusFilter>("all");
+  const [triggerFilter, setTriggerFilter] = useState<FlowTriggerFilter>("all");
+  const [sort, setSort] = useState<FlowSort | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [secretState, setSecretState] = useState<{
-    flow: FlowRow;
-    secret: string;
-    url: string | null;
-  } | null>(null);
-
-  const [logsFlow, setLogsFlow] = useState<FlowRow | null>(null);
-  const [runs, setRuns] = useState<FlowRunRecord[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { confirm, dialog: confirm_dialog } = useConfirm();
 
-  useSetNavbarMeta({
-    section: "Automation",
-    title: "Flows",
-    icon: <Zap className="size-4" strokeWidth={1.75} />,
-  });
-
   const refresh = useCallback(async () => {
+    setRefreshing(true);
     try {
       const next = await flows_call<ListPayload>("list_state");
       setPayload(next);
@@ -265,112 +257,61 @@ export default function FlowsList({ data }: EtViewProps) {
       toast.error(
         error instanceof Error ? error.message : "Could not refresh flows."
       );
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
+  const navbarMeta = useMemo(
+    () => ({
+      section: "Automation",
+      title: "Flows",
+      icon: <Zap className="size-4" strokeWidth={1.75} />,
+      refresh: {
+        label: "Refresh flows",
+        onRefresh: () => void refresh(),
+        busy: refreshing,
+      },
+    }),
+    [refresh, refreshing]
+  );
+  useSetNavbarMeta(navbarMeta);
+
   const flows = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return payload.flows.filter((flow) => {
-      if (statusFilter !== "all" && flow.status !== statusFilter) return false;
-      if (!term) return true;
-      return (
-        flow.name.toLowerCase().includes(term) ||
-        flow.description.toLowerCase().includes(term) ||
-        TRIGGER_LABELS[flow.trigger].toLowerCase().includes(term)
-      );
+    const filtered = payload.flows.filter(
+      (flow) =>
+        (statusFilter === "all" || flow.status === statusFilter) &&
+        (triggerFilter === "all" || flow.trigger === triggerFilter)
+    );
+    if (!sort) return filtered;
+
+    return [...filtered].sort((first, second) => {
+      const left = flow_sort_value(first, sort.key);
+      const right = flow_sort_value(second, sort.key);
+      if (left === null) return right === null ? 0 : 1;
+      if (right === null) return -1;
+      const result =
+        typeof left === "number" && typeof right === "number"
+          ? left - right
+          : String(left).localeCompare(String(right), undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+      return sort.direction === "asc" ? result : -result;
     });
-  }, [payload.flows, search, statusFilter]);
+  }, [payload.flows, sort, statusFilter, triggerFilter]);
 
-  const runAction = useCallback(
-    async (flow: FlowRow, action: () => Promise<unknown>, success: string) => {
-      setBusy(flow.id);
-      try {
-        await action();
-        toast.success(success);
-        await refresh();
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "The action failed."
-        );
-      } finally {
-        setBusy(null);
-      }
-    },
-    [refresh]
-  );
-
-  const toggleStatus = useCallback(
-    (flow: FlowRow) =>
-      runAction(
-        flow,
-        () =>
-          flows_call("set_status", {
-            id: flow.id,
-            status: flow.status === "active" ? "inactive" : "active",
-          }),
-        flow.status === "active"
-          ? `"${flow.name}" is now inactive.`
-          : `"${flow.name}" is now active.`
-      ),
-    [runAction]
-  );
-
-  const runNow = useCallback(
-    (flow: FlowRow) =>
-      runAction(
-        flow,
-        async () => {
-          const result = await flows_call<{
-            status?: string;
-            run_id?: string;
-            queued?: boolean;
-            error?: { message?: string } | null;
-          }>("run_now", { id: flow.id, input: null, sync: true });
-          if (result.queued) {
-            toast.info("Run queued. It will start shortly.");
-          } else if (result.status === "success") {
-            toast.success("Flow ran successfully.");
-          } else if (result.status === "rejected") {
-            toast.warning(
-              result.error?.message ?? "The flow rejected this run."
-            );
-          } else if (result.error?.message) {
-            throw new Error(result.error.message);
-          }
-        },
-        "Run finished."
-      ),
-    [runAction]
-  );
-
-  const duplicate = useCallback(
-    (flow: FlowRow) =>
-      runAction(
-        flow,
-        () => flows_call("duplicate_flow", { id: flow.id }),
-        `Duplicated "${flow.name}". The copy is inactive.`
-      ),
-    [runAction]
-  );
-
-  const rotateSecret = useCallback(
+  const deactivateFlow = useCallback(
     async (flow: FlowRow) => {
+      if (flow.status === "inactive") return;
       setBusy(flow.id);
       try {
-        const result = await flows_call<{
-          flow: FlowRow;
-          secret: string;
-          webhook_url: string | null;
-        }>("rotate_secret", { id: flow.id });
-        setSecretState({
-          flow: { ...flow, ...result.flow },
-          secret: result.secret,
-          url: result.webhook_url,
-        });
+        await flows_call("set_status", { id: flow.id, status: "inactive" });
+        toast.success(`"${flow.name}" is now inactive.`);
         await refresh();
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "Could not rotate the secret."
+          error instanceof Error ? error.message : "Could not deactivate the flow."
         );
       } finally {
         setBusy(null);
@@ -409,56 +350,12 @@ export default function FlowsList({ data }: EtViewProps) {
     [confirm, refresh]
   );
 
-  const openLogs = useCallback(async (flow: FlowRow) => {
-    setLogsFlow(flow);
-    setRuns([]);
-    setRunDetail(null);
-    setLogsLoading(true);
-    try {
-      const result = await flows_call<{ runs: FlowRunRecord[] }>("runs", {
-        flow_id: flow.id,
-        limit: 30,
-      });
-      setRuns(result.runs);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not load run logs."
-      );
-    } finally {
-      setLogsLoading(false);
-    }
-  }, []);
-
-  const openRunDetail = useCallback(async (run: FlowRunRecord) => {
-    setDetailLoading(true);
-    setRunDetail(null);
-    try {
-      const result = await flows_call<RunDetail>("run_detail", { id: run.id });
-      setRunDetail(result);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not load the run."
-      );
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
-
   const runtimeBlocked =
     !payload.runtime.enabled || payload.runtime.missing.length > 0;
 
   return (
     <div className="space-y-6">
       <PageActionsPortal>
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Refresh flows"
-          aria-label="Refresh flows"
-          onClick={() => void refresh()}
-        >
-          <RefreshCw className="size-4" />
-        </Button>
         <Button
           size="icon"
           title="Create flow"
@@ -488,32 +385,6 @@ export default function FlowsList({ data }: EtViewProps) {
         </Notice>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search flows"
-            className="h-10 pl-9"
-          />
-        </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
-        >
-          <SelectTrigger className="h-10 w-40">
-            <Filter className="size-3.5" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {flows.length === 0 ? (
         <EmptyState
           icon={<Zap className="size-5" strokeWidth={1.75} />}
@@ -521,91 +392,152 @@ export default function FlowsList({ data }: EtViewProps) {
           description={
             payload.flows.length === 0
               ? "Create your first flow to react to content changes, webhooks or a schedule."
-              : "Try a different search term or status filter."
+              : "No flows match the selected status and trigger filters."
           }
           action={
             payload.flows.length === 0 ? (
               <Button onClick={() => setWizardOpen(true)}>
                 <Plus className="size-4" /> Create flow
               </Button>
-            ) : undefined
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStatusFilter("all");
+                  setTriggerFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            )
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="hidden grid-cols-[190px_minmax(0,1.1fr)_minmax(0,1fr)_44px] items-center gap-4 border-b border-border bg-surface-subtle px-4 py-3 text-xs font-semibold text-muted-foreground md:grid">
-            <span>Status</span>
-            <span>Name</span>
-            <span>Description</span>
-            <span />
-          </div>
-          {flows.map((flow) => (
-            <div
-              key={flow.id}
-              className="grid grid-cols-1 items-start gap-3 border-t border-border px-4 py-4 first:border-t-0 hover:bg-muted/30 md:grid-cols-[190px_minmax(0,1.1fr)_minmax(0,1fr)_44px] md:items-center"
-            >
-              <div className="flex items-center gap-2.5">
-                <FlowIcon flow={flow} className="size-8" />
-                <Badge
-                  variant={flow.status === "active" ? "default" : "outline"}
-                  className={cn(
-                    "h-7 rounded-full px-3 text-xs",
-                    flow.status === "active" &&
-                      "bg-primary text-primary-foreground"
-                  )}
+        <div className="app-scrollbar min-w-0 flex-1 overflow-auto">
+          <table className="w-full min-w-[780px] table-fixed text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-transparent">
+              <tr className="border-b border-border text-xs font-semibold text-foreground">
+                <th className="w-10 border-r border-border px-2 py-2">
+                  <span className="sr-only">Flow icon</span>
+                </th>
+                <th className="w-24 border-r border-border px-3 py-2">
+                    <FlowTableHeader
+                      label="Status"
+                      sortKey="status"
+                      sort={sort}
+                      onSort={setSort}
+                      filterActive={statusFilter !== "all"}
+                      showFilter
+                    >
+                      <DropdownMenuLabel>Filter status</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup
+                        value={statusFilter}
+                        onValueChange={(value) => {
+                          if (value === "all" || is_one_of(value, FLOW_STATUSES)) {
+                            setStatusFilter(value);
+                          }
+                        }}
+                      >
+                        <DropdownMenuRadioItem value="all">All statuses</DropdownMenuRadioItem>
+                        {FLOW_STATUSES.map((status) => (
+                          <DropdownMenuRadioItem key={status} value={status}>
+                            {status === "active" ? "Active" : "Inactive"}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </FlowTableHeader>
+                </th>
+                <th className="w-60 border-r border-border px-3 py-2">
+                    <FlowTableHeader
+                      label="Name"
+                      sortKey="name"
+                      sort={sort}
+                      onSort={setSort}
+                      filterActive={triggerFilter !== "all"}
+                    >
+                      <DropdownMenuLabel>Filter trigger</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup
+                        value={triggerFilter}
+                        onValueChange={(value) => {
+                          if (value === "all" || is_one_of(value, FLOW_TRIGGERS)) {
+                            setTriggerFilter(value);
+                          }
+                        }}
+                      >
+                        <DropdownMenuRadioItem value="all">All triggers</DropdownMenuRadioItem>
+                        {FLOW_TRIGGERS.map((trigger) => (
+                          <DropdownMenuRadioItem key={trigger} value={trigger}>
+                            {TRIGGER_LABELS[trigger]}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </FlowTableHeader>
+                </th>
+                <th className="w-[360px] px-3 py-2">
+                    <FlowTableHeader
+                      label="Description"
+                      sortKey="description"
+                      sort={sort}
+                      onSort={setSort}
+                    />
+                </th>
+                <th className="w-12 px-2 py-2">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {flows.map((flow) => (
+                <tr
+                  key={flow.id}
+                  className="border-b border-border transition-colors last:border-b-0 hover:bg-foreground/10 dark:hover:bg-muted/80"
                 >
-                  {flow.status === "active" ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-
-              <div className="min-w-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(`/admin/flows/builder?id=${flow.id}`)
-                  }
-                  className="block max-w-full truncate text-left text-sm font-semibold hover:underline"
-                >
-                  {flow.name}
-                </button>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                  <span>{TRIGGER_LABELS[flow.trigger]}</span>
-                  {flow.secret_prefix ? (
-                    <span className="font-mono">{flow.secret_prefix}…</span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <p className="line-clamp-2 text-sm text-muted-foreground">
-                  {flow.description || "—"}
-                </p>
-                <p
-                  className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground"
-                  suppressHydrationWarning
-                >
-                  <span>Updated {format_relative(flow.updated_at)}</span>
-                  <span>Last run {format_relative(flow.last_run_at)}</span>
-                  {flow.trigger === "schedule" && flow.next_run_at ? (
-                    <span>Next {format_datetime(flow.next_run_at)}</span>
-                  ) : null}
-                </p>
-              </div>
-
-              <div className="flex justify-end">
-                <FlowRowActions
-                  flow={flow}
-                  busy={busy}
-                  onToggle={() => void toggleStatus(flow)}
-                  onRun={() => void runNow(flow)}
-                  onDuplicate={() => void duplicate(flow)}
-                  onLogs={() => void openLogs(flow)}
-                  onDelete={() => void deleteFlow(flow)}
-                  onSecret={() => void rotateSecret(flow)}
-                />
-              </div>
-            </div>
-          ))}
+                  <td className="px-2 py-2">
+                    <FlowIcon
+                      flow={flow}
+                      className="mx-auto size-5 rounded-none border-0 bg-transparent"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Badge
+                      variant={flow.status === "active" ? "default" : "outline"}
+                      className={cn(
+                        "h-7 rounded-full px-3 text-sm",
+                        flow.status === "active" && "bg-foreground text-background"
+                      )}
+                    >
+                      {flow.status === "active" ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/admin/flows/builder?id=${flow.id}`)
+                      }
+                      className="block max-w-full truncate text-left text-sm font-medium text-foreground hover:underline"
+                    >
+                      {flow.name}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 text-sm text-muted-foreground">
+                    {flow.description || "--"}
+                  </td>
+                  <td className="w-12 px-2 py-2">
+                    <FlowRowActions
+                      flow={flow}
+                      busy={busy}
+                      onDeactivate={() => void deactivateFlow(flow)}
+                      onEdit={() =>
+                        router.push(`/admin/flows/builder?id=${flow.id}`)
+                      }
+                      onDelete={() => void deleteFlow(flow)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -617,168 +549,6 @@ export default function FlowsList({ data }: EtViewProps) {
           router.push(`/admin/flows/builder?id=${flow.id}`);
         }}
       />
-
-      <Dialog
-        open={secretState !== null}
-        onOpenChange={(open) => {
-          if (!open) setSecretState(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Webhook secret rotated</DialogTitle>
-            <DialogDescription>
-              Copy this secret now. Only its hash is stored and it cannot be
-              shown again.
-            </DialogDescription>
-          </DialogHeader>
-          {secretState ? (
-            <div className="space-y-4">
-              <div className="grid gap-1.5">
-                <span className="text-xs font-semibold">Webhook URL</span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={secretState.url ?? ""}
-                    className="h-10 font-mono text-xs"
-                  />
-                  <CopyButton value={secretState.url ?? ""} />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <span className="text-xs font-semibold">Secret</span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={secretState.secret}
-                    className="h-10 font-mono text-xs"
-                  />
-                  <CopyButton value={secretState.secret} />
-                </div>
-              </div>
-              <Notice icon={AlertTriangle} tone="warning">
-                Callers must send this value in the{" "}
-                <span className="font-mono">x-et-flow-secret</span> header or as
-                a Bearer token.
-              </Notice>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={logsFlow !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setLogsFlow(null);
-            setRunDetail(null);
-            setRuns([]);
-          }
-        }}
-      >
-        <DialogContent className="grid max-h-[90vh] grid-rows-[auto_minmax(0,1fr)] gap-4 sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="size-4" /> Activity &amp; logs
-              {logsFlow ? (
-                <span className="text-muted-foreground">· {logsFlow.name}</span>
-              ) : null}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            <div className="min-h-36 overflow-y-auto rounded-lg border border-border">
-              {logsLoading ? (
-                <div className="grid h-32 place-items-center text-sm text-muted-foreground">
-                  <Loader2 className="size-5 animate-spin" />
-                </div>
-              ) : runs.length === 0 ? (
-                <div className="grid h-32 place-items-center px-4 text-center text-sm text-muted-foreground">
-                  No runs yet. Use Run now or trigger the flow.
-                </div>
-              ) : (
-                runs.map((run) => (
-                  <button
-                    key={run.id}
-                    type="button"
-                    onClick={() => void openRunDetail(run)}
-                    className={cn(
-                      "flex w-full flex-wrap items-center gap-2 border-b border-border px-3 py-2.5 text-left text-xs last:border-b-0 hover:bg-muted/60",
-                      runDetail?.run.id === run.id && "bg-muted"
-                    )}
-                  >
-                    <RunStatusBadge status={run.status} />
-                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                      {format_datetime(run.started_at)}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {format_duration(run.duration_ms)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="min-h-0 overflow-y-auto rounded-lg border border-border p-3">
-              {detailLoading ? (
-                <div className="grid h-32 place-items-center">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : runDetail ? (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <RunStatusBadge status={runDetail.run.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {format_datetime(runDetail.run.started_at)} ·{" "}
-                      {format_duration(runDetail.run.duration_ms)}
-                    </span>
-                  </div>
-                  {runDetail.run.error ? (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-                      {runDetail.run.error}
-                    </div>
-                  ) : null}
-                  {runDetail.steps.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No step details recorded.
-                    </p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {runDetail.steps.map((step) => (
-                        <li
-                          key={step.id}
-                          className="rounded-md border border-border bg-card p-2.5"
-                        >
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="font-mono font-semibold">
-                              {step.key}
-                            </span>
-                            <Badge variant="outline">{step.type}</Badge>
-                            <RunStatusBadge status={step.status} />
-                            <span className="ml-auto tabular-nums text-muted-foreground">
-                              {format_duration(step.duration_ms)}
-                            </span>
-                          </div>
-                          {step.error ? (
-                            <p className="mt-1 text-xs text-destructive">
-                              {step.error}
-                            </p>
-                          ) : null}
-                          <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
-                            {JSON.stringify(step.output, null, 2)}
-                          </pre>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Select a run to inspect each step.
-                </p>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {confirm_dialog}
     </div>

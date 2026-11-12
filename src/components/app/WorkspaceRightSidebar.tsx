@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type {
   CmsCollectionWithFields,
   CmsField,
@@ -34,7 +35,7 @@ interface DataSnapshot {
   pages?: number;
 }
 
-export function WorkspaceRightSidebar() {
+export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [collections, setCollections] = useState<CmsCollectionWithFields[]>([]);
   const [collectionName, setCollectionName] = useState("");
   const [loadingCollections, setLoadingCollections] = useState(true);
@@ -224,6 +225,39 @@ export function WorkspaceRightSidebar() {
     },
     [collection, loadCollections]
   );
+
+  if (collapsed) {
+    return (
+      <div className="flex h-full w-full flex-col items-center bg-assistant-sidebar py-2">
+        <button
+          type="button"
+          className={cn(
+            "grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70",
+            section === "data" && "bg-muted"
+          )}
+          aria-label="Open data tools"
+          aria-pressed={section === "data"}
+          title="Data tools"
+          onClick={() => setSection("data")}
+        >
+          <Database className="size-4" />
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "mt-auto grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70",
+            section === "assistant" && "bg-muted"
+          )}
+          aria-label="Open AI assistant"
+          aria-pressed={section === "assistant"}
+          title="AI Assistant"
+          onClick={() => setSection("assistant")}
+        >
+          <Sparkles className="size-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-assistant-sidebar text-foreground">

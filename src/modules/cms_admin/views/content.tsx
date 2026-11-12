@@ -40,7 +40,6 @@ import {
   MapPin,
   Pencil,
   Plus,
-  RefreshCw,
   SquarePlus,
   Sparkles,
   Table2,
@@ -50,6 +49,7 @@ import { toast } from "sonner";
 import {
   PageActionsPortal,
   PageRightSidebarPortal,
+  usePageRightSidebar,
   useSetNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { useConfirm } from "@/components/app/ConfirmDialog";
@@ -134,7 +134,7 @@ interface Snapshot {
 
 type DisplayLayout = "table" | "cards" | "calendar" | "kanban" | "map";
 type CalendarView = "month" | "week" | "day" | "list";
-type SidebarSection = "layout" | "refresh" | "import" | "assistant";
+type SidebarSection = "layout" | "import" | "assistant";
 type ColumnAlignment = "left" | "center" | "right";
 
 const display_layouts: {
@@ -447,7 +447,10 @@ export default function ContentManager({ data }: EtViewProps) {
   const [cardSubtitleFieldNames, setCardSubtitleFieldNames] = useState<
     string[] | null
   >(null);
-  const [viewPanelCollapsed, setViewPanelCollapsed] = useState(true);
+  const {
+    collapsed: viewPanelCollapsed,
+    setCollapsed: setViewPanelCollapsed,
+  } = usePageRightSidebar();
   const [sidebarSection, setSidebarSection] = useState<SidebarSection>("layout");
   useEffect(() => {
     if (
@@ -455,7 +458,6 @@ export default function ContentManager({ data }: EtViewProps) {
       previousDisplayLayout.current !== "map"
     ) {
       setSidebarSection("layout");
-      setViewPanelCollapsed(false);
     }
     previousDisplayLayout.current = displayLayout;
   }, [displayLayout]);
@@ -524,7 +526,6 @@ export default function ContentManager({ data }: EtViewProps) {
     }
     if (layout === "map") {
       setSidebarSection("layout");
-      setViewPanelCollapsed(false);
     }
   };
 
@@ -1245,7 +1246,7 @@ export default function ContentManager({ data }: EtViewProps) {
   const openSidebarSection = useCallback((section: SidebarSection) => {
     setSidebarSection(section);
     setViewPanelCollapsed(false);
-  }, []);
+  }, [setViewPanelCollapsed]);
 
   const exportCurrentPage = useCallback(() => {
     if (!selected) return;
@@ -1393,7 +1394,15 @@ export default function ContentManager({ data }: EtViewProps) {
       search: searchControl,
       pageSidebar,
       rightSidebar: viewMode === "table",
-      rightSidebarCollapsed: viewPanelCollapsed,
+      refresh: viewMode === "table"
+        ? {
+            label: "Refresh content",
+            onRefresh: () => {
+              void refresh(selected.name, page, search, filterGroup, columnSort);
+            },
+            busy,
+          }
+        : undefined,
     };
   }, [
     busy,
@@ -1404,15 +1413,18 @@ export default function ContentManager({ data }: EtViewProps) {
     collections,
     editingRecord,
     filterGroup,
+    columnSort,
+    page,
+    refresh,
     removeFilterNode,
     reorderFilterNodes,
+    search,
     setFilterGroupJunction,
     searchInput,
     selectCollection,
     selected,
     submitSearch,
     visibleFields,
-    viewPanelCollapsed,
     viewMode,
   ]);
 
@@ -2947,15 +2959,6 @@ export default function ContentManager({ data }: EtViewProps) {
               <button
                 type="button"
                 className="grid size-12 place-items-center border-t border-border text-foreground transition-colors hover:bg-muted/70"
-                aria-label="Refresh content"
-                title="Auto Refresh"
-                onClick={() => openSidebarSection("refresh")}
-              >
-                <RefreshCw className={cn("size-4", busy && "animate-spin")} strokeWidth={2.5} />
-              </button>
-              <button
-                type="button"
-                className="grid size-12 place-items-center border-t border-border text-foreground transition-colors hover:bg-muted/70"
                 aria-label="Open import and export options"
                 title="Import / Export"
                 onClick={() => openSidebarSection("import")}
@@ -2978,8 +2981,6 @@ export default function ContentManager({ data }: EtViewProps) {
             <div className="flex min-w-0 items-center gap-2">
               {sidebarSection === "layout" ? (
                 <Layers className="size-4 shrink-0 text-muted-foreground" />
-              ) : sidebarSection === "refresh" ? (
-                <RefreshCw className="size-4 shrink-0 text-muted-foreground" />
               ) : sidebarSection === "import" ? (
                 <ArrowDownUp className="size-4 shrink-0 text-muted-foreground" />
               ) : (
@@ -2988,23 +2989,11 @@ export default function ContentManager({ data }: EtViewProps) {
               <h2 className="truncate text-sm font-semibold">
                 {sidebarSection === "layout"
                   ? "Layout Options"
-                  : sidebarSection === "refresh"
-                    ? "Auto Refresh"
-                    : sidebarSection === "import"
-                      ? "Import / Export"
-                      : "AI Assistant"}
+                  : sidebarSection === "import"
+                    ? "Import / Export"
+                    : "AI Assistant"}
               </h2>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Collapse right sidebar"
-              title="Collapse right sidebar"
-              onClick={() => setViewPanelCollapsed(true)}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
           </div>
           {sidebarSection === "layout" ? (
           <div className="cms-sidebar-scroll cms-layout-options min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
@@ -3364,21 +3353,6 @@ export default function ContentManager({ data }: EtViewProps) {
           </section>
 
           </div>
-          ) : sidebarSection === "refresh" ? (
-            <section className="flex flex-1 flex-col gap-3 p-4">
-              <p className="text-sm text-muted-foreground">
-                Reload the current collection and page to get the latest records.
-              </p>
-              <Button
-                type="button"
-                className="w-full"
-                disabled={busy}
-                onClick={() => void refresh(selected.name, page, search)}
-              >
-                <RefreshCw className={cn("size-4", busy && "animate-spin")} />
-                Refresh content
-              </Button>
-            </section>
           ) : sidebarSection === "import" ? (
             <section className="flex flex-1 flex-col gap-4 p-4">
               <div className="space-y-2">

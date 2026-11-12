@@ -14,6 +14,7 @@ import {
   PageActionsSlot,
   PageRightSidebarSlot,
   usePageNavbarMeta,
+  usePageRightSidebar,
 } from "@/components/app/PageActionsSlot";
 import { WorkspaceRightSidebar } from "@/components/app/WorkspaceRightSidebar";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ import {
   PanelLeft,
   PanelRight,
   Rabbit,
+  RefreshCw,
   Settings2,
   Shapes,
   Shield,
@@ -238,10 +240,65 @@ function TopHeader({
               {navbarMeta.search}
             </div>
           ) : null}
+          {navbarMeta?.refresh ? (
+            <button
+              type="button"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={navbarMeta.refresh.label}
+              title={navbarMeta.refresh.label}
+              disabled={navbarMeta.refresh.busy}
+              onClick={navbarMeta.refresh.onRefresh}
+            >
+              <RefreshCw
+                className={`size-4 ${navbarMeta.refresh.busy ? "animate-spin" : ""}`}
+                strokeWidth={1.75}
+              />
+            </button>
+          ) : null}
           <PageActionsSlot className="flex items-center gap-2 empty:hidden" />
         </div>
       </div>
     </header>
+  );
+}
+
+function RightSidebar({ contentPage }: { contentPage: boolean }) {
+  const navbarMeta = usePageNavbarMeta();
+  const { collapsed, setCollapsed } = usePageRightSidebar();
+
+  return (
+    <aside
+      className={cn(
+        "sticky top-0 hidden h-screen shrink-0 flex-col border-l border-border bg-sidebar lg:flex",
+        collapsed ? "w-14" : "w-64"
+      )}
+    >
+      <div className="flex h-10 shrink-0 items-center border-b border-border px-2">
+        <button
+          type="button"
+          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={collapsed ? "Show right sidebar" : "Hide right sidebar"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Show right sidebar" : "Hide right sidebar"}
+          onClick={() => setCollapsed((current) => !current)}
+        >
+          {collapsed ? (
+            <PanelLeft className="size-4" strokeWidth={1.75} />
+          ) : (
+            <PanelRight className="size-4" strokeWidth={1.75} />
+          )}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        {contentPage && !navbarMeta ? (
+          <div className="h-full w-full bg-assistant-sidebar" />
+        ) : navbarMeta?.rightSidebar ? (
+          <PageRightSidebarSlot />
+        ) : (
+          <WorkspaceRightSidebar collapsed={collapsed} />
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -504,7 +561,7 @@ export function AdminTemplate({
   );
 
   return (
-    <PageActionsProvider>
+    <PageActionsProvider pageKey={current_path}>
       <div
         data-theme={theme}
         className={cn(
@@ -561,22 +618,7 @@ export function AdminTemplate({
             </main>
           </div>
 
-          <aside
-            className={cn(
-              "sticky top-0 hidden h-screen shrink-0 border-l border-border bg-sidebar lg:flex",
-              navbarMeta?.rightSidebarCollapsed || (contentPage && !navbarMeta)
-                ? "w-14"
-                : "w-64",
-            )}
-          >
-            {contentPage && !navbarMeta ? (
-              <div className="h-full w-full bg-assistant-sidebar" />
-            ) : navbarMeta?.rightSidebar ? (
-              <PageRightSidebarSlot />
-            ) : (
-              <WorkspaceRightSidebar />
-            )}
-          </aside>
+          <RightSidebar contentPage={contentPage} />
         </div>
 
         {mobileOpen ? (
