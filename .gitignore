@@ -39,6 +39,7 @@ yarn-error.log*
 
 # desktop-managed runtime state
 /data/settings/runtime.json
+/data/settings/flows-secret
 /.eterc/
 /public/uploads/
 

@@ -84,21 +84,32 @@ export function flow_health(): {
     database: { ok: db.dialect === "sqlite", message: "SQLite connection" },
     flows,
     scheduler: {
-      running: Boolean(
-        (globalThis as unknown as { __etFlowScheduler?: unknown }).__etFlowScheduler
-      ),
-      last_tick_at: scheduler_last_tick,
+      running: Boolean(scheduler_state().__etFlowScheduler),
+      last_tick_at: scheduler_state().__etFlowSchedulerLastTick ?? null,
     },
     checks,
   };
 }
 
-let scheduler_last_tick: number | null = null;
+interface SchedulerState {
+  __etFlowScheduler?: ReturnType<typeof setInterval>;
+  __etFlowSchedulerStarted?: boolean;
+  __etFlowSchedulerLastTick?: number | null;
+  __etFlowSchedulerTicking?: boolean;
+}
+
+function scheduler_state(): SchedulerState {
+  return globalThis as unknown as SchedulerState;
+}
+
 let last_cleanup = 0;
 
 async function tick(): Promise<void> {
   if (!flows_enabled()) return;
-  scheduler_last_tick = Math.floor(Date.now() / 1000);
+  const state = scheduler_state();
+  if (state.__etFlowSchedulerTicking) return;
+  state.__etFlowSchedulerTicking = true;
+  state.__etFlowSchedulerLastTick = Math.floor(Date.now() / 1000);
   try {
     tick_schedules();
     await drain_flow_queue(10);
@@ -109,6 +120,8 @@ async function tick(): Promise<void> {
     }
   } catch (error) {
     console.error("[eterc] flow scheduler tick failed", error);
+  } finally {
+    state.__etFlowSchedulerTicking = false;
   }
 }
 

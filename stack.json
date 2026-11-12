@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "framework": {
     "provider": "nextjs",
     "values": {}
@@ -28,6 +28,10 @@
   },
   "storage": {
     "provider": "local",
+    "values": {}
+  },
+  "automation": {
+    "provider": "embedded",
     "values": {}
   },
   "deployment": {

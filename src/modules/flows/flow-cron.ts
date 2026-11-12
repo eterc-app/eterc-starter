@@ -139,9 +139,17 @@ export function next_cron_run(
   candidate.setUTCSeconds(0, 0);
   candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
 
+  // An empty set means the field was `*`/`?`, which matches every value.
+  const months_match = (value: number) =>
+    parsed.months.size === 0 || parsed.months.has(value);
+  const hours_match = (value: number) =>
+    parsed.hours.size === 0 || parsed.hours.has(value);
+  const minutes_match = (value: number) =>
+    parsed.minutes.size === 0 || parsed.minutes.has(value);
+
   const limit = 366 * 2 * 24 * 60;
   for (let i = 0; i < limit; i += 1) {
-    if (!parsed.months.has(candidate.getUTCMonth() + 1)) {
+    if (!months_match(candidate.getUTCMonth() + 1)) {
       candidate.setUTCMonth(candidate.getUTCMonth() + 1, 1);
       candidate.setUTCHours(0, 0, 0, 0);
       continue;
@@ -151,11 +159,11 @@ export function next_cron_run(
       candidate.setUTCHours(0, 0, 0, 0);
       continue;
     }
-    if (!parsed.hours.has(candidate.getUTCHours())) {
+    if (!hours_match(candidate.getUTCHours())) {
       candidate.setUTCHours(candidate.getUTCHours() + 1, 0, 0, 0);
       continue;
     }
-    if (!parsed.minutes.has(candidate.getUTCMinutes())) {
+    if (!minutes_match(candidate.getUTCMinutes())) {
       candidate.setUTCMinutes(candidate.getUTCMinutes() + 1, 0, 0);
       continue;
     }

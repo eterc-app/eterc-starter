@@ -846,14 +846,15 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             reject: null,
           },
         };
-        const updated = selected && !selected.data.resolve
-          ? current.map((node) =>
-              node.id === selected.id
-                ? { ...node, data: { ...node.data, resolve: id } }
-                : node
-            )
-          : current;
-        return [...updated, next];
+        const updated = current.map((node) => ({
+          ...node,
+          selected: false,
+          data:
+            selected && !selected.data.resolve && node.id === selected.id
+              ? { ...node.data, resolve: id }
+              : node.data,
+        }));
+        return [...updated, { ...next, selected: true }];
       });
 
       const selected = nodes.find((node) => node.id === selected_id);
@@ -1191,7 +1192,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             <Badge variant="outline">rev {revision}</Badge>
             {dirty ? <Badge variant="warning">Unsaved</Badge> : null}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground" suppressHydrationWarning>
             {flow.description || "No description."} · Updated{" "}
             {format_relative(current_flow.updated_at)}
           </p>
@@ -1922,11 +1923,15 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Last run</dt>
-                <dd>{format_relative(current_flow.last_run_at)}</dd>
+                <dd suppressHydrationWarning>
+                  {format_relative(current_flow.last_run_at)}
+                </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Next run</dt>
-                <dd>{format_datetime(current_flow.next_run_at)}</dd>
+                <dd suppressHydrationWarning>
+                  {format_datetime(current_flow.next_run_at)}
+                </dd>
               </div>
             </dl>
           </section>

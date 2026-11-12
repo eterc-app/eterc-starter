@@ -571,7 +571,7 @@ export default function FlowsList({ data }: EtViewProps) {
           icon={<Clock3 className="size-3.5" />}
           label="Last run"
           value={
-            <span className="text-base font-semibold">
+            <span className="text-base font-semibold" suppressHydrationWarning>
               {format_relative(payload.health.last_run_at)}
             </span>
           }
@@ -651,10 +651,14 @@ export default function FlowsList({ data }: EtViewProps) {
                   {flow.description || "No description."}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>Updated {format_relative(flow.updated_at)}</span>
-                  <span>Last run {format_relative(flow.last_run_at)}</span>
+                  <span suppressHydrationWarning>
+                    Updated {format_relative(flow.updated_at)}
+                  </span>
+                  <span suppressHydrationWarning>
+                    Last run {format_relative(flow.last_run_at)}
+                  </span>
                   {flow.trigger === "schedule" && flow.next_run_at ? (
-                    <span>
+                    <span suppressHydrationWarning>
                       Next run {format_datetime(flow.next_run_at)}
                     </span>
                   ) : null}

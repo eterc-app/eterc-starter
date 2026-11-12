@@ -225,7 +225,9 @@ async function condition(
       reject_reason: "The condition did not match.",
     };
   }
-  return { output: { passed: true } };
+  // Directus-style pass-through: a passing condition keeps the incoming data
+  // so the next operation can continue with $last unchanged.
+  return { output: target };
 }
 
 async function trigger_flow(

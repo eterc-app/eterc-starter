@@ -145,6 +145,7 @@ export default class Flows_admin extends Eterc {
   private flow_list_payload() {
     const runtime = flow_runtime_mode();
     const origin = this.origin();
+    const health = flow_health();
     return {
       flows: list_flows().map((flow) => ({
         ...flow,
@@ -154,7 +155,10 @@ export default class Flows_admin extends Eterc {
             : null,
       })),
       runtime,
-      health: flow_health(),
+      health: {
+        ok: health.ok,
+        ...health.flows,
+      },
     };
   }
 
