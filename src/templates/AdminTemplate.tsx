@@ -70,7 +70,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { href: "/admin/content", label: "Content", icon: Layers },
       { href: "/admin/data", label: "Data Model", ariaLabel: "Data Studio", icon: Database },
       { href: "/admin/media", label: "Media library", icon: ImageIcon },
-      { href: "#", label: "Flows", icon: Zap },
+      { href: "/admin/flows", label: "Flows", icon: Zap },
     ],
   },
   {
