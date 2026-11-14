@@ -14,7 +14,6 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
 import { useConfirm } from "@/components/app/ConfirmDialog";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Notice } from "@/components/app/Notice";
@@ -46,6 +45,8 @@ import { FLOW_STATUSES, FLOW_TRIGGERS, TRIGGER_LABELS } from "@/modules/flows/fl
 import { FlowWizard } from "./FlowWizard";
 import {
   FlowIcon,
+  flow_toast_error,
+  flow_toast_success,
   flows_call,
 } from "./flow-ui";
 
@@ -246,7 +247,7 @@ export default function FlowsList({ data }: EtViewProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { confirm, dialog: confirm_dialog } = useConfirm();
+  const { confirm, dialog: confirm_dialog } = useConfirm("drawer");
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -254,7 +255,7 @@ export default function FlowsList({ data }: EtViewProps) {
       const next = await flows_call<ListPayload>("list_state");
       setPayload(next);
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not refresh flows."
       );
     } finally {
@@ -307,10 +308,10 @@ export default function FlowsList({ data }: EtViewProps) {
       setBusy(flow.id);
       try {
         await flows_call("set_status", { id: flow.id, status: "inactive" });
-        toast.success(`"${flow.name}" is now inactive.`);
+        flow_toast_success(`"${flow.name}" is now inactive.`);
         await refresh();
       } catch (error) {
-        toast.error(
+        flow_toast_error(
           error instanceof Error ? error.message : "Could not deactivate the flow."
         );
       } finally {
@@ -337,10 +338,10 @@ export default function FlowsList({ data }: EtViewProps) {
       setBusy(flow.id);
       try {
         await flows_call("delete_flow", { id: flow.id });
-        toast.success(`Deleted "${flow.name}".`);
+        flow_toast_success(`Deleted "${flow.name}".`);
         await refresh();
       } catch (error) {
-        toast.error(
+        flow_toast_error(
           error instanceof Error ? error.message : "Could not delete the flow."
         );
       } finally {
@@ -367,10 +368,7 @@ export default function FlowsList({ data }: EtViewProps) {
       </PageActionsPortal>
 
       {runtimeBlocked ? (
-        <Notice
-          icon={AlertTriangle}
-          tone={payload.runtime.enabled ? "warning" : "destructive"}
-        >
+        <Notice icon={AlertTriangle}>
           <p className="font-semibold">
             {payload.runtime.enabled
               ? "This runtime is not ready for flows."
@@ -387,6 +385,7 @@ export default function FlowsList({ data }: EtViewProps) {
 
       {flows.length === 0 ? (
         <EmptyState
+          className="border-0 bg-transparent shadow-none"
           icon={<Zap className="size-5" strokeWidth={1.75} />}
           title={payload.flows.length === 0 ? "No flows yet" : "No matching flows"}
           description={

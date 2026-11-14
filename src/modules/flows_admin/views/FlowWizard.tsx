@@ -1,24 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Box,
   Check,
-  ChevronRight,
   Loader2,
   Lock,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
 import { CopyButton } from "@/modules/cms_admin/views/ui";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ColorPicker } from "@/components/ui/color-picker";
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,6 +21,10 @@ import { DynamicIcon } from "@/components/ui/dynamic-icon";
 import { IconPicker } from "@/components/ui/icon-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -40,7 +39,12 @@ import {
   TRIGGER_DEFINITIONS,
 } from "@/modules/flows/operation-catalog";
 import type { FlowRecord, FlowTrigger } from "@/modules/flows/flow-types";
-import { flows_call } from "./flow-ui";
+import {
+  FlowColorField,
+  flow_toast_error,
+  flow_toast_success,
+  flows_call,
+} from "./flow-ui";
 
 interface CollectionOption {
   name: string;
@@ -75,7 +79,7 @@ function FormField({
   hint,
   children,
 }: {
-  label: string;
+  label: ReactNode;
   htmlFor?: string;
   required?: boolean;
   hint?: string;
@@ -85,7 +89,7 @@ function FormField({
     <div className="grid gap-2">
       <Label htmlFor={htmlFor} className="text-sm font-semibold">
         {label}
-        {required ? <span className="text-destructive">*</span> : null}
+        {required ? <span className="text-foreground">*</span> : null}
       </Label>
       {children}
       {hint ? <p className="type-note text-xs text-muted-foreground">{hint}</p> : null}
@@ -121,6 +125,45 @@ function CheckOption({
   );
 }
 
+function ChoiceCard({
+  selected,
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  selected?: boolean;
+  icon?: string;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-h-14 w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors",
+        selected
+          ? "border-foreground bg-card"
+          : "border-border bg-card hover:bg-muted/40"
+      )}
+    >
+      {icon ? (
+        <span className="grid size-7 shrink-0 place-items-center rounded-full border border-border bg-muted">
+          <DynamicIcon name={icon} size={14} />
+        </span>
+      ) : null}
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold leading-5">{title}</span>
+        <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function ResponseChoice({
   value,
   onChange,
@@ -133,7 +176,7 @@ function ResponseChoice({
     { value: "all", label: "All Data" },
   ];
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid gap-2">
       {options.map((option) => {
         const selected = value === option.value;
         return (
@@ -144,7 +187,7 @@ function ResponseChoice({
             className={cn(
               "flex items-center gap-2.5 rounded-lg border p-3 text-left text-sm transition-colors",
               selected
-                ? "border-foreground bg-surface-subtle"
+                ? "border-foreground bg-card"
                 : "border-border bg-card hover:bg-muted/40"
             )}
           >
@@ -171,7 +214,7 @@ function ResponseChoice({
         className={cn(
           "flex items-center gap-2.5 rounded-lg border border-dashed p-3 text-left text-sm transition-colors",
           value === "other"
-            ? "border-foreground bg-surface-subtle"
+            ? "border-foreground bg-card"
             : "border-border bg-card text-muted-foreground hover:bg-muted/40"
         )}
       >
@@ -191,7 +234,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("inactive");
   const [icon, setIcon] = useState("zap");
-  const [color, setColor] = useState("#000000");
+  const [color, setColor] = useState("var(--foreground)");
   const [accountability, setAccountability] = useState<Accountability>("all");
 
   const [eventType, setEventType] = useState<"filter" | "action">("filter");
@@ -234,7 +277,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
     setDescription("");
     setStatus("inactive");
     setIcon("zap");
-    setColor("#000000");
+    setColor("var(--foreground)");
     setAccountability("all");
     setEventType("filter");
     setEventCollections([]);
@@ -361,12 +404,10 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
     manualLocations,
   ]);
 
-  const validationError = validate();
-
   const create = useCallback(async () => {
     const error = validate();
     if (error || !trigger) {
-      toast.error(error ?? "Choose what starts this flow.");
+      flow_toast_error(error ?? "Choose what starts this flow.");
       return;
     }
     setCreating(true);
@@ -385,12 +426,12 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
         setCreated(result);
         setStep("secret");
       } else {
-        toast.success("Flow created. Add your first operation.");
+        flow_toast_success("Flow created. Add your first operation.");
         onCreated(result.flow, null, result.webhook_url);
         close(false);
       }
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Could not create the flow.");
+      flow_toast_error(cause instanceof Error ? cause.message : "Could not create the flow.");
     } finally {
       setCreating(false);
     }
@@ -415,9 +456,11 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
   }, [created, onCreated, close]);
 
   const collectionList = (
-    <div className="grid max-h-48 gap-1 overflow-y-auto rounded-lg border border-border bg-surface-subtle p-2 sm:grid-cols-2">
+    <div className="grid max-h-96 gap-2 overflow-y-auto pr-1">
       {collections.length === 0 ? (
-        <p className="p-2 text-xs text-muted-foreground">No collections yet.</p>
+        <p className="rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
+          No collections yet.
+        </p>
       ) : (
         collections.map((collection) => {
           const checked =
@@ -427,7 +470,12 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
           return (
             <label
               key={collection.name}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+              className={cn(
+                "flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-lg border bg-card px-3 py-3 text-sm transition-colors",
+                checked
+                  ? "border-foreground"
+                  : "border-border hover:bg-muted/40"
+              )}
             >
               <Checkbox
                 checked={checked}
@@ -446,11 +494,8 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
   );
 
   const stepRail = (
-    <aside className="hidden border-r border-border bg-surface-subtle p-3 md:flex md:flex-col">
-      <div className="px-2 pb-3 pt-1 text-xs font-semibold text-muted-foreground">
-        New flow
-      </div>
-      <nav className="space-y-1" aria-label="Flow setup steps">
+    <aside className="hidden border-r border-border bg-card p-3 md:flex md:flex-col">
+      <nav className="space-y-1" aria-label="Flow setup sections">
         {(
           [
             { id: "setup" as const, label: "Flow Setup" },
@@ -462,116 +507,91 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
             type="button"
             onClick={() => setStep(entry.id)}
             className={cn(
-              "flex h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm font-medium transition-colors",
+              "flex h-9 w-full items-center rounded-lg px-3 text-left text-sm font-medium transition-colors",
               step === entry.id
-                ? "border border-border bg-card text-foreground"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                ? "border border-border bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
           >
             {entry.label}
-            {step === entry.id ? <ChevronRight className="size-3.5" /> : null}
           </button>
         ))}
       </nav>
-      <div className="mt-auto pt-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => close(false)}
-        >
-          <ArrowLeft />
-          Cancel
-        </Button>
-      </div>
     </aside>
   );
 
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent
-        className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-5xl"
+    <Sheet open={open} onOpenChange={close}>
+      <SheetContent
+        className="w-full max-w-[760px] gap-0 p-0"
         showCloseButton={false}
       >
-        <div className="grid min-h-[620px] grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[198px_minmax(0,1fr)]">
           {step === "secret" ? null : stepRail}
 
-          <div className="flex min-h-0 flex-col">
-            <header className="flex items-center gap-3 border-b border-border px-5 py-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-surface-subtle text-foreground">
+          <div className="flex min-h-0 flex-col bg-background">
+            <header className="flex items-center gap-2.5 border-b border-border bg-card px-4 py-2.5">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-muted text-foreground">
                 {step === "secret" ? (
-                  <Lock className="size-4" />
+                  <Lock className="size-3.5" />
                 ) : triggerDefinition ? (
-                  <DynamicIcon name={triggerDefinition.icon} size={20} />
+                  <DynamicIcon name={triggerDefinition.icon} size={16} />
                 ) : (
-                  <Box className="size-4" />
+                  <Box className="size-3.5" />
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <DialogTitle className="truncate text-lg font-semibold">
+                <DialogTitle className="truncate text-xs font-semibold">
                   {step === "secret" ? "Save your webhook secret" : "Creating New Flow"}
                 </DialogTitle>
                 <DialogDescription className="truncate text-xs text-muted-foreground">
                   {step === "setup"
                     ? "Name the flow and choose how it is presented."
                     : step === "trigger"
-                      ? triggerDefinition?.description ??
-                        "Choose what starts this automation."
+                      ? "Configure what starts this automation."
                       : "This secret is shown once. Store it before continuing."}
                 </DialogDescription>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {step === "setup" ? (
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    title="Continue to trigger setup"
-                    aria-label="Continue to trigger setup"
-                    onClick={() => setStep("trigger")}
-                  >
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-                {step === "trigger" ? (
-                  <Button
-                    size="icon"
-                    title="Create flow"
-                    aria-label="Create flow"
-                    disabled={Boolean(validationError) || creating}
-                    onClick={() => void create()}
-                  >
-                    {creating ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Check className="size-4" />
-                    )}
-                  </Button>
-                ) : null}
                 {step === "secret" ? (
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     title="Open the builder"
                     aria-label="Open the builder"
                     onClick={openBuilder}
                   >
-                    <ArrowRight className="size-4" />
+                    <ArrowRight className="size-3.5" />
                   </Button>
-                ) : null}
+                ) : (
+                  <Button
+                    size="icon-sm"
+                    title="Save flow"
+                    aria-label="Save flow"
+                    disabled={creating}
+                    onClick={() => void create()}
+                  >
+                    {creating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Check className="size-3.5" />
+                    )}
+                  </Button>
+                )}
                 <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Close"
-                  aria-label="Close"
+                  size="icon-sm"
+                  variant="outline"
+                  title="Cancel and close"
+                  aria-label="Cancel and close"
                   onClick={() => close(false)}
                 >
-                  <X className="size-4" />
+                  <X className="size-3.5" />
                 </Button>
               </div>
             </header>
 
-            <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">
+            <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {step !== "secret" ? (
-                <div className="mb-4 flex gap-2 md:hidden">
+                <div className="mb-4 grid gap-2 md:hidden">
                   {(
                     [
                       { id: "setup" as const, label: "Flow Setup" },
@@ -585,7 +605,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
                       className={cn(
                         "flex-1 rounded-lg border px-3 py-2 text-xs font-semibold",
                         step === entry.id
-                          ? "border-foreground bg-surface-subtle"
+                          ? "border-foreground bg-card"
                           : "border-border text-muted-foreground"
                       )}
                     >
@@ -597,7 +617,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
 
               {step === "setup" ? (
                 <div className="grid gap-5">
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-5">
                     <FormField label="Name" htmlFor="flow-name" required>
                       <Input
                         id="flow-name"
@@ -633,12 +653,17 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
                     />
                   </FormField>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-5">
                     <FormField label="Icon">
-                      <IconPicker value={icon} onChange={setIcon} color={color} />
+                      <IconPicker
+                        value={icon}
+                        onChange={setIcon}
+                        color={color}
+                        presentation="drawer"
+                      />
                     </FormField>
                     <FormField label="Color">
-                      <ColorPicker value={color} onChange={setColor} />
+                      <FlowColorField value={color} onChange={setColor} />
                     </FormField>
                   </div>
 
@@ -665,105 +690,128 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
               {step === "trigger" ? (
                 <div className="grid gap-4">
                   {trigger === null ? (
-                    <div className="grid gap-2.5">
+                    <div className="grid auto-rows-fr gap-2.5">
                       {TRIGGER_DEFINITIONS.map((definition) => (
-                        <button
+                        <ChoiceCard
                           key={definition.type}
-                          type="button"
+                          icon={definition.icon}
+                          title={definition.label}
+                          description={definition.description}
                           onClick={() => setTrigger(definition.type)}
-                          className="flex items-start gap-3.5 rounded-xl bg-surface-subtle p-4 text-left transition-colors hover:bg-muted"
-                        >
-                          <span className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-card">
-                            <DynamicIcon name={definition.icon} size={18} />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold">
-                              {definition.label}
-                            </span>
-                            <span className="mt-0.5 block text-sm leading-5 text-muted-foreground">
-                              {definition.description}
-                            </span>
-                          </span>
-                        </button>
+                        />
                       ))}
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-3.5 rounded-xl border border-foreground bg-surface-subtle p-4">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-card">
-                          <DynamicIcon name={triggerDefinition?.icon ?? "zap"} size={18} />
+                      <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-muted">
+                          <DynamicIcon name={triggerDefinition?.icon ?? "zap"} size={16} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-semibold">
                             {triggerDefinition?.label}
                           </span>
-                          <span className="mt-0.5 block text-sm leading-5 text-muted-foreground">
+                          <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                             {triggerDefinition?.description}
                           </span>
                         </span>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          title="Choose a different trigger"
-                          aria-label="Choose a different trigger"
+                        <button
+                          type="button"
                           onClick={() => setTrigger(null)}
+                          className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                         >
-                          <X className="size-4" />
-                        </Button>
+                          Change
+                        </button>
                       </div>
 
                       {trigger === "event" ? (
                         <div className="grid gap-4">
                           <div className="grid gap-2">
-                            <Label className="text-sm font-semibold">Type</Label>
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <Label className="text-sm font-semibold">Event type</Label>
+                            <div className="grid auto-rows-fr gap-2">
                               {[
                                 {
                                   value: "filter" as const,
+                                  icon: "filter",
                                   title: "Filter (Blocking)",
                                   body: "Runs before the write and can block it.",
                                 },
                                 {
                                   value: "action" as const,
+                                  icon: "zap",
                                   title: "Action (Non-Blocking)",
                                   body: "Runs after the write, without slowing the request.",
                                 },
                               ].map((option) => (
-                                <button
+                                <ChoiceCard
                                   key={option.value}
-                                  type="button"
+                                  icon={option.icon}
+                                  title={option.title}
+                                  description={option.body}
+                                  selected={eventType === option.value}
                                   onClick={() => setEventType(option.value)}
-                                  className={cn(
-                                    "rounded-lg border p-3 text-left text-sm transition-colors",
-                                    eventType === option.value
-                                      ? "border-foreground bg-surface-subtle"
-                                      : "border-border bg-card hover:bg-muted/40"
-                                  )}
-                                >
-                                  <span className="block font-medium">{option.title}</span>
-                                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                                    {option.body}
-                                  </span>
-                                </button>
+                                />
                               ))}
                             </div>
                           </div>
-                          <FormField label="Collections" required>
+                          <FormField
+                            label={
+                              <span className="flex items-center gap-2">
+                                Collections
+                                <Badge variant="outline">
+                                  {eventCollections.length} selected
+                                </Badge>
+                              </span>
+                            }
+                            required
+                          >
                             {collectionList}
                           </FormField>
-                          <FormField label="Events" required>
-                            <div className="flex flex-wrap gap-4">
-                              {(["create", "update", "delete"] as const).map((action) => (
-                                <label key={action} className="flex items-center gap-2 text-sm capitalize">
-                                  <Checkbox
-                                    checked={eventActions.includes(action)}
-                                    onCheckedChange={() =>
-                                      setEventActions((current) => toggle(current, action))
-                                    }
-                                  />
-                                  {action}
-                                </label>
-                              ))}
+                          <FormField
+                            label={
+                              <span className="flex items-center gap-2">
+                                Events
+                                <Badge variant="outline">
+                                  {eventActions.length} selected
+                                </Badge>
+                              </span>
+                            }
+                            required
+                          >
+                            <div className="grid gap-2">
+                              {[
+                                { value: "create" as const, title: "Create" },
+                                { value: "update" as const, title: "Update" },
+                                { value: "delete" as const, title: "Delete" },
+                              ].map((option) => {
+                                const checked = eventActions.includes(option.value);
+                                return (
+                                  <label
+                                    key={option.value}
+                                    className={cn(
+                                      "flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border bg-card px-3 py-1.5 text-sm transition-colors",
+                                      checked
+                                        ? "border-foreground"
+                                        : "border-border hover:bg-muted/40"
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() =>
+                                        setEventActions((current) =>
+                                          toggle(current, option.value)
+                                        )
+                                      }
+                                    />
+                                    <span className="min-w-0 flex-1 font-semibold">
+                                      {option.title}
+                                    </span>
+                                    <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                      items.{option.value}
+                                    </span>
+                                  </label>
+                                );
+                              })}
                             </div>
                           </FormField>
                         </div>
@@ -771,7 +819,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
 
                       {trigger === "webhook" ? (
                         <div className="grid gap-4">
-                          <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="grid gap-4">
                             <FormField label="Method" htmlFor="webhook-method">
                               <Select value={webhookMethod} onValueChange={setWebhookMethod}>
                                 <SelectTrigger id="webhook-method" className="w-full">
@@ -824,7 +872,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
                             </FormField>
                           ) : null}
 
-                          <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="grid gap-2">
                             <CheckOption
                               checked={webhookCache}
                               onChange={setWebhookCache}
@@ -911,7 +959,7 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
                               ))}
                             </div>
                           </FormField>
-                          <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="grid gap-2">
                             <CheckOption
                               checked={manualSelection}
                               onChange={setManualSelection}
@@ -945,8 +993,8 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
               ) : null}
 
               {step === "secret" && created ? (
-                <div className="mx-auto grid max-w-xl gap-5 py-4">
-                  <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm">
+                <div className="grid gap-5 py-4">
+                  <div className="rounded-xl border border-border bg-card p-4 text-sm">
                     <p className="font-semibold">Copy this secret now.</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Eterc stores only a hash. You can rotate it later, but you cannot see this
@@ -976,15 +1024,9 @@ export function FlowWizard({ open, onOpenChange, collections, onCreated }: Wizar
                 </div>
               ) : null}
             </div>
-
-            {step === "trigger" && validationError ? (
-              <div className="border-t border-border px-5 py-3 text-xs text-warning md:px-6">
-                {validationError}
-              </div>
-            ) : null}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -1,6 +1,5 @@
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
 import { EMAIL_CONFIG } from "@/engine/config";
+import { activeEmailProvider } from "@/engine/active/email-provider";
 
 export interface EtercEmailConfig {
   smtp_host: string;
@@ -10,20 +9,20 @@ export interface EtercEmailConfig {
   smtp_secure: "ssl" | "tls" | "";
   smtp_from_name: string;
 }
+
 export interface EtercEmailParams {
   to_email: string;
   to_name?: string;
   subject: string;
   body_html: string;
   body_plain?: string;
-  /** Sender address override (default: EMAIL_CONFIG.smtp_user). */
+  /** Sender address override (default: provider configuration). */
   from_email?: string;
-  /** Sender display-name override (default: EMAIL_CONFIG.smtp_from_name). */
+  /** Sender display-name override (default: provider configuration). */
   from_name?: string;
   /** Optional Reply-To address. */
   reply_to?: string;
 }
-const SMTP_TIMEOUT_MS = 30_000;
 
 /** Named entities handled by the plain-text fallback (see decodeEntities). */
 const NAMED_ENTITIES: Record<string, string> = {
@@ -41,11 +40,11 @@ function warnMissingConfigOnce(): void {
   if (warnedAboutMissingConfig) return;
   warnedAboutMissingConfig = true;
   console.warn(
-    "[eterc_email] SMTP configuration is incomplete — set ET_SMTP_HOST, " +
-      "ET_SMTP_PORT, ET_SMTP_USER and ET_SMTP_PASS (see EMAIL_CONFIG in " +
-      "src/engine/config.ts). Outgoing email will be skipped in this environment."
+    "[eterc_email] No email provider is configured. Choose Resend or SMTP in " +
+      "Eterc Desktop and write the project .env before sending email.",
   );
 }
+
 function decodeEntities(value: string): string {
   return value.replace(
     /&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z][a-zA-Z0-9]*);/g,
@@ -59,12 +58,13 @@ function decodeEntities(value: string): string {
         return String.fromCodePoint(code);
       }
       return NAMED_ENTITIES[entity] ?? match;
-    }
+    },
   );
 }
 
 export class Eterc_email {
   readonly moduleName = "eterc_email";
+
   load_config(): EtercEmailConfig {
     return {
       smtp_host: EMAIL_CONFIG.smtp_host.trim(),
@@ -75,14 +75,11 @@ export class Eterc_email {
       smtp_from_name: EMAIL_CONFIG.smtp_from_name.trim(),
     };
   }
-  is_configured(config: EtercEmailConfig = this.load_config()): boolean {
-    return (
-      config.smtp_host !== "" &&
-      config.smtp_port > 0 &&
-      config.smtp_user !== "" &&
-      config.smtp_pass !== ""
-    );
+
+  is_configured(_config: EtercEmailConfig = this.load_config()): boolean {
+    return activeEmailProvider.isConfigured();
   }
+
   async send(params: EtercEmailParams): Promise<boolean> {
     const toEmail = (params.to_email ?? "").trim();
     const subject = params.subject ?? "";
@@ -92,44 +89,28 @@ export class Eterc_email {
       return false;
     }
 
-    const config = this.load_config();
-    if (!this.is_configured(config)) {
+    if (!activeEmailProvider.isConfigured()) {
       warnMissingConfigOnce();
       return false;
     }
 
-    const bodyPlain = params.body_plain ?? this.html_to_plain(bodyHtml);
-    const fromEmail = params.from_email?.trim() || config.smtp_user;
-    const fromName = params.from_name?.trim() || config.smtp_from_name;
-    const toName = params.to_name?.trim() ?? "";
+    const result = await activeEmailProvider.send({
+      to: toEmail,
+      subject,
+      html: bodyHtml,
+      text: params.body_plain ?? this.html_to_plain(bodyHtml),
+      from: params.from_email,
+      fromName: params.from_name,
+      replyTo: params.reply_to,
+    });
 
-    try {
-      await this.create_transport(config).sendMail({
-        from: fromName === "" ? fromEmail : { name: fromName, address: fromEmail },
-        to: toName === "" ? toEmail : { name: toName, address: toEmail },
-        replyTo: params.reply_to?.trim() || undefined,
-        subject,
-        text: bodyPlain,
-        html: bodyHtml,
-      });
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[eterc_email] Failed to send email to ${toEmail}: ${message}`);
+    if (!result.ok) {
+      console.error(
+        `[eterc_email] Failed to send email to ${toEmail}: ${result.error ?? "unknown error"}`,
+      );
       return false;
     }
-  }
-  protected create_transport(config: EtercEmailConfig): Transporter {
-    return nodemailer.createTransport({
-      host: config.smtp_host,
-      port: config.smtp_port,
-      secure: config.smtp_secure === "ssl",
-      requireTLS: config.smtp_secure === "tls",
-      auth: { user: config.smtp_user, pass: config.smtp_pass },
-      connectionTimeout: SMTP_TIMEOUT_MS,
-      greetingTimeout: SMTP_TIMEOUT_MS,
-      socketTimeout: SMTP_TIMEOUT_MS,
-    });
+    return true;
   }
 
   /** Convert HTML to plain text. */

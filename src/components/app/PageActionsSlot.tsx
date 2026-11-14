@@ -22,6 +22,7 @@ export interface PageNavbarMeta {
   search?: ReactNode;
   pageSidebar?: ReactNode;
   rightSidebar?: boolean;
+  rightSidebarPanel?: PageRightSidebarPanel;
   rightSidebarWidth?: "default" | "wide";
   rightSidebarHeader?: boolean;
   refresh?: {
@@ -31,9 +32,20 @@ export interface PageNavbarMeta {
   };
 }
 
+export interface PageRightSidebarPanel {
+  title: string;
+  icon: ReactNode;
+  active: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  content: ReactNode;
+}
+
 interface PageActionsContextValue {
   target: HTMLElement | null;
   setTarget: (target: HTMLElement | null) => void;
+  pageSidebarTarget: HTMLElement | null;
+  setPageSidebarTarget: (target: HTMLElement | null) => void;
   rightSidebarTarget: HTMLElement | null;
   setRightSidebarTarget: (target: HTMLElement | null) => void;
   rightSidebarCollapsed: boolean;
@@ -92,6 +104,7 @@ export function setGlobalNavbarMeta(meta: PageNavbarMeta | null) {
     currentNavbarMeta?.search === meta?.search &&
     currentNavbarMeta?.pageSidebar === meta?.pageSidebar &&
     currentNavbarMeta?.rightSidebar === meta?.rightSidebar &&
+    currentNavbarMeta?.rightSidebarPanel === meta?.rightSidebarPanel &&
     currentNavbarMeta?.rightSidebarWidth === meta?.rightSidebarWidth &&
     currentNavbarMeta?.rightSidebarHeader === meta?.rightSidebarHeader &&
     currentNavbarMeta?.refresh?.label === meta?.refresh?.label &&
@@ -112,6 +125,7 @@ export function PageActionsProvider({
   pageKey: string;
 }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
+  const [pageSidebarTarget, setPageSidebarTarget] = useState<HTMLElement | null>(null);
   const [rightSidebarTarget, setRightSidebarTarget] = useState<HTMLElement | null>(null);
   const subscribeRightSidebar = useCallback(
     (listener: () => void) => subscribe_sidebar(listener),
@@ -155,12 +169,15 @@ export function PageActionsProvider({
     () => ({
       target,
       setTarget,
+      pageSidebarTarget,
+      setPageSidebarTarget,
       rightSidebarTarget,
       setRightSidebarTarget,
       rightSidebarCollapsed,
       setRightSidebarCollapsed,
     }),
     [
+      pageSidebarTarget,
       rightSidebarCollapsed,
       rightSidebarTarget,
       setRightSidebarCollapsed,
@@ -237,6 +254,34 @@ export function PageActionsPortal({ children }: { children: ReactNode }) {
   if (!context?.target) return null;
 
   return createPortal(children, context.target);
+}
+
+export function PageSidebarSlot() {
+  const context = useContext(PageActionsContext);
+  const setTarget = context?.setPageSidebarTarget;
+  const setTargetRef = useCallback(
+    (node: HTMLElement | null) => setTarget?.(node),
+    [setTarget]
+  );
+
+  if (!context) {
+    throw new Error("PageSidebarSlot must be used inside PageActionsProvider.");
+  }
+
+  return (
+    <div
+      ref={setTargetRef}
+      className="flex h-full min-h-0 w-full flex-col"
+    />
+  );
+}
+
+export function PageSidebarPortal({ children }: { children: ReactNode }) {
+  const context = useContext(PageActionsContext);
+
+  if (!context?.pageSidebarTarget) return null;
+
+  return createPortal(children, context.pageSidebarTarget);
 }
 
 export function PageRightSidebarSlot() {

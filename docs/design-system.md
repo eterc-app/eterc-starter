@@ -134,7 +134,9 @@ Shell composition:
   icons, and account menu visible. Icon-only rows use `title` and `aria-label` for their label.
 - On `/admin/content`, the global navigation uses that 56 px rail and collections occupy the
   adjacent 192 px pane. The records canvas uses the remaining workspace width without a second
-  in-page collection sidebar.
+  in-page collection sidebar. The collections pane and the right workspace panel reserve their
+  final desktop widths in the first render; do not mount them from a client effect, which would
+  shift the records canvas after paint.
 - The sidebar has 8 px horizontal padding, 36 px navigation rows, and 12 px sentence-case
   section labels. The content wrapper is `w-full` so rows and the active background fill the
   rail up to that padding instead of leaving an unused strip on the right. Navigation labels
@@ -215,6 +217,9 @@ Shell composition:
 
 - Table text is 14 px; headers are 13 px semibold muted on `--surface-subtle`, 44 px tall.
 - Rows are 44 px tall with 1 px bottom borders and a subtle hover. Selected rows use `--muted`.
+- The Content records table and the Flows list are flat canvas tables: no white surface, outer
+  border, or radius. Their headers are transparent, header cells use 1 px vertical separators,
+  and rows sit directly on the canvas with 1 px bottom borders.
 - Cells use 12 px horizontal padding. Actions are right-aligned.
 - Identifiers use `font-mono text-xs`. Do not use 10 px or 11 px text in tables.
 - Empty states use the shared `EmptyState` primitive with a 48 px icon well, a 16 px semibold
@@ -248,12 +253,46 @@ apply those classes to ordinary admin cards.
   until edit mode is active.
 - Trigger cards show an Active/Inactive dropdown and the trigger summary.
 - Operation cards show the operation type, name, and the two most useful settings.
-- Resolve is the foreground check port; reject is the `--filter-or` X port. The
+- Resolve is the foreground check port; reject is the muted gray X port. The
   adjacent plus buttons add and connect the next step.
 - The inspector is a fixed right drawer below the top bar, with a scrim. It uses a
   vertical Flow Setup / Trigger Setup rail and a black check to save and close.
 - Logs use a fixed right drawer below the top bar, grouped by date, with a
   failed-only filter and an AI Assistant footer that returns to the workspace rail.
+- Every flows overlay is a right-side drawer: the create wizard, the operation
+  palette, the icon picker, the webhook secret, and destructive confirmations.
+  Do not use centered dialogs or popovers on `/admin/flows`.
+- Flows use the neutral palette only: black, gray, and white. Status badges use
+  text plus a neutral badge, and red (`--destructive`) is reserved for delete
+  actions and their confirmation.
+- Do not turn a drawer into a step wizard. A drawer is one editable surface with
+  a persistent Save action; section rails only switch sections and never show a
+  Continue/Next button. Do not label sections as steps.
+- Drawer section rails have no item icons or per-item chevrons. Omit a redundant
+  Cancel button from the rail; the bordered close icon in the drawer navbar is
+  the cancel affordance.
+- Drawers do not use a separate footer bar. Keep primary actions in the navbar
+  or at the end of the body content.
+- Keep drawer navbars compact: `px-4 py-2.5`, a 32 px icon well, and a
+  `text-xs` title. The flows create drawer rail is 198 px (10% narrower than the
+  220 px baseline).
+- In the flows create drawer, the section rail is white (`bg-card`) and the
+  working area uses the gray canvas (`bg-background`). Cards, rows, and inputs
+  inside the working area stay white (`bg-card`) so they read on the gray.
+- Drawer forms are single-column and full width. Do not use two-column form
+  grids; inputs, selects, pickers, option cards, and the operation palette each
+  span the working width.
+- Collection checklists use one full-width card per collection. Do not group the
+  collection rows inside a single bordered container. Collection cards are at
+  least 48 px tall, and the list may scroll up to 384 px.
+- Event triggers use a trigger summary card with a text Change action, then
+  full-width cards for event type, collections, and events. Show selected counts
+  next to the Collections and Events labels. Do not repeat the trigger
+  description in both the drawer navbar and the trigger card.
+- Event option cards are compact single-line rows: checkbox, event name, and the
+  `items.*` key. Keep them shorter than the collection cards.
+- A flows empty state is not a card. Do not give it a background, border, or
+  elevation; render the icon, copy, and action directly on the canvas.
 
 ### Content collection rail
 
@@ -329,6 +368,8 @@ apply those classes to ordinary admin cards.
 
 - Use `EmptyState` for a full empty region. It is a white card with a solid 1 px border, a
   48 px icon well, a 16 px semibold title, and optional actions.
+- The Content records table and the Flows list render their empty state borderless and
+  transparent directly on the canvas, matching the flat table surface.
 - Use an inline empty state inside a table or editor for a smaller region.
 - Do not use emoji, illustrations, or decorative gradients.
 

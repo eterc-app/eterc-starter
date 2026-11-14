@@ -1,4 +1,10 @@
 import { EtHttpError } from "@/engine/signals";
+import { activeAiProvider } from "@/engine/active/ai-provider";
+import { activeEmailProvider } from "@/engine/active/email-provider";
+import { activePaymentProvider } from "@/engine/active/payment-provider";
+import { activeSmsProvider } from "@/engine/active/sms-provider";
+import { activeTelegramProvider } from "@/engine/active/telegram-provider";
+import { activeWhatsAppProvider } from "@/engine/active/whatsapp-provider";
 import {
   create_record,
   delete_record,
@@ -318,6 +324,186 @@ function throw_error(
   throw new FlowRejectError(message);
 }
 
+async function send_email(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const to = text(resolved.to).trim();
+  const subject = text(resolved.subject).trim();
+  const html = text(resolved.html);
+  if (!to || !subject || !html) {
+    throw new FlowConfigError("Email recipient, subject and HTML body are required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activeEmailProvider.isConfigured()) {
+    throw new FlowConfigError("No email provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activeEmailProvider.send({
+    to,
+    subject,
+    html,
+    text: text(resolved.text) || undefined,
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? "Email delivery failed.");
+  }
+  return { output: { ok: true, id: result.id } };
+}
+
+async function send_sms(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const to = text(resolved.to).trim();
+  const body = text(resolved.body).trim();
+  if (!to || !body) {
+    throw new FlowConfigError("SMS recipient and message are required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activeSmsProvider.isConfigured()) {
+    throw new FlowConfigError("No SMS provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activeSmsProvider.send({ to, body });
+  if (!result.ok) {
+    throw new Error(result.error ?? "SMS delivery failed.");
+  }
+  return { output: { ok: true, id: result.id } };
+}
+
+async function send_whatsapp(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const to = text(resolved.to).trim();
+  const body = text(resolved.body).trim();
+  if (!to || !body) {
+    throw new FlowConfigError("WhatsApp recipient and message are required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activeWhatsAppProvider.isConfigured()) {
+    throw new FlowConfigError("No WhatsApp provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activeWhatsAppProvider.send({ to, body });
+  if (!result.ok) {
+    throw new Error(result.error ?? "WhatsApp delivery failed.");
+  }
+  return { output: { ok: true, id: result.id } };
+}
+
+async function send_telegram(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const chatId = text(resolved.chat_id).trim();
+  const message = text(resolved.text).trim();
+  if (!chatId || !message) {
+    throw new FlowConfigError("Telegram chat ID and message are required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activeTelegramProvider.isConfigured()) {
+    throw new FlowConfigError("No Telegram bot is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activeTelegramProvider.send({ chatId, text: message });
+  if (!result.ok) {
+    throw new Error(result.error ?? "Telegram delivery failed.");
+  }
+  return { output: { ok: true, id: result.id } };
+}
+
+async function ai_generate(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const prompt = text(resolved.prompt).trim();
+  if (!prompt) {
+    throw new FlowConfigError("An AI prompt is required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activeAiProvider.isConfigured()) {
+    throw new FlowConfigError("No AI provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activeAiProvider.generateText({
+    prompt,
+    system: text(resolved.system) || undefined,
+  });
+  return { output: result };
+}
+
+async function payment_create_link(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const email = text(resolved.email).trim();
+  const amount = Number(resolved.amount);
+  const currency = text(resolved.currency).trim().toUpperCase();
+  if (!email || !Number.isFinite(amount) || amount <= 0 || !currency) {
+    throw new FlowConfigError("Email, a positive amount and currency are required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activePaymentProvider.isConfigured()) {
+    throw new FlowConfigError("No payment provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activePaymentProvider.createCheckout({
+    email,
+    amount,
+    currency,
+    reference: text(resolved.reference) || undefined,
+    callbackUrl: text(resolved.callback_url) || undefined,
+  });
+  return { output: result };
+}
+
+async function payment_verify(
+  options: Record<string, unknown>,
+  context: FlowExecutionContext,
+  meta: FlowOperationMeta
+): Promise<FlowOperationOutcome> {
+  const resolved = resolve_templates(options, context) as Record<string, unknown>;
+  const reference = text(resolved.reference).trim();
+  if (!reference) {
+    throw new FlowConfigError("A payment reference is required.", {
+      operation: meta.operation.key,
+    });
+  }
+  if (!activePaymentProvider.isConfigured()) {
+    throw new FlowConfigError("No payment provider is configured.", {
+      operation: meta.operation.key,
+    });
+  }
+  const result = await activePaymentProvider.verify(reference);
+  return { output: result };
+}
+
 export async function run_operation(
   type: string,
   options: Record<string, unknown>,
@@ -347,6 +533,20 @@ export async function run_operation(
       return sleep(options, context);
     case "throw-error":
       return throw_error(options, context);
+    case "send-email":
+      return send_email(options, context, meta);
+    case "send-sms":
+      return send_sms(options, context, meta);
+    case "send-whatsapp":
+      return send_whatsapp(options, context, meta);
+    case "send-telegram":
+      return send_telegram(options, context, meta);
+    case "ai-generate":
+      return ai_generate(options, context, meta);
+    case "payment-create-link":
+      return payment_create_link(options, context, meta);
+    case "payment-verify":
+      return payment_verify(options, context, meta);
     default:
       throw new FlowConfigError(`Unknown operation type '${type}'.`);
   }

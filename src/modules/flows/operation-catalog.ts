@@ -42,7 +42,7 @@ export interface FlowOperationDefinition {
   description: string;
   icon: string;
   color: string;
-  group: "Logic" | "Items" | "HTTP" | "Flow" | "Utilities";
+  group: "Logic" | "Items" | "HTTP" | "Flow" | "Utilities" | "Integrations";
   docs?: string;
   fields: FlowFieldDefinition[];
   defaultOptions: Record<string, unknown>;
@@ -67,7 +67,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Condition",
     description: "Continue only when the current data matches a filter.",
     icon: "git-branch",
-    color: "#8b5cf6",
+    color: "var(--foreground)",
     group: "Logic",
     fields: [
       {
@@ -86,7 +86,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Read item",
     description: "Read one item from a collection.",
     icon: "search",
-    color: "#0ea5e9",
+    color: "var(--foreground)",
     group: "Items",
     fields: [
       {
@@ -110,7 +110,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Create item",
     description: "Create an item in a collection.",
     icon: "plus",
-    color: "#10b981",
+    color: "var(--foreground)",
     group: "Items",
     fields: [
       {
@@ -134,7 +134,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Update item",
     description: "Update one item in a collection.",
     icon: "pencil",
-    color: "#f59e0b",
+    color: "var(--foreground)",
     group: "Items",
     fields: [
       {
@@ -164,7 +164,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Delete item",
     description: "Delete one item from a collection.",
     icon: "trash-2",
-    color: "#ef4444",
+    color: "var(--foreground)",
     group: "Items",
     fields: [
       {
@@ -188,7 +188,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Web request",
     description: "Call an HTTP endpoint and return its response.",
     icon: "globe",
-    color: "#06b6d4",
+    color: "var(--foreground)",
     group: "HTTP",
     fields: [
       {
@@ -241,7 +241,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Run another flow",
     description: "Trigger another active flow and optionally return its data.",
     icon: "workflow",
-    color: "#6366f1",
+    color: "var(--foreground)",
     group: "Flow",
     fields: [
       { name: "flow_id", label: "Flow", type: "flow", required: true },
@@ -272,7 +272,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Transform data",
     description: "Build a new value from templates without writing code.",
     icon: "wand-2",
-    color: "#a855f7",
+    color: "var(--foreground)",
     group: "Utilities",
     fields: [
       {
@@ -291,7 +291,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Log message",
     description: "Write a message to the server log and the run detail.",
     icon: "scroll-text",
-    color: "#64748b",
+    color: "var(--foreground)",
     group: "Utilities",
     fields: [
       {
@@ -319,7 +319,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Sleep",
     description: "Pause the flow for a short time.",
     icon: "clock",
-    color: "#78716c",
+    color: "var(--foreground)",
     group: "Utilities",
     fields: [
       {
@@ -337,7 +337,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     label: "Throw error",
     description: "Reject the flow with a custom message.",
     icon: "triangle-alert",
-    color: "#dc2626",
+    color: "var(--foreground)",
     group: "Logic",
     fields: [
       {
@@ -350,6 +350,211 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
     ],
     defaultOptions: { message: "The flow rejected this operation." },
   },
+  {
+    type: "send-email",
+    label: "Send email",
+    description: "Send a transactional email through the configured email provider.",
+    icon: "mail",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "to",
+        label: "To",
+        type: "text",
+        required: true,
+        placeholder: "{{ $trigger.body.email }}",
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "text",
+        required: true,
+      },
+      {
+        name: "html",
+        label: "HTML body",
+        type: "textarea",
+        required: true,
+        rows: 6,
+      },
+      {
+        name: "text",
+        label: "Plain text",
+        type: "textarea",
+        rows: 3,
+      },
+    ],
+    defaultOptions: { to: "", subject: "", html: "", text: "" },
+  },
+  {
+    type: "send-sms",
+    label: "Send SMS",
+    description: "Send a text message through the configured SMS provider.",
+    icon: "message-square",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "to",
+        label: "To",
+        type: "text",
+        required: true,
+        placeholder: "+15551234567",
+      },
+      {
+        name: "body",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        rows: 3,
+      },
+    ],
+    defaultOptions: { to: "", body: "" },
+  },
+  {
+    type: "send-whatsapp",
+    label: "Send WhatsApp",
+    description: "Send a WhatsApp text message through the configured provider.",
+    icon: "message-circle",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "to",
+        label: "To",
+        type: "text",
+        required: true,
+        placeholder: "+15551234567",
+      },
+      {
+        name: "body",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        rows: 3,
+      },
+    ],
+    defaultOptions: { to: "", body: "" },
+  },
+  {
+    type: "send-telegram",
+    label: "Send Telegram",
+    description: "Send a message through the configured Telegram bot.",
+    icon: "send",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "chat_id",
+        label: "Chat ID",
+        type: "text",
+        required: true,
+        placeholder: "{{ $trigger.body.chat_id }}",
+      },
+      {
+        name: "text",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        rows: 3,
+      },
+    ],
+    defaultOptions: { chat_id: "", text: "" },
+  },
+  {
+    type: "ai-generate",
+    label: "Generate with AI",
+    description: "Generate text through the configured AI provider.",
+    icon: "sparkles",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "prompt",
+        label: "Prompt",
+        type: "textarea",
+        required: true,
+        rows: 5,
+      },
+      {
+        name: "system",
+        label: "System prompt",
+        type: "textarea",
+        rows: 3,
+      },
+    ],
+    defaultOptions: { prompt: "", system: "" },
+  },
+  {
+    type: "payment-create-link",
+    label: "Create payment link",
+    description: "Create a checkout link through the configured payment provider.",
+    icon: "credit-card",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "email",
+        label: "Customer email",
+        type: "text",
+        required: true,
+        placeholder: "{{ $trigger.body.email }}",
+      },
+      {
+        name: "amount",
+        label: "Amount",
+        type: "number",
+        required: true,
+        defaultValue: 1000,
+      },
+      {
+        name: "currency",
+        label: "Currency",
+        type: "text",
+        required: true,
+        defaultValue: "NGN",
+        placeholder: "NGN",
+      },
+      {
+        name: "reference",
+        label: "Reference",
+        type: "text",
+        placeholder: "order-{{ $last.id }}",
+      },
+      {
+        name: "callback_url",
+        label: "Callback URL",
+        type: "text",
+        placeholder: "https://example.com/payment/complete",
+      },
+    ],
+    defaultOptions: {
+      email: "",
+      amount: 1000,
+      currency: "NGN",
+      reference: "",
+      callback_url: "",
+    },
+  },
+  {
+    type: "payment-verify",
+    label: "Verify payment",
+    description: "Verify a payment reference with the configured payment provider.",
+    icon: "badge-check",
+    color: "var(--foreground)",
+    group: "Integrations",
+    fields: [
+      {
+        name: "reference",
+        label: "Reference",
+        type: "text",
+        required: true,
+        placeholder: "{{ $last.reference }}",
+      },
+    ],
+    defaultOptions: { reference: "" },
+  },
 ];
 
 export const OPERATION_GROUPS = [
@@ -357,6 +562,7 @@ export const OPERATION_GROUPS = [
   "Items",
   "HTTP",
   "Flow",
+  "Integrations",
   "Utilities",
 ] as const;
 
@@ -387,7 +593,7 @@ export const TRIGGER_DEFINITIONS: FlowTriggerDefinition[] = [
     shortLabel: "Event",
     description: "Run when items are created, updated or deleted.",
     icon: "zap",
-    color: "#f59e0b",
+    color: "var(--foreground)",
   },
   {
     type: "webhook",
@@ -395,7 +601,7 @@ export const TRIGGER_DEFINITIONS: FlowTriggerDefinition[] = [
     shortLabel: "Webhook",
     description: "Run from an authenticated HTTP request.",
     icon: "webhook",
-    color: "#06b6d4",
+    color: "var(--foreground)",
   },
   {
     type: "schedule",
@@ -403,7 +609,7 @@ export const TRIGGER_DEFINITIONS: FlowTriggerDefinition[] = [
     shortLabel: "Schedule",
     description: "Run on a recurring CRON schedule.",
     icon: "calendar-clock",
-    color: "#8b5cf6",
+    color: "var(--foreground)",
   },
   {
     type: "operation",
@@ -411,7 +617,7 @@ export const TRIGGER_DEFINITIONS: FlowTriggerDefinition[] = [
     shortLabel: "Flow",
     description: "Run when another flow triggers it.",
     icon: "workflow",
-    color: "#6366f1",
+    color: "var(--foreground)",
   },
   {
     type: "manual",
@@ -419,7 +625,7 @@ export const TRIGGER_DEFINITIONS: FlowTriggerDefinition[] = [
     shortLabel: "Manual",
     description: "Run on demand from a collection page or the builder.",
     icon: "mouse-pointer-click",
-    color: "#10b981",
+    color: "var(--foreground)",
   },
 ];
 

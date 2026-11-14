@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
   PageActionsProvider,
   PageActionsSlot,
   PageRightSidebarSlot,
+  PageSidebarSlot,
   usePageNavbarMeta,
   usePageRightSidebar,
 } from "@/components/app/PageActionsSlot";
@@ -265,13 +266,17 @@ function TopHeader({
 function RightSidebar({ contentPage }: { contentPage: boolean }) {
   const navbarMeta = usePageNavbarMeta();
   const { collapsed, setCollapsed } = usePageRightSidebar();
+  const expandSidebar = useCallback(() => setCollapsed(false), [setCollapsed]);
+  // The content page keeps a fixed right-panel width: its panel content changes
+  // between layout options and workspace tools, but the working area must not move.
+  const pageRightSidebarOpen = contentPage || Boolean(navbarMeta?.rightSidebar);
 
   return (
     <aside
       className={cn(
         "sticky top-0 hidden h-screen shrink-0 flex-col border-l border-border bg-sidebar lg:flex",
-        navbarMeta?.rightSidebar
-          ? navbarMeta.rightSidebarWidth === "wide"
+        pageRightSidebarOpen
+          ? navbarMeta?.rightSidebarWidth === "wide"
             ? "w-[420px]"
             : "w-64"
           : collapsed
@@ -303,7 +308,11 @@ function RightSidebar({ contentPage }: { contentPage: boolean }) {
         ) : navbarMeta?.rightSidebar ? (
           <PageRightSidebarSlot />
         ) : (
-          <WorkspaceRightSidebar collapsed={collapsed} />
+          <WorkspaceRightSidebar
+            collapsed={contentPage ? false : collapsed}
+            panel={navbarMeta?.rightSidebarPanel}
+            onExpand={expandSidebar}
+          />
         )}
       </div>
     </aside>
@@ -591,7 +600,11 @@ export function AdminTemplate({
             </aside>
           )}
 
-          {navbarMeta?.pageSidebar ? (
+          {contentPage ? (
+            <aside className="sticky top-0 hidden h-screen w-48 shrink-0 border-r border-border bg-assistant-sidebar md:flex">
+              <PageSidebarSlot />
+            </aside>
+          ) : navbarMeta?.pageSidebar ? (
             <aside className="sticky top-0 hidden h-screen w-48 shrink-0 border-r border-border bg-assistant-sidebar md:flex">
               {navbarMeta.pageSidebar}
             </aside>

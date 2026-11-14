@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS "cms_flows" (
   "name" TEXT NOT NULL,
   "description" TEXT NOT NULL DEFAULT '',
   "icon" TEXT NOT NULL DEFAULT 'zap',
-  "color" TEXT NOT NULL DEFAULT '#6366f1',
+  "color" TEXT NOT NULL DEFAULT 'var(--foreground)',
   "status" TEXT NOT NULL DEFAULT 'inactive',
   "trigger" TEXT NOT NULL DEFAULT 'manual',
   "options" TEXT NOT NULL DEFAULT '{}',

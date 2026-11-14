@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { PageRightSidebarPanel } from "@/components/app/PageActionsSlot";
 import type {
   CmsCollectionWithFields,
   CmsField,
@@ -35,13 +36,37 @@ interface DataSnapshot {
   pages?: number;
 }
 
-export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boolean }) {
+export function WorkspaceRightSidebar({
+  collapsed = false,
+  panel,
+  onExpand,
+}: {
+  collapsed?: boolean;
+  panel?: PageRightSidebarPanel;
+  onExpand?: () => void;
+}) {
   const [collections, setCollections] = useState<CmsCollectionWithFields[]>([]);
   const [collectionName, setCollectionName] = useState("");
   const [loadingCollections, setLoadingCollections] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [section, setSection] = useState<"assistant" | "data">("assistant");
+  const [section, setSection] = useState<"assistant" | "data" | "activity">("assistant");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panel_active = panel?.active ?? false;
+  const active_section =
+    panel_active ? "activity" : section === "activity" ? "assistant" : section;
+
+  const select_section = (next: "assistant" | "data") => {
+    panel?.onClose();
+    setSection(next);
+    onExpand?.();
+  };
+
+  const open_activity = () => {
+    if (!panel) return;
+    setSection("activity");
+    panel.onOpen();
+    onExpand?.();
+  };
 
   const collection = useMemo(
     () => collections.find((item) => item.name === collectionName) ?? null,
@@ -233,25 +258,40 @@ export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boole
           type="button"
           className={cn(
             "grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70",
-            section === "data" && "bg-muted"
+            active_section === "data" && "bg-muted"
           )}
           aria-label="Open data tools"
-          aria-pressed={section === "data"}
+          aria-pressed={active_section === "data"}
           title="Data tools"
-          onClick={() => setSection("data")}
+          onClick={() => select_section("data")}
         >
           <Database className="size-4" />
         </button>
+        {panel ? (
+          <button
+            type="button"
+            className={cn(
+              "grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70",
+              active_section === "activity" && "bg-muted"
+            )}
+            aria-label={`Open ${panel.title}`}
+            aria-pressed={active_section === "activity"}
+            title={panel.title}
+            onClick={open_activity}
+          >
+            {panel.icon}
+          </button>
+        ) : null}
         <button
           type="button"
           className={cn(
             "mt-auto grid size-10 place-items-center rounded-lg text-foreground transition-colors hover:bg-muted/70",
-            section === "assistant" && "bg-muted"
+            active_section === "assistant" && "bg-muted"
           )}
           aria-label="Open AI assistant"
-          aria-pressed={section === "assistant"}
+          aria-pressed={active_section === "assistant"}
           title="AI Assistant"
-          onClick={() => setSection("assistant")}
+          onClick={() => select_section("assistant")}
         >
           <Sparkles className="size-4" />
         </button>
@@ -263,25 +303,46 @@ export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boole
     <div className="flex h-full min-h-0 w-full flex-col bg-assistant-sidebar text-foreground">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-2">
-          {section === "assistant" ? (
+          {active_section === "assistant" ? (
             <Sparkles className="size-4 shrink-0" />
-          ) : (
+          ) : active_section === "data" ? (
             <ArrowDownToLine className="size-4 shrink-0" />
+          ) : (
+            panel?.icon
           )}
           <h2 className="truncate text-sm font-semibold">
-            {section === "assistant" ? "AI Assistant" : "Data tools"}
+            {active_section === "assistant"
+              ? "AI Assistant"
+              : active_section === "data"
+                ? "Data tools"
+                : panel?.title}
           </h2>
         </div>
+        {panel ? (
+          <button
+            type="button"
+            className={cn(
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+              active_section === "activity" && "bg-muted text-foreground"
+            )}
+            aria-label={`Open ${panel.title}`}
+            aria-pressed={active_section === "activity"}
+            title={panel.title}
+            onClick={open_activity}
+          >
+            {panel.icon}
+          </button>
+        ) : null}
         <button
           type="button"
           className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={section === "assistant" ? "Open data tools" : "Open AI assistant"}
-          title={section === "assistant" ? "Data tools" : "AI Assistant"}
+          aria-label={active_section === "assistant" ? "Open data tools" : "Open AI assistant"}
+          title={active_section === "assistant" ? "Data tools" : "AI Assistant"}
           onClick={() =>
-            setSection((current) => (current === "assistant" ? "data" : "assistant"))
+            select_section(active_section === "assistant" ? "data" : "assistant")
           }
         >
-          {section === "assistant" ? (
+          {active_section === "assistant" ? (
             <Database className="size-4" />
           ) : (
             <Bot className="size-4" />
@@ -289,7 +350,9 @@ export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boole
         </button>
       </div>
 
-      {section === "assistant" ? (
+      {active_section === "activity" && panel ? (
+        panel.content
+      ) : active_section === "assistant" ? (
         <>
           <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -336,7 +399,7 @@ export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boole
             </div>
           </div>
         </>
-      ) : (
+      ) : active_section === "data" ? (
         <div className="app-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           <div className="space-y-2">
             <label htmlFor="workspace-tools-collection" className="text-sm font-semibold">
@@ -422,7 +485,7 @@ export function WorkspaceRightSidebar({ collapsed = false }: { collapsed?: boole
 
           {busy ? <p className="text-xs text-muted-foreground">Working...</p> : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

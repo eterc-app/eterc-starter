@@ -7,7 +7,7 @@
     },
     "status": "verified",
     "message": "Local SQLite database is ready.",
-    "verified_at": 1794169244
+    "verified_at": 1794609208
   },
   "auth": {
     "provider": "builtin",
@@ -15,12 +15,20 @@
     "values": {},
     "status": "verified",
     "message": "Email and password accounts are managed by Eterc.",
-    "verified_at": 1794169244
+    "verified_at": 1794609208
+  },
+  "automation": {
+    "provider": "embedded",
+    "label": "Embedded flow runtime",
+    "mode": "embedded",
+    "status": "verified",
+    "message": "Flows run inside the Next.js server process.",
+    "verified_at": 1794609208
   },
   "cms": {
     "api_private": true,
     "max_page_size": 200,
     "seed_member_role": true
   },
-  "updated_at": 1794169244
+  "updated_at": 1794609208
 }

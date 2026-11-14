@@ -1,6 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  Info,
+  Loader2,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { DynamicIcon } from "@/components/ui/dynamic-icon";
 import { cn } from "@/lib/utils";
@@ -42,6 +51,104 @@ export async function flows_call<T>(
   return envelope?.data as T;
 }
 
+/**
+ * Flows keep notifications neutral too. Plain toasts avoid the semantic
+ * green/amber/red icon colors used elsewhere in the admin.
+ */
+export function flow_toast_success(message: string) {
+  toast(message, {
+    icon: <CheckCircle2 className="size-4 text-foreground" />,
+  });
+}
+
+export function flow_toast_error(message: string) {
+  toast(message, {
+    icon: <XCircle className="size-4 text-foreground" />,
+  });
+}
+
+export function flow_toast_notice(message: string) {
+  toast(message, {
+    icon: <AlertTriangle className="size-4 text-foreground" />,
+  });
+}
+
+export function flow_toast_info(message: string) {
+  toast(message, {
+    icon: <Info className="size-4 text-foreground" />,
+  });
+}
+
+export const FLOW_COLOR_OPTIONS = [
+  { value: "var(--foreground)", label: "Black" },
+  { value: "var(--muted-foreground)", label: "Dark gray" },
+  { value: "var(--input)", label: "Gray" },
+  { value: "var(--border)", label: "Light gray" },
+] as const;
+
+const NEUTRAL_FLOW_COLORS = new Set<string>(
+  FLOW_COLOR_OPTIONS.map((option) => option.value)
+);
+
+/**
+ * Flows stay in the neutral palette: black, gray and white only. Legacy flow
+ * records may still hold an accent hex value, so unrecognised colors fall back
+ * to the inherited foreground instead of leaking a palette color into the UI.
+ */
+export function flow_icon_color(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const color = value.trim().toLowerCase();
+  return NEUTRAL_FLOW_COLORS.has(color) ? color : undefined;
+}
+
+export function FlowColorField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selected = flow_icon_color(value) ?? FLOW_COLOR_OPTIONS[0].value;
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {FLOW_COLOR_OPTIONS.map((option, index) => {
+          const active = selected === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              title={option.label}
+              aria-label={`Use ${option.label} for the flow icon`}
+              aria-pressed={active}
+              onClick={() => onChange(option.value)}
+              className={cn(
+                "grid size-8 place-items-center rounded-full border border-border transition-colors",
+                active
+                  ? "outline-2 outline-offset-2 outline-foreground"
+                  : "hover:border-foreground"
+              )}
+              style={{ backgroundColor: option.value }}
+            >
+              {active ? (
+                <CheckCircle2
+                  className={cn(
+                    "size-3.5",
+                    index >= 2 ? "text-foreground" : "text-background"
+                  )}
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {FLOW_COLOR_OPTIONS.find((option) => option.value === selected)?.label}
+      </span>
+    </div>
+  );
+}
+
 export function FlowIcon({
   flow,
   className,
@@ -52,10 +159,10 @@ export function FlowIcon({
   return (
     <span
       className={cn(
-        "grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-surface-subtle",
+        "grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-surface-subtle text-foreground",
         className
       )}
-      style={{ color: flow.color || undefined }}
+      style={{ color: flow_icon_color(flow.color) }}
     >
       <DynamicIcon name={flow.icon || "zap"} size={20} />
     </span>
@@ -79,22 +186,18 @@ export function TriggerBadge({ trigger }: { trigger: FlowTrigger }) {
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  const active = status === "active";
   return (
-    <Badge variant={status === "active" ? "success" : "outline"}>
-      {status === "active" ? "Active" : "Inactive"}
+    <Badge
+      variant="outline"
+      className={cn(active && "border-foreground bg-foreground text-background")}
+    >
+      {active ? "Active" : "Inactive"}
     </Badge>
   );
 }
 
 export function RunStatusBadge({ status }: { status: FlowRunStatus | string }) {
-  const variant =
-    status === "success"
-      ? "success"
-      : status === "error" || status === "timeout"
-        ? "destructive"
-        : status === "rejected"
-          ? "warning"
-          : "outline";
   const label =
     status === "success"
       ? "Success"
@@ -107,7 +210,30 @@ export function RunStatusBadge({ status }: { status: FlowRunStatus | string }) {
             : status === "running"
               ? "Running"
               : status;
-  return <Badge variant={variant}>{label}</Badge>;
+  const failed =
+    status === "error" || status === "timeout" || status === "rejected";
+  const Icon =
+    status === "success"
+      ? CheckCircle2
+      : failed
+        ? XCircle
+        : status === "running"
+          ? Loader2
+          : Circle;
+  return (
+    <Badge
+      variant="outline"
+      className={cn("gap-1", failed && "border-foreground font-semibold")}
+    >
+      <Icon
+        className={cn(
+          status === "running" && "animate-spin",
+          failed ? "text-foreground" : "text-muted-foreground"
+        )}
+      />
+      {label}
+    </Badge>
+  );
 }
 
 export function format_datetime(value: unknown): string {

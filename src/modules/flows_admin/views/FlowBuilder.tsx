@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type CSSProperties,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -17,19 +18,16 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
+  CopyPlus,
   Download,
   History,
-  LayoutGrid,
+  Info,
   Loader2,
   Lock,
   MoreHorizontal,
   MoreVertical,
-  PanelRight,
   Pencil,
-  Play,
   Plus,
-  RefreshCw,
   Sparkles,
   Trash2,
   Workflow,
@@ -37,11 +35,9 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
-import dagre from "@dagrejs/dagre";
 import {
-  Background,
-  BackgroundVariant,
+  BaseEdge,
+  EdgeLabelRenderer,
   Handle,
   MarkerType,
   Position,
@@ -49,10 +45,12 @@ import {
   ReactFlowProvider,
   applyEdgeChanges,
   applyNodeChanges,
-  useReactFlow,
+  getSmoothStepPath,
   type Connection,
+  type ConnectionLineComponentProps,
   type Edge,
   type EdgeChange,
+  type EdgeProps,
   type Node,
   type NodeChange,
   type NodeProps,
@@ -62,17 +60,14 @@ import { useConfirm } from "@/components/app/ConfirmDialog";
 import { Notice } from "@/components/app/Notice";
 import {
   PageActionsPortal,
+  type PageRightSidebarPanel,
   usePageRightSidebar,
   useSetNavbarMeta,
 } from "@/components/app/PageActionsSlot";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ColorPicker } from "@/components/ui/color-picker";
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DynamicIcon } from "@/components/ui/dynamic-icon";
@@ -92,6 +87,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetHeader,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -116,7 +117,13 @@ import type {
 import { TRIGGER_LABELS } from "@/modules/flows/flow-types";
 import { CopyButton } from "@/modules/cms_admin/views/ui";
 import {
+  FlowColorField,
   RunStatusBadge,
+  flow_icon_color,
+  flow_toast_error,
+  flow_toast_info,
+  flow_toast_notice,
+  flow_toast_success,
   flows_call,
   format_datetime,
   format_duration,
@@ -159,6 +166,7 @@ interface NodeActions {
   change_status: (status: "active" | "inactive") => void;
   edit_trigger: () => void;
   edit_operation: (id: string) => void;
+  duplicate_operation: (id: string) => void;
   delete_operation: (id: string) => void;
   add_after: (source: string, handle: "resolve" | "reject") => void;
 }
@@ -169,6 +177,151 @@ interface RunDetail {
   run: FlowRunRecord;
   steps: FlowRunStepRecord[];
   flow: FlowRecord | null;
+}
+
+interface FlowRunHistoryPanelProps {
+  detail_loading: boolean;
+  run_detail: RunDetail | null;
+  logs_failed_only: boolean;
+  logs_loading: boolean;
+  run_groups: Array<[string, FlowRunRecord[]]>;
+  on_toggle_failed_only: (checked: boolean) => void;
+  on_back_to_runs: () => void;
+  on_run_select: (run: FlowRunRecord) => void;
+}
+
+function FlowRunHistoryPanel({
+  detail_loading,
+  run_detail,
+  logs_failed_only,
+  logs_loading,
+  run_groups,
+  on_toggle_failed_only,
+  on_back_to_runs,
+  on_run_select,
+}: FlowRunHistoryPanelProps) {
+  if (detail_loading) {
+    return (
+      <div className="grid min-h-0 flex-1 place-items-center">
+        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (run_detail) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Back to logs"
+            aria-label="Back to logs"
+            onClick={on_back_to_runs}
+          >
+            <ArrowLeft className="size-3.5" />
+          </Button>
+          <RunStatusBadge status={run_detail.run.status} />
+          <span className="truncate text-xs text-muted-foreground">
+            {format_datetime(run_detail.run.started_at)}
+          </span>
+        </div>
+        <div className="app-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+          {run_detail.run.error ? (
+            <div className="rounded-md border border-border bg-surface-subtle p-2 text-xs text-foreground">
+              {run_detail.run.error}
+            </div>
+          ) : null}
+          {run_detail.steps.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No step details recorded.
+            </p>
+          ) : (
+            run_detail.steps.map((step) => (
+              <div
+                key={step.id}
+                className="rounded-md border border-border bg-card p-2.5"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono font-semibold">{step.key}</span>
+                  <RunStatusBadge status={step.status} />
+                  <span className="ml-auto tabular-nums text-muted-foreground">
+                    {format_duration(step.duration_ms)}
+                  </span>
+                </div>
+                {step.error ? (
+                  <p className="mt-1 text-xs text-foreground">{step.error}</p>
+                ) : null}
+                <pre className="mt-2 max-h-28 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
+                  {JSON.stringify(step.output, null, 2)}
+                </pre>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="shrink-0 border-b border-border px-4 py-3">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Checkbox
+            checked={logs_failed_only}
+            onCheckedChange={(value) => on_toggle_failed_only(value === true)}
+          />
+          Show Failed Only
+        </label>
+      </div>
+      <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto">
+        {logs_loading ? (
+          <div className="grid h-24 place-items-center">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : run_groups.length === 0 ? (
+          <p className="p-4 text-xs text-muted-foreground">
+            No runs yet. Use Run now or trigger the flow.
+          </p>
+        ) : (
+          run_groups.map(([date, group]) => (
+            <div key={date}>
+              <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground">
+                <ChevronDown className="size-3.5" />
+                {date}
+              </div>
+              {group.map((run) => {
+                const failed =
+                  run.status === "error" ||
+                  run.status === "timeout" ||
+                  run.status === "rejected";
+                return (
+                  <button
+                    key={run.id}
+                    type="button"
+                    onClick={() => on_run_select(run)}
+                    className="flex w-full items-center gap-2 border-b border-border px-4 py-2 text-left text-xs transition-colors hover:bg-muted/40"
+                  >
+                    {failed ? (
+                      <XCircle className="size-3.5 shrink-0 text-foreground" />
+                    ) : (
+                      <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="truncate text-foreground">
+                      {format_time(run.started_at)}
+                    </span>
+                    <span className="ml-auto shrink-0 text-muted-foreground">
+                      {format_relative(run.started_at)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
 }
 
 interface BuilderProps extends Record<string, unknown> {
@@ -361,7 +514,7 @@ function operation_node(operation: FlowOperationRecord): BuilderNode {
       type: operation.type,
       options: operation.options,
       icon: definition?.icon ?? "box",
-      color: definition?.color ?? "var(--muted-foreground)",
+      color: "var(--foreground)",
       resolve: operation.resolve,
       reject: operation.reject,
     },
@@ -382,6 +535,7 @@ function trigger_node(
     position: { x, y },
     draggable: true,
     deletable: false,
+    selected: true,
     data: {
       kind: "trigger",
       name: TRIGGER_LABELS[trigger],
@@ -389,7 +543,7 @@ function trigger_node(
       type: trigger,
       options,
       icon: definition?.icon ?? "zap",
-      color: definition?.color ?? "var(--primary)",
+      color: "var(--foreground)",
       resolve: null,
       reject: null,
       status,
@@ -404,9 +558,14 @@ function root_edge(target: string): Edge {
     sourceHandle: "root",
     target,
     targetHandle: "in",
-    type: "smoothstep",
-    style: { strokeWidth: 1.6 },
-    markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+    type: "flowRoot",
+    style: { strokeWidth: 2, stroke: "var(--foreground)" },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 18,
+      height: 18,
+      color: "var(--foreground)",
+    },
   };
 }
 
@@ -421,22 +580,142 @@ function operation_edge(
     sourceHandle: handle,
     target,
     targetHandle: "in",
-    type: "smoothstep",
+    type: "flowStep",
     label: handle === "reject" ? "reject" : undefined,
     style: {
-      strokeWidth: 1.6,
-      stroke: handle === "reject" ? "var(--filter-or)" : "var(--foreground)",
+      strokeWidth: 2,
+      stroke:
+        handle === "reject" ? "var(--muted-foreground)" : "var(--foreground)",
     },
-    labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
-    labelBgStyle: { fill: "var(--card)" },
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
-      color: handle === "reject" ? "var(--filter-or)" : "var(--foreground)",
+      color:
+        handle === "reject" ? "var(--muted-foreground)" : "var(--foreground)",
     },
   };
 }
+
+const FlowRootEdge = ({
+  id,
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  markerEnd,
+  style,
+}: EdgeProps) => {
+  const [edge_path] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    borderRadius: 24,
+    offset: 24,
+  });
+
+  return (
+    <BaseEdge id={id} path={edge_path} markerEnd={markerEnd} style={style} />
+  );
+};
+
+function edge_label_style(x: number, y: number): CSSProperties {
+  return {
+    transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+  };
+}
+
+const FlowStepEdge = ({
+  id,
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  markerEnd,
+  style,
+  label,
+}: EdgeProps) => {
+  const [edge_path, label_x, label_y] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    borderRadius: 24,
+    offset: 24,
+  });
+
+  return (
+    <>
+      <BaseEdge id={id} path={edge_path} markerEnd={markerEnd} style={style} />
+      {label ? (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan pointer-events-none absolute rounded-md border border-border bg-card px-1.5 py-0.5 text-xs text-muted-foreground"
+            style={edge_label_style(label_x, label_y)}
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
+  );
+};
+
+const FlowConnectionLine = ({
+  fromX,
+  fromY,
+  fromPosition,
+  toX,
+  toY,
+  toPosition,
+}: ConnectionLineComponentProps) => {
+  const [path] = getSmoothStepPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+    borderRadius: 24,
+    offset: 24,
+  });
+
+  return (
+    <g>
+      <defs>
+        <marker
+          id="flow-connection-arrow"
+          viewBox="0 0 20 20"
+          markerWidth="12"
+          markerHeight="12"
+          refX="10"
+          refY="10"
+          orient="auto"
+        >
+          <path d="M 0 0 L 20 10 L 0 20 z" fill="var(--foreground)" />
+        </marker>
+      </defs>
+      <path
+        d={path}
+        fill="none"
+        stroke="var(--foreground)"
+        strokeWidth={2}
+        markerEnd="url(#flow-connection-arrow)"
+      />
+    </g>
+  );
+};
+
+const EDGE_TYPES = { flowRoot: FlowRootEdge, flowStep: FlowStepEdge };
 
 function build_edges(
   operations: FlowOperationRecord[],
@@ -454,39 +733,6 @@ function build_edges(
     }
   }
   return edges;
-}
-
-function layout_graph(nodes: BuilderNode[], edges: Edge[]): BuilderNode[] {
-  if (nodes.length === 0) return nodes;
-  const graph = new dagre.graphlib.Graph();
-  graph.setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({
-    rankdir: "LR",
-    nodesep: 40,
-    ranksep: 100,
-    marginx: 24,
-    marginy: 24,
-  });
-  for (const node of nodes) {
-    graph.setNode(node.id, { width: 300, height: 190 });
-  }
-  for (const edge of edges) {
-    if (edge.source === edge.target) continue;
-    graph.setEdge(edge.source, edge.target);
-  }
-  dagre.layout(graph);
-  return nodes.map((node) => {
-    const position = graph.node(node.id) as
-      | { x?: number; y?: number }
-      | undefined;
-    if (!position || typeof position.x !== "number" || typeof position.y !== "number") {
-      return node;
-    }
-    return {
-      ...node,
-      position: { x: position.x - 150, y: position.y - 95 },
-    };
-  });
 }
 
 function unique_key(base: string, nodes: BuilderNode[]): string {
@@ -523,10 +769,34 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
     event.stopPropagation();
   };
 
+  const pointer_start = useRef<{ x: number; y: number } | null>(null);
+
+  const remember_handle_pointer = (event: React.PointerEvent) => {
+    pointer_start.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const add_from_handle = (
+    event: React.PointerEvent,
+    source: string,
+    handle: "resolve" | "reject"
+  ) => {
+    const start = pointer_start.current;
+    pointer_start.current = null;
+    if (start) {
+      const distance = Math.hypot(
+        event.clientX - start.x,
+        event.clientY - start.y
+      );
+      if (distance > 4) return;
+    }
+    event.stopPropagation();
+    actions?.add_after(source, handle);
+  };
+
   return (
     <div
       className={cn(
-        "flow-card relative w-[300px] rounded-xl border text-left transition-colors",
+        "flow-card relative w-[320px] rounded-xl border text-left transition-colors",
         is_trigger ? "bg-surface-subtle" : "bg-card",
         selected ? "flow-card-selected border-foreground" : "border-border"
       )}
@@ -540,13 +810,18 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
         />
       ) : null}
 
-      <div className="flex items-start gap-2.5 px-4 pb-3 pt-3.5">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card text-foreground">
-          <DynamicIcon name={data.icon} size={16} />
+      <div className="flex items-start gap-2.5 px-5 pb-4 pt-4">
+        <span className="grid size-6 shrink-0 place-items-center text-foreground">
+          <DynamicIcon name={data.icon} size={12} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{header}</p>
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-base font-semibold">{header}</p>
+            {is_trigger ? (
+              <Info className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : null}
+          </div>
+          <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {actions?.edit_mode ? (
@@ -565,7 +840,7 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
               <Pencil className="size-3.5" />
             </button>
           ) : null}
-          {!is_trigger && actions?.edit_mode ? (
+          {!is_trigger ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -583,15 +858,21 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
                   onSelect={() => actions?.edit_operation(id)}
                 >
                   <Pencil />
-                  Edit step
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => actions?.duplicate_operation(id)}
+                >
+                  <CopyPlus />
+                  Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  variant="destructive"
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                   onSelect={() => actions?.delete_operation(id)}
                 >
-                  <Trash2 />
-                  Delete step
+                  <Trash2 className="text-destructive" />
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -600,14 +881,14 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
       </div>
 
       {details.length > 0 ? (
-        <div className="grid gap-2 border-t border-border px-4 py-3">
+        <div className="grid gap-3 border-t border-border px-5 py-4">
           {details.map((detail) => (
             <div key={detail.label} className="grid gap-0.5">
-              <span className="text-xs font-semibold text-foreground">
+              <span className="text-sm font-semibold text-foreground">
                 {detail.label}
               </span>
               <span
-                className="line-clamp-2 text-xs text-muted-foreground"
+                className="line-clamp-2 text-sm text-muted-foreground"
                 title={detail.value}
               >
                 {detail.value}
@@ -651,7 +932,7 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
           </DropdownMenu>
         </div>
       ) : (
-        <div className="relative h-12 border-t border-border" />
+        <div className="relative h-14" />
       )}
 
       {is_trigger ? (
@@ -659,59 +940,43 @@ const FlowNodeCard = ({ id, data, selected }: NodeProps<BuilderNode>) => {
           type="source"
           position={Position.Right}
           id="root"
-          className="!top-1/2 !size-4 !border-2 !border-foreground !bg-card"
-        />
+          title="Click to add a step, drag to connect"
+          className="!top-1/2 !flex !size-5 !items-center !justify-center !border-2 !border-foreground !bg-card !text-foreground"
+          onPointerDown={remember_handle_pointer}
+          onPointerUp={(event) => add_from_handle(event, id, "resolve")}
+        >
+          <Plus className="pointer-events-none block size-3" strokeWidth={2} />
+        </Handle>
       ) : (
         <>
           <Handle
             type="source"
             position={Position.Right}
             id="resolve"
-            className="!top-[74%] !size-5 !border-0 !bg-foreground !text-background"
+            title="Click to add a step, drag to connect"
+            className="!top-[74%] !flex !size-5 !items-center !justify-center !border-0 !bg-foreground !text-background"
+            onPointerDown={remember_handle_pointer}
+            onPointerUp={(event) => add_from_handle(event, id, "resolve")}
           >
-            <Check className="pointer-events-none size-3" />
+            <Check className="pointer-events-none block size-3" strokeWidth={2} />
+            <span className="pointer-events-none absolute -right-1 -top-1 grid size-3 place-items-center rounded-full border border-foreground bg-card text-foreground">
+              <Plus className="size-2" />
+            </span>
           </Handle>
           <Handle
             type="source"
             position={Position.Right}
             id="reject"
-            className="!top-[88%] !size-5 !border-0 !bg-filter-or !text-background"
+            title="Click to add a step, drag to connect"
+            className="!top-[88%] !flex !size-5 !items-center !justify-center !border-0 !bg-muted-foreground !text-background"
+            onPointerDown={remember_handle_pointer}
+            onPointerUp={(event) => add_from_handle(event, id, "reject")}
           >
-            <X className="pointer-events-none size-3" />
+            <X className="pointer-events-none block size-3" strokeWidth={2} />
+            <span className="pointer-events-none absolute -right-1 -top-1 grid size-3 place-items-center rounded-full border border-muted-foreground bg-card text-muted-foreground">
+              <Plus className="size-2" />
+            </span>
           </Handle>
-
-          <div className="absolute left-full top-[74%] ml-1 flex -translate-y-1/2 items-center gap-1">
-            <span className="h-0.5 w-5 bg-foreground" />
-            <button
-              type="button"
-              title="Add a step after resolve"
-              aria-label="Add a step after resolve"
-              className="grid size-5 place-items-center rounded-full bg-foreground text-background transition-transform hover:scale-105"
-              onPointerDown={stop_pointer}
-              onClick={(event) => {
-                event.stopPropagation();
-                actions?.add_after(id, "resolve");
-              }}
-            >
-              <Plus className="size-3" />
-            </button>
-          </div>
-          <div className="absolute left-full top-[88%] ml-1 flex -translate-y-1/2 items-center gap-1">
-            <span className="h-0.5 w-5 bg-filter-or" />
-            <button
-              type="button"
-              title="Add a step after reject"
-              aria-label="Add a step after reject"
-              className="grid size-5 place-items-center rounded-full border border-filter-or bg-card text-filter-or transition-transform hover:scale-105"
-              onPointerDown={stop_pointer}
-              onClick={(event) => {
-                event.stopPropagation();
-                actions?.add_after(id, "reject");
-              }}
-            >
-              <Plus className="size-3" />
-            </button>
-          </div>
         </>
       )}
     </div>
@@ -782,7 +1047,7 @@ function JsonField({
           }
         }}
       />
-      {error ? <span className="text-xs text-destructive">{error}</span> : null}
+      {error ? <span className="text-xs text-foreground">{error}</span> : null}
     </div>
   );
 }
@@ -960,7 +1225,7 @@ function CollectionPicker({
 
   return (
     <div className="grid gap-2">
-      <div className="grid gap-1">
+      <div className="grid gap-2">
         {collections.length === 0 ? (
           <p className="rounded-lg border border-border bg-surface-subtle p-3 text-xs text-muted-foreground">
             No collections yet.
@@ -969,7 +1234,7 @@ function CollectionPicker({
           visible.map((collection) => (
             <label
               key={collection.name}
-              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-muted/40"
+              className="flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm hover:bg-muted/40"
             >
               <Checkbox
                 checked={is_checked(collection.name)}
@@ -1082,7 +1347,7 @@ function HeadersField({
   );
 }
 
-function use_dirty_guard(dirty: boolean) {
+function useDirtyGuard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return;
     const handler = (event: BeforeUnloadEvent) => {
@@ -1096,23 +1361,25 @@ function use_dirty_guard(dirty: boolean) {
 
 function BuilderCanvas({ data }: { data: BuilderProps }) {
   const flow = data.flow;
-  const { fitView } = useReactFlow();
-  const { confirm, dialog: confirm_dialog } = useConfirm();
-  const { collapsed: right_sidebar_collapsed, setCollapsed: set_right_sidebar_collapsed } =
-    usePageRightSidebar();
+  const { confirm, dialog: confirm_dialog } = useConfirm("drawer");
+  const { setCollapsed: set_right_sidebar_collapsed } = usePageRightSidebar();
 
   const initial_root = useMemo(() => root_of(flow), [flow]);
   const [nodes, set_nodes] = useState<BuilderNode[]>(() => {
     const operations = flow.operations.map(operation_node);
     if (operations.length === 0) {
-      return [
-        trigger_node(flow.trigger, 40, 160, flow.options, flow.status),
-      ];
+      return [trigger_node(flow.trigger, 40, 160, flow.options, flow.status)];
     }
-    const root = operations.find((node) => node.id === initial_root) ?? operations[0];
-    const trigger_x = root.position.x - 380;
+    const root =
+      operations.find((node) => node.id === initial_root) ?? operations[0];
     return [
-      trigger_node(flow.trigger, trigger_x, root.position.y, flow.options, flow.status),
+      trigger_node(
+        flow.trigger,
+        root.position.x - 400,
+        root.position.y,
+        flow.options,
+        flow.status
+      ),
       ...operations,
     ];
   });
@@ -1120,13 +1387,19 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     build_edges(flow.operations, initial_root)
   );
   const [root_id, set_root_id] = useState<string | null>(initial_root);
-  const [selected_id, set_selected_id] = useState<string | null>(null);
+  const [selected_id, set_selected_id] = useState<string | null>(
+    TRIGGER_NODE_ID
+  );
   const [inspector_open, set_inspector_open] = useState(false);
   const [edit_mode, set_edit_mode] = useState(false);
   const [editor_tab, set_editor_tab] = useState<"flow" | "trigger">("flow");
   const [add_target, set_add_target] = useState<{
     source: string;
     handle: "resolve" | "reject";
+  } | null>(null);
+  const [connect_source, set_connect_source] = useState<{
+    nodeId: string;
+    handleId: string | null;
   } | null>(null);
   const [logs_failed_only, set_logs_failed_only] = useState(false);
   const [revision, set_revision] = useState(flow.revision);
@@ -1139,7 +1412,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   const [name, set_name] = useState(flow.name);
   const [description, set_description] = useState(flow.description);
   const [icon, set_icon] = useState(flow.icon);
-  const [color, set_color] = useState(flow.color);
+  const [color, set_color] = useState(
+    flow_icon_color(flow.color) ?? "var(--foreground)"
+  );
   const [accountability, set_accountability] = useState<"all" | "activity" | "none">(
     flow.accountability ?? "none"
   );
@@ -1162,7 +1437,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
   const [run_detail, set_run_detail] = useState<RunDetail | null>(null);
   const [detail_loading, set_detail_loading] = useState(false);
 
-  use_dirty_guard(dirty);
+  useDirtyGuard(dirty);
 
   const selected_node = useMemo(
     () => nodes.find((node) => node.id === selected_id) ?? null,
@@ -1286,7 +1561,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       const anchor = add_target
         ? nodes.find((node) => node.id === add_target.source)
         : selected;
-      const base_x = anchor ? anchor.position.x + 380 : 440;
+      const base_x = anchor ? anchor.position.x + 400 : 460;
       const base_y = anchor
         ? anchor.position.y + nodes.length * 6
         : 140 + nodes.length * 24;
@@ -1371,11 +1646,8 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       set_palette_open(false);
       set_palette_query("");
       set_dirty(true);
-      window.setTimeout(() => {
-        void fitView({ padding: 0.24, duration: 250, maxZoom: 1 });
-      }, 120);
     },
-    [add_target, fitView, nodes, root_id, selected_id]
+    [add_target, nodes, root_id, selected_id]
   );
 
   const delete_operation = useCallback(
@@ -1407,20 +1679,50 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     [confirm, nodes, root_id]
   );
 
+  const duplicate_operation = useCallback(
+    (id: string) => {
+      const source = nodes.find((entry) => entry.id === id);
+      if (!source || source.data.kind !== "operation") return;
+      const new_id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const key = unique_key(`${source.data.key}_copy`, nodes);
+      const duplicate: BuilderNode = {
+        ...source,
+        id: new_id,
+        selected: true,
+        position: {
+          x: source.position.x + 36,
+          y: source.position.y + 36,
+        },
+        data: {
+          ...source.data,
+          name: `${source.data.name} copy`,
+          key,
+          resolve: null,
+          reject: null,
+        },
+      };
+      set_nodes((current) => [
+        ...current.map((node) => ({ ...node, selected: false })),
+        duplicate,
+      ]);
+      set_selected_id(new_id);
+      set_edit_mode(true);
+      set_inspector_open(false);
+      set_dirty(true);
+      flow_toast_success("Step duplicated.");
+    },
+    [nodes]
+  );
+
   const delete_selected = useCallback(async () => {
     if (!selected_node) return;
     await delete_operation(selected_node.id);
   }, [delete_operation, selected_node]);
 
-  const tidy = useCallback(() => {
-    set_nodes((current) => layout_graph(current, edges));
-    set_dirty(true);
-    window.setTimeout(() => {
-      void fitView({ padding: 0.24, duration: 300, maxZoom: 1 });
-    }, 40);
-  }, [edges, fitView]);
-
-  const save_graph = useCallback(async () => {
+  const save_graph = useCallback(async (): Promise<boolean> => {
     set_saving(true);
     try {
       const operations = nodes
@@ -1454,11 +1756,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
           : rest;
       });
       set_dirty(false);
-      toast.success("Flow graph saved.");
+      flow_toast_success("Flow graph saved.");
+      return true;
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not save the flow."
       );
+      return false;
     } finally {
       set_saving(false);
     }
@@ -1483,9 +1787,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             : node
         )
       );
-      toast.success("Flow setup saved.");
+      flow_toast_success("Flow setup saved.");
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not save flow setup."
       );
     } finally {
@@ -1513,9 +1817,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       if (result.secret) {
         set_secret({ secret: result.secret, url: result.webhook_url });
       }
-      toast.success("Trigger settings saved.");
+      flow_toast_success("Trigger settings saved.");
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not save the trigger."
       );
     } finally {
@@ -1555,11 +1859,11 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               : node
           )
         );
-        toast.success(
+        flow_toast_success(
           next === "active" ? "Flow activated." : "Flow deactivated."
         );
       } catch (error) {
-        toast.error(
+        flow_toast_error(
           error instanceof Error ? error.message : "Could not change the status."
         );
       } finally {
@@ -1578,7 +1882,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       });
       set_runs(result.runs);
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not load run logs."
       );
     } finally {
@@ -1594,6 +1898,10 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     void load_runs();
   }, [load_runs]);
 
+  const close_logs = useCallback(() => {
+    set_logs_open(false);
+  }, []);
+
   const open_editor = useCallback(
     (tab: "flow" | "trigger", operationId: string | null = null) => {
       set_logs_open(false);
@@ -1605,15 +1913,20 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
     []
   );
 
-  const toggle_edit_mode = useCallback(() => {
+  const toggle_edit_mode = useCallback(async () => {
     if (edit_mode) {
-      set_edit_mode(false);
-      set_inspector_open(false);
+      if (inspector_open) {
+        await save_editor();
+        return;
+      }
+      if (await save_graph()) {
+        set_edit_mode(false);
+      }
       return;
     }
     set_edit_mode(true);
     set_logs_open(false);
-  }, [edit_mode]);
+  }, [edit_mode, inspector_open, save_editor, save_graph]);
 
   const open_run_detail = useCallback(async (run: FlowRunRecord) => {
     set_detail_loading(true);
@@ -1622,7 +1935,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       const result = await flows_call<RunDetail>("run_detail", { id: run.id });
       set_run_detail(result);
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not load the run."
       );
     } finally {
@@ -1640,24 +1953,25 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         error?: { message?: string } | null;
       }>("run_now", { id: flow.id, input: null, sync: true });
       if (result.queued) {
-        toast.info("Run queued. It will start shortly.");
+        flow_toast_info("Run queued. It will start shortly.");
       } else if (result.status === "success") {
-        toast.success("Flow ran successfully.");
+        flow_toast_success("Flow ran successfully.");
       } else if (result.status === "rejected") {
-        toast.warning(result.error?.message ?? "The flow rejected this run.");
+        flow_toast_notice(result.error?.message ?? "The flow rejected this run.");
       } else if (result.error?.message) {
         throw new Error(result.error.message);
       }
       set_logs_open(true);
+      set_right_sidebar_collapsed(false);
       await load_runs();
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not run the flow."
       );
     } finally {
       set_running(false);
     }
-  }, [dirty, flow.id, load_runs, save_graph]);
+  }, [dirty, flow.id, load_runs, save_graph, set_right_sidebar_collapsed]);
 
   const rotate_secret = useCallback(async () => {
     try {
@@ -1669,7 +1983,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       set_current_flow(result.flow);
       set_secret({ secret: result.secret, url: result.webhook_url });
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not rotate the secret."
       );
     }
@@ -1692,7 +2006,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       await flows_call("delete_flow", { id: flow.id });
       window.location.href = "/admin/flows";
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not delete the flow."
       );
     }
@@ -1714,7 +2028,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error(
+      flow_toast_error(
         error instanceof Error ? error.message : "Could not export the flow."
       );
     }
@@ -1841,6 +2155,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       change_status: (status) => void change_status(status),
       edit_trigger: () => open_editor("trigger"),
       edit_operation: (id) => open_editor("trigger", id),
+      duplicate_operation: (id) => duplicate_operation(id),
       delete_operation: (id) => void delete_operation(id),
       add_after: (source, handle) => {
         set_add_target({ source, handle });
@@ -1848,7 +2163,52 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         set_palette_query("");
       },
     }),
-    [change_status, delete_operation, edit_mode, open_editor]
+    [
+      change_status,
+      delete_operation,
+      duplicate_operation,
+      edit_mode,
+      open_editor,
+      root_id,
+    ]
+  );
+  const right_sidebar_panel = useMemo<PageRightSidebarPanel | undefined>(
+    () =>
+      current_flow.id
+        ? {
+            title: "Activity & logs",
+            icon: <History className="size-4" />,
+            active: logs_open,
+            onOpen: open_logs,
+            onClose: close_logs,
+            content: (
+              <FlowRunHistoryPanel
+                detail_loading={detail_loading}
+                run_detail={run_detail}
+                logs_failed_only={logs_failed_only}
+                logs_loading={logs_loading}
+                run_groups={run_groups}
+                on_toggle_failed_only={(checked) =>
+                  set_logs_failed_only(checked)
+                }
+                on_back_to_runs={() => set_run_detail(null)}
+                on_run_select={(run) => void open_run_detail(run)}
+              />
+            ),
+          }
+        : undefined,
+    [
+      close_logs,
+      current_flow.id,
+      detail_loading,
+      logs_failed_only,
+      logs_loading,
+      logs_open,
+      open_logs,
+      open_run_detail,
+      run_detail,
+      run_groups,
+    ]
   );
   const router = useRouter();
   const navbar_meta = useMemo(
@@ -1857,6 +2217,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       title: current_flow.name,
       onBack: () => router.push("/admin/flows"),
       icon: <DynamicIcon name={icon} size={16} />,
+      rightSidebarPanel: right_sidebar_panel,
       badge: dirty ? (
         <span
           className="ml-1 inline-block size-2 rounded-full bg-foreground"
@@ -1865,7 +2226,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
         />
       ) : undefined,
     }),
-    [current_flow.name, dirty, icon, router]
+    [current_flow.name, dirty, icon, right_sidebar_panel, router]
   );
   useSetNavbarMeta(navbar_meta);
 
@@ -1876,49 +2237,38 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
 
       <PageActionsPortal>
         <Button
-          variant="ghost"
-          size="icon-sm"
-          title="Run now"
-          aria-label="Run now"
-          onClick={() => void run_now()}
-          disabled={running}
-        >
-          {running ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Play className="size-3.5" />
-          )}
-        </Button>
-        <Button
+          className="lg:hidden"
           variant={logs_open ? "outline" : "ghost"}
           size="icon-sm"
           title="Activity & logs"
           aria-label="Activity & logs"
+          aria-pressed={logs_open}
           onClick={open_logs}
         >
           <History className="size-3.5" />
         </Button>
         <Button
-          variant={edit_mode ? "outline" : "ghost"}
+          variant="outline"
           size="icon-sm"
-          title="Edit flow"
-          aria-label="Edit flow"
+          title={edit_mode ? "Save graph" : "Edit flow"}
+          aria-label={edit_mode ? "Save graph" : "Edit flow"}
           aria-pressed={edit_mode}
-          onClick={toggle_edit_mode}
-        >
-          <Pencil className="size-3.5" />
-        </Button>
-        <Button
-          size="icon-sm"
-          title="Save graph"
-          aria-label="Save graph"
-          onClick={() => void save_graph()}
+          onClick={() => void toggle_edit_mode()}
           disabled={saving}
+          className={cn(
+            "!border-foreground",
+            edit_mode &&
+              "bg-black text-white hover:bg-black/85 aria-expanded:bg-black"
+          )}
         >
           {saving ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <Check className="size-3.5" />
+            edit_mode ? (
+              <Check className="size-3.5" />
+            ) : (
+              <Pencil className="size-3.5" />
+            )
           )}
         </Button>
         <Button
@@ -1926,6 +2276,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
           size="icon-sm"
           title="Delete flow"
           aria-label="Delete flow"
+          className="hover:bg-destructive/15 hover:text-destructive"
           onClick={() => void delete_flow_action()}
         >
           <Trash2 className="size-3.5" />
@@ -1942,6 +2293,13 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onSelect={() => void run_now()}
+              disabled={running}
+            >
+              {running ? <Loader2 className="animate-spin" /> : null}
+              Run now
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void export_flow()}>
               <Download />
               Export flow
@@ -1962,23 +2320,10 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title="Toggle right panel"
-          aria-label="Toggle right panel"
-          aria-pressed={!right_sidebar_collapsed}
-          onClick={() => set_right_sidebar_collapsed(!right_sidebar_collapsed)}
-        >
-          <PanelRight className="size-3.5" />
-        </Button>
       </PageActionsPortal>
 
       {!data.runtime.enabled || data.runtime.missing.length > 0 ? (
-        <Notice
-          icon={AlertTriangle}
-          tone={data.runtime.enabled ? "warning" : "destructive"}
-        >
+        <Notice icon={AlertTriangle}>
           {data.runtime.enabled
             ? `This runtime is not ready: ${data.runtime.missing.join(", ")}.`
             : "Flows are disabled on this server. Set FLOWS_ENABLED=1 to enable them."}
@@ -1986,41 +2331,42 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       ) : null}
 
       <div className="relative">
-        <div className="relative h-[calc(100dvh-8.5rem)] min-h-[560px] w-full overflow-hidden rounded-xl border border-border bg-background">
-          <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5">
-            <Button
-              size="sm"
-              onClick={() => {
-                set_add_target(null);
-                set_palette_open(true);
-              }}
-            >
-              <Plus className="size-3.5" /> Add step
-            </Button>
-            <Button variant="ghost" size="sm" onClick={tidy}>
-              <LayoutGrid className="size-3.5" /> Tidy
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                void fitView({ padding: 0.24, duration: 300, maxZoom: 1 })
-              }
-            >
-              <RefreshCw className="size-3.5" /> Fit
-            </Button>
-            <span className="hidden px-2 text-xs text-muted-foreground 2xl:inline">
-              Drag from a check for resolve, an X for reject.
-            </span>
-          </div>
+        <div className="flow-dot-grid relative h-[calc(100dvh-8.5rem)] min-h-[560px] w-full overflow-hidden">
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            edgeTypes={EDGE_TYPES}
             nodeTypes={NODE_TYPES}
             onNodesChange={on_nodes_change}
             onEdgesChange={on_edges_change}
             onEdgesDelete={on_edges_delete}
             onConnect={on_connect}
+            onConnectStart={(_event, params) => {
+              if (params.nodeId) {
+                set_connect_source({
+                  nodeId: params.nodeId,
+                  handleId: params.handleId,
+                });
+              }
+            }}
+            onConnectEnd={(_event, state) => {
+              if (connect_source && !state.isValid) {
+                const handle =
+                  connect_source.handleId === "root"
+                    ? "resolve"
+                    : connect_source.handleId;
+                if (handle === "resolve" || handle === "reject") {
+                  set_add_target({
+                    source: connect_source.nodeId,
+                    handle,
+                  });
+                  set_palette_open(true);
+                  set_palette_query("");
+                }
+              }
+              set_connect_source(null);
+            }}
+            connectionLineComponent={FlowConnectionLine}
             onSelectionChange={({ nodes: selected }) => {
               set_selected_id(selected[0]?.id ?? null);
             }}
@@ -2028,22 +2374,14 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               set_selected_id(null);
               set_inspector_open(false);
             }}
-            fitView
-            fitViewOptions={{ padding: 0.24, maxZoom: 1 }}
-            proOptions={{ hideAttribution: false }}
-            className="bg-background"
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            proOptions={{ hideAttribution: true }}
+            className="bg-transparent"
             defaultEdgeOptions={{
               type: "smoothstep",
               markerEnd: { type: MarkerType.ArrowClosed },
             }}
-          >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={20}
-              size={1}
-              color="var(--border)"
-            />
-          </ReactFlow>
+          />
         </div>
 
         {inspector_open ? (
@@ -2134,7 +2472,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                   <Zap className="size-4 text-muted-foreground" />
                   <h2 className="text-sm font-semibold">Flow setup</h2>
                 </header>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3">
                   <FieldShell label="Name *">
                     <Input
                       value={name}
@@ -2168,10 +2506,15 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                   />
                 </FieldShell>
                 <FieldShell label="Icon">
-                  <IconPicker value={icon} onChange={set_icon} color={color} />
+                  <IconPicker
+                    value={icon}
+                    onChange={set_icon}
+                    color={color}
+                    presentation="drawer"
+                  />
                 </FieldShell>
                 <FieldShell label="Color">
-                  <ColorPicker value={color} onChange={set_color} />
+                  <FlowColorField value={color} onChange={set_color} />
                 </FieldShell>
                 <FieldShell
                   label="Activity & logs tracking"
@@ -2230,7 +2573,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                 {flow.trigger === "event" ? (
                   <>
                     <FieldShell label="Type *">
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-2">
                         {[
                           {
                             value: "filter" as const,
@@ -2621,7 +2964,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               key={selected_node.id}
               className="space-y-4"
             >
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <FieldShell label="Name">
                   <Input
                     value={selected_node.data.name}
@@ -2666,6 +3009,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                   size="icon-sm"
                   title="Remove step"
                   aria-label="Remove step"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void delete_selected()}
                 >
                   <X className="size-3.5" />
@@ -2675,7 +3019,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               <div className="grid gap-3 border-t border-border pt-3">
                 {selected_node.data.type === "request" ? (
                   <>
-                    <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                    <div className="grid gap-3">
                       {["method", "url"].map((name) => {
                         const field = selected_fields.find(
                           (entry) => entry.name === name
@@ -2706,167 +3050,55 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
       </div>
 
       {logs_open ? (
-        <aside className="flow-panel fixed bottom-0 right-0 top-12 z-50 flex w-full max-w-[300px] flex-col border-l border-border bg-card sm:top-14">
+        <aside className="flow-panel fixed bottom-0 right-0 top-12 z-50 flex w-full max-w-[360px] flex-col border-l border-border bg-card sm:top-14 lg:hidden">
           <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold">Logs</p>
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+              Activity & logs
+            </p>
             <Button
               variant="ghost"
               size="icon-sm"
-              title="Close logs"
-              aria-label="Close logs"
-              onClick={() => set_logs_open(false)}
+              title="Close activity & logs"
+              aria-label="Close activity & logs"
+              onClick={close_logs}
             >
               <X className="size-3.5" />
             </Button>
           </header>
-
-          {detail_loading ? (
-            <div className="grid flex-1 place-items-center">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : run_detail ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Back to logs"
-                  aria-label="Back to logs"
-                  onClick={() => set_run_detail(null)}
-                >
-                  <ArrowLeft className="size-3.5" />
-                </Button>
-                <RunStatusBadge status={run_detail.run.status} />
-                <span className="truncate text-xs text-muted-foreground">
-                  {format_datetime(run_detail.run.started_at)}
-                </span>
-              </div>
-              <div className="app-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-                {run_detail.run.error ? (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-                    {run_detail.run.error}
-                  </div>
-                ) : null}
-                {run_detail.steps.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No step details recorded.
-                  </p>
-                ) : (
-                  run_detail.steps.map((step) => (
-                    <div
-                      key={step.id}
-                      className="rounded-md border border-border bg-card p-2.5"
-                    >
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-mono font-semibold">{step.key}</span>
-                        <RunStatusBadge status={step.status} />
-                        <span className="ml-auto tabular-nums text-muted-foreground">
-                          {format_duration(step.duration_ms)}
-                        </span>
-                      </div>
-                      {step.error ? (
-                        <p className="mt-1 text-xs text-destructive">{step.error}</p>
-                      ) : null}
-                      <pre className="mt-2 max-h-28 overflow-auto rounded bg-surface-subtle p-2 text-xs leading-relaxed text-muted-foreground">
-                        {JSON.stringify(step.output, null, 2)}
-                      </pre>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="shrink-0 border-b border-border px-4 py-3">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Checkbox
-                    checked={logs_failed_only}
-                    onCheckedChange={(value) => set_logs_failed_only(value === true)}
-                  />
-                  Show Failed Only
-                </label>
-              </div>
-              <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto">
-                {logs_loading ? (
-                  <div className="grid h-24 place-items-center">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : run_groups.length === 0 ? (
-                  <p className="p-4 text-xs text-muted-foreground">
-                    No runs yet. Use Run now or trigger the flow.
-                  </p>
-                ) : (
-                  run_groups.map(([date, group]) => (
-                    <div key={date}>
-                      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground">
-                        <ChevronDown className="size-3.5" />
-                        {date}
-                      </div>
-                      {group.map((run) => {
-                        const failed =
-                          run.status === "error" ||
-                          run.status === "timeout" ||
-                          run.status === "rejected";
-                        return (
-                          <button
-                            key={run.id}
-                            type="button"
-                            onClick={() => void open_run_detail(run)}
-                            className="flex w-full items-center gap-2 border-b border-border px-4 py-2 text-left text-xs transition-colors hover:bg-muted/40"
-                          >
-                            {failed ? (
-                              <XCircle className="size-3.5 shrink-0 text-filter-or" />
-                            ) : (
-                              <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" />
-                            )}
-                            <span className="truncate text-foreground">
-                              {format_time(run.started_at)}
-                            </span>
-                            <span className="ml-auto shrink-0 text-muted-foreground">
-                              {format_relative(run.started_at)}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-
-          <button
-            type="button"
-            className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-            onClick={() => set_logs_open(false)}
-          >
-            <Sparkles className="size-3.5" />
-            AI Assistant
-            <ChevronUp className="ml-auto size-3.5" />
-          </button>
+          <FlowRunHistoryPanel
+            detail_loading={detail_loading}
+            run_detail={run_detail}
+            logs_failed_only={logs_failed_only}
+            logs_loading={logs_loading}
+            run_groups={run_groups}
+            on_toggle_failed_only={(checked) => set_logs_failed_only(checked)}
+            on_back_to_runs={() => set_run_detail(null)}
+            on_run_select={(run) => void open_run_detail(run)}
+          />
         </aside>
       ) : null}
 
-      <Dialog open={palette_open} onOpenChange={set_palette_open}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <Sheet open={palette_open} onOpenChange={set_palette_open}>
+        <SheetContent className="w-full max-w-[560px] p-0">
+          <SheetHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-medium">
               <Workflow className="size-4" /> Add an operation
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="mt-1 text-xs leading-5">
               {add_target
                 ? "The new step will be connected to the selected output."
                 : "The new step is connected to the selected step's resolve path when that path is free."}
             </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={palette_query}
-            onChange={(event) => set_palette_query(event.target.value)}
-            placeholder="Search operations"
-            className="h-10"
-            autoFocus
-          />
-          <div className="space-y-4">
+          </SheetHeader>
+          <SheetBody className="space-y-4">
+            <Input
+              value={palette_query}
+              onChange={(event) => set_palette_query(event.target.value)}
+              placeholder="Search operations"
+              className="h-10"
+              autoFocus
+            />
+            <div className="space-y-4">
             {OPERATION_GROUPS.map((group) => {
               const entries = filtered_operations.filter(
                 (definition) => definition.group === group
@@ -2877,7 +3109,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {group}
                   </h3>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2">
                     {entries.map((definition) => (
                       <button
                         key={definition.type}
@@ -2885,10 +3117,7 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                         onClick={() => add_operation(definition.type)}
                         className="flex gap-2.5 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/60"
                       >
-                        <span
-                          className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle"
-                          style={{ color: definition.color }}
-                        >
+                        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
                           <DynamicIcon name={definition.icon} size={15} />
                         </span>
                         <span className="min-w-0">
@@ -2905,25 +3134,29 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
                 </div>
               );
             })}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog
+      <Sheet
         open={secret !== null}
         onOpenChange={(open) => {
           if (!open) set_secret(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Copy your webhook secret</DialogTitle>
-            <DialogDescription>
+        <SheetContent className="w-full max-w-[480px]">
+          <SheetHeader>
+            <DialogTitle className="text-lg font-medium">
+              Copy your webhook secret
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-xs leading-5">
               This value is shown once. Send it in the{" "}
               <span className="font-mono">x-et-flow-secret</span> header or as a
               Bearer token.
             </DialogDescription>
-          </DialogHeader>
+          </SheetHeader>
+          <SheetBody>
           {secret ? (
             <div className="space-y-4">
               <div className="grid gap-1.5">
@@ -2950,8 +3183,9 @@ function BuilderCanvas({ data }: { data: BuilderProps }) {
               </div>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
 
     </div>
     </NodeActionsContext.Provider>

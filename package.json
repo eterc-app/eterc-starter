@@ -20,6 +20,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "styles:check": "node scripts/check_styles.mjs",
+    "db:pull": "drizzle-kit pull",
+    "db:studio": "drizzle-kit studio",
     "validate": "npm run typecheck && npm run styles:check && npm run lint && npm run build"
   },
   "dependencies": {
@@ -53,6 +55,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "cn": "^0.5.0",
+    "drizzle-orm": "^0.45.4",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.60.0",
     "next": "16.4.2",
@@ -80,6 +83,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "typescript": "^5"

@@ -667,25 +667,43 @@
 }
 
 @layer components {
-  /* Flow canvas cards keep a subtle elevation so nodes read as movable surfaces. */
+  /* Flow canvas cards keep a soft elevation so nodes read as movable surfaces. */
   .flow-card {
-    box-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.45);
+    border-radius: 1.25rem;
+    box-shadow: 0 20px 44px -26px rgb(0 0 0 / 0.42);
   }
 
   .flow-card-selected {
-    box-shadow: 0 22px 50px -24px rgb(0 0 0 / 0.55);
+    border-width: 2px;
+    border-color: var(--foreground);
+    box-shadow:
+      0 0 0 6px rgb(0 0 0 / 0.08),
+      0 26px 54px -22px rgb(0 0 0 / 0.52);
   }
 
   .flow-panel {
     box-shadow: -24px 0 64px -40px rgb(0 0 0 / 0.45);
   }
 
+  .flow-dot-grid {
+    background-color: var(--background);
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  .flow-dot-grid .react-flow,
+  .flow-dot-grid .react-flow__pane {
+    background: transparent;
+  }
+
   .dark .flow-card {
-    box-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.85);
+    box-shadow: 0 20px 44px -26px rgb(0 0 0 / 0.85);
   }
 
   .dark .flow-card-selected {
-    box-shadow: 0 22px 50px -24px rgb(0 0 0 / 0.95);
+    box-shadow:
+      0 0 0 6px rgb(255 255 255 / 0.08),
+      0 26px 54px -22px rgb(0 0 0 / 0.95);
   }
 
   /* Eterc Icons - v0.1.0 (Beta) */

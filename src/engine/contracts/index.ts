@@ -4,4 +4,5 @@ export * from "./cache";
 export * from "./queue";
 export * from "./storage";
 export * from "./validation";
+export * from "./integrations";
 

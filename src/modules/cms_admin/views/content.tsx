@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import {
   PageActionsPortal,
   PageRightSidebarPortal,
+  PageSidebarPortal,
   usePageRightSidebar,
   useSetNavbarMeta,
 } from "@/components/app/PageActionsSlot";
@@ -285,6 +286,9 @@ function parse_record_value(field: CmsField, value: unknown): unknown {
 }
 
 const no_layout_option = "__no_layout_option__";
+
+const table_column_divider =
+  "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border";
 
 function LayoutOptionPicker({
   label,
@@ -1360,22 +1364,12 @@ export default function ContentManager({ data }: EtViewProps) {
         placeholder={`Search ${selected.label || selected.name}...`}
       />
     ) : null;
-    const pageSidebar = (
-      <ContentSidebar
-        collections={collections}
-        activeName={selected?.name}
-        onSelect={selectCollection}
-        busy={busy}
-        layout="navigation"
-      />
-    );
 
     if (!selected) {
       return {
         section: "Content",
         title: "Content",
         icon: <Layers className="size-4" strokeWidth={1.75} />,
-        pageSidebar,
       };
     }
     if (viewMode === "record-form") {
@@ -1385,14 +1379,12 @@ export default function ContentManager({ data }: EtViewProps) {
           ? `Editing record in ${selected.label || selected.name}`
           : `New record in ${selected.label || selected.name}`,
         onBack: () => setViewMode("table"),
-        pageSidebar,
       };
     }
     return {
       section: "Content",
       title: selected.label || selected.name,
       search: searchControl,
-      pageSidebar,
       rightSidebar: viewMode === "table",
       refresh: viewMode === "table"
         ? {
@@ -1410,7 +1402,6 @@ export default function ContentManager({ data }: EtViewProps) {
     addFilterGroup,
     changeFilterCondition,
     clearSearch,
-    collections,
     editingRecord,
     filterGroup,
     columnSort,
@@ -1421,7 +1412,6 @@ export default function ContentManager({ data }: EtViewProps) {
     search,
     setFilterGroupJunction,
     searchInput,
-    selectCollection,
     selected,
     submitSearch,
     visibleFields,
@@ -1429,6 +1419,16 @@ export default function ContentManager({ data }: EtViewProps) {
   ]);
 
   useSetNavbarMeta(navbarMeta);
+
+  const pageSidebar = (
+    <ContentSidebar
+      collections={collections}
+      activeName={selected?.name}
+      onSelect={selectCollection}
+      busy={busy}
+      layout="navigation"
+    />
+  );
 
   const setRowSelected = (id: string, checked: boolean) => {
     setSelectedRowIds((prev) => {
@@ -1458,6 +1458,10 @@ export default function ContentManager({ data }: EtViewProps) {
 
   return (
     <div className="app-page h-full min-h-0 gap-0">
+      <PageSidebarPortal>
+        {pageSidebar}
+      </PageSidebarPortal>
+
       <PageActionsPortal>
         {viewMode === "record-form" ? (
           <div className="flex items-center gap-1.5">
@@ -1548,6 +1552,7 @@ export default function ContentManager({ data }: EtViewProps) {
           {!selected ? (
             <div className="py-16 text-center">
               <EmptyState
+                className="border-0 bg-transparent shadow-none"
                 icon={<Layers className="size-5" />}
                 title={collections.length === 0 ? "No collections yet" : "Select a collection"}
                 description={
@@ -1651,17 +1656,17 @@ export default function ContentManager({ data }: EtViewProps) {
               )}
             >
               {displayLayout === "table" ? (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
-                <div className="app-scrollbar min-h-0 flex-1 overflow-auto">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-transparent bg-transparent">
+                <div className="app-scrollbar min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
                   <table className="w-full min-w-full table-fixed text-left text-sm">
-                    <thead className="sticky top-0 z-10 bg-surface-subtle/95">
-                      <tr className="border-b border-border bg-surface-subtle/80 text-xs font-semibold text-muted-foreground">
+                    <thead className="sticky top-0 z-10 bg-transparent">
+                      <tr className="border-b border-border text-xs font-semibold text-foreground">
                         {manualOrderingActive ? (
-                          <th className="w-9 px-1 py-3">
+                          <th className={cn("relative w-9 px-1 py-3", table_column_divider)}>
                             <span className="sr-only">Reorder</span>
                           </th>
                         ) : null}
-                        <th className="w-10 px-3 py-3 text-center">
+                        <th className={cn("relative w-10 px-3 py-3 text-center", table_column_divider)}>
                           <Checkbox
                             checked={allRecordsSelected}
                             onCheckedChange={toggleSelectAll}
@@ -1670,7 +1675,7 @@ export default function ContentManager({ data }: EtViewProps) {
                           />
                         </th>
                         {primaryKeyColumnVisible ? <th
-                          className="relative px-3 py-3 font-mono"
+                          className={cn("relative px-3 py-3 font-mono", table_column_divider)}
                           style={{
                             width: columnWidths[`${selected.name}:${selected.primary_key}`] ?? 140,
                           }}
@@ -1710,6 +1715,7 @@ export default function ContentManager({ data }: EtViewProps) {
                             key={field.name}
                             className={cn(
                               "relative px-3 py-3 whitespace-nowrap",
+                              table_column_divider,
                               columnAlignments[field.name] === "center" && "text-center",
                               columnAlignments[field.name] === "right" && "text-right"
                             )}
@@ -1852,37 +1858,40 @@ export default function ContentManager({ data }: EtViewProps) {
                         <tr>
                           <td
                             colSpan={tableFields.length + 3 + (primaryKeyColumnVisible ? 1 : 0) + (sortField ? 1 : 0)}
-                            className="py-12 text-center"
+                            className="p-0"
                           >
-                            <div className="flex flex-col items-center justify-center gap-2">
-                              <p className="text-sm font-semibold text-muted-foreground">
-                                {search ? "No records match your search" : "No records yet"}
-                              </p>
-                              {search ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2 rounded-lg"
-                                  onClick={() => {
-                                    setSearchInput("");
-                                    void refresh(selected.name, 1, "");
-                                  }}
-                                >
-                                  Clear search
-                                </Button>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={openCreateRecord}
-                                  disabled={!canCreateRecord}
-                                  className="mt-2 rounded-lg"
-                                >
-                                  <Plus className="size-3.5" />
-                                  Add first record
-                                </Button>
-                              )}
-                            </div>
+                            <EmptyState
+                              className="border-0 bg-transparent shadow-none"
+                              icon={<Table2 className="size-5" strokeWidth={1.75} />}
+                              title={search ? "No records match your search" : "No records yet"}
+                              description={
+                                search
+                                  ? "Try a different search term or clear the search to see every record."
+                                  : "Add the first record to this collection to get started."
+                              }
+                              action={
+                                search ? (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSearchInput("");
+                                      void refresh(selected?.name, 1, "");
+                                    }}
+                                  >
+                                    Clear search
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    onClick={openCreateRecord}
+                                    disabled={!canCreateRecord}
+                                  >
+                                    <Plus className="size-4" />
+                                    Add first record
+                                  </Button>
+                                )
+                              }
+                            />
                           </td>
                         </tr>
                       ) : (
@@ -1894,7 +1903,7 @@ export default function ContentManager({ data }: EtViewProps) {
                             <tr
                               key={rowId}
                               className={cn(
-                                "border-b border-border transition-colors last:border-b-0 cursor-pointer hover:bg-surface-subtle",
+                                "border-b border-border transition-colors last:border-b-0 cursor-pointer hover:bg-foreground/10 dark:hover:bg-muted/80",
                                 isSelected && "bg-muted/70 hover:bg-muted",
                                 dropTargetRecordId === rowId &&
                                   draggedRecordId !== rowId &&

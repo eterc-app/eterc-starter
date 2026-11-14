@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "framework": {
     "provider": "nextjs",
     "values": {}
@@ -15,7 +15,7 @@
     }
   },
   "orm": {
-    "provider": "raw-sql",
+    "provider": "drizzle",
     "values": {}
   },
   "cache": {
@@ -30,6 +30,30 @@
     "provider": "local",
     "values": {}
   },
+  "email": {
+    "provider": "none",
+    "values": {}
+  },
+  "sms": {
+    "provider": "none",
+    "values": {}
+  },
+  "whatsapp": {
+    "provider": "none",
+    "values": {}
+  },
+  "telegram": {
+    "provider": "none",
+    "values": {}
+  },
+  "payments": {
+    "provider": "none",
+    "values": {}
+  },
+  "ai": {
+    "provider": "none",
+    "values": {}
+  },
   "automation": {
     "provider": "embedded",
     "values": {}
@@ -39,3 +63,4 @@
     "values": {}
   }
 }
+
