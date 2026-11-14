@@ -37,7 +37,7 @@ interface OAuthTransaction {
   created_at: number;
 }
 
-interface OAuthProfile {
+export interface OAuthProfile {
   subject: string;
   email: string;
   name: string;
@@ -419,7 +419,7 @@ function find_target_user(user_id: number, level: ResolvedLevel): Row | false {
 }
 
 function link_or_find_user(
-  provider: LoginProviderId,
+  provider: string,
   profile: OAuthProfile,
   level: ResolvedLevel,
   settings: LoginRuntimeSettings
@@ -532,6 +532,28 @@ export async function complete_oauth(
           transaction.verifier
         );
 
+  const user = link_or_find_user(provider, profile, level, settings);
+  const model = new Login_model("login");
+
+  rotate_session_id();
+  const token = model.login_user_row(user, level.level_id, 0);
+  if (token === false) throw new OAuthError("oauth_failed");
+
+  model.clear_failed_attempts(profile.email, level.level_id);
+  return level.config.redirect_on_success;
+}
+
+/**
+ * Complete an external provider login after the provider has verified the
+ * identity. The provider id is stored in `eterc_identities.provider`.
+ */
+export async function complete_external_login(
+  provider: string,
+  profile: OAuthProfile,
+  level_slug: string
+): Promise<string> {
+  const level = resolve_level(level_slug);
+  const settings = get_login_settings();
   const user = link_or_find_user(provider, profile, level, settings);
   const model = new Login_model("login");
 

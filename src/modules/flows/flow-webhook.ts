@@ -4,10 +4,10 @@ import { run_flow } from "./flow-runner";
 import { verify_webhook_secret, get_flow } from "./flow-store";
 import { FLOW_SECRET_HEADER } from "./flow-secrets";
 import { SYSTEM_PRINCIPAL } from "./flow-principal";
+import { activeCacheProvider } from "@/engine/active/cache-provider";
 import type { FlowRecord, FlowTriggerPayload } from "./flow-types";
 
-const CACHE_TTL_MS = 30_000;
-const cache = new Map<string, { expires: number; body: unknown; status: number }>();
+const CACHE_TTL_SECONDS = 30;
 
 export interface WebhookResult {
   status: number;
@@ -104,10 +104,12 @@ export async function handle_webhook(
     };
   }
 
-  const cached = flow.options.cache === true && method === "GET"
-    ? cache.get(`${flow.id}:${url.toString()}`)
-    : undefined;
-  if (cached && cached.expires > Date.now()) {
+  const cacheKey = `flow-webhook:${flow.id}:${url.toString()}`;
+  const cached =
+    flow.options.cache === true && method === "GET"
+      ? await activeCacheProvider.get<{ status: number; body: unknown }>(cacheKey)
+      : null;
+  if (cached) {
     return { status: cached.status, body: cached.body };
   }
 
@@ -165,23 +167,17 @@ export async function handle_webhook(
     context
   );
   if (flow.options.cache === true && method === "GET") {
-    cache.set(`${flow.id}:${url.toString()}`, {
-      expires: Date.now() + CACHE_TTL_MS,
-      body: responseBody ?? null,
-      status: 200,
-    });
+    await activeCacheProvider.set(
+      cacheKey,
+      { status: 200, body: responseBody ?? null },
+      CACHE_TTL_SECONDS,
+    );
   }
   return { status: 200, body: responseBody ?? null };
 }
 
-export function clear_webhook_cache(flowId?: string): void {
-  if (!flowId) {
-    cache.clear();
-    return;
-  }
-  for (const key of cache.keys()) {
-    if (key.startsWith(`${flowId}:`)) cache.delete(key);
-  }
+export async function clear_webhook_cache(): Promise<void> {
+  await activeCacheProvider.flush();
 }
 
 export type { FlowRecord };

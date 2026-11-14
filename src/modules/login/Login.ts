@@ -15,6 +15,7 @@ import { EtHttpError } from "@/engine/signals";
 import type { Eterc_tokens } from "@/engine/Eterc_tokens";
 import { Login_model } from "./Login_model";
 import { get_public_login_settings } from "./login-settings";
+import { login_auth_provider } from "./auth-provider";
 import Forgot_password from "./forgot_password/Forgot_password";
 export default class Login extends Eterc {
   constructor(moduleName?: string | null) {
@@ -106,11 +107,17 @@ export default class Login extends Eterc {
       redirect(config.redirect_on_success);
     }
 
+    const level_slug = this.loginModel().get_login_url(user_level_id);
+    const login_provider = login_auth_provider();
+
+    if (login_provider.kind !== "builtin") {
+      redirect(login_provider.loginPath(level_slug));
+    }
+
     // Destroy lingering tokens.
     this.tokens().destroy();
 
     const config = this.loginModel().get_level_config(user_level_id);
-    const level_slug = this.loginModel().get_login_url(user_level_id);
     const view_file = config.view_file || "login_default";
     const public_settings = get_public_login_settings();
     const context = get_context();

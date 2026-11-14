@@ -8,6 +8,7 @@ import {
 } from "./flow-store";
 import { run_flow } from "./flow-runner";
 import { SYSTEM_PRINCIPAL } from "./flow-principal";
+import { activeQueueProvider } from "@/engine/active/queue-provider";
 import type { FlowTrigger, FlowTriggerPayload } from "./flow-types";
 
 const WORKER_ID = `embedded-${process.pid}`;
@@ -18,12 +19,18 @@ export function enqueue_flow_trigger(
   payload: FlowTriggerPayload,
   runAt?: number
 ): string {
-  return enqueue_flow_job({
+  const jobId = enqueue_flow_job({
     flow_id: flowId,
     trigger,
     payload,
     run_at: runAt,
   });
+  if (activeQueueProvider.id !== "immediate") {
+    void activeQueueProvider.enqueue("flow-tick", { jobId }).catch((error) => {
+      console.error("[flows] External queue enqueue failed:", error);
+    });
+  }
+  return jobId;
 }
 
 /**
