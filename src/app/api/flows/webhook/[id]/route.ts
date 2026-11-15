@@ -8,7 +8,7 @@ async function handle(
   context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   await connection();
-  ensure_flow_schema();
+  await ensure_flow_schema();
   const { id } = await context.params;
   const result = await handle_webhook(request, id);
   return NextResponse.json(result.body ?? null, {

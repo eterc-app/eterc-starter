@@ -1,6 +1,5 @@
 import { get_context } from "./request-context";
 import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from "./config";
-import { sqlite } from "./db";
 import * as crypto from "node:crypto";
 
 export const csrf_field_name = CSRF_FIELD;

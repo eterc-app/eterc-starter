@@ -140,42 +140,45 @@ function parse_filter(): Record<string, unknown> | undefined {
   }
 }
 
-function response_fields(
+async function response_fields(
   principal: CmsPrincipal,
   collection: string,
   fallback: string[]
-): string[] {
+): Promise<string[]> {
   if (principal.role.admin_access) return ["*"];
-  const read = find_permission(principal.role.id, collection, "read");
+  const read = await find_permission(principal.role.id, collection, "read");
   return read ? read.fields : fallback;
 }
 
-function filter_row(
+async function filter_row(
   principal: CmsPrincipal,
   collection: string,
   row: Record<string, unknown>,
   fallbackFields: string[] = ["*"]
 ) {
   return filter_fields(
-    response_fields(principal, collection, fallbackFields),
+    await response_fields(principal, collection, fallbackFields),
     row,
-    get_collection(collection).primary_key
+    (await get_collection(collection)).primary_key
   );
 }
 
-function readable_field_names(
+async function readable_field_names(
   principal: CmsPrincipal,
   collection: string
-): Set<string> | null {
+): Promise<Set<string> | null> {
   if (principal.role.admin_access) return null;
-  const read = find_permission(principal.role.id, collection, "read");
+  const read = await find_permission(principal.role.id, collection, "read");
   if (!read || read.fields.includes("*")) return null;
-  return new Set([get_collection(collection).primary_key, ...read.fields]);
+  return new Set([
+    (await get_collection(collection)).primary_key,
+    ...read.fields,
+  ]);
 }
 
-function collection_payload(principal: CmsPrincipal, name: string) {
-  const collection = get_collection(name);
-  const readable = readable_field_names(principal, name);
+async function collection_payload(principal: CmsPrincipal, name: string) {
+  const collection = await get_collection(name);
+  const readable = await readable_field_names(principal, name);
   const fields =
     principal.role.admin_access
       ? collection.fields
@@ -210,8 +213,8 @@ function not_found(): never {
  * `Authorization: Bearer etk_...` or sign in and send an EtercToken header.
  */
 export default class Cms_api extends Eterc {
-  health(): EtApiResponse {
-    const principal = resolve_principal();
+  async health(): Promise<EtApiResponse> {
+    const principal = await resolve_principal();
     return api_response({
       data: {
         status: "ok",
@@ -223,32 +226,34 @@ export default class Cms_api extends Eterc {
     });
   }
 
-  me(): EtApiResponse {
-    const principal = resolve_principal();
+  async me(): Promise<EtApiResponse> {
+    const principal = await resolve_principal();
     return api_response({
       data: {
         kind: principal.kind,
         label: principal.label,
         role: principal.role,
-        permissions: list_permissions(principal.role.id),
-        collections: accessible_collections(principal),
+        permissions: await list_permissions(principal.role.id),
+        collections: await accessible_collections(principal),
       },
     });
   }
 
-  collections(): EtApiResponse {
-    const principal = resolve_principal();
+  async collections(): Promise<EtApiResponse> {
+    const principal = await resolve_principal();
     const parts = params();
     const verb = method();
 
     if (parts.length === 0 && verb === "GET") {
-      const all = list_collections({ include_hidden: principal.role.admin_access });
-      const allowed = new Set(accessible_collections(principal));
-      return api_response({
-        data: all
+      const all = await list_collections({
+        include_hidden: principal.role.admin_access,
+      });
+      const allowed = new Set(await accessible_collections(principal));
+      const data = await Promise.all(
+        all
           .filter((collection) => allowed.has(collection.name))
-          .map((collection) => {
-            const readable = readable_field_names(principal, collection.name);
+          .map(async (collection) => {
+            const readable = await readable_field_names(principal, collection.name);
             return {
               name: collection.name,
               label: collection.label,
@@ -273,13 +278,16 @@ export default class Cms_api extends Eterc {
                   group: field.group,
                 })),
             };
-          }),
-      });
+          })
+      );
+      return api_response({ data });
     }
 
     if (parts.length === 0 && verb === "POST") {
-      require_human_admin();
-      const created = create_collection(require_body() as unknown as CmsCollectionInput);
+      await require_human_admin();
+      const created = await create_collection(
+        require_body() as unknown as CmsCollectionInput
+      );
       return api_response({ data: created }, 201);
     }
 
@@ -287,14 +295,16 @@ export default class Cms_api extends Eterc {
     if (!name) not_found();
 
     if (verb === "GET") {
-      if (!principal.role.admin_access) authorize(principal, name, "read");
-      return api_response({ data: collection_payload(principal, name) });
+      if (!principal.role.admin_access) {
+        await authorize(principal, name, "read");
+      }
+      return api_response({ data: await collection_payload(principal, name) });
     }
     if (verb === "PATCH" || verb === "PUT") {
-      require_human_admin();
+      await require_human_admin();
       const payload = require_body();
       return api_response({
-        data: update_collection(name, {
+        data: await update_collection(name, {
           label: typeof payload.label === "string" ? payload.label : undefined,
           icon: typeof payload.icon === "string" ? payload.icon : undefined,
           color: typeof payload.color === "string" ? payload.color : undefined,
@@ -311,15 +321,15 @@ export default class Cms_api extends Eterc {
       });
     }
     if (verb === "DELETE") {
-      require_human_admin();
-      delete_collection(name);
+      await require_human_admin();
+      await delete_collection(name);
       return api_response({ data: { deleted: true } });
     }
     not_found();
   }
 
-  fields(): EtApiResponse {
-    require_human_admin();
+  async fields(): Promise<EtApiResponse> {
+    await require_human_admin();
     const parts = params();
     const collection = parts[0];
     if (!collection) not_found();
@@ -327,7 +337,12 @@ export default class Cms_api extends Eterc {
 
     if (parts.length === 1 && verb === "POST") {
       return api_response(
-        { data: add_field(collection, require_body() as unknown as CmsFieldInput) },
+        {
+          data: await add_field(
+            collection,
+            require_body() as unknown as CmsFieldInput
+          ),
+        },
         201
       );
     }
@@ -336,7 +351,7 @@ export default class Cms_api extends Eterc {
     if (verb === "PATCH" || verb === "PUT") {
       const payload = require_body();
       return api_response({
-        data: update_field(collection, field, {
+        data: await update_field(collection, field, {
           label: typeof payload.label === "string" ? payload.label : undefined,
           type:
             typeof payload.type === "string"
@@ -378,25 +393,29 @@ export default class Cms_api extends Eterc {
       });
     }
     if (verb === "DELETE") {
-      delete_field(collection, field);
+      await delete_field(collection, field);
       return api_response({ data: { deleted: true } });
     }
     not_found();
   }
 
   async items(): Promise<EtApiResponse> {
-    const principal = resolve_principal();
+    const principal = await resolve_principal();
     const parts = params();
     const collection = parts[0];
     if (!collection) not_found();
-    const primaryKey = get_collection(collection).primary_key;
+    const primaryKey = (await get_collection(collection)).primary_key;
     const id = parts[1] ?? null;
     const verb = method();
 
     if (verb === "GET" && id === null) {
-      const policy = authorize(principal, collection, "read");
-      const access_filter = rule_group_to_filter(policy.filter, principal, collection);
-      const result = list_records(collection, {
+      const policy = await authorize(principal, collection, "read");
+      const access_filter = await rule_group_to_filter(
+        policy.filter,
+        principal,
+        collection
+      );
+      const result = await list_records(collection, {
         page: parse_int(query_value("page"), 1),
         limit: parse_int(query_value("limit"), 25),
         sort: query_value("sort"),
@@ -410,9 +429,10 @@ export default class Cms_api extends Eterc {
         filter: parse_filter(),
         access_filter,
       });
+      const fields = await collection_fields(collection);
       return api_response({
         data: result.rows
-          .map((row) => format_record_for_api(row, collection_fields(collection)))
+          .map((row) => format_record_for_api(row, fields))
           .map((row) => filter_fields(policy.fields, row, primaryKey)),
         meta: {
           total: result.total,
@@ -424,24 +444,35 @@ export default class Cms_api extends Eterc {
     }
 
     if (verb === "GET" && id !== null) {
-      const policy = authorize(principal, collection, "read");
+      const policy = await authorize(principal, collection, "read");
       const row = format_record_for_api(
-        get_record(collection, id),
-        collection_fields(collection)
+        await get_record(collection, id),
+        await collection_fields(collection)
       );
-      if (!row_matches_rule_group(row, policy.filter, principal, collection)) {
+      if (!(await row_matches_rule_group(row, policy.filter, principal, collection))) {
         throw new EtHttpError(403, "This record is outside the role's read policy.");
       }
       return api_response({ data: filter_fields(policy.fields, row, primaryKey) });
     }
 
     if (verb === "POST" && id === null) {
-      const policy = authorize(principal, collection, "create");
+      const policy = await authorize(principal, collection, "create");
       const payload = require_body(true);
-      assert_field_access(principal, collection, "create", payload, policy);
-      const values = apply_presets(payload, policy.presets, principal, collection);
-      assert_rule_group(values, policy.filter, principal, collection, "create");
-      assert_rule_group(values, policy.validation, principal, collection, "field validation");
+      await assert_field_access(principal, collection, "create", payload, policy);
+      const values = await apply_presets(
+        payload,
+        policy.presets,
+        principal,
+        collection
+      );
+      await assert_rule_group(values, policy.filter, principal, collection, "create");
+      await assert_rule_group(
+        values,
+        policy.validation,
+        principal,
+        collection,
+        "field validation"
+      );
       const row = await create_record_with_flows(
         collection,
         values,
@@ -449,24 +480,47 @@ export default class Cms_api extends Eterc {
         principal,
         { allowSortOverride: true }
       );
-      const formatted = format_record_for_api(row, collection_fields(collection));
+      const formatted = format_record_for_api(
+        row,
+        await collection_fields(collection)
+      );
       return api_response(
-        { data: filter_row(principal, collection, formatted, policy.fields) },
+        {
+          data: await filter_row(
+            principal,
+            collection,
+            formatted,
+            policy.fields
+          ),
+        },
         201
       );
     }
 
     if ((verb === "PATCH" || verb === "PUT") && id !== null) {
-      const policy = authorize(principal, collection, "update");
-      const existing = get_record(collection, id);
-      if (!row_matches_rule_group(existing, policy.filter, principal, collection)) {
+      const policy = await authorize(principal, collection, "update");
+      const existing = await get_record(collection, id);
+      if (
+        !(await row_matches_rule_group(
+          existing,
+          policy.filter,
+          principal,
+          collection
+        ))
+      ) {
         throw new EtHttpError(403, "This record is outside the role's update policy.");
       }
       const payload = require_body();
-      assert_field_access(principal, collection, "update", payload, policy);
+      await assert_field_access(principal, collection, "update", payload, policy);
       const merged = { ...existing, ...payload };
-      assert_rule_group(merged, policy.filter, principal, collection, "update");
-      assert_rule_group(merged, policy.validation, principal, collection, "field validation");
+      await assert_rule_group(merged, policy.filter, principal, collection, "update");
+      await assert_rule_group(
+        merged,
+        policy.validation,
+        principal,
+        collection,
+        "field validation"
+      );
       const row = await update_record_with_flows(
         collection,
         id,
@@ -474,16 +528,31 @@ export default class Cms_api extends Eterc {
         principal.user_id,
         principal
       );
-      const formatted = format_record_for_api(row, collection_fields(collection));
+      const formatted = format_record_for_api(
+        row,
+        await collection_fields(collection)
+      );
       return api_response({
-        data: filter_row(principal, collection, formatted, policy.fields),
+        data: await filter_row(
+          principal,
+          collection,
+          formatted,
+          policy.fields
+        ),
       });
     }
 
     if (verb === "DELETE" && id !== null) {
-      const policy = authorize(principal, collection, "delete");
-      const existing = get_record(collection, id);
-      if (!row_matches_rule_group(existing, policy.filter, principal, collection)) {
+      const policy = await authorize(principal, collection, "delete");
+      const existing = await get_record(collection, id);
+      if (
+        !(await row_matches_rule_group(
+          existing,
+          policy.filter,
+          principal,
+          collection
+        ))
+      ) {
         throw new EtHttpError(403, "This record is outside the role's delete policy.");
       }
       await delete_record_with_flows(collection, id, principal);
@@ -493,18 +562,18 @@ export default class Cms_api extends Eterc {
     not_found();
   }
 
-  roles(): EtApiResponse {
-    require_human_admin();
+  async roles(): Promise<EtApiResponse> {
+    await require_human_admin();
     const parts = params();
     const verb = method();
     if (parts.length === 0 && verb === "GET") {
-      return api_response({ data: list_roles() });
+      return api_response({ data: await list_roles() });
     }
     if (parts.length === 0 && verb === "POST") {
       const payload = require_body();
       return api_response(
         {
-          data: create_role({
+          data: await create_role({
             name: String(payload.name ?? ""),
             description: typeof payload.description === "string" ? payload.description : "",
             app_access: typeof payload.app_access === "boolean" ? payload.app_access : undefined,
@@ -524,7 +593,7 @@ export default class Cms_api extends Eterc {
     if ((verb === "PATCH" || verb === "PUT") && parts.length === 1) {
       const payload = require_body();
       return api_response({
-        data: update_role(roleId, {
+        data: await update_role(roleId, {
           name: typeof payload.name === "string" ? payload.name : undefined,
           description:
             typeof payload.description === "string" ? payload.description : undefined,
@@ -541,20 +610,20 @@ export default class Cms_api extends Eterc {
       });
     }
     if (verb === "DELETE" && parts.length === 1) {
-      delete_role(roleId);
+      await delete_role(roleId);
       return api_response({ data: { deleted: true } });
     }
     not_found();
   }
 
-  permissions(): EtApiResponse {
-    require_human_admin();
+  async permissions(): Promise<EtApiResponse> {
+    await require_human_admin();
     const parts = params();
     const verb = method();
     const roleId = Number(parts[0] ?? query_value("role_id"));
     if (!Number.isFinite(roleId)) not_found();
     if (verb === "GET") {
-      return api_response({ data: list_permissions(roleId) });
+      return api_response({ data: await list_permissions(roleId) });
     }
     if (verb === "PUT" || verb === "POST") {
       const payload = body();
@@ -563,34 +632,34 @@ export default class Cms_api extends Eterc {
         : Array.isArray(payload)
           ? (payload as CmsPermissionInput[])
           : [];
-      return api_response({ data: replace_permissions(roleId, list) });
+      return api_response({ data: await replace_permissions(roleId, list) });
     }
     not_found();
   }
 
-  users(): EtApiResponse {
-    require_human_admin();
+  async users(): Promise<EtApiResponse> {
+    await require_human_admin();
     const parts = params();
     const verb = method();
     if (parts.length === 0 && verb === "GET") {
-      return api_response({ data: list_users() });
+      return api_response({ data: await list_users() });
     }
     const userId = Number(parts[0]);
     if (verb === "PATCH" || verb === "PUT") {
       const payload = require_body();
       return api_response({
-        data: set_user_role(userId, Number(payload.role_id)),
+        data: await set_user_role(userId, Number(payload.role_id)),
       });
     }
     not_found();
   }
 
-  keys(): EtApiResponse {
-    require_human_admin();
+  async keys(): Promise<EtApiResponse> {
+    await require_human_admin();
     const parts = params();
     const verb = method();
     if (parts.length === 0 && verb === "GET") {
-      return api_response({ data: list_api_keys() });
+      return api_response({ data: await list_api_keys() });
     }
     if (parts.length === 0 && verb === "POST") {
       const payload = require_body();
@@ -602,7 +671,7 @@ export default class Cms_api extends Eterc {
             : null;
       return api_response(
         {
-          data: create_api_key({
+          data: await create_api_key({
             name: String(payload.name ?? ""),
             roleId: Number(payload.role_id),
             userId: typeof payload.user_id === "number" ? payload.user_id : null,
@@ -615,32 +684,32 @@ export default class Cms_api extends Eterc {
     const keyId = Number(parts[0]);
     if (!Number.isFinite(keyId)) not_found();
     if (verb === "DELETE") {
-      if (query_value("permanent") === "true") delete_api_key(keyId);
-      else revoke_api_key(keyId);
+      if (query_value("permanent") === "true") await delete_api_key(keyId);
+      else await revoke_api_key(keyId);
       return api_response({ data: { revoked: true } });
     }
     not_found();
   }
 
-  access(): EtApiResponse {
-    require_human_admin();
-    return api_response({ data: get_access_overview() });
+  async access(): Promise<EtApiResponse> {
+    await require_human_admin();
+    return api_response({ data: await get_access_overview() });
   }
 
-  settings(): EtApiResponse {
-    require_human_admin();
+  async settings(): Promise<EtApiResponse> {
+    await require_human_admin();
     if (method() !== "GET") not_found();
     return api_response({ data: { runtime: get_public_runtime_config() } });
   }
 
-  bootstrap(): EtApiResponse {
-    require_human_admin();
-    return api_response({ data: create_starter_collection() }, 201);
+  async bootstrap(): Promise<EtApiResponse> {
+    await require_human_admin();
+    return api_response({ data: await create_starter_collection() }, 201);
   }
 
-  refresh(): EtApiResponse {
-    require_human_admin();
-    refresh_cms_schema();
+  async refresh(): Promise<EtApiResponse> {
+    await require_human_admin();
+    await refresh_cms_schema();
     return api_response({ data: { refreshed: true } });
   }
 }

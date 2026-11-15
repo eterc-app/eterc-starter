@@ -45,9 +45,9 @@ const MAX_FILE_UPLOAD_BYTES = 25 * 1024 * 1024;
  * authentication, CSRF checks and image validation stay in one place.
  */
 export default class Media extends Eterc {
-  private principal(): CmsPrincipal {
+  private async principal(): Promise<CmsPrincipal> {
     try {
-      return require_admin_user();
+      return await require_admin_user();
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in with an administrator account.");
@@ -69,7 +69,7 @@ export default class Media extends Eterc {
   }
 
   async index() {
-    this.principal();
+    await this.principal();
     return this.templates.admin({
       viewModule: "media",
       viewFile: "library",
@@ -79,19 +79,19 @@ export default class Media extends Eterc {
   }
 
   async list_media(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     const media = listMedia();
     return { ok: true, media, stats: mediaStats(media) };
   }
 
   async list_upload_assets(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     assertLocalMediaStorage();
     return { ok: true, ...listUploadAssets() };
   }
 
   async create_upload_folder(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     this.assertCsrf();
     assertLocalMediaStorage();
 
@@ -108,7 +108,7 @@ export default class Media extends Eterc {
   }
 
   async upload_media(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     this.assertCsrf();
     assertLocalMediaStorage();
 
@@ -247,7 +247,7 @@ export default class Media extends Eterc {
   }
 
   async delete_media(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     this.assertCsrf();
 
     const file = String(post("file") ?? "");
@@ -263,7 +263,7 @@ export default class Media extends Eterc {
   }
 
   async update_media(): Promise<Record<string, unknown>> {
-    this.principal();
+    await this.principal();
     this.assertCsrf();
 
     const file = String(post("file") ?? "");

@@ -64,7 +64,7 @@ function timeout_from_env(): number {
  * throw.
  */
 export async function run_flow(options: RunFlowOptions): Promise<FlowRunResult> {
-  const loaded = get_flow_with_operations(options.flow.id);
+  const loaded = await get_flow_with_operations(options.flow.id);
   if (!loaded) throw new Error("Flow not found.");
   if (loaded.status !== "active" && !options.allow_inactive) {
     throw new Error(`The flow '${loaded.name}' is not active.`);
@@ -75,7 +75,7 @@ export async function run_flow(options: RunFlowOptions): Promise<FlowRunResult> 
 
   const timeout = options.timeout_ms ?? timeout_from_env();
   const startedAt = Date.now();
-  const runId = create_flow_run({
+  const runId = await create_flow_run({
     flow: loaded,
     trigger: options.trigger.type,
     principal: options.principal,
@@ -165,7 +165,7 @@ export async function run_flow(options: RunFlowOptions): Promise<FlowRunResult> 
       }
 
       const stepFinished = Date.now();
-      const step = add_flow_run_step(runId, {
+      const step = await add_flow_run_step(runId, {
         operation_id: operation.id,
         key: operation.key,
         type: operation.type,
@@ -228,7 +228,7 @@ export async function run_flow(options: RunFlowOptions): Promise<FlowRunResult> 
     steps,
   };
 
-  finish_flow_run(runId, {
+  await finish_flow_run(runId, {
     status,
     output: {
       result: result.result,
@@ -238,6 +238,6 @@ export async function run_flow(options: RunFlowOptions): Promise<FlowRunResult> 
     error: errorMessage,
     duration_ms: duration,
   });
-  touch_flow_run(runId);
+  await touch_flow_run(runId);
   return result;
 }

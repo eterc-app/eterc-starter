@@ -40,25 +40,27 @@ export function flow_runtime_mode(): FlowRuntimeMode {
   };
 }
 
-export function flow_health(): {
+export async function flow_health(): Promise<{
   ok: boolean;
   runtime: FlowRuntimeMode;
   database: { ok: boolean; message: string };
-  flows: ReturnType<typeof flow_health_snapshot>;
+  flows: Awaited<ReturnType<typeof flow_health_snapshot>>;
   scheduler: { running: boolean; last_tick_at: number | null };
   checks: Array<{ name: string; ok: boolean; message: string }>;
-} {
+}> {
   const runtime = flow_runtime_mode();
-  const flows = flow_health_snapshot();
+  const flows = await flow_health_snapshot();
   const db = activeDbAdapter;
+  const databaseOk = await db.ping();
   const checks: Array<{ name: string; ok: boolean; message: string }> = [
     {
       name: "database",
-      ok: db.dialect === "sqlite",
-      message:
-        db.dialect === "sqlite"
+      ok: databaseOk,
+      message: databaseOk
+        ? db.dialect === "sqlite"
           ? "SQLite is available."
-          : `The ${db.dialect} adapter is configured.`,
+          : `The ${db.dialect} adapter is available.`
+        : `The ${db.dialect} adapter is unavailable.`,
     },
     {
       name: "runtime",
@@ -81,7 +83,11 @@ export function flow_health(): {
   return {
     ok: checks.every((check) => check.ok),
     runtime,
-    database: { ok: db.dialect === "sqlite", message: "SQLite connection" },
+    database: {
+      ok: databaseOk,
+      message:
+        db.dialect === "sqlite" ? "SQLite connection" : `${db.dialect} connection`,
+    },
     flows,
     scheduler: {
       running: Boolean(scheduler_state().__etFlowScheduler),
@@ -111,12 +117,12 @@ async function tick(): Promise<void> {
   state.__etFlowSchedulerTicking = true;
   state.__etFlowSchedulerLastTick = Math.floor(Date.now() / 1000);
   try {
-    tick_schedules();
+    await tick_schedules();
     await drain_flow_queue(10);
     if (Date.now() - last_cleanup > 60 * 60 * 1000) {
       last_cleanup = Date.now();
       const retention = flow_runtime_mode().retention_days;
-      delete_old_flow_runs(retention);
+      await delete_old_flow_runs(retention);
     }
   } catch (error) {
     console.error("[eterc] flow scheduler tick failed", error);

@@ -148,9 +148,9 @@ function expiry_value(value: unknown): number | null {
  * This module is the deployable content and access-management surface.
  */
 export default class Cms_admin extends Eterc {
-  private principal(): CmsPrincipal {
+  private async principal(): Promise<CmsPrincipal> {
     try {
-      return require_admin_user();
+      return await require_admin_user();
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in with an administrator account.");
@@ -160,9 +160,9 @@ export default class Cms_admin extends Eterc {
     }
   }
 
-  private app_principal(): CmsPrincipal {
+  private async app_principal(): Promise<CmsPrincipal> {
     try {
-      return require_human_user({ requireAppAccess: true });
+      return await require_human_user({ requireAppAccess: true });
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in to open your profile.");
@@ -193,7 +193,7 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  private data_snapshot(
+  private async data_snapshot(
     collectionName?: string,
     page = 1,
     search = "",
@@ -201,8 +201,8 @@ export default class Cms_admin extends Eterc {
     filter?: Record<string, unknown>,
     sort?: string,
     direction?: "asc" | "desc"
-  ): Record<string, unknown> {
-    const collections = list_collections({ include_hidden: true });
+  ): Promise<Record<string, unknown>> {
+    const collections = await list_collections({ include_hidden: true });
     const selected =
       collections.find((collection) => collection.name === collectionName) ??
       (selectFirst ? collections[0] : null) ??
@@ -221,7 +221,7 @@ export default class Cms_admin extends Eterc {
         search,
       };
     }
-    const result = list_records(selected.name, {
+    const result = await list_records(selected.name, {
       page,
       limit: 20,
       search: search.trim() || undefined,
@@ -238,7 +238,7 @@ export default class Cms_admin extends Eterc {
     );
     const user_labels = hasUserAuditField
       ? Object.fromEntries(
-          list_users()
+          (await list_users())
             .filter((user) => user.eterc_user_id !== null)
             .map((user) => [
               String(user.eterc_user_id),
@@ -261,13 +261,13 @@ export default class Cms_admin extends Eterc {
   }
 
   async index() {
-    this.principal();
+    await this.principal();
     redirect("admin/data");
   }
 
   async content() {
-    const principal = this.principal();
-    const snapshot = this.data_snapshot(
+    const principal = await this.principal();
+    const snapshot = await this.data_snapshot(
       query_string("collection"),
       number_value(query_string("page"), 1),
       query_string("search") ?? ""
@@ -283,8 +283,8 @@ export default class Cms_admin extends Eterc {
   }
 
   async data() {
-    const principal = this.principal();
-    const snapshot = this.data_snapshot(
+    const principal = await this.principal();
+    const snapshot = await this.data_snapshot(
       query_string("collection"),
       1,
       "",
@@ -301,25 +301,25 @@ export default class Cms_admin extends Eterc {
   }
 
   async access() {
-    const principal = this.principal();
+    const principal = await this.principal();
     return this.admin_view("access", "Access & API keys", {
       principal,
-      overview: get_access_overview(),
+      overview: await get_access_overview(),
       runtime: get_public_runtime_config(),
     });
   }
 
   async settings() {
-    const principal = this.principal();
+    const principal = await this.principal();
     return this.admin_view("settings", "Project settings", {
       principal,
-      collections: list_collections({ include_hidden: true }),
+      collections: await list_collections({ include_hidden: true }),
       runtime: get_public_runtime_config(),
     });
   }
 
   async appearance() {
-    const principal = this.principal();
+    const principal = await this.principal();
     return this.admin_view("appearance", "Appearance", { principal });
   }
 
@@ -327,8 +327,8 @@ export default class Cms_admin extends Eterc {
   // Data Studio
   // -------------------------------------------------------------------------
 
-  data_state() {
-    this.principal();
+  async data_state() {
+    await this.principal();
     const payload = body();
     const filter =
       payload.filter && typeof payload.filter === "object" && !Array.isArray(payload.filter)
@@ -349,8 +349,8 @@ export default class Cms_admin extends Eterc {
     );
   }
 
-  data_collection_create() {
-    this.principal();
+  async data_collection_create() {
+    await this.principal();
     const payload = body();
     return create_collection({
       name: text_value(payload.name),
@@ -378,8 +378,8 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  data_collection_update() {
-    this.principal();
+  async data_collection_update() {
+    await this.principal();
     const payload = body();
     const name = text_value(payload.name);
     return update_collection(name, {
@@ -399,27 +399,27 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  data_collection_delete() {
-    this.principal();
+  async data_collection_delete() {
+    await this.principal();
     const payload = body();
-    delete_collection(text_value(payload.name));
+    await delete_collection(text_value(payload.name));
     return { deleted: true };
   }
 
-  data_field_create() {
-    this.principal();
+  async data_field_create() {
+    await this.principal();
     const payload = body();
     return add_field(text_value(payload.collection), payload as unknown as CmsFieldInput);
   }
 
-  data_field_add() {
-    this.principal();
+  async data_field_add() {
+    await this.principal();
     const payload = body();
     return add_field(text_value(payload.collection), payload as unknown as CmsFieldInput);
   }
 
-  data_field_update() {
-    this.principal();
+  async data_field_update() {
+    await this.principal();
     const payload = body();
     return update_field(
       text_value(payload.collection),
@@ -463,8 +463,8 @@ export default class Cms_admin extends Eterc {
     );
   }
 
-  data_fields_reorder() {
-    this.principal();
+  async data_fields_reorder() {
+    await this.principal();
     const payload = body();
     return reorder_fields(
       text_value(payload.collection),
@@ -472,8 +472,8 @@ export default class Cms_admin extends Eterc {
     );
   }
 
-  data_records_reorder() {
-    this.principal();
+  async data_records_reorder() {
+    await this.principal();
     const payload = body();
     const page = number_value(payload.page, 0);
     const recordIds = array_value<string | number>(payload.record_ids);
@@ -481,15 +481,15 @@ export default class Cms_admin extends Eterc {
       throw new EtHttpError(400, "The ordered record ids are invalid.");
     }
     const collection = text_value(payload.collection);
-    const { limit } = list_records(collection, { page, limit: 20 });
-    reorder_records(collection, page, recordIds, limit);
+    const { limit } = await list_records(collection, { page, limit: 20 });
+    await reorder_records(collection, page, recordIds, limit);
     return { reordered: true };
   }
 
-  data_field_delete() {
-    this.principal();
+  async data_field_delete() {
+    await this.principal();
     const payload = body();
-    delete_field(
+    await delete_field(
       text_value(payload.collection),
       text_value(payload.field) || text_value(payload.name)
     );
@@ -500,14 +500,14 @@ export default class Cms_admin extends Eterc {
    * Return a small page of items for relation, dropdown and builder pickers.
    * The admin UI uses this instead of exposing the private CMS API to the browser.
    */
-  data_relation_options() {
-    this.principal();
+  async data_relation_options() {
+    await this.principal();
     const payload = body();
     const collectionName = text_value(payload.collection);
     if (!collectionName) {
       throw new EtHttpError(400, "Choose a related collection first.");
     }
-    const collection = get_collection(collectionName);
+    const collection = await get_collection(collectionName);
     const limit = Math.min(50, Math.max(1, number_value(payload.limit, 25)));
     const sortField = collection.fields.find(
       (field) =>
@@ -517,7 +517,7 @@ export default class Cms_admin extends Eterc {
           field.interface === "number")
     );
     const usesCollectionOrdering = collection.ordering_mode === "fields";
-    const result = list_records(collectionName, {
+    const result = await list_records(collectionName, {
       page: 1,
       limit,
       search: text_value(payload.search) || undefined,
@@ -540,7 +540,7 @@ export default class Cms_admin extends Eterc {
   }
 
   async data_record_create() {
-    const principal = this.principal();
+    const principal = await this.principal();
     const payload = body();
     return create_record_with_flows(
       text_value(payload.collection),
@@ -551,7 +551,7 @@ export default class Cms_admin extends Eterc {
   }
 
   async data_record_update() {
-    const principal = this.principal();
+    const principal = await this.principal();
     const payload = body();
     return update_record_with_flows(
       text_value(payload.collection),
@@ -563,7 +563,7 @@ export default class Cms_admin extends Eterc {
   }
 
   async data_record_delete() {
-    const principal = this.principal();
+    const principal = await this.principal();
     const payload = body();
     await delete_record_with_flows(
       text_value(payload.collection),
@@ -573,42 +573,47 @@ export default class Cms_admin extends Eterc {
     return { deleted: true };
   }
 
-  data_bootstrap() {
-    this.principal();
+  async data_bootstrap() {
+    await this.principal();
     return create_starter_collection();
   }
 
-  data_bootstrap_scan() {
-    this.principal();
+  async data_bootstrap_scan() {
+    await this.principal();
     return scan_database_schema();
   }
 
-  data_bootstrap_apply() {
-    this.principal();
+  async data_bootstrap_apply() {
+    await this.principal();
     return bootstrap_database();
   }
 
-  data_refresh() {
-    this.principal();
-    refresh_cms_schema();
+  async data_refresh() {
+    await this.principal();
+    await refresh_cms_schema();
     const payload = body();
-    return this.data_snapshot(text_value(payload.collection) || undefined, 1, "", false);
+    return this.data_snapshot(
+      text_value(payload.collection) || undefined,
+      1,
+      "",
+      false
+    );
   }
 
   // -------------------------------------------------------------------------
   // Access
   // -------------------------------------------------------------------------
 
-  access_state() {
-    this.principal();
+  async access_state() {
+    await this.principal();
     return {
-      overview: get_access_overview(),
+      overview: await get_access_overview(),
       runtime: get_public_runtime_config(),
     };
   }
 
-  access_role_save() {
-    this.principal();
+  async access_role_save() {
+    await this.principal();
     const payload = body();
     const id = number_value(payload.id);
     const parentRoleId =
@@ -628,14 +633,14 @@ export default class Cms_admin extends Eterc {
     return id > 0 ? update_role(id, input) : create_role(input);
   }
 
-  access_role_delete() {
-    this.principal();
-    delete_role(number_value(body().id));
+  async access_role_delete() {
+    await this.principal();
+    await delete_role(number_value(body().id));
     return { deleted: true };
   }
 
-  access_permissions_save() {
-    this.principal();
+  async access_permissions_save() {
+    await this.principal();
     const payload = body();
     return replace_permissions(
       number_value(payload.role_id),
@@ -643,19 +648,19 @@ export default class Cms_admin extends Eterc {
     );
   }
 
-  access_permissions_state() {
-    this.principal();
+  async access_permissions_state() {
+    await this.principal();
     return list_permissions(number_value(body().role_id));
   }
 
-  access_user_role() {
-    this.principal();
+  async access_user_role() {
+    await this.principal();
     const payload = body();
     return set_user_role(number_value(payload.user_id), number_value(payload.role_id));
   }
 
-  access_key_create() {
-    this.principal();
+  async access_key_create() {
+    await this.principal();
     const payload = body();
     const expiresAt = expiry_value(payload.expires_at);
     const rawUserId = payload.user_id;
@@ -671,15 +676,15 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  access_key_revoke() {
-    this.principal();
-    revoke_api_key(number_value(body().id));
+  async access_key_revoke() {
+    await this.principal();
+    await revoke_api_key(number_value(body().id));
     return { revoked: true };
   }
 
-  access_key_delete() {
-    this.principal();
-    delete_api_key(number_value(body().id));
+  async access_key_delete() {
+    await this.principal();
+    await delete_api_key(number_value(body().id));
     return { deleted: true };
   }
 
@@ -688,8 +693,8 @@ export default class Cms_admin extends Eterc {
   // -------------------------------------------------------------------------
 
   async profile() {
-    const principal = this.app_principal();
-    const overview = get_profile_overview(principal);
+    const principal = await this.app_principal();
+    const overview = await get_profile_overview(principal);
     return this.admin_view("profile", "Profile & API keys", {
       overview,
       api_base: `${this.origin()}/api/v1/cms`,
@@ -699,16 +704,16 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  profile_state() {
-    const principal = this.app_principal();
+  async profile_state() {
+    const principal = await this.app_principal();
     return {
-      overview: get_profile_overview(principal),
+      overview: await get_profile_overview(principal),
       api_base: `${this.origin()}/api/v1/cms`,
     };
   }
 
-  profile_key_create() {
-    const principal = this.app_principal();
+  async profile_key_create() {
+    const principal = await this.app_principal();
     const payload = body();
     return create_self_api_key(principal, {
       name: text_value(payload.name),
@@ -716,9 +721,9 @@ export default class Cms_admin extends Eterc {
     });
   }
 
-  profile_key_revoke() {
-    const principal = this.app_principal();
-    revoke_self_api_key(principal, number_value(body().id));
+  async profile_key_revoke() {
+    const principal = await this.app_principal();
+    await revoke_self_api_key(principal, number_value(body().id));
     return { revoked: true };
   }
 
@@ -726,16 +731,16 @@ export default class Cms_admin extends Eterc {
   // Project settings
   // -------------------------------------------------------------------------
 
-  settings_state() {
-    this.principal();
+  async settings_state() {
+    await this.principal();
     return {
       runtime: get_public_runtime_config(),
-      collections: list_collections({ include_hidden: true }),
+      collections: await list_collections({ include_hidden: true }),
     };
   }
 
-  settings_save() {
-    this.principal();
+  async settings_save() {
+    await this.principal();
     const payload = body();
     const cms = object_value(payload.cms);
     save_cms_settings({
@@ -748,14 +753,14 @@ export default class Cms_admin extends Eterc {
     return { runtime: get_public_runtime_config() };
   }
 
-  settings_bootstrap() {
-    this.principal();
+  async settings_bootstrap() {
+    await this.principal();
     return create_starter_collection();
   }
 
-  settings_refresh() {
-    this.principal();
-    refresh_cms_schema();
+  async settings_refresh() {
+    await this.principal();
+    await refresh_cms_schema();
     return { refreshed: true };
   }
 

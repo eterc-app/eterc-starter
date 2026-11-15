@@ -37,7 +37,7 @@ export async function GET(
   const ctx = await build_request(options);
 
   try {
-    const authorize_url = run_with_context(ctx, () => start_oauth(provider, level));
+    const authorize_url = await run_with_context(ctx, () => start_oauth(provider, level));
     const response = NextResponse.redirect(authorize_url);
     apply_cookies(response, ctx);
     return response;

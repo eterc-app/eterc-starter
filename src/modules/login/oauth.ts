@@ -130,8 +130,8 @@ function is_transaction(value: unknown): value is OAuthTransaction {
   );
 }
 
-function store_transaction(transaction: OAuthTransaction): void {
-  const stored = session_get<Record<string, OAuthTransaction>>(TRANSACTION_KEY);
+async function store_transaction(transaction: OAuthTransaction): Promise<void> {
+  const stored = await session_get<Record<string, OAuthTransaction>>(TRANSACTION_KEY);
   const current = is_record(stored) ? stored : {};
   const cutoff = now_seconds() - TRANSACTION_TTL_SECONDS;
   const next = Object.fromEntries(
@@ -141,28 +141,28 @@ function store_transaction(transaction: OAuthTransaction): void {
   );
 
   next[transaction.state] = transaction;
-  session_set(TRANSACTION_KEY, next);
+  await session_set(TRANSACTION_KEY, next);
 }
 
 /**
  * Consume a transaction exactly once. The state value is the lookup key and is
  * never accepted after expiry, provider mismatch, or a previous callback.
  */
-export function consume_oauth_transaction(
+export async function consume_oauth_transaction(
   provider_value: string,
   state: string
-): OAuthTransaction | null {
+): Promise<OAuthTransaction | null> {
   const provider = parse_provider(provider_value);
   if (!provider || !state || state.length > 200) return null;
 
-  const stored = session_get<Record<string, OAuthTransaction>>(TRANSACTION_KEY);
+  const stored = await session_get<Record<string, OAuthTransaction>>(TRANSACTION_KEY);
   if (!is_record(stored)) return null;
 
   const transaction = stored[state];
   if (!is_transaction(transaction)) return null;
 
   delete stored[state];
-  session_set(TRANSACTION_KEY, stored);
+  await session_set(TRANSACTION_KEY, stored);
 
   if (transaction.provider !== provider) return null;
   if (transaction.created_at < now_seconds() - TRANSACTION_TTL_SECONDS) return null;
@@ -170,7 +170,7 @@ export function consume_oauth_transaction(
 }
 
 /** Build the provider authorization URL and persist state/PKCE server-side. */
-export function start_oauth(provider_value: string, level_slug: string): string {
+export async function start_oauth(provider_value: string, level_slug: string): Promise<string> {
   const provider = require_provider(provider_value);
   const settings = get_login_settings();
 
@@ -187,7 +187,7 @@ export function start_oauth(provider_value: string, level_slug: string): string 
   const verifier = random_urlsafe(48);
   const challenge = pkce_challenge(verifier);
 
-  store_transaction({
+  await store_transaction({
     state,
     provider,
     level_id: level.level_id,
@@ -397,52 +397,52 @@ function is_active(user: Row): boolean {
   return Number(user.active ?? 1) === 1;
 }
 
-function user_level_matches(user_id: number, level_id: number): boolean {
+async function user_level_matches(user_id: number, level_id: number): Promise<boolean> {
   if (user_id <= 0) return false;
 
-  const rows = db.query_bind(
+  const rows = (await db.query_bind(
     "SELECT user_level_id FROM eterc_users WHERE id = :id LIMIT 1",
     { id: user_id },
     "object"
-  ) as Array<{ user_level_id: number }>;
+  )) as Array<{ user_level_id: number }>;
 
   return rows.length === 1 && Number(rows[0].user_level_id) === level_id;
 }
 
-function find_target_user(user_id: number, level: ResolvedLevel): Row | false {
+async function find_target_user(user_id: number, level: ResolvedLevel): Promise<Row | false> {
   if (user_id <= 0) return false;
-  if (!user_level_matches(user_id, level.level_id)) return false;
+  if (!(await user_level_matches(user_id, level.level_id))) return false;
 
-  const user = db.get_one_where(level.config.user_ref_field, user_id, level.config.target_table);
+  const user = await db.get_one_where(level.config.user_ref_field, user_id, level.config.target_table);
   if (user === false || !is_active(user)) return false;
   return user;
 }
 
-function link_or_find_user(
+async function link_or_find_user(
   provider: string,
   profile: OAuthProfile,
   level: ResolvedLevel,
   settings: LoginRuntimeSettings
-): Row {
-  ensure_cms_schema();
+): Promise<Row> {
+  await ensure_cms_schema();
 
-  const identities = db.query_bind(
+  const identities = (await db.query_bind(
     `SELECT * FROM eterc_identities
       WHERE provider = :provider AND subject = :subject
       LIMIT 1`,
     { provider, subject: profile.subject },
     "object"
-  ) as Row[];
+  )) as Row[];
 
   const identity = identities[0];
 
   if (identity) {
     const user_id = Number(identity.user_id);
-    const user = find_target_user(user_id, level);
+    const user = await find_target_user(user_id, level);
     if (user === false) throw new OAuthError("oauth_no_account");
 
     if (identity.email !== profile.email || identity.name !== profile.name) {
-      db.update(
+      await db.update(
         Number(identity.id),
         { email: profile.email, name: profile.name },
         "eterc_identities"
@@ -456,16 +456,16 @@ function link_or_find_user(
   }
 
   const model = new Login_model("login");
-  const user = model.find_user_by_email(profile.email, level.level_id);
+  const user = await model.find_user_by_email(profile.email, level.level_id);
   if (user === false) throw new OAuthError("oauth_no_account");
 
   const user_id = user_ref_id(user, level.config);
-  if (user_id <= 0 || !user_level_matches(user_id, level.level_id) || !is_active(user)) {
+  if (user_id <= 0 || !(await user_level_matches(user_id, level.level_id)) || !is_active(user)) {
     throw new OAuthError("oauth_no_account");
   }
 
   try {
-    db.insert(
+    await db.insert(
       {
         user_id,
         provider,
@@ -478,13 +478,13 @@ function link_or_find_user(
     );
   } catch {
     // A concurrent callback may have linked the same provider subject first.
-    const existing = db.query_bind(
+    const existing = (await db.query_bind(
       `SELECT * FROM eterc_identities
         WHERE provider = :provider AND subject = :subject
         LIMIT 1`,
       { provider, subject: profile.subject },
       "object"
-    ) as Row[];
+    )) as Row[];
 
     if (!existing[0] || Number(existing[0].user_id) !== user_id) {
       throw new OAuthError("oauth_identity");
@@ -532,14 +532,14 @@ export async function complete_oauth(
           transaction.verifier
         );
 
-  const user = link_or_find_user(provider, profile, level, settings);
+  const user = await link_or_find_user(provider, profile, level, settings);
   const model = new Login_model("login");
 
-  rotate_session_id();
-  const token = model.login_user_row(user, level.level_id, 0);
+  await rotate_session_id();
+  const token = await model.login_user_row(user, level.level_id, 0);
   if (token === false) throw new OAuthError("oauth_failed");
 
-  model.clear_failed_attempts(profile.email, level.level_id);
+  await model.clear_failed_attempts(profile.email, level.level_id);
   return level.config.redirect_on_success;
 }
 
@@ -554,13 +554,15 @@ export async function complete_external_login(
 ): Promise<string> {
   const level = resolve_level(level_slug);
   const settings = get_login_settings();
-  const user = link_or_find_user(provider, profile, level, settings);
+  const user = await link_or_find_user(provider, profile, level, settings);
   const model = new Login_model("login");
 
-  rotate_session_id();
-  const token = model.login_user_row(user, level.level_id, 0);
+  await rotate_session_id();
+  const token = await model.login_user_row(user, level.level_id, 0);
   if (token === false) throw new OAuthError("oauth_failed");
 
-  model.clear_failed_attempts(profile.email, level.level_id);
+  await model.clear_failed_attempts(profile.email, level.level_id);
   return level.config.redirect_on_success;
 }
+
+

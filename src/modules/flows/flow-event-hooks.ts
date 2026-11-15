@@ -19,12 +19,12 @@ import type {
 
 export type FlowEventAction = "create" | "update" | "delete";
 
-function event_flows(
+async function event_flows(
   action: FlowEventAction,
   collection: string,
   kind: "filter" | "action"
-): FlowRecord[] {
-  return list_active_flows("event").filter((flow) => {
+): Promise<FlowRecord[]> {
+  return (await list_active_flows("event")).filter((flow) => {
     const options = flow.options as unknown as EventTriggerOptions;
     if ((options.type ?? "filter") !== kind) return false;
     const collections = Array.isArray(options.collections) ? options.collections : [];
@@ -65,7 +65,7 @@ export async function dispatch_event_filters(input: {
   previous: unknown;
   principal: CmsPrincipal;
 }): Promise<void> {
-  const flows = event_flows(input.action, input.collection, "filter");
+  const flows = await event_flows(input.action, input.collection, "filter");
   if (flows.length === 0) return;
   const principal = principal_from_cms(input.principal);
   const payload = event_payload(
@@ -103,14 +103,14 @@ export async function dispatch_event_filters(input: {
  * Queue non-blocking action hooks after a successful write. The HTTP request
  * returns as soon as the durable job row is inserted.
  */
-export function dispatch_event_actions(input: {
+export async function dispatch_event_actions(input: {
   action: FlowEventAction;
   collection: string;
   key: string | number | null;
   payload: unknown;
   previous: unknown;
-}): void {
-  const flows = event_flows(input.action, input.collection, "action");
+}): Promise<void> {
+  const flows = await event_flows(input.action, input.collection, "action");
   if (flows.length === 0) return;
   const payload = event_payload(
     input.action,
@@ -120,15 +120,18 @@ export function dispatch_event_actions(input: {
     input.previous
   );
   for (const flow of flows) {
-    enqueue_flow_trigger(flow.id, "event", payload);
+    await enqueue_flow_trigger(flow.id, "event", payload);
   }
   void drain_flow_queue(5).catch((error) => {
     console.error("[eterc] action hook drain failed", error);
   });
 }
 
-function key_of(collection: string, row: Record<string, unknown>): string | number {
-  const primaryKey = get_collection(collection).primary_key;
+async function key_of(
+  collection: string,
+  row: Record<string, unknown>
+): Promise<string | number> {
+  const primaryKey = (await get_collection(collection)).primary_key;
   const value = row[primaryKey];
   return typeof value === "number" ? value : String(value ?? "");
 }
@@ -148,11 +151,11 @@ export async function create_record_with_flows(
     previous: null,
     principal,
   });
-  const row = create_record(collection, values, actorUserId, options);
-  dispatch_event_actions({
+  const row = await create_record(collection, values, actorUserId, options);
+  await dispatch_event_actions({
     action: "create",
     collection,
-    key: key_of(collection, row),
+    key: await key_of(collection, row),
     payload: row,
     previous: null,
   });
@@ -166,7 +169,7 @@ export async function update_record_with_flows(
   actorUserId: number | null,
   principal: CmsPrincipal
 ): Promise<Record<string, unknown>> {
-  const previous = get_record(collection, id);
+  const previous = await get_record(collection, id);
   const merged = { ...previous, ...values };
   await dispatch_event_filters({
     action: "update",
@@ -176,8 +179,8 @@ export async function update_record_with_flows(
     previous,
     principal,
   });
-  const row = update_record(collection, id, values, actorUserId);
-  dispatch_event_actions({
+  const row = await update_record(collection, id, values, actorUserId);
+  await dispatch_event_actions({
     action: "update",
     collection,
     key: id,
@@ -192,7 +195,7 @@ export async function delete_record_with_flows(
   id: string | number,
   principal: CmsPrincipal
 ): Promise<void> {
-  const previous = get_record(collection, id);
+  const previous = await get_record(collection, id);
   await dispatch_event_filters({
     action: "delete",
     collection,
@@ -201,8 +204,8 @@ export async function delete_record_with_flows(
     previous,
     principal,
   });
-  delete_record(collection, id);
-  dispatch_event_actions({
+  await delete_record(collection, id);
+  await dispatch_event_actions({
     action: "delete",
     collection,
     key: id,

@@ -5,7 +5,7 @@ export interface DatabaseExecutionResult {
   lastInsertRowid?: number | string;
 }
 
-export type DatabaseDialect = "sqlite" | "postgres" | "mysql";
+export type DatabaseDialect = "sqlite" | "libsql" | "postgres" | "mysql";
 
 export interface IDatabaseAdapter {
   readonly dialect: DatabaseDialect;

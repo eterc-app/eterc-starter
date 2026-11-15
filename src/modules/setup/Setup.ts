@@ -15,7 +15,7 @@ export default class Setup extends Eterc {
 
   /** Entry point — skips the wizard when the app is already installed. */
   async index() {
-    if (this.setupModel().is_installed()) {
+    if (await this.setupModel().is_installed()) {
       redirect("welcome");
     }
 
@@ -48,7 +48,7 @@ export default class Setup extends Eterc {
       return { ok: false, errors: this.validation.errorsJson() };
     }
 
-    const result = this.setupModel().create_admin_account({
+    const result = await this.setupModel().create_admin_account({
       username: String(post("username", true) ?? ""),
       email: String(post("email", true) ?? ""),
       password: String(post("password") ?? ""),

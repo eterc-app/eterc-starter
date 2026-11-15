@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+﻿import * as crypto from "node:crypto";
 import { current_url_with_query, site_url } from "@/engine/Url";
 import { session_get, session_set } from "@/engine/session";
 import {
@@ -99,8 +99,8 @@ function is_transaction(value: unknown): value is ExternalAuthTransaction {
   );
 }
 
-function store_transaction(transaction: ExternalAuthTransaction): void {
-  const stored = session_get<Record<string, ExternalAuthTransaction>>(
+async function store_transaction(transaction: ExternalAuthTransaction): Promise<void> {
+  const stored = await session_get<Record<string, ExternalAuthTransaction>>(
     TRANSACTION_KEY,
   );
   const current = is_record(stored) ? stored : {};
@@ -111,21 +111,21 @@ function store_transaction(transaction: ExternalAuthTransaction): void {
       .slice(-(MAX_TRANSACTIONS - 1)),
   );
   next[transaction.state] = transaction;
-  session_set(TRANSACTION_KEY, next);
+  await session_set(TRANSACTION_KEY, next);
 }
 
-function consume_transaction(
+async function consume_transaction(
   state: string,
-): ExternalAuthTransaction | null {
+): Promise<ExternalAuthTransaction | null> {
   if (!state || state.length > 200) return null;
-  const stored = session_get<Record<string, ExternalAuthTransaction>>(
+  const stored = await session_get<Record<string, ExternalAuthTransaction>>(
     TRANSACTION_KEY,
   );
   if (!is_record(stored)) return null;
   const transaction = stored[state];
   if (!is_transaction(transaction)) return null;
   delete stored[state];
-  session_set(TRANSACTION_KEY, stored);
+  await session_set(TRANSACTION_KEY, stored);
   if (transaction.created_at < now_seconds() - TRANSACTION_TTL_SECONDS) {
     return null;
   }
@@ -272,7 +272,7 @@ export async function start_external_auth(
     authorize_url = `${project_url}/auth/v1/authorize?${params.toString()}`;
   }
 
-  store_transaction({
+  await store_transaction({
     state,
     provider,
     level_slug,
@@ -289,7 +289,7 @@ export async function complete_external_auth(
   code: string,
 ): Promise<string> {
   if (!code || code.length > 4096) throw new OAuthError("oauth_failed");
-  const transaction = consume_transaction(state);
+  const transaction = await consume_transaction(state);
   if (!transaction) throw new OAuthError("oauth_state");
 
   const provider = transaction.provider;
@@ -389,3 +389,5 @@ export async function complete_external_auth(
 
   return complete_external_login(provider, profile, transaction.level_slug);
 }
+
+

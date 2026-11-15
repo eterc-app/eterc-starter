@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
 import { activeAiProvider } from "@/engine/active/ai-provider";
 import { activeAuthProvider } from "@/engine/active/auth-provider";
 import { activeCacheProvider } from "@/engine/active/cache-provider";
@@ -11,24 +10,26 @@ import { activeSmsProvider } from "@/engine/active/sms-provider";
 import { activeStorageProvider } from "@/engine/active/storage-provider";
 import { activeTelegramProvider } from "@/engine/active/telegram-provider";
 import { activeWhatsAppProvider } from "@/engine/active/whatsapp-provider";
-import { orm } from "@/engine/db/client";
 
 export async function GET() {
   const checks = await Promise.all([
     activeDbAdapter.ping().then((ok) => ({
       name: "database",
       ok,
-      message: ok ? "SQLite responded." : "SQLite did not respond.",
+      message: ok
+        ? `${activeDbAdapter.dialect} responded.`
+        : `${activeDbAdapter.dialect} did not respond.`,
     })),
-    Promise.resolve()
-      .then(() => {
-        const row = orm.get(sql`select 1 as ok`) as { ok?: number } | undefined;
-        return {
-          name: "orm",
-          ok: row?.ok === 1,
-          message: row?.ok === 1 ? "Drizzle ORM responded." : "Drizzle ORM did not respond.",
-        };
-      })
+    activeDbAdapter
+      .query<{ ok: number | string }>("SELECT 1 AS ok")
+      .then((rows) => ({
+        name: "orm",
+        ok: Number(rows[0]?.ok ?? 0) === 1,
+        message:
+          Number(rows[0]?.ok ?? 0) === 1
+            ? "Drizzle ORM responded."
+            : "Drizzle ORM did not respond.",
+      }))
       .catch((error: unknown) => ({
         name: "orm",
         ok: false,

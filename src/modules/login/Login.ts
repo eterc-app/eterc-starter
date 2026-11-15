@@ -100,7 +100,7 @@ export default class Login extends Eterc {
     const user_level_id = this.resolve_level();
 
     // Redirect if already logged in.
-    const token = this.tokens().attempt_get_valid_token(user_level_id);
+    const token = await this.tokens().attempt_get_valid_token(user_level_id);
 
     if (token !== false) {
       const config = this.loginModel().get_level_config(user_level_id);
@@ -115,7 +115,7 @@ export default class Login extends Eterc {
     }
 
     // Destroy lingering tokens.
-    this.tokens().destroy();
+    await this.tokens().destroy();
 
     const config = this.loginModel().get_level_config(user_level_id);
     const view_file = config.view_file || "login_default";
@@ -166,11 +166,11 @@ export default class Login extends Eterc {
     const level_slug = this.loginModel().get_login_url(user_level_id);
 
     // Rate limiting check (before validation).
-    this.loginModel().remove_expired_restrictions(user_level_id);
+    await this.loginModel().remove_expired_restrictions(user_level_id);
 
     const identifier = String(post("identifier", true) ?? "");
 
-    if (!this.loginModel().is_login_allowed(identifier, user_level_id)) {
+    if (!(await this.loginModel().is_login_allowed(identifier, user_level_id))) {
       redirect(`login/not_allowed/${level_slug}`);
     }
 
@@ -185,10 +185,10 @@ export default class Login extends Eterc {
     if ((await this.validation.run()) === true) {
       // Credentials are valid — rotate the session before creating the token
       // so a pre-set session cookie cannot be reused after authentication.
-      rotate_session_id();
+      await rotate_session_id();
 
       const remember = to_boolean(post("remember")) ? 1 : 0;
-      const token = this.loginModel().log_user_in(identifier, user_level_id, remember);
+      const token = await this.loginModel().log_user_in(identifier, user_level_id, remember);
 
       if (token === false) {
         let msg = "Authentication succeeded but token generation failed. ";
@@ -196,15 +196,15 @@ export default class Login extends Eterc {
         throw new EtHttpError(500, ENV === "dev" ? msg : "An internal error occurred.");
       }
 
-      this.loginModel().clear_failed_attempts(identifier, user_level_id);
+      await this.loginModel().clear_failed_attempts(identifier, user_level_id);
       redirect(config.redirect_on_success);
     }
 
     // Validation failed — record the attempt.
-    this.loginModel().record_failed_attempt(identifier, user_level_id);
+    await this.loginModel().record_failed_attempt(identifier, user_level_id);
 
     // Check if the user is now rate-limited.
-    if (!this.loginModel().is_login_allowed(identifier, user_level_id)) {
+    if (!(await this.loginModel().is_login_allowed(identifier, user_level_id))) {
       redirect(`login/not_allowed/${level_slug}`);
     }
 
@@ -236,7 +236,7 @@ export default class Login extends Eterc {
       throw new EtHttpError(403, "This endpoint is only available in development mode.");
     }
 
-    this.loginModel().unlock_all();
+    await this.loginModel().unlock_all();
 
     return "All rate-limit restrictions have been cleared.";
   }
@@ -249,7 +249,7 @@ export default class Login extends Eterc {
    * the homepage if no token or no matching configured level is found.
    */
   async logout(): Promise<never> {
-    const user_obj = this.tokens().get_user_obj();
+    const user_obj = await this.tokens().get_user_obj();
 
     let redirect_target = BASE_URL; // Default: homepage.
 
@@ -267,8 +267,8 @@ export default class Login extends Eterc {
 
     // Destroy all tokens and rotate the session so the signed-out browser
     // cannot keep using the previous session identifier.
-    this.tokens().destroy();
-    rotate_session_id();
+    await this.tokens().destroy();
+    await rotate_session_id();
 
     if (redirect_target !== BASE_URL) {
       redirect_target += redirect_target.includes("?") ? "&signed_out=1" : "?signed_out=1";
@@ -283,11 +283,11 @@ export default class Login extends Eterc {
    * @param user_level_id the level to check, or null for any level.
    * @returns true when logged in, an error message otherwise.
    */
-  is_logged_in(user_level_id: number | null = null): true | string {
+  async is_logged_in(user_level_id: number | null = null): Promise<true | string> {
     const token =
       user_level_id !== null
-        ? this.tokens().attempt_get_valid_token(user_level_id)
-        : this.tokens().attempt_get_valid_token();
+        ? await this.tokens().attempt_get_valid_token(user_level_id)
+        : await this.tokens().attempt_get_valid_token();
 
     if (token !== false) {
       return true;
@@ -319,7 +319,7 @@ export default class Login extends Eterc {
       this.show_404();
     }
 
-    return this.forgotPasswordModule().form();
+    return await this.forgotPasswordModule().form();
   }
 
   /** Handle forgot password form submission. */
@@ -331,18 +331,18 @@ export default class Login extends Eterc {
       this.show_404();
     }
 
-    return this.forgotPasswordModule().submit();
+    return await this.forgotPasswordModule().submit();
   }
 
   /** Display the reset password form (from the email link). */
   async reset_password(): Promise<ReactNode> {
     // Resolve the level from the reset token to check per-level config.
     const token = String(segment(3) ?? "");
-    const user_level_id = this.loginModel().get_level_id_for_token(token);
+    const user_level_id = await this.loginModel().get_level_id_for_token(token);
 
     if (user_level_id === null) {
       // Invalid token — pass through to the child module for error handling.
-      return this.forgotPasswordModule().reset();
+      return await this.forgotPasswordModule().reset();
     }
 
     const config = this.loginModel().get_level_config(user_level_id);
@@ -351,17 +351,17 @@ export default class Login extends Eterc {
       this.show_404();
     }
 
-    return this.forgotPasswordModule().reset();
+    return await this.forgotPasswordModule().reset();
   }
 
   /** Handle the new password submission (POST /login/submit_reset_password). */
   async submit_reset_password(): Promise<ReactNode> {
     const token = String(post("token", true) ?? "");
-    const user_level_id = this.loginModel().get_level_id_for_token(token);
+    const user_level_id = await this.loginModel().get_level_id_for_token(token);
 
     if (user_level_id === null) {
       // Pass through to the child module — it handles invalid tokens gracefully.
-      return this.forgotPasswordModule().submit_reset();
+      return await this.forgotPasswordModule().submit_reset();
     }
 
     const config = this.loginModel().get_level_config(user_level_id);
@@ -370,13 +370,13 @@ export default class Login extends Eterc {
       this.show_404();
     }
 
-    return this.forgotPasswordModule().submit_reset();
+    return await this.forgotPasswordModule().submit_reset();
   }
 
   // -----------------------------------------------------------------
   // Custom Validation Callback
   // -----------------------------------------------------------------
-  credentials_valid(identifier: string): string | true {
+  async credentials_valid(identifier: string): Promise<string | true> {
     if (typeof identifier !== "string" || identifier === "") {
       throw new EtHttpError(403, "This method cannot be called directly.");
     }
@@ -384,7 +384,7 @@ export default class Login extends Eterc {
     const user_level_id = this.resolve_level();
     const password = String(post("password") ?? ""); // Raw — do not clean or trim.
 
-    const valid = this.loginModel().validate_credentials(
+    const valid = await this.loginModel().validate_credentials(
       identifier,
       password,
       user_level_id
@@ -422,3 +422,5 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   oauth_identity: "That provider account is already linked to another user.",
   oauth_failed: "Sign-in could not be completed. Try again.",
 };
+
+

@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
   const flowId = process.env.PAYMENT_WEBHOOK_FLOW_ID?.trim();
   if (flowId) {
     try {
-      ensure_flow_schema();
-      const flow = get_flow(flowId);
+      await ensure_flow_schema();
+      const flow = await get_flow(flowId);
       if (flow) {
         const trigger: FlowTriggerPayload = {
           type: "webhook",

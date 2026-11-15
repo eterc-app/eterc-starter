@@ -22,11 +22,11 @@ export class Eterc_security {
    * intentionally not caught here — the dispatcher (page / server action /
    * JSON API route) turns it into the actual navigation.
    */
-  make_sure_allowed(): EtercUserObj | null {
-    const token = this.tokens.attempt_get_valid_token(ADMIN_USER_LEVEL);
+  async make_sure_allowed(): Promise<EtercUserObj | null> {
+    const token = await this.tokens.attempt_get_valid_token(ADMIN_USER_LEVEL);
 
     if (token !== false) {
-      const userObj = this.tokens.get_user_obj(token);
+      const userObj = await this.tokens.get_user_obj(token);
       if (userObj !== false) {
         return userObj;
       }

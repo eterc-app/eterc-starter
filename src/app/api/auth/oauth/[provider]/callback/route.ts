@@ -45,7 +45,7 @@ export async function GET(
   };
   const ctx = await build_request(options);
   const state = params.get("state") ?? "";
-  const transaction = run_with_context(ctx, () =>
+  const transaction = await run_with_context(ctx, () =>
     consume_oauth_transaction(provider, state)
   );
 

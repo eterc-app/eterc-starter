@@ -54,7 +54,7 @@ export async function handle_webhook(
   request: Request,
   flowId: string
 ): Promise<WebhookResult> {
-  const flow = get_flow(flowId);
+  const flow = await get_flow(flowId);
   if (!flow) return { status: 404, body: { error: "Flow not found." } };
   if (flow.trigger !== "webhook") {
     return { status: 409, body: { error: "This flow is not a webhook flow." } };
@@ -74,7 +74,7 @@ export async function handle_webhook(
 
   if (flow.options.public !== true) {
     const secret = header_secret(request);
-    if (!secret || !verify_webhook_secret(flow.id, secret)) {
+    if (!secret || !(await verify_webhook_secret(flow.id, secret))) {
       return {
         status: 401,
         body: {
@@ -97,7 +97,7 @@ export async function handle_webhook(
   };
 
   if (flow.options.async === true) {
-    const jobId = enqueue_flow_trigger(flow.id, "webhook", trigger);
+    const jobId = await enqueue_flow_trigger(flow.id, "webhook", trigger);
     return {
       status: 202,
       body: { status: "queued", job_id: jobId, flow_id: flow.id },

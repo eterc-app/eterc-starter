@@ -24,8 +24,8 @@ interface ModuleEntry {
  * `/api/v1/<resource>/<method>`.
  */
 export default class System_api extends Eterc {
-  health() {
-    require_api_user();
+  async health() {
+    await require_api_user();
     return api_response({
       status: "ok",
       name: WEBSITE_NAME,
@@ -35,8 +35,8 @@ export default class System_api extends Eterc {
     });
   }
 
-  echo() {
-    require_api_user();
+  async echo() {
+    await require_api_user();
     const context = get_context();
     return {
       method: context.httpMethod,
@@ -46,8 +46,8 @@ export default class System_api extends Eterc {
     };
   }
 
-  me() {
-    const user = require_api_user();
+  async me() {
+    const user = await require_api_user();
     return {
       user: {
         id: user.eterc_user_id,
@@ -59,8 +59,8 @@ export default class System_api extends Eterc {
     };
   }
 
-  modules() {
-    require_api_user();
+  async modules() {
+    await require_api_user();
 
     return {
       modules: this._list_modules(),

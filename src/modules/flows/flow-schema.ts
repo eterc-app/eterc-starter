@@ -1,4 +1,7 @@
-import { sqlite } from "@/engine/db";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
+import { configuredDatabaseProvider } from "@/engine/db/gateway";
+import { ensure_remote_schema } from "@/engine/db/schema/remote";
+import { quoteIdentifier } from "@/engine/db/sql";
 
 /**
  * Idempotent schema for the flow engine.
@@ -118,50 +121,82 @@ CREATE INDEX IF NOT EXISTS "cms_flow_jobs_claim_idx"
   ON "cms_flow_jobs"("status", "run_at");
 `;
 
-let ready = false;
+const FLOW_STATEMENTS = FLOW_DDL.split(/;\s*(?=(?:[^'"]|'[^']*'|"[^"]*")*$)/)
+  .map((statement) => statement.trim())
+  .filter(Boolean);
 
-function has_column(table: string, column: string): boolean {
-  const rows = sqlite()
-    .prepare(`PRAGMA table_info("${table.replace(/"/g, '""')}")`)
-    .all() as Array<{ name: string }>;
-  return rows.some((row) => row.name === column);
+function has_column(table: string, column: string): Promise<boolean> {
+  // PRAGMA and ALTER TABLE below are SQLite-only. `build_flow_schema` never
+  // reaches this helper for a remote provider.
+  return activeDbAdapter
+    .query<{ name: string }>(
+      `PRAGMA table_info(${quoteIdentifier(activeDbAdapter.dialect, table)})`
+    )
+    .then((rows) => rows.some((row) => row.name === column));
 }
 
-function ensure_column(table: string, column: string, definition: string): void {
-  if (has_column(table, column)) return;
-  sqlite().exec(
-    `ALTER TABLE "${table.replace(/"/g, '""')}" ADD COLUMN "${column.replace(
-      /"/g,
-      '""'
-    )}" ${definition}`
+async function ensure_column(
+  table: string,
+  column: string,
+  definition: string
+): Promise<void> {
+  if (await has_column(table, column)) return;
+  await activeDbAdapter.execute(
+    `ALTER TABLE ${quoteIdentifier(activeDbAdapter.dialect, table)} ADD COLUMN ${quoteIdentifier(
+      activeDbAdapter.dialect,
+      column
+    )} ${definition}`
   );
 }
 
-/** Create and upgrade flow tables. Safe to call on every request. */
-export function ensure_flow_schema(): void {
-  if (ready) return;
-  sqlite().exec(FLOW_DDL);
-  ensure_column("cms_flows", "revision", "INTEGER NOT NULL DEFAULT 1");
-  ensure_column("cms_flows", "secret_hash", "TEXT");
-  ensure_column("cms_flows", "secret_prefix", "TEXT");
-  ensure_column("cms_flows", "next_run_at", "INTEGER");
-  ensure_column("cms_flows", "last_run_at", "INTEGER");
-  ensure_column("cms_flows", "accountability", "TEXT");
-  ensure_column("cms_flow_jobs", "locked_by", "TEXT");
-  ensure_column("cms_flow_jobs", "max_attempts", "INTEGER NOT NULL DEFAULT 3");
-
-  const marker = sqlite()
-    .prepare("SELECT id FROM cms_migrations WHERE id = ? LIMIT 1")
-    .get("flows:001") as { id: string } | undefined;
-  if (!marker) {
-    sqlite()
-      .prepare("INSERT INTO cms_migrations (id, applied_at) VALUES (?, ?)")
-      .run("flows:001", Math.floor(Date.now() / 1000));
+async function build_flow_schema(): Promise<void> {
+  if (
+    configuredDatabaseProvider() !== "sqlite" ||
+    activeDbAdapter.dialect !== "sqlite"
+  ) {
+    await ensure_remote_schema();
+    return;
   }
-  ready = true;
+
+  for (const statement of FLOW_STATEMENTS) {
+    await activeDbAdapter.execute(statement);
+  }
+
+  await ensure_column("cms_flows", "revision", "INTEGER NOT NULL DEFAULT 1");
+  await ensure_column("cms_flows", "secret_hash", "TEXT");
+  await ensure_column("cms_flows", "secret_prefix", "TEXT");
+  await ensure_column("cms_flows", "next_run_at", "INTEGER");
+  await ensure_column("cms_flows", "last_run_at", "INTEGER");
+  await ensure_column("cms_flows", "accountability", "TEXT");
+  await ensure_column("cms_flow_jobs", "locked_by", "TEXT");
+  await ensure_column("cms_flow_jobs", "max_attempts", "INTEGER NOT NULL DEFAULT 3");
+
+  const marker = await activeDbAdapter.query<{ id: string }>(
+    "SELECT id FROM cms_migrations WHERE id = ? LIMIT 1",
+    ["flows:001"]
+  );
+  if (marker.length === 0) {
+    await activeDbAdapter.execute(
+      "INSERT INTO cms_migrations (id, applied_at) VALUES (?, ?)",
+      ["flows:001", Math.floor(Date.now() / 1000)]
+    );
+  }
+}
+
+let ready: Promise<void> | null = null;
+
+/** Create and upgrade flow tables. Safe to call on every request. */
+export function ensure_flow_schema(): Promise<void> {
+  if (!ready) {
+    ready = build_flow_schema().catch((error) => {
+      ready = null;
+      throw error;
+    });
+  }
+  return ready;
 }
 
 /** Force the next `ensure_flow_schema()` call to re-run migrations. */
 export function reset_flow_schema_cache(): void {
-  ready = false;
+  ready = null;
 }

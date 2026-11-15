@@ -99,9 +99,9 @@ function accountability_value(value: unknown): FlowAccountability {
 }
 
 export default class Flows_admin extends Eterc {
-  private principal(): CmsPrincipal {
+  private async principal(): Promise<CmsPrincipal> {
     try {
-      return require_admin_user();
+      return await require_admin_user();
     } catch (error) {
       if (error instanceof EtHttpError && error.status === 401) {
         set_flashdata("Please sign in with an administrator account.");
@@ -132,8 +132,8 @@ export default class Flows_admin extends Eterc {
     });
   }
 
-  private collection_options() {
-    return list_collections({ include_hidden: true })
+  private async collection_options() {
+    return (await list_collections({ include_hidden: true }))
       .filter((collection) => !collection.system)
       .map((collection) => ({
         name: collection.name,
@@ -142,12 +142,12 @@ export default class Flows_admin extends Eterc {
       }));
   }
 
-  private flow_list_payload() {
+  private async flow_list_payload() {
     const runtime = flow_runtime_mode();
     const origin = this.origin();
-    const health = flow_health();
+    const health = await flow_health();
     return {
-      flows: list_flows().map((flow) => ({
+      flows: (await list_flows()).map((flow) => ({
         ...flow,
         webhook_url:
           flow.trigger === "webhook"
@@ -163,30 +163,30 @@ export default class Flows_admin extends Eterc {
   }
 
   async index() {
-    const principal = this.principal();
-    const list = this.flow_list_payload();
+    const principal = await this.principal();
+    const list = await this.flow_list_payload();
     return this.admin_view("index", "Flows", {
       principal,
       ...list,
-      collections: this.collection_options(),
+      collections: await this.collection_options(),
     });
   }
 
   async builder() {
-    const principal = this.principal();
+    const principal = await this.principal();
     const id = query_string("id") ?? "";
     if (!id) redirect(site_url("admin/flows"));
-    const flow = get_flow_with_operations(id);
+    const flow = await get_flow_with_operations(id);
     if (!flow) {
       set_flashdata("That flow no longer exists.");
       redirect(site_url("admin/flows"));
     }
-    const runs = list_flow_runs({ flow_id: id, limit: 20 });
+    const runs = await list_flow_runs({ flow_id: id, limit: 20 });
     return this.admin_view("builder", flow.name, {
       principal,
       flow,
-      flows: list_flows().filter((entry) => entry.id !== id),
-      collections: this.collection_options(),
+      flows: (await list_flows()).filter((entry) => entry.id !== id),
+      collections: await this.collection_options(),
       catalog: OPERATION_DEFINITIONS,
       runs: runs.runs,
       runtime: flow_runtime_mode(),
@@ -198,20 +198,20 @@ export default class Flows_admin extends Eterc {
     });
   }
 
-  list_state() {
-    this.principal();
-    return this.flow_list_payload();
+  async list_state() {
+    await this.principal();
+    return await this.flow_list_payload();
   }
 
-  flow_state() {
-    this.principal();
+  async flow_state() {
+    await this.principal();
     const id = text(body().id) || query_string("id") || "";
-    const flow = get_flow_with_operations(id);
+    const flow = await get_flow_with_operations(id);
     if (!flow) throw new EtHttpError(404, "Flow not found.");
     return {
       flow,
-      flows: list_flows().filter((entry) => entry.id !== id),
-      runs: list_flow_runs({ flow_id: id, limit: 20 }).runs,
+      flows: (await list_flows()).filter((entry) => entry.id !== id),
+      runs: (await list_flow_runs({ flow_id: id, limit: 20 })).runs,
       webhook_url:
         flow.trigger === "webhook"
           ? `${this.origin()}/api/flows/webhook/${flow.id}`
@@ -219,11 +219,11 @@ export default class Flows_admin extends Eterc {
     };
   }
 
-  create_flow() {
-    const principal = this.principal();
+  async create_flow() {
+    const principal = await this.principal();
     const payload = body();
     const trigger = trigger_value(payload.trigger);
-    const result = create_flow({
+    const result = await create_flow({
       name: text(payload.name),
       description: text(payload.description),
       icon: text(payload.icon, "zap") || "zap",
@@ -244,12 +244,12 @@ export default class Flows_admin extends Eterc {
     };
   }
 
-  update_flow() {
-    this.principal();
+  async update_flow() {
+    await this.principal();
     const payload = body();
     const id = text(payload.id);
     if (!id) throw new EtHttpError(400, "A flow id is required.");
-    const flow = update_flow_meta(id, {
+    const flow = await update_flow_meta(id, {
       name: typeof payload.name === "string" ? payload.name : undefined,
       description:
         typeof payload.description === "string" ? payload.description : undefined,
@@ -264,12 +264,12 @@ export default class Flows_admin extends Eterc {
     return { flow };
   }
 
-  update_trigger() {
-    this.principal();
+  async update_trigger() {
+    await this.principal();
     const payload = body();
     const id = text(payload.id);
     if (!id) throw new EtHttpError(400, "A flow id is required.");
-    const result = update_flow_trigger(
+    const result = await update_flow_trigger(
       id,
       trigger_value(payload.trigger),
       object(payload.options)
@@ -284,8 +284,8 @@ export default class Flows_admin extends Eterc {
     };
   }
 
-  save_graph() {
-    this.principal();
+  async save_graph() {
+    await this.principal();
     const payload = body();
     const id = text(payload.id);
     if (!id) throw new EtHttpError(400, "A flow id is required.");
@@ -302,7 +302,7 @@ export default class Flows_admin extends Eterc {
         resolve: operation.resolve ? String(operation.resolve) : null,
         reject: operation.reject ? String(operation.reject) : null,
       })) as FlowGraphInput[];
-    const flow = save_flow_graph(
+    const flow = await save_flow_graph(
       id,
       Number(payload.revision),
       operations,
@@ -311,30 +311,30 @@ export default class Flows_admin extends Eterc {
     return { flow };
   }
 
-  set_status() {
-    this.principal();
+  async set_status() {
+    await this.principal();
     const payload = body();
     return {
-      flow: update_flow_meta(text(payload.id), {
+      flow: await update_flow_meta(text(payload.id), {
         status: status_value(payload.status),
       }),
     };
   }
 
-  delete_flow() {
-    this.principal();
-    delete_flow(text(body().id));
+  async delete_flow() {
+    await this.principal();
+    await delete_flow(text(body().id));
     return { deleted: true };
   }
 
-  duplicate_flow() {
-    this.principal();
-    return { flow: duplicate_flow(text(body().id)) };
+  async duplicate_flow() {
+    await this.principal();
+    return { flow: await duplicate_flow(text(body().id)) };
   }
 
-  rotate_secret() {
-    this.principal();
-    const result = rotate_flow_secret(text(body().id));
+  async rotate_secret() {
+    await this.principal();
+    const result = await rotate_flow_secret(text(body().id));
     return {
       flow: result.flow,
       secret: result.secret,
@@ -343,9 +343,9 @@ export default class Flows_admin extends Eterc {
   }
 
   async run_now() {
-    const principal = this.principal();
+    const principal = await this.principal();
     const payload = body();
-    const flow = get_flow(text(payload.id));
+    const flow = await get_flow(text(payload.id));
     if (!flow) throw new EtHttpError(404, "Flow not found.");
     const input = payload.input ?? null;
     const collection = text(payload.collection);
@@ -369,7 +369,7 @@ export default class Flows_admin extends Eterc {
       },
     };
     if (flow.options.async === true && bool(payload.sync) === false) {
-      const jobId = enqueue_flow_trigger(flow.id, flow.trigger, triggerPayload);
+      const jobId = await enqueue_flow_trigger(flow.id, flow.trigger, triggerPayload);
       return { queued: true, job_id: jobId, flow_id: flow.id };
     }
     const result = await run_flow({
@@ -381,10 +381,10 @@ export default class Flows_admin extends Eterc {
     return result;
   }
 
-  runs() {
-    this.principal();
+  async runs() {
+    await this.principal();
     const payload = body();
-    return list_flow_runs({
+    return await list_flow_runs({
       flow_id: text(payload.flow_id) || undefined,
       status: text(payload.status) || undefined,
       limit: Number(payload.limit) || 25,
@@ -392,29 +392,29 @@ export default class Flows_admin extends Eterc {
     });
   }
 
-  run_detail() {
-    this.principal();
+  async run_detail() {
+    await this.principal();
     const id = text(body().id);
-    const run = get_flow_run(id);
+    const run = await get_flow_run(id);
     if (!run) throw new EtHttpError(404, "Run not found.");
     return {
       run,
-      steps: list_flow_run_steps(id),
-      flow: get_flow(run.flow_id),
+      steps: await list_flow_run_steps(id),
+      flow: await get_flow(run.flow_id),
     };
   }
 
-  health_state() {
-    this.principal();
-    return flow_health();
+  async health_state() {
+    await this.principal();
+    return await flow_health();
   }
 
-  catalog_state() {
-    this.principal();
+  async catalog_state() {
+    await this.principal();
     return {
       catalog: OPERATION_DEFINITIONS,
-      collections: this.collection_options(),
-      flows: list_flows().map((flow) => ({
+      collections: await this.collection_options(),
+      flows: (await list_flows()).map((flow) => ({
         id: flow.id,
         name: flow.name,
         trigger: flow.trigger,
@@ -423,9 +423,9 @@ export default class Flows_admin extends Eterc {
     };
   }
 
-  export_flow() {
-    this.principal();
-    const flow = get_flow_with_operations(text(body().id));
+  async export_flow() {
+    await this.principal();
+    const flow = await get_flow_with_operations(text(body().id));
     if (!flow) throw new EtHttpError(404, "Flow not found.");
     return {
       version: 1,
@@ -455,13 +455,13 @@ export default class Flows_admin extends Eterc {
     };
   }
 
-  import_flow() {
-    this.principal();
+  async import_flow() {
+    await this.principal();
     const payload = body();
     const exported = object(payload.data);
     const flowInput = object(exported.flow);
     const operations = array<Record<string, unknown>>(exported.operations);
-    const created = create_flow({
+    const created = await create_flow({
       name: `${text(flowInput.name, "Imported flow")} (imported)`,
       description: text(flowInput.description),
       icon: text(flowInput.icon, "zap") || "zap",
@@ -477,7 +477,7 @@ export default class Flows_admin extends Eterc {
         const oldId = text(operation.id);
         if (oldId) map.set(oldId, crypto.randomUUID());
       }
-      save_flow_graph(
+      await save_flow_graph(
         created.flow.id,
         1,
         operations.map((operation) => ({
@@ -494,6 +494,6 @@ export default class Flows_admin extends Eterc {
         exported.root ? map.get(String(exported.root)) ?? null : null
       );
     }
-    return { flow: get_flow(created.flow.id) };
+    return { flow: await get_flow(created.flow.id) };
   }
 }

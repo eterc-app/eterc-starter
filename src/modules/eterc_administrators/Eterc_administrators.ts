@@ -42,23 +42,25 @@ export default class Eterc_administrators extends Eterc {
    * Display form for creating or editing a record.
    */
   async create() {
-    this.securityService().make_sure_allowed();
+    await this.securityService().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
 
-    const data = this.loadCreateData(update_id);
+    const data = await this.loadCreateData(update_id);
     if (data === false) {
       return this.not_found();
     }
 
-    return this.templates.admin(this.buildCreateViewData(data, update_id));
+    return this.templates.admin(
+      await this.buildCreateViewData(data, update_id)
+    );
   }
 
   /**
    * Display detailed view of a single record.
    */
   async show() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
 
@@ -66,18 +68,18 @@ export default class Eterc_administrators extends Eterc {
       return this.not_found();
     }
 
-    const record_data = this.adminModel().get_data_from_db(update_id);
+    const record_data = await this.adminModel().get_data_from_db(update_id);
 
     if (record_data === false) {
       return this.not_found();
     }
 
-    const logged_in_id = this.loggedInUserId(user_obj);
+    const logged_in_id = await this.loggedInUserId(user_obj);
 
     const is_own_account = update_id === logged_in_id ? true : false;
 
-    const role_id = this.adminModel().get_role_id_for_admin(update_id);
-    const role = role_id > 0 ? this.adminModel().get_role_by_id(role_id) : false;
+    const role_id = await this.adminModel().get_role_id_for_admin(update_id);
+    const role = role_id > 0 ? await this.adminModel().get_role_by_id(role_id) : false;
 
     const data: EtTemplateData = {
       ...this.adminModel().prepare_for_display({ ...record_data }),
@@ -100,7 +102,7 @@ export default class Eterc_administrators extends Eterc {
    * Redirect the signed-in user to the self-service profile.
    */
   async update_your_details() {
-    this.securityService().make_sure_allowed();
+    await this.securityService().make_sure_allowed();
     redirect("admin/profile");
   }
 
@@ -108,7 +110,7 @@ export default class Eterc_administrators extends Eterc {
    * Display confirmation page before deleting a record.
    */
   async delete_conf() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
 
     const update_id = Number(segment(3, "int"));
 
@@ -116,14 +118,14 @@ export default class Eterc_administrators extends Eterc {
       return this.not_found();
     }
 
-    const logged_in_id = this.loggedInUserId(user_obj);
+    const logged_in_id = await this.loggedInUserId(user_obj);
 
     if (update_id === logged_in_id) {
       set_flashdata("You cannot delete your own account");
       redirect(`${this.module_name}/show/${update_id}`);
     }
 
-    const record_data = this.adminModel().get_data_from_db(update_id);
+    const record_data = await this.adminModel().get_data_from_db(update_id);
 
     if (record_data === false) {
       return this.not_found();
@@ -146,16 +148,16 @@ export default class Eterc_administrators extends Eterc {
    * Display password update form.
    */
   async update_password() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
     const update_id = Number(segment(3, "int"));
 
-    const record_data = this.adminModel().get_data_from_db(update_id);
+    const record_data = await this.adminModel().get_data_from_db(update_id);
 
     if (record_data === false) {
       return this.not_found();
     }
 
-    const logged_in_id = this.loggedInUserId(user_obj);
+    const logged_in_id = await this.loggedInUserId(user_obj);
     const is_own_account = update_id === logged_in_id ? true : false;
 
     return this.templates.admin(
@@ -167,7 +169,7 @@ export default class Eterc_administrators extends Eterc {
    * Handle password update form submission.
    */
   async submit_update_password() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -185,13 +187,13 @@ export default class Eterc_administrators extends Eterc {
 
     if ((await this.validation.run()) !== true) {
       const update_id = Number(segment(3, "int"));
-      const record_data = this.adminModel().get_data_from_db(update_id);
+      const record_data = await this.adminModel().get_data_from_db(update_id);
 
       if (record_data === false) {
         return this.not_found();
       }
 
-      const logged_in_id = this.loggedInUserId(user_obj);
+      const logged_in_id = await this.loggedInUserId(user_obj);
       const is_own_account = update_id === logged_in_id ? true : false;
 
       return this.view(
@@ -201,19 +203,19 @@ export default class Eterc_administrators extends Eterc {
     }
 
     const update_id = Number(segment(3, "int"));
-    const record_data = this.adminModel().get_data_from_db(update_id);
+    const record_data = await this.adminModel().get_data_from_db(update_id);
 
     if (record_data === false) {
       return this.not_found();
     }
 
     const password = String(post("password", true) ?? "");
-    this.adminModel().update_password(update_id, password);
+    await this.adminModel().update_password(update_id, password);
 
     // Changing someone else's password must end their existing sessions.
-    const logged_in_id = this.loggedInUserId(user_obj);
+    const logged_in_id = await this.loggedInUserId(user_obj);
     if (update_id !== logged_in_id) {
-      this.adminModel().revoke_user_sessions(Number(record_data.eterc_user_id ?? 0));
+      await this.adminModel().revoke_user_sessions(Number(record_data.eterc_user_id ?? 0));
     }
 
     set_flashdata("Password updated successfully");
@@ -224,7 +226,7 @@ export default class Eterc_administrators extends Eterc {
    * Log out the current user and redirect to the login module.
    */
   async logout() {
-    this.tokensService().destroy(); // Destroy the authentication token
+    await this.tokensService().destroy(); // Destroy the authentication token
     redirect("login/logout");
   }
 
@@ -249,7 +251,7 @@ export default class Eterc_administrators extends Eterc {
    * Handle form submission for creating/updating records.
    */
   async submit() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -294,7 +296,7 @@ export default class Eterc_administrators extends Eterc {
     }
 
     if ((await this.validation.run()) !== true) {
-      const data = this.loadCreateData(update_id);
+      const data = await this.loadCreateData(update_id);
 
       if (data === false) {
         redirect(`${this.module_name}/manage`);
@@ -302,7 +304,7 @@ export default class Eterc_administrators extends Eterc {
 
       return this.view(
         "eterc_administrators/create",
-        this.buildCreateViewData(data, update_id)
+        await this.buildCreateViewData(data, update_id)
       );
     }
 
@@ -315,18 +317,18 @@ export default class Eterc_administrators extends Eterc {
 
     if (is_update) {
       // Verify record exists before updating.
-      const existing_record = this.adminModel().get_data_from_db(update_id);
+      const existing_record = await this.adminModel().get_data_from_db(update_id);
       if (existing_record === false) {
         redirect(`${this.module_name}/manage`);
       }
 
-      const existing_role_id = this.adminModel().get_role_id_for_admin(update_id);
+      const existing_role_id = await this.adminModel().get_role_id_for_admin(update_id);
       const existing_role =
         existing_role_id > 0
-          ? this.adminModel().get_role_by_id(existing_role_id)
+          ? await this.adminModel().get_role_by_id(existing_role_id)
           : false;
-      const next_role = this.adminModel().get_role_by_id(role_id);
-      const logged_in_id = this.loggedInUserId(user_obj);
+      const next_role = await this.adminModel().get_role_by_id(role_id);
+      const logged_in_id = await this.loggedInUserId(user_obj);
 
       // Do not allow a signed-in administrator to lock themselves out.
       if (update_id === logged_in_id) {
@@ -353,13 +355,13 @@ export default class Eterc_administrators extends Eterc {
       if (
         was_active_admin &&
         !will_be_active_admin &&
-        this.adminModel().count_active_admins() <= 1
+        (await this.adminModel().count_active_admins()) <= 1
       ) {
         set_flashdata("At least one active administrator is required");
         redirect(`${this.module_name}/show/${update_id}`);
       }
 
-      this.adminModel().update_record(
+      await this.adminModel().update_record(
         update_id,
         db_data,
         role_id,
@@ -368,7 +370,7 @@ export default class Eterc_administrators extends Eterc {
       );
       flash_msg = "User updated successfully";
     } else {
-      update_id = this.adminModel().create_new_record(
+      update_id = await this.adminModel().create_new_record(
         db_data,
         role_id,
         password
@@ -384,7 +386,7 @@ export default class Eterc_administrators extends Eterc {
    * Handle record deletion after confirmation.
    */
   async submit_delete() {
-    const user_obj = this.securityService().make_sure_allowed();
+    const user_obj = await this.securityService().make_sure_allowed();
 
     const submit = String(post("submit", true) ?? "");
 
@@ -401,7 +403,7 @@ export default class Eterc_administrators extends Eterc {
     }
 
     // Prevent self-deletion.
-    const logged_in_id = this.loggedInUserId(user_obj);
+    const logged_in_id = await this.loggedInUserId(user_obj);
 
     if (update_id === logged_in_id) {
       set_flashdata("You cannot delete your own account");
@@ -409,13 +411,13 @@ export default class Eterc_administrators extends Eterc {
     }
 
     // Verify record exists before deleting.
-    const record_data = this.adminModel().get_data_from_db(update_id);
+    const record_data = await this.adminModel().get_data_from_db(update_id);
     if (record_data === false) {
       redirect(`${this.module_name}/manage`);
     }
 
     // Perform deletion.
-    this.adminModel().delete_record(update_id);
+    await this.adminModel().delete_record(update_id);
     set_flashdata("The record was successfully deleted");
     redirect(`${this.module_name}/manage`);
   }
@@ -424,31 +426,31 @@ export default class Eterc_administrators extends Eterc {
    * Display paginated list of records with per-page selector.
    */
   async manage() {
-    this.securityService().make_sure_allowed();
+    await this.securityService().make_sure_allowed();
 
-    const limit = this.getLimit();
-    const offset = this.getOffset();
+    const limit = await this.getLimit();
+    const offset = await this.getOffset();
 
-    let rows = this.adminModel().get_all_paginated(limit, offset);
+    let rows = await this.adminModel().get_all_paginated(limit, offset);
     rows = this.adminModel().prepare_records_for_display(rows);
-    const total_rows = this.adminModel().count_all();
+    const total_rows = await this.adminModel().count_all();
 
     const data: EtTemplateData = {
       theme: this.admin_theme,
       rows: rows,
       pagination_data: this.getPaginationData(limit, total_rows),
       per_page_options: this.per_page_options,
-      selected_per_page: this.getSelectedPerPage(),
+      selected_per_page: await this.getSelectedPerPage(),
       viewModule: this.module_name,
       viewFile: "manage",
     };
 
     return this.templates.admin(data);
   }
-  make_sure_allowed(): string | null {
+  async make_sure_allowed(): Promise<string | null> {
     this.assertNotDirectCall("make_sure_allowed");
 
-    let token = this.tokensService().attempt_get_valid_token(1);
+    let token = await this.tokensService().attempt_get_valid_token(1);
 
     // Handle API/MX requests.
     if (from_eterc_mx() === true && token === false) {
@@ -459,10 +461,10 @@ export default class Eterc_administrators extends Eterc {
     if (token === false) {
       if (ENV.toLowerCase() === "dev") {
         // DEV: Auto-login as first active user.
-        const user_obj = this.adminModel().get_any_active_user();
+        const user_obj = await this.adminModel().get_any_active_user();
 
         if (user_obj !== false) {
-          token = this.adminModel().log_user_in(String(user_obj.username ?? ""), 1);
+          token = await this.adminModel().log_user_in(String(user_obj.username ?? ""), 1);
         } else {
           throw new EtHttpError(500, "No active users found in database");
         }
@@ -479,7 +481,7 @@ export default class Eterc_administrators extends Eterc {
    * Set number of records per page for pagination.
    */
   async set_per_page() {
-    this.securityService().make_sure_allowed();
+    await this.securityService().make_sure_allowed();
 
     let selected_index = Number(segment(3, "int"));
 
@@ -487,7 +489,7 @@ export default class Eterc_administrators extends Eterc {
       selected_index = 1;
     }
 
-    session_set("selected_per_page", selected_index);
+    await session_set("selected_per_page", selected_index);
     redirect(`${this.module_name}/manage`);
   }
 
@@ -499,7 +501,7 @@ export default class Eterc_administrators extends Eterc {
    * another record. The {label} placeholder in error messages is replaced by
    * the validation library with the appropriate field label.
    */
-  username_check(str: string): string | true {
+  async username_check(str: string): Promise<string | true> {
     this.assertNotDirectCall("username_check");
 
     if (str === "") {
@@ -511,7 +513,7 @@ export default class Eterc_administrators extends Eterc {
     }
 
     const update_id = Number(segment(3, "int"));
-    const is_available = this.adminModel().is_username_available(str, update_id);
+    const is_available = await this.adminModel().is_username_available(str, update_id);
 
     if (is_available === false) {
       return update_id === 0
@@ -538,7 +540,7 @@ export default class Eterc_administrators extends Eterc {
   /**
    * Validate that an email address is not already used by another account.
    */
-  email_check(str: string): string | true {
+  async email_check(str: string): Promise<string | true> {
     this.assertNotDirectCall("email_check");
 
     if (str === "") {
@@ -546,7 +548,7 @@ export default class Eterc_administrators extends Eterc {
     }
 
     const update_id = Number(segment(3, "int"));
-    const is_available = this.adminModel().is_email_available(str, update_id);
+    const is_available = await this.adminModel().is_email_available(str, update_id);
 
     if (is_available === false) {
       return update_id === 0
@@ -560,7 +562,7 @@ export default class Eterc_administrators extends Eterc {
   /**
    * Validate that the submitted role exists and has a user level.
    */
-  role_check(str: string): string | true {
+  async role_check(str: string): Promise<string | true> {
     this.assertNotDirectCall("role_check");
 
     const role_id = Number(str);
@@ -568,7 +570,7 @@ export default class Eterc_administrators extends Eterc {
       return "Choose a role for this account.";
     }
 
-    const role = this.adminModel().get_role_by_id(role_id);
+    const role = await this.adminModel().get_role_by_id(role_id);
     if (role === false) {
       return "The selected role no longer exists.";
     }
@@ -588,12 +590,12 @@ export default class Eterc_administrators extends Eterc {
       throw new EtHttpError(403, "403 Forbidden - Direct URL access not permitted");
     }
   }
-  private loggedInUserId(user_obj: EtercUserObj | null): number {
+  private async loggedInUserId(user_obj: EtercUserObj | null): Promise<number> {
     if (user_obj === null) {
       redirect(admin_login_path());
     }
 
-    const record = this.adminModel().get_user_by_token(user_obj.token);
+    const record = await this.adminModel().get_user_by_token(user_obj.token);
     return record === false ? 0 : Number(record.id ?? 0);
   }
   private getBackUrl(): string {
@@ -608,8 +610,8 @@ export default class Eterc_administrators extends Eterc {
 
     return `${BASE_URL}${this.module_name}/manage`;
   }
-  private getLimit(): number {
-    const selected = session_get<number>("selected_per_page");
+  private async getLimit(): Promise<number> {
+    const selected = await session_get<number>("selected_per_page");
 
     if (selected !== undefined && this.per_page_options[selected] !== undefined) {
       return this.per_page_options[selected];
@@ -617,9 +619,9 @@ export default class Eterc_administrators extends Eterc {
 
     return this.default_limit;
   }
-  private getOffset(): number {
+  private async getOffset(): Promise<number> {
     const page_num = Number(segment(3, "int"));
-    return page_num > 1 ? (page_num - 1) * this.getLimit() : 0;
+    return page_num > 1 ? (page_num - 1) * (await this.getLimit()) : 0;
   }
   private getPaginationData(limit: number, total_rows: number): Record<string, unknown> {
     const total_pages = limit > 0 ? Math.ceil(total_rows / limit) : 0;
@@ -640,12 +642,12 @@ export default class Eterc_administrators extends Eterc {
       total_pages: total_pages,
     };
   }
-  private getSelectedPerPage(): number {
-    return session_get<number>("selected_per_page") ?? 1;
+  private async getSelectedPerPage(): Promise<number> {
+    return (await session_get<number>("selected_per_page")) ?? 1;
   }
-  private loadCreateData(update_id: number): Record<string, unknown> | false {
+  private async loadCreateData(update_id: number): Promise<Record<string, unknown> | false> {
     if (update_id > 0) {
-      const record = this.adminModel().get_data_from_db(update_id);
+      const record = await this.adminModel().get_data_from_db(update_id);
       if (record === false) {
         return false;
       }
@@ -654,11 +656,11 @@ export default class Eterc_administrators extends Eterc {
 
     return this.adminModel().get_data_from_post();
   }
-  private buildCreateViewData(
+  private async buildCreateViewData(
     data: Record<string, unknown>,
     update_id: number
-  ): EtTemplateData {
-    const roles = list_roles();
+  ): Promise<EtTemplateData> {
+    const roles = await list_roles();
     const default_role =
       roles.find((role) => role.is_system) ??
       roles.find((role) => role.admin_access) ??
@@ -666,7 +668,7 @@ export default class Eterc_administrators extends Eterc {
       null;
     const role_id =
       update_id > 0
-        ? this.adminModel().get_role_id_for_admin(update_id)
+        ? await this.adminModel().get_role_id_for_admin(update_id)
         : Number(data.role_id ?? 0);
     const selected_role_id = role_id > 0 ? role_id : (default_role?.id ?? 0);
 
@@ -715,3 +717,5 @@ function urlPath(url: string): string {
     return url.split("?")[0];
   }
 }
+
+

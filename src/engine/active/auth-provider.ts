@@ -1,6 +1,6 @@
 import type { AuthSession, AuthUser, IAuthProvider } from "../contracts/auth";
 import { Eterc_tokens } from "../Eterc_tokens";
-import { sqlite } from "../db";
+import { activeDbAdapter } from "./db-adapter";
 
 interface AccountRow {
   user_id: number | string;
@@ -20,11 +20,13 @@ export class BuiltinAuthProvider implements IAuthProvider {
 
   async getSession(): Promise<AuthSession | null> {
     try {
-      const tokens = this.tokenService.gather_user_tokens();
+      const tokens = await this.tokenService.gather_user_tokens();
       if (tokens.length === 0) return null;
-      const validToken = this.tokenService.validate_token_any_level(tokens);
+      const validToken = await this.tokenService.validate_token_any_level(tokens);
       if (!validToken) return null;
-      const user = await this.getUser(String(this.tokenService.get_user_id(validToken) ?? ""));
+      const userId = await this.tokenService.get_user_id(validToken);
+      if (userId === false) return null;
+      const user = await this.getUser(String(userId));
       if (!user) return null;
       return { user, token: validToken };
     } catch {
@@ -34,16 +36,16 @@ export class BuiltinAuthProvider implements IAuthProvider {
 
   async getUser(userId: string): Promise<AuthUser | null> {
     try {
-      const row = sqlite()
-        .prepare(
-          `SELECT u.id AS user_id, a.id AS administrator_id, a.eterc_user_id, a.username,
-                  a.email, a.first_name, a.last_name, ul.level_title
-             FROM eterc_users u
-             LEFT JOIN eterc_administrators a ON a.eterc_user_id = u.id
-             LEFT JOIN eterc_user_levels ul ON ul.id = u.user_level_id
-            WHERE u.id = ? LIMIT 1`
-        )
-        .get(userId) as AccountRow | undefined;
+      const rows = await activeDbAdapter.query<AccountRow>(
+        `SELECT u.id AS user_id, a.id AS administrator_id, a.eterc_user_id, a.username,
+                a.email, a.first_name, a.last_name, ul.level_title
+           FROM eterc_users u
+           LEFT JOIN eterc_administrators a ON a.eterc_user_id = u.id
+           LEFT JOIN eterc_user_levels ul ON ul.id = u.user_level_id
+          WHERE u.id = ${activeDbAdapter.dialect === "postgres" ? "$1" : "?"} LIMIT 1`,
+        [userId],
+      );
+      const row = rows[0];
       if (!row) return null;
       return {
         id: String(row.user_id),
@@ -59,7 +61,7 @@ export class BuiltinAuthProvider implements IAuthProvider {
   }
 
   async signOut(): Promise<void> {
-    this.tokenService.destroy();
+    await this.tokenService.destroy();
   }
 
   async protectRoute(roles?: string[]): Promise<AuthUser> {

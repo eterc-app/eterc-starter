@@ -13,13 +13,13 @@ import type { FlowTrigger, FlowTriggerPayload } from "./flow-types";
 
 const WORKER_ID = `embedded-${process.pid}`;
 
-export function enqueue_flow_trigger(
+export async function enqueue_flow_trigger(
   flowId: string,
   trigger: FlowTrigger,
   payload: FlowTriggerPayload,
   runAt?: number
-): string {
-  const jobId = enqueue_flow_job({
+): Promise<string> {
+  const jobId = await enqueue_flow_job({
     flow_id: flowId,
     trigger,
     payload,
@@ -35,26 +35,26 @@ export function enqueue_flow_trigger(
 
 /**
  * Execute pending jobs. Safe to call from cron, after an action event, or the
- * embedded timer. A single SQLite claim prevents two workers taking one job.
+ * embedded timer. A single atomic claim prevents two workers taking one job.
  */
 export async function drain_flow_queue(limit = 15): Promise<{
   processed: number;
   succeeded: number;
   failed: number;
 }> {
-  recover_stale_flow_jobs();
+  await recover_stale_flow_jobs();
   let processed = 0;
   let succeeded = 0;
   let failed = 0;
 
   for (let index = 0; index < limit; index += 1) {
-    const job = claim_flow_job(WORKER_ID);
+    const job = await claim_flow_job(WORKER_ID);
     if (!job) break;
     processed += 1;
 
-    const flow = get_flow(job.flow_id);
+    const flow = await get_flow(job.flow_id);
     if (!flow || flow.status !== "active") {
-      fail_flow_job(job, "The flow is missing or inactive.");
+      await fail_flow_job(job, "The flow is missing or inactive.");
       failed += 1;
       continue;
     }
@@ -72,14 +72,17 @@ export async function drain_flow_queue(limit = 15): Promise<{
         principal: SYSTEM_PRINCIPAL,
       });
       if (result.status === "success" || result.status === "rejected") {
-        complete_flow_job(job.id);
+        await complete_flow_job(job.id);
         succeeded += 1;
       } else {
-        fail_flow_job(job, result.error?.message ?? `Run ended as ${result.status}.`);
+        await fail_flow_job(
+          job,
+          result.error?.message ?? `Run ended as ${result.status}.`
+        );
         failed += 1;
       }
     } catch (error) {
-      fail_flow_job(
+      await fail_flow_job(
         job,
         error instanceof Error ? error.message : "The queued run failed."
       );

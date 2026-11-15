@@ -53,7 +53,7 @@ export default class Forgot_password {
     }
 
     // Find user by identifier (e.g. username) or email.
-    const user = model.find_user_lax(submitted, user_level_id);
+    const user = await model.find_user_lax(submitted, user_level_id);
 
     if (user === false) {
       // Don't reveal whether the account exists.
@@ -69,7 +69,7 @@ export default class Forgot_password {
       typeof user.email === "string" && user.email !== "" ? user.email : submitted;
 
     // Generate the reset token.
-    const token = model.generate_reset_token(identifier, user_level_id);
+    const token = await model.generate_reset_token(identifier, user_level_id);
 
     if (token === false) {
       // Don't reveal internal errors.
@@ -108,7 +108,7 @@ export default class Forgot_password {
       redirect("login");
     }
 
-    const reset = model.validate_reset_token(token);
+    const reset = await model.validate_reset_token(token);
 
     const data: Record<string, unknown> = {
       view_module: "login/forgot_password",
@@ -143,7 +143,7 @@ export default class Forgot_password {
       view_module: "login/forgot_password",
     };
 
-    const reset = model.validate_reset_token(token);
+    const reset = await model.validate_reset_token(token);
 
     if (reset === false) {
       data.error_message = "This reset link is invalid or has expired. Please request a new one.";
@@ -167,7 +167,7 @@ export default class Forgot_password {
       return this.login.view("login/reset_password_form", data);
     }
 
-    const success = model.reset_password(token, password);
+    const success = await model.reset_password(token, password);
 
     if (success) {
       return this.login.view("login/reset_success", data);
@@ -225,3 +225,4 @@ export default class Forgot_password {
     set_flashdata(msg);
   }
 }
+

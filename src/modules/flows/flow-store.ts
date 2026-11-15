@@ -1,5 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { sqlite } from "@/engine/db";
+﻿import { randomUUID } from "node:crypto";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
+import type {
+  DatabaseExecutionResult,
+  IDatabaseAdapter,
+} from "@/engine/contracts/database";
+import { prepareQuery } from "@/engine/db/sql";
 import { EtHttpError } from "@/engine/signals";
 import { next_cron_seconds } from "./flow-cron";
 import { ensure_flow_schema } from "./flow-schema";
@@ -51,6 +56,33 @@ function options(value: unknown): Record<string, unknown> {
 
 function accountability(value: unknown): FlowAccountability {
   return value === "all" || value === "activity" ? value : null;
+}
+
+async function query_rows<T>(
+  sql: string,
+  params: unknown[] = [],
+  adapter: IDatabaseAdapter = activeDbAdapter
+): Promise<T[]> {
+  const prepared = prepareQuery(sql, params, adapter.dialect);
+  return adapter.query<T>(prepared.sql, prepared.params as unknown[]);
+}
+
+async function query_row<T>(
+  sql: string,
+  params: unknown[] = [],
+  adapter: IDatabaseAdapter = activeDbAdapter
+): Promise<T | undefined> {
+  const rows = await query_rows<T>(sql, params, adapter);
+  return rows[0];
+}
+
+async function exec(
+  sql: string,
+  params: unknown[] = [],
+  adapter: IDatabaseAdapter = activeDbAdapter
+): Promise<DatabaseExecutionResult> {
+  const prepared = prepareQuery(sql, params, adapter.dialect);
+  return adapter.execute(prepared.sql, prepared.params as unknown[]);
 }
 
 function row_to_flow(row: Row): FlowRecord {
@@ -162,52 +194,54 @@ function row_to_job(row: Row): FlowJobRecord {
   };
 }
 
-export function list_flows(): FlowRecord[] {
-  ensure_flow_schema();
-  const rows = sqlite()
-    .prepare("SELECT * FROM cms_flows ORDER BY updated_at DESC, name ASC")
-    .all() as Row[];
+export async function list_flows(): Promise<FlowRecord[]> {
+  await ensure_flow_schema();
+  const rows = await query_rows<Row>(
+    "SELECT * FROM cms_flows ORDER BY updated_at DESC, name ASC"
+  );
   return rows.map(row_to_flow);
 }
 
-export function get_flow(id: string): FlowRecord | null {
-  ensure_flow_schema();
-  const row = sqlite()
-    .prepare("SELECT * FROM cms_flows WHERE id = ? LIMIT 1")
-    .get(id) as Row | undefined;
+export async function get_flow(id: string): Promise<FlowRecord | null> {
+  await ensure_flow_schema();
+  const row = await query_row<Row>("SELECT * FROM cms_flows WHERE id = ? LIMIT 1", [
+    id,
+  ]);
   return row ? row_to_flow(row) : null;
 }
 
-export function get_flow_with_operations(id: string): FlowWithOperations | null {
-  const flow = get_flow(id);
+export async function get_flow_with_operations(
+  id: string
+): Promise<FlowWithOperations | null> {
+  const flow = await get_flow(id);
   if (!flow) return null;
-  const rows = sqlite()
-    .prepare(
-      "SELECT * FROM cms_flow_operations WHERE flow_id = ? ORDER BY created_at ASC, name ASC"
-    )
-    .all(id) as Row[];
+  const rows = await query_rows<Row>(
+    "SELECT * FROM cms_flow_operations WHERE flow_id = ? ORDER BY created_at ASC, name ASC",
+    [id]
+  );
   return { ...flow, operations: rows.map(row_to_operation) };
 }
 
-export function list_active_flows(trigger?: FlowTrigger): FlowRecord[] {
-  ensure_flow_schema();
+export async function list_active_flows(
+  trigger?: FlowTrigger
+): Promise<FlowRecord[]> {
+  await ensure_flow_schema();
   const rows = trigger
-    ? (sqlite()
-        .prepare(
-          "SELECT * FROM cms_flows WHERE status = 'active' AND trigger = ? ORDER BY updated_at DESC"
-        )
-        .all(trigger) as Row[])
-    : (sqlite()
-        .prepare("SELECT * FROM cms_flows WHERE status = 'active' ORDER BY updated_at DESC")
-        .all() as Row[]);
+    ? await query_rows<Row>(
+        "SELECT * FROM cms_flows WHERE status = 'active' AND \"trigger\" = ? ORDER BY updated_at DESC",
+        [trigger]
+      )
+    : await query_rows<Row>(
+        "SELECT * FROM cms_flows WHERE status = 'active' ORDER BY updated_at DESC"
+      );
   return rows.map(row_to_flow);
 }
 
-export function create_flow(input: FlowInput): {
+export async function create_flow(input: FlowInput): Promise<{
   flow: FlowRecord;
   secret: string | null;
-} {
-  ensure_flow_schema();
+}> {
+  await ensure_flow_schema();
   const error = validate_flow_input(input);
   if (error) throw new EtHttpError(400, error);
   const id = randomUUID();
@@ -223,15 +257,13 @@ export function create_flow(input: FlowInput): {
       ? next_cron_seconds(String(flowOptions.interval))
       : null;
 
-  sqlite()
-    .prepare(
-      `INSERT INTO cms_flows
-        (id, name, description, icon, color, status, trigger, options, accountability,
-         operation, revision, secret_hash, secret_prefix, next_run_at, last_run_at,
-         created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?, NULL, ?, ?)`
-    )
-    .run(
+  await exec(
+    `INSERT INTO cms_flows
+      (id, name, description, icon, color, status, "trigger", options, accountability,
+       operation, revision, secret_hash, secret_prefix, next_run_at, last_run_at,
+       created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?, NULL, ?, ?)`,
+    [
       id,
       input.name.trim(),
       text(input.description),
@@ -247,15 +279,16 @@ export function create_flow(input: FlowInput): {
       secretData?.prefix ?? null,
       nextRun,
       at,
-      at
-    );
+      at,
+    ]
+  );
 
-  const flow = get_flow(id);
+  const flow = await get_flow(id);
   if (!flow) throw new EtHttpError(500, "The flow was created but could not be read back.");
   return { flow, secret: secretData?.secret ?? null };
 }
 
-export function update_flow_meta(
+export async function update_flow_meta(
   id: string,
   patch: {
     name?: string;
@@ -265,8 +298,8 @@ export function update_flow_meta(
     status?: FlowStatus;
     accountability?: FlowAccountability;
   }
-): FlowRecord {
-  const flow = get_flow(id);
+): Promise<FlowRecord> {
+  const flow = await get_flow(id);
   if (!flow) throw new EtHttpError(404, "Flow not found.");
   const status = patch.status ?? flow.status;
   if (patch.name !== undefined && !patch.name.trim()) {
@@ -274,10 +307,11 @@ export function update_flow_meta(
   }
 
   if (status === "active") {
-    const count = sqlite()
-      .prepare("SELECT COUNT(*) AS total FROM cms_flow_operations WHERE flow_id = ?")
-      .get(id) as { total: number };
-    if (Number(count.total) === 0) {
+    const count = await query_row<{ total: number }>(
+      "SELECT COUNT(*) AS total FROM cms_flow_operations WHERE flow_id = ?",
+      [id]
+    );
+    if (Number(count?.total ?? 0) === 0) {
       throw new EtHttpError(400, "Add at least one operation before activating the flow.");
     }
     if (!flow.operation) {
@@ -290,14 +324,12 @@ export function update_flow_meta(
       ? flow.next_run_at ?? next_cron_seconds(String(flow.options.interval))
       : null;
 
-  sqlite()
-    .prepare(
-      `UPDATE cms_flows
-       SET name = ?, description = ?, icon = ?, color = ?, status = ?,
-           accountability = ?, next_run_at = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(
+  await exec(
+    `UPDATE cms_flows
+     SET name = ?, description = ?, icon = ?, color = ?, status = ?,
+         accountability = ?, next_run_at = ?, updated_at = ?
+     WHERE id = ?`,
+    [
       patch.name?.trim() ?? flow.name,
       patch.description ?? flow.description,
       patch.icon ?? flow.icon,
@@ -306,20 +338,21 @@ export function update_flow_meta(
       patch.accountability === undefined ? flow.accountability : patch.accountability,
       nextRun,
       now(),
-      id
-    );
+      id,
+    ]
+  );
 
-  const updated = get_flow(id);
+  const updated = await get_flow(id);
   if (!updated) throw new EtHttpError(404, "Flow not found.");
   return updated;
 }
 
-export function update_flow_trigger(
+export async function update_flow_trigger(
   id: string,
   trigger: FlowTrigger,
   inputOptions: Record<string, unknown>
-): { flow: FlowRecord; secret: string | null } {
-  const flow = get_flow(id);
+): Promise<{ flow: FlowRecord; secret: string | null }> {
+  const flow = await get_flow(id);
   if (!flow) throw new EtHttpError(404, "Flow not found.");
   const normalized = normalize_trigger_options(trigger, inputOptions);
   const error = validate_flow_options(trigger, normalized);
@@ -329,9 +362,10 @@ export function update_flow_trigger(
   let secretHash: string | null = null;
   let secretPrefix: string | null = null;
   if (trigger === "webhook") {
-    const existing = sqlite()
-      .prepare("SELECT secret_hash, secret_prefix FROM cms_flows WHERE id = ?")
-      .get(id) as { secret_hash: string | null; secret_prefix: string | null } | undefined;
+    const existing = await query_row<{
+      secret_hash: string | null;
+      secret_prefix: string | null;
+    }>("SELECT secret_hash, secret_prefix FROM cms_flows WHERE id = ?", [id]);
     if (existing?.secret_hash) {
       secretHash = existing.secret_hash;
       secretPrefix = existing.secret_prefix;
@@ -346,24 +380,23 @@ export function update_flow_trigger(
   const nextRun =
     trigger === "schedule" ? next_cron_seconds(String(normalized.interval)) : null;
 
-  sqlite()
-    .prepare(
-      `UPDATE cms_flows
-       SET trigger = ?, options = ?, secret_hash = ?, secret_prefix = ?,
-           next_run_at = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(trigger, JSON.stringify(normalized), secretHash, secretPrefix, nextRun, now(), id);
+  await exec(
+    `UPDATE cms_flows
+     SET "trigger" = ?, options = ?, secret_hash = ?, secret_prefix = ?,
+         next_run_at = ?, updated_at = ?
+     WHERE id = ?`,
+    [trigger, JSON.stringify(normalized), secretHash, secretPrefix, nextRun, now(), id]
+  );
 
-  const updated = get_flow(id);
+  const updated = await get_flow(id);
   if (!updated) throw new EtHttpError(404, "Flow not found.");
   return { flow: updated, secret };
 }
 
-export function duplicate_flow(id: string): FlowRecord {
-  const source = get_flow_with_operations(id);
+export async function duplicate_flow(id: string): Promise<FlowRecord> {
+  const source = await get_flow_with_operations(id);
   if (!source) throw new EtHttpError(404, "Flow not found.");
-  const created = create_flow({
+  const created = await create_flow({
     name: `${source.name} copy`,
     description: source.description,
     icon: source.icon,
@@ -379,7 +412,7 @@ export function duplicate_flow(id: string): FlowRecord {
       idMap.set(operation.id, randomUUID());
     }
     const root = source.operation ? idMap.get(source.operation) ?? null : null;
-    save_flow_graph(
+    await save_flow_graph(
       created.flow.id,
       1,
       source.operations.map((operation) => ({
@@ -396,7 +429,7 @@ export function duplicate_flow(id: string): FlowRecord {
       root
     );
   }
-  const duplicated = get_flow(created.flow.id);
+  const duplicated = await get_flow(created.flow.id);
   if (!duplicated) throw new EtHttpError(500, "The flow could not be duplicated.");
   return duplicated;
 }
@@ -405,13 +438,13 @@ export function duplicate_flow(id: string): FlowRecord {
  * Replace the complete operation graph. Optimistic concurrency prevents two
  * builders from silently overwriting one another.
  */
-export function save_flow_graph(
+export async function save_flow_graph(
   id: string,
   revision: number,
   operations: FlowGraphInput[],
   rootId: string | null
-): FlowWithOperations {
-  const flow = get_flow(id);
+): Promise<FlowWithOperations> {
+  const flow = await get_flow(id);
   if (!flow) throw new EtHttpError(404, "Flow not found.");
   if (Number.isFinite(revision) && revision !== flow.revision) {
     throw new EtHttpError(
@@ -434,10 +467,12 @@ export function save_flow_graph(
   if (validated.error) throw new EtHttpError(400, validated.error);
 
   const at = now();
-  const write = sqlite().transaction(() => {
-    const current = sqlite()
-      .prepare("SELECT revision FROM cms_flows WHERE id = ?")
-      .get(id) as { revision: number } | undefined;
+  await activeDbAdapter.transaction(async (trx) => {
+    const current = await query_row<{ revision: number }>(
+      "SELECT revision FROM cms_flows WHERE id = ?",
+      [id],
+      trx
+    );
     if (!current) throw new EtHttpError(404, "Flow not found.");
     if (Number(current.revision) !== flow.revision) {
       throw new EtHttpError(
@@ -446,27 +481,28 @@ export function save_flow_graph(
       );
     }
 
-    sqlite().prepare("DELETE FROM cms_flow_operations WHERE flow_id = ?").run(id);
-    const insert = sqlite().prepare(
-      `INSERT INTO cms_flow_operations
-        (id, flow_id, name, key, type, options, position_x, position_y,
-         resolve, reject, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
+    await exec("DELETE FROM cms_flow_operations WHERE flow_id = ?", [id], trx);
     for (const operation of normalized) {
-      insert.run(
-        operation.id,
-        id,
-        operation.name,
-        operation.key,
-        operation.type,
-        JSON.stringify(operation.options),
-        operation.position_x,
-        operation.position_y,
-        operation.resolve ?? null,
-        operation.reject ?? null,
-        at,
-        at
+      await exec(
+        `INSERT INTO cms_flow_operations
+          (id, flow_id, name, "key", type, options, position_x, position_y,
+           resolve, reject, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          operation.id,
+          id,
+          operation.name,
+          operation.key,
+          operation.type,
+          JSON.stringify(operation.options),
+          operation.position_x,
+          operation.position_y,
+          operation.resolve ?? null,
+          operation.reject ?? null,
+          at,
+          at,
+        ],
+        trx
       );
     }
 
@@ -475,50 +511,52 @@ export function save_flow_graph(
         ? flow.next_run_at ?? next_cron_seconds(String(flow.options.interval))
         : flow.next_run_at;
 
-    sqlite()
-      .prepare(
-        "UPDATE cms_flows SET operation = ?, revision = revision + 1, next_run_at = ?, updated_at = ? WHERE id = ?"
-      )
-      .run(validated.root, nextRun, at, id);
+    await exec(
+      "UPDATE cms_flows SET operation = ?, revision = revision + 1, next_run_at = ?, updated_at = ? WHERE id = ?",
+      [validated.root, nextRun, at, id],
+      trx
+    );
   });
 
-  write.immediate();
-  const updated = get_flow_with_operations(id);
+  const updated = await get_flow_with_operations(id);
   if (!updated) throw new EtHttpError(404, "Flow not found.");
   return updated;
 }
 
-export function delete_flow(id: string): void {
-  ensure_flow_schema();
-  const result = sqlite().prepare("DELETE FROM cms_flows WHERE id = ?").run(id);
+export async function delete_flow(id: string): Promise<void> {
+  await ensure_flow_schema();
+  const result = await exec("DELETE FROM cms_flows WHERE id = ?", [id]);
   if (result.changes === 0) throw new EtHttpError(404, "Flow not found.");
 }
 
-export function rotate_flow_secret(id: string): {
+export async function rotate_flow_secret(id: string): Promise<{
   flow: FlowRecord;
   secret: string;
-} {
-  const flow = get_flow(id);
+}> {
+  const flow = await get_flow(id);
   if (!flow) throw new EtHttpError(404, "Flow not found.");
   if (flow.trigger !== "webhook") {
     throw new EtHttpError(400, "Only webhook flows have a request secret.");
   }
   const generated = generate_flow_secret();
-  sqlite()
-    .prepare(
-      "UPDATE cms_flows SET secret_hash = ?, secret_prefix = ?, updated_at = ? WHERE id = ?"
-    )
-    .run(generated.hash, generated.prefix, now(), id);
-  const updated = get_flow(id);
+  await exec(
+    "UPDATE cms_flows SET secret_hash = ?, secret_prefix = ?, updated_at = ? WHERE id = ?",
+    [generated.hash, generated.prefix, now(), id]
+  );
+  const updated = await get_flow(id);
   if (!updated) throw new EtHttpError(404, "Flow not found.");
   return { flow: updated, secret: generated.secret };
 }
 
-export function verify_webhook_secret(id: string, secret: string): boolean {
-  ensure_flow_schema();
-  const row = sqlite()
-    .prepare("SELECT secret_hash FROM cms_flows WHERE id = ? LIMIT 1")
-    .get(id) as { secret_hash: string | null } | undefined;
+export async function verify_webhook_secret(
+  id: string,
+  secret: string
+): Promise<boolean> {
+  await ensure_flow_schema();
+  const row = await query_row<{ secret_hash: string | null }>(
+    "SELECT secret_hash FROM cms_flows WHERE id = ? LIMIT 1",
+    [id]
+  );
   if (!row) return false;
   return verify_flow_secret(secret, row.secret_hash);
 }
@@ -527,24 +565,22 @@ export function verify_webhook_secret(id: string, secret: string): boolean {
 // Runs
 // ---------------------------------------------------------------------------
 
-export function create_flow_run(input: {
+export async function create_flow_run(input: {
   flow: FlowRecord;
   trigger: FlowTrigger;
   principal: FlowPrincipal;
   payload: unknown;
   parent_run_id?: string | null;
-}): string {
-  ensure_flow_schema();
+}): Promise<string> {
+  await ensure_flow_schema();
   const id = randomUUID();
   const at = now();
-  sqlite()
-    .prepare(
-      `INSERT INTO cms_flow_runs
-        (id, flow_id, trigger, status, started_at, input, output, principal,
-         accountability, parent_run_id, created_at)
-       VALUES (?, ?, ?, 'running', ?, ?, 'null', ?, ?, ?, ?)`
-    )
-    .run(
+  await exec(
+    `INSERT INTO cms_flow_runs
+      (id, flow_id, "trigger", status, started_at, input, output, principal,
+       accountability, parent_run_id, created_at)
+     VALUES (?, ?, ?, 'running', ?, ?, 'null', ?, ?, ?, ?)`,
+    [
       id,
       input.flow.id,
       input.trigger,
@@ -560,12 +596,13 @@ export function create_flow_run(input: {
       }),
       input.flow.accountability,
       input.parent_run_id ?? null,
-      at
-    );
+      at,
+    ]
+  );
   return id;
 }
 
-export function finish_flow_run(
+export async function finish_flow_run(
   id: string,
   patch: {
     status: FlowRunStatus;
@@ -573,47 +610,46 @@ export function finish_flow_run(
     error: string | null;
     duration_ms: number;
   }
-): void {
+): Promise<void> {
   const at = now();
-  sqlite()
-    .prepare(
-      `UPDATE cms_flow_runs
-       SET status = ?, output = ?, error = ?, finished_at = ?, duration_ms = ?
-       WHERE id = ?`
-    )
-    .run(
+  await exec(
+    `UPDATE cms_flow_runs
+     SET status = ?, output = ?, error = ?, finished_at = ?, duration_ms = ?
+     WHERE id = ?`,
+    [
       patch.status,
       safe_stringify(patch.output),
       patch.error,
       at,
       patch.duration_ms,
-      id
-    );
+      id,
+    ]
+  );
 }
 
-export function touch_flow_run(id: string): void {
-  const row = sqlite()
-    .prepare("SELECT flow_id FROM cms_flow_runs WHERE id = ? LIMIT 1")
-    .get(id) as { flow_id: string } | undefined;
+export async function touch_flow_run(id: string): Promise<void> {
+  const row = await query_row<{ flow_id: string }>(
+    "SELECT flow_id FROM cms_flow_runs WHERE id = ? LIMIT 1",
+    [id]
+  );
   if (!row) return;
-  sqlite()
-    .prepare("UPDATE cms_flows SET last_run_at = ?, updated_at = updated_at WHERE id = ?")
-    .run(now(), row.flow_id);
+  await exec(
+    "UPDATE cms_flows SET last_run_at = ?, updated_at = updated_at WHERE id = ?",
+    [now(), row.flow_id]
+  );
 }
 
-export function add_flow_run_step(
+export async function add_flow_run_step(
   runId: string,
   step: Omit<FlowRunStepRecord, "id" | "run_id">
-): FlowRunStepRecord {
+): Promise<FlowRunStepRecord> {
   const id = randomUUID();
-  sqlite()
-    .prepare(
-      `INSERT INTO cms_flow_run_steps
-        (id, run_id, operation_id, key, type, path, status, started_at,
-         finished_at, duration_ms, input, output, error, sort)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+  await exec(
+    `INSERT INTO cms_flow_run_steps
+      (id, run_id, operation_id, "key", type, path, status, started_at,
+       finished_at, duration_ms, input, output, error, sort)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
       id,
       runId,
       step.operation_id,
@@ -627,18 +663,19 @@ export function add_flow_run_step(
       safe_stringify(step.input),
       safe_stringify(step.output),
       step.error,
-      step.sort
-    );
+      step.sort,
+    ]
+  );
   return { ...step, id, run_id: runId };
 }
 
-export function list_flow_runs(options: {
+export async function list_flow_runs(options: {
   flow_id?: string;
   status?: string;
   limit?: number;
   offset?: number;
-} = {}): { runs: FlowRunRecord[]; total: number } {
-  ensure_flow_schema();
+} = {}): Promise<{ runs: FlowRunRecord[]; total: number }> {
+  await ensure_flow_schema();
   const where: string[] = [];
   const params: unknown[] = [];
   if (options.flow_id) {
@@ -652,48 +689,50 @@ export function list_flow_runs(options: {
   const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const limit = Math.min(100, Math.max(1, options.limit ?? 25));
   const offset = Math.max(0, options.offset ?? 0);
-  const rows = sqlite()
-    .prepare(
-      `SELECT r.*, f.name AS flow_name
-       FROM cms_flow_runs r
-       LEFT JOIN cms_flows f ON f.id = r.flow_id
-       ${clause}
-       ORDER BY r.started_at DESC
-       LIMIT ? OFFSET ?`
-    )
-    .all(...params, limit, offset) as Row[];
-  const count = sqlite()
-    .prepare(`SELECT COUNT(*) AS total FROM cms_flow_runs r ${clause}`)
-    .get(...params) as { total: number };
-  return { runs: rows.map(row_to_run), total: Number(count.total) };
+  const rows = await query_rows<Row>(
+    `SELECT r.*, f.name AS flow_name
+     FROM cms_flow_runs r
+     LEFT JOIN cms_flows f ON f.id = r.flow_id
+     ${clause}
+     ORDER BY r.started_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+  const count = await query_row<{ total: number }>(
+    `SELECT COUNT(*) AS total FROM cms_flow_runs r ${clause}`,
+    params
+  );
+  return { runs: rows.map(row_to_run), total: Number(count?.total ?? 0) };
 }
 
-export function get_flow_run(id: string): FlowRunRecord | null {
-  ensure_flow_schema();
-  const row = sqlite()
-    .prepare(
-      `SELECT r.*, f.name AS flow_name
-       FROM cms_flow_runs r
-       LEFT JOIN cms_flows f ON f.id = r.flow_id
-       WHERE r.id = ? LIMIT 1`
-    )
-    .get(id) as Row | undefined;
+export async function get_flow_run(id: string): Promise<FlowRunRecord | null> {
+  await ensure_flow_schema();
+  const row = await query_row<Row>(
+    `SELECT r.*, f.name AS flow_name
+     FROM cms_flow_runs r
+     LEFT JOIN cms_flows f ON f.id = r.flow_id
+     WHERE r.id = ? LIMIT 1`,
+    [id]
+  );
   return row ? row_to_run(row) : null;
 }
 
-export function list_flow_run_steps(runId: string): FlowRunStepRecord[] {
-  const rows = sqlite()
-    .prepare("SELECT * FROM cms_flow_run_steps WHERE run_id = ? ORDER BY sort ASC")
-    .all(runId) as Row[];
+export async function list_flow_run_steps(
+  runId: string
+): Promise<FlowRunStepRecord[]> {
+  const rows = await query_rows<Row>(
+    "SELECT * FROM cms_flow_run_steps WHERE run_id = ? ORDER BY sort ASC",
+    [runId]
+  );
   return rows.map(row_to_step);
 }
 
-export function delete_old_flow_runs(days: number): number {
-  ensure_flow_schema();
+export async function delete_old_flow_runs(days: number): Promise<number> {
+  await ensure_flow_schema();
   const cutoff = now() - Math.max(1, days) * 86400;
-  const result = sqlite()
-    .prepare("DELETE FROM cms_flow_runs WHERE started_at < ?")
-    .run(cutoff);
+  const result = await exec("DELETE FROM cms_flow_runs WHERE started_at < ?", [
+    cutoff,
+  ]);
   return Number(result.changes);
 }
 
@@ -701,24 +740,22 @@ export function delete_old_flow_runs(days: number): number {
 // Queue
 // ---------------------------------------------------------------------------
 
-export function enqueue_flow_job(input: {
+export async function enqueue_flow_job(input: {
   flow_id: string;
   trigger: FlowTrigger;
   payload: unknown;
   run_at?: number;
   max_attempts?: number;
-}): string {
-  ensure_flow_schema();
+}): Promise<string> {
+  await ensure_flow_schema();
   const id = randomUUID();
   const at = now();
-  sqlite()
-    .prepare(
-      `INSERT INTO cms_flow_jobs
-        (id, flow_id, trigger, payload, status, attempts, max_attempts, run_at,
-         created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)`
-    )
-    .run(
+  await exec(
+    `INSERT INTO cms_flow_jobs
+      (id, flow_id, "trigger", payload, status, attempts, max_attempts, run_at,
+       created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)`,
+    [
       id,
       input.flow_id,
       input.trigger,
@@ -726,82 +763,94 @@ export function enqueue_flow_job(input: {
       Math.max(1, Math.min(10, input.max_attempts ?? 3)),
       input.run_at ?? at,
       at,
-      at
-    );
+      at,
+    ]
+  );
   return id;
 }
 
-export function claim_flow_job(workerId: string): FlowJobRecord | null {
-  ensure_flow_schema();
+export async function claim_flow_job(
+  workerId: string
+): Promise<FlowJobRecord | null> {
+  await ensure_flow_schema();
   const at = now();
-  const claim = sqlite().transaction(() => {
-    const row = sqlite()
-      .prepare(
-        `SELECT id FROM cms_flow_jobs
-         WHERE status = 'pending' AND run_at <= ?
-         ORDER BY run_at ASC, created_at ASC
-         LIMIT 1`
-      )
-      .get(at) as { id: string } | undefined;
+  return await activeDbAdapter.transaction(async (trx) => {
+    const row = await query_row<{ id: string }>(
+      `SELECT id FROM cms_flow_jobs
+       WHERE status = 'pending' AND run_at <= ?
+       ORDER BY run_at ASC, created_at ASC
+       LIMIT 1`,
+      [at],
+      trx
+    );
     if (!row) return null;
-    const result = sqlite()
-      .prepare(
-        `UPDATE cms_flow_jobs
-         SET status = 'running', attempts = attempts + 1, locked_at = ?, locked_by = ?, updated_at = ?
-         WHERE id = ? AND status = 'pending'`
-      )
-      .run(at, workerId, at, row.id);
+    const result = await exec(
+      `UPDATE cms_flow_jobs
+       SET status = 'running', attempts = attempts + 1, locked_at = ?, locked_by = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+      [at, workerId, at, row.id],
+      trx
+    );
     if (result.changes === 0) return null;
-    const claimed = sqlite()
-      .prepare("SELECT * FROM cms_flow_jobs WHERE id = ? LIMIT 1")
-      .get(row.id) as Row | undefined;
+    const claimed = await query_row<Row>(
+      "SELECT * FROM cms_flow_jobs WHERE id = ? LIMIT 1",
+      [row.id],
+      trx
+    );
     return claimed ? row_to_job(claimed) : null;
   });
-  return claim.immediate();
 }
 
-export function complete_flow_job(id: string): void {
-  sqlite()
-    .prepare(
-      "UPDATE cms_flow_jobs SET status = 'done', locked_at = NULL, locked_by = NULL, updated_at = ? WHERE id = ?"
-    )
-    .run(now(), id);
+export async function complete_flow_job(id: string): Promise<void> {
+  await exec(
+    "UPDATE cms_flow_jobs SET status = 'done', locked_at = NULL, locked_by = NULL, updated_at = ? WHERE id = ?",
+    [now(), id]
+  );
 }
 
-export function fail_flow_job(job: FlowJobRecord, error: string): void {
+export async function fail_flow_job(
+  job: FlowJobRecord,
+  error: string
+): Promise<void> {
   const retry = job.attempts < job.max_attempts;
   const delay = Math.min(300, Math.max(5, job.attempts * 15));
-  sqlite()
-    .prepare(
-      `UPDATE cms_flow_jobs
-       SET status = ?, run_at = ?, locked_at = NULL, locked_by = NULL, error = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(retry ? "pending" : "error", retry ? now() + delay : job.run_at, error, now(), job.id);
+  await exec(
+    `UPDATE cms_flow_jobs
+     SET status = ?, run_at = ?, locked_at = NULL, locked_by = NULL, error = ?, updated_at = ?
+     WHERE id = ?`,
+    [
+      retry ? "pending" : "error",
+      retry ? now() + delay : job.run_at,
+      error,
+      now(),
+      job.id,
+    ]
+  );
 }
 
-export function recover_stale_flow_jobs(staleAfterSeconds = 900): number {
-  ensure_flow_schema();
+export async function recover_stale_flow_jobs(
+  staleAfterSeconds = 900
+): Promise<number> {
+  await ensure_flow_schema();
   const cutoff = now() - staleAfterSeconds;
-  const result = sqlite()
-    .prepare(
-      `UPDATE cms_flow_jobs
-       SET status = 'pending', locked_at = NULL, locked_by = NULL, updated_at = ?
-       WHERE status = 'running' AND locked_at IS NOT NULL AND locked_at < ?`
-    )
-    .run(now(), cutoff);
+  const result = await exec(
+    `UPDATE cms_flow_jobs
+     SET status = 'pending', locked_at = NULL, locked_by = NULL, updated_at = ?
+     WHERE status = 'running' AND locked_at IS NOT NULL AND locked_at < ?`,
+    [now(), cutoff]
+  );
   return Number(result.changes);
 }
 
-export function flow_queue_depth(): {
+export async function flow_queue_depth(): Promise<{
   pending: number;
   running: number;
   failed: number;
-} {
-  ensure_flow_schema();
-  const rows = sqlite()
-    .prepare("SELECT status, COUNT(*) AS total FROM cms_flow_jobs GROUP BY status")
-    .all() as Array<{ status: string; total: number }>;
+}> {
+  await ensure_flow_schema();
+  const rows = await query_rows<{ status: string; total: number }>(
+    "SELECT status, COUNT(*) AS total FROM cms_flow_jobs GROUP BY status"
+  );
   const counts = { pending: 0, running: 0, failed: 0 };
   for (const row of rows) {
     if (row.status === "pending") counts.pending = Number(row.total);
@@ -815,65 +864,71 @@ export function flow_queue_depth(): {
 // Schedules
 // ---------------------------------------------------------------------------
 
-export function due_schedule_flows(at = now()): FlowRecord[] {
-  ensure_flow_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT * FROM cms_flows
-       WHERE status = 'active' AND trigger = 'schedule'
-         AND (next_run_at IS NULL OR next_run_at <= ?)
-       ORDER BY next_run_at ASC`
-    )
-    .all(at) as Row[];
+export async function due_schedule_flows(at = now()): Promise<FlowRecord[]> {
+  await ensure_flow_schema();
+  const rows = await query_rows<Row>(
+    `SELECT * FROM cms_flows
+     WHERE status = 'active' AND "trigger" = 'schedule'
+       AND (next_run_at IS NULL OR next_run_at <= ?)
+     ORDER BY next_run_at ASC`,
+    [at]
+  );
   return rows.map(row_to_flow);
 }
 
-export function set_flow_next_run(id: string, nextRunAt: number | null): void {
-  sqlite()
-    .prepare("UPDATE cms_flows SET next_run_at = ?, updated_at = ? WHERE id = ?")
-    .run(nextRunAt, now(), id);
+export async function set_flow_next_run(
+  id: string,
+  nextRunAt: number | null
+): Promise<void> {
+  await exec("UPDATE cms_flows SET next_run_at = ?, updated_at = ? WHERE id = ?", [
+    nextRunAt,
+    now(),
+    id,
+  ]);
 }
 
-export function last_flow_run_at(flowId?: string): number | null {
+export async function last_flow_run_at(
+  flowId?: string
+): Promise<number | null> {
   const row = flowId
-    ? (sqlite()
-        .prepare("SELECT MAX(started_at) AS at FROM cms_flow_runs WHERE flow_id = ?")
-        .get(flowId) as { at: number | null } | undefined)
-    : (sqlite()
-        .prepare("SELECT MAX(started_at) AS at FROM cms_flow_runs")
-        .get() as { at: number | null } | undefined);
+    ? await query_row<{ at: number | null }>(
+        "SELECT MAX(started_at) AS at FROM cms_flow_runs WHERE flow_id = ?",
+        [flowId]
+      )
+    : await query_row<{ at: number | null }>(
+        "SELECT MAX(started_at) AS at FROM cms_flow_runs"
+      );
   return row?.at ?? null;
 }
 
-export function flow_health_snapshot(): {
+export async function flow_health_snapshot(): Promise<{
   active: number;
   inactive: number;
   schedules: number;
   queue: { pending: number; running: number; failed: number };
   last_run_at: number | null;
-} {
-  ensure_flow_schema();
-  const counts = sqlite()
-    .prepare("SELECT status, COUNT(*) AS total FROM cms_flows GROUP BY status")
-    .all() as Array<{ status: string; total: number }>;
+}> {
+  await ensure_flow_schema();
+  const counts = await query_rows<{ status: string; total: number }>(
+    "SELECT status, COUNT(*) AS total FROM cms_flows GROUP BY status"
+  );
   let active = 0;
   let inactive = 0;
   for (const row of counts) {
     if (row.status === "active") active = Number(row.total);
     if (row.status === "inactive") inactive = Number(row.total);
   }
-  const schedules = sqlite()
-    .prepare(
-      "SELECT COUNT(*) AS total FROM cms_flows WHERE status = 'active' AND trigger = 'schedule'"
-    )
-    .get() as { total: number };
+  const schedules = await query_row<{ total: number }>(
+    `SELECT COUNT(*) AS total FROM cms_flows WHERE status = 'active' AND "trigger" = 'schedule'`
+  );
   return {
     active,
     inactive,
-    schedules: Number(schedules.total),
-    queue: flow_queue_depth(),
-    last_run_at: last_flow_run_at(),
+    schedules: Number(schedules?.total ?? 0),
+    queue: await flow_queue_depth(),
+    last_run_at: await last_flow_run_at(),
   };
 }
 
 export { public_flow };
+

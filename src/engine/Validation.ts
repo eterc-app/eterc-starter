@@ -1,4 +1,4 @@
-import { post } from "./post";
+﻿import { post } from "./post";
 import { get_context, type EtRequest } from "./request-context";
 import { csrf_check, csrf_field_name } from "./csrf";
 import { db } from "./db";
@@ -110,7 +110,7 @@ export class Validation {
       if (failed) break; // Early exit on the first error for this field.
     }
 
-    session_set("form_submission_errors", this.errors);
+    await session_set("form_submission_errors", this.errors);
   }
 
   private parseRule(rule: string): { method: string; param: string | null } {
@@ -320,12 +320,12 @@ export class Validation {
     }
 
     if (Object.keys(this.errors).length > 0) {
-      session_set("form_submission_errors", this.errors);
+      await session_set("form_submission_errors", this.errors);
       return false;
     }
 
     this.errors = {};
-    session_set("form_submission_errors", undefined);
+    await session_set("form_submission_errors", undefined);
     return true;
   }
 
@@ -371,3 +371,4 @@ function isValidIp(value: string): boolean {
   const ipv6 = /^[0-9a-fA-F:]{2,39}$/.test(value) && value.includes(":");
   return ipv4 || ipv6;
 }
+

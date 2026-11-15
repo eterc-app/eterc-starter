@@ -29,8 +29,8 @@ async function run(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const recovered = recover_stale_flow_jobs();
-  const schedules = tick_schedules();
+  const recovered = await recover_stale_flow_jobs();
+  const schedules = await tick_schedules();
   const queue = await drain_flow_queue(20);
   return NextResponse.json({
     ok: true,

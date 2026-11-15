@@ -53,7 +53,7 @@ async function item_read(
   if (!collection) throw new FlowConfigError("Choose a collection.", { operation: meta.operation.key });
   const key = record_key(resolved.key);
   try {
-    return { output: get_record(collection, key) };
+    return { output: await get_record(collection, key) };
   } catch (error) {
     if (error instanceof EtHttpError) {
       throw new FlowConfigError(error.message, { operation: meta.operation.key });
@@ -73,7 +73,7 @@ async function item_create(
   const payload = object(resolved.payload);
   try {
     return {
-      output: create_record(collection, payload, meta.principal.user_id, {
+      output: await create_record(collection, payload, meta.principal.user_id, {
         allowSortOverride: true,
       }),
     };
@@ -95,7 +95,7 @@ async function item_update(
   if (!collection) throw new FlowConfigError("Choose a collection.", { operation: meta.operation.key });
   try {
     return {
-      output: update_record(
+      output: await update_record(
         collection,
         record_key(resolved.key),
         object(resolved.payload),
@@ -120,7 +120,7 @@ async function item_delete(
   if (!collection) throw new FlowConfigError("Choose a collection.", { operation: meta.operation.key });
   const key = record_key(resolved.key);
   try {
-    delete_record(collection, key);
+    await delete_record(collection, key);
     return { output: { deleted: true, collection, key } };
   } catch (error) {
     if (error instanceof EtHttpError) {
@@ -251,7 +251,7 @@ async function trigger_flow(
     throw new FlowConfigError("Flows can be nested at most five levels deep.");
   }
   const { get_flow } = await import("../flow-store");
-  const target = get_flow(flowId);
+  const target = await get_flow(flowId);
   if (!target) throw new FlowConfigError("The target flow no longer exists.");
   if (target.status !== "active") {
     throw new FlowConfigError("The target flow is not active.");

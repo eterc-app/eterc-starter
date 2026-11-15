@@ -1,33 +1,61 @@
 import { get_context, has_context } from "./request-context";
 import { SESSION_COOKIE, SESSION_TTL } from "./config";
-import { sqlite } from "./db";
+import { activeDbAdapter } from "./active/db-adapter";
+import { quoteIdentifier } from "./db/sql";
 import * as crypto from "node:crypto";
 
-const g = globalThis as unknown as { __etTransientSessions?: Map<string, Record<string, unknown>> };
+const g = globalThis as unknown as {
+  __etTransientSessions?: Map<string, Record<string, unknown>>;
+};
 
 function transientSessions(): Map<string, Record<string, unknown>> {
   if (!g.__etTransientSessions) g.__etTransientSessions = new Map();
   return g.__etTransientSessions;
 }
 
-function ensureTable(): void {
-  sqlite().exec(
-    `CREATE TABLE IF NOT EXISTS et_sessions (
-       id TEXT PRIMARY KEY,
-       data TEXT NOT NULL DEFAULT '{}',
-       expires INTEGER NOT NULL
-     )`
-  );
+let schemaReady: Promise<void> | null = null;
+
+async function ensureTable(): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      const db = activeDbAdapter;
+      const expiresType = db.dialect === "postgres" ? "BIGINT" : "INTEGER";
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(db.dialect, "et_sessions")} (
+           ${quoteIdentifier(db.dialect, "id")} TEXT PRIMARY KEY,
+           ${quoteIdentifier(db.dialect, "data")} TEXT NOT NULL DEFAULT '{}',
+           ${quoteIdentifier(db.dialect, "expires")} ${expiresType} NOT NULL
+         )`,
+      );
+    })();
+  }
+  return schemaReady;
 }
 
-function readSessionRow(id: string): Record<string, unknown> | null {
-  ensureTable();
-  const row = sqlite()
-    .prepare("SELECT data, expires FROM et_sessions WHERE id = ?")
-    .get(id) as { data: string; expires: number } | undefined;
+async function readSessionRow(
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  await ensureTable();
+  const db = activeDbAdapter;
+  const rows = await db.query<{ data: string; expires: number | string }>(
+    `SELECT ${quoteIdentifier(db.dialect, "data")} AS data,
+            ${quoteIdentifier(db.dialect, "expires")} AS expires
+       FROM ${quoteIdentifier(db.dialect, "et_sessions")}
+      WHERE ${quoteIdentifier(db.dialect, "id")} = ${
+        db.dialect === "postgres" ? "$1" : "?"
+      }`,
+    [id],
+  );
+  const row = rows[0];
   if (!row) return null;
-  if (row.expires < Math.floor(Date.now() / 1000)) {
-    sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(id);
+  if (Number(row.expires) < Math.floor(Date.now() / 1000)) {
+    await db.execute(
+      `DELETE FROM ${quoteIdentifier(db.dialect, "et_sessions")} WHERE ${quoteIdentifier(
+        db.dialect,
+        "id",
+      )} = ${db.dialect === "postgres" ? "$1" : "?"}`,
+      [id],
+    );
     return null;
   }
   try {
@@ -37,15 +65,27 @@ function readSessionRow(id: string): Record<string, unknown> | null {
   }
 }
 
-function writeSessionRow(id: string, data: Record<string, unknown>): void {
-  ensureTable();
+async function writeSessionRow(
+  id: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await ensureTable();
+  const db = activeDbAdapter;
   const expires = Math.floor(Date.now() / 1000) + SESSION_TTL;
-  sqlite()
-    .prepare(
-      `INSERT INTO et_sessions (id, data, expires) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET data = excluded.data, expires = excluded.expires`
-    )
-    .run(id, JSON.stringify(data), expires);
+  const p1 = db.dialect === "postgres" ? "$1" : "?";
+  const p2 = db.dialect === "postgres" ? "$2" : "?";
+  const p3 = db.dialect === "postgres" ? "$3" : "?";
+  const conflict =
+    db.dialect === "mysql"
+      ? "ON DUPLICATE KEY UPDATE data = VALUES(data), expires = VALUES(expires)"
+      : `ON CONFLICT (${quoteIdentifier(db.dialect, "id")}) DO UPDATE SET data = excluded.data, expires = excluded.expires`;
+  await db.execute(
+    `INSERT INTO ${quoteIdentifier(db.dialect, "et_sessions")}
+       (${quoteIdentifier(db.dialect, "id")}, ${quoteIdentifier(db.dialect, "data")}, ${quoteIdentifier(db.dialect, "expires")})
+     VALUES (${p1}, ${p2}, ${p3})
+     ${conflict}`,
+    [id, JSON.stringify(data), expires],
+  );
 }
 
 /** Current session id from cookies, or null. */
@@ -98,14 +138,20 @@ export function ensure_session_id(): string {
  * with a pre-set session cookie. Call only where response cookies are allowed
  * (server actions and route handlers).
  */
-export function rotate_session_id(): string {
+export async function rotate_session_id(): Promise<string> {
   const ctx = get_context();
   if (!ctx.canSetCookies) return ensure_session_id();
 
-  ensureTable();
+  await ensureTable();
   const previous = ctx.cookies[SESSION_COOKIE];
   if (previous) {
-    sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(previous);
+    await activeDbAdapter.execute(
+      `DELETE FROM ${quoteIdentifier(activeDbAdapter.dialect, "et_sessions")} WHERE ${quoteIdentifier(
+        activeDbAdapter.dialect,
+        "id",
+      )} = ${activeDbAdapter.dialect === "postgres" ? "$1" : "?"}`,
+      [previous],
+    );
     transientSessions().delete(previous);
   }
 
@@ -120,61 +166,77 @@ export function rotate_session_id(): string {
   return id;
 }
 
-function loadSession(): { id: string; data: Record<string, unknown>; transient: boolean } {
-  const ctx = get_context();
+async function loadSession(): Promise<{
+  id: string;
+  data: Record<string, unknown>;
+  transient: boolean;
+}> {
   const id = ensure_session_id();
-  const fromDb = readSessionRow(id);
+  const fromDb = await readSessionRow(id);
   if (fromDb !== null) return { id, data: fromDb, transient: false };
 
   const transient = transientSessions().get(id);
   if (transient) return { id, data: transient, transient: true };
 
-  // Brand-new session (GET render without a session cookie).
   return { id, data: {}, transient: true };
 }
 
-function persist(id: string, data: Record<string, unknown>, transient: boolean): void {
+async function persist(
+  id: string,
+  data: Record<string, unknown>,
+  transient: boolean,
+): Promise<void> {
   const ctx = get_context();
   if (transient) {
     transientSessions().set(id, data);
   }
   if (ctx.canSetCookies) {
-    writeSessionRow(id, data);
-    // Keep the transient copy in sync so rendering later in the same request works.
+    await writeSessionRow(id, data);
     transientSessions().set(id, data);
   }
 }
 
-export function session_get<T = unknown>(key: string): T | undefined {
+export async function session_get<T = unknown>(key: string): Promise<T | undefined> {
   if (!has_context()) return undefined;
-  const { data } = loadSession();
+  const { data } = await loadSession();
   return data[key] as T | undefined;
 }
 
-export function session_set(key: string, value: unknown): void {
-  const { id, data, transient } = loadSession();
+export async function session_set(key: string, value: unknown): Promise<void> {
+  const { id, data, transient } = await loadSession();
   if (value === undefined) {
     delete data[key];
   } else {
     data[key] = value;
   }
-  persist(id, data, transient);
+  await persist(id, data, transient);
 }
 
-export function session_unset(key: string): void {
-  session_set(key, undefined);
+export async function session_unset(key: string): Promise<void> {
+  await session_set(key, undefined);
 }
 
-export function session_clear(): void {
-  const { id } = loadSession();
-  sqlite().prepare("DELETE FROM et_sessions WHERE id = ?").run(id);
+export async function session_clear(): Promise<void> {
+  const { id } = await loadSession();
+  await ensureTable();
+  await activeDbAdapter.execute(
+    `DELETE FROM ${quoteIdentifier(activeDbAdapter.dialect, "et_sessions")} WHERE ${quoteIdentifier(
+      activeDbAdapter.dialect,
+      "id",
+    )} = ${activeDbAdapter.dialect === "postgres" ? "$1" : "?"}`,
+    [id],
+  );
   transientSessions().delete(id);
 }
 
 /** Housekeeping — remove expired sessions. */
-export function purge_expired_sessions(): void {
-  ensureTable();
-  sqlite()
-    .prepare("DELETE FROM et_sessions WHERE expires < ?")
-    .run(Math.floor(Date.now() / 1000));
+export async function purge_expired_sessions(): Promise<void> {
+  await ensureTable();
+  await activeDbAdapter.execute(
+    `DELETE FROM ${quoteIdentifier(activeDbAdapter.dialect, "et_sessions")} WHERE ${quoteIdentifier(
+      activeDbAdapter.dialect,
+      "expires",
+    )} < ${activeDbAdapter.dialect === "postgres" ? "$1" : "?"}`,
+    [Math.floor(Date.now() / 1000)],
+  );
 }

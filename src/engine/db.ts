@@ -1,6 +1,17 @@
 ﻿import Database from "better-sqlite3";
 import * as fs from "node:fs";
+import type {
+  DatabaseDialect,
+  IDatabaseAdapter,
+} from "./contracts/database";
 import { DB_FILE } from "./paths";
+import { assertLegacySqliteAccess } from "./db/gateway";
+import {
+  isReadQuery,
+  placeholder,
+  prepareQuery,
+  quoteIdentifier,
+} from "./db/sql";
 
 let _sqlite: Database.Database | null = null;
 
@@ -14,8 +25,9 @@ function openSqlite(): Database.Database {
   return connection;
 }
 
-/** Raw shared SQLite connection (framework internals). */
+/** Raw shared SQLite connection (legacy internals only). */
 export function sqlite(): Database.Database {
+  assertLegacySqliteAccess();
   const g = globalThis as unknown as { __etSqlite?: Database.Database };
   if (!g.__etSqlite) {
     g.__etSqlite = openSqlite();
@@ -29,17 +41,53 @@ const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 export type Row = Record<string, unknown>;
 export type ReturnType = "object" | "array" | null;
 
-function toRows(rows: unknown[]): Row[] {
-  return rows as Row[];
+let configuredGateway: IDatabaseAdapter | null = null;
+
+/**
+ * Main-process and script entry point for tests or generated adapters.
+ * The default adapter is loaded lazily to avoid a module cycle with db.ts.
+ */
+export function configureDatabaseGateway(adapter: IDatabaseAdapter): void {
+  configuredGateway = adapter;
+}
+
+async function database(): Promise<IDatabaseAdapter> {
+  if (!configuredGateway) {
+    const module = await import("./active/db-adapter");
+    configuredGateway = module.activeDbAdapter;
+  }
+  return configuredGateway;
+}
+
+function hasMultipleStatements(sql: string): boolean {
+  const withoutTrailing = sql.trim().replace(/;\s*$/, "");
+  return /;\s*\S/.test(withoutTrailing);
+}
+
+function splitStatements(sql: string): string[] {
+  return sql
+    .split(/;\s*(?=(?:[^'"]|'[^']*'|"[^"]*")*$)/)
+    .map((statement) => statement.trim())
+    .filter(Boolean);
 }
 
 export class Db {
   readonly moduleName: string | null;
   readonly dbGroup: string | null;
+  private readonly adapter: IDatabaseAdapter | null;
 
-  constructor(moduleName: string | null = null, dbGroup: string | null = null) {
+  constructor(
+    moduleName: string | null = null,
+    dbGroup: string | null = null,
+    adapter: IDatabaseAdapter | null = null,
+  ) {
     this.moduleName = moduleName;
     this.dbGroup = dbGroup;
+    this.adapter = adapter;
+  }
+
+  private async gateway(): Promise<IDatabaseAdapter> {
+    return this.adapter ?? database();
   }
 
   private validateTableName(table: string): void {
@@ -54,8 +102,8 @@ export class Db {
     }
   }
 
-  validate_table_exists(table: string): void {
-    if (!this.table_exists(table)) {
+  async validate_table_exists(table: string): Promise<void> {
+    if (!(await this.table_exists(table))) {
       throw new Error(`Table does not exist: '${table}'`);
     }
   }
@@ -64,296 +112,463 @@ export class Db {
   // Write operations
   // -------------------------------------------------------------------------
 
-  insert(data: Row, table: string): number {
+  async insert(data: Row, table: string): Promise<number> {
     this.validateTableName(table);
     const columns = Object.keys(data);
     if (columns.length === 0) {
       throw new Error(`Cannot insert into '${table}': no data supplied`);
     }
-    columns.forEach((c) => this.validateColumnName(c));
+    columns.forEach((column) => this.validateColumnName(column));
 
-    const columnList = columns.map((c) => `\`${c}\``).join(", ");
-    const placeholderList = columns.map((c) => `@${c}`).join(", ");
-    const sql = `INSERT INTO \`${table}\` (${columnList}) VALUES (${placeholderList})`;
+    const db = await this.gateway();
+    const sql = `INSERT INTO ${quoteIdentifier(db.dialect, table)} (${columns
+      .map((column) => quoteIdentifier(db.dialect, column))
+      .join(", ")}) VALUES (${columns
+      .map((_column, index) => placeholder(db.dialect, index + 1))
+      .join(", ")})`;
+    const values = columns.map((column) => data[column]);
 
-    const result = sqlite().prepare(sql).run(data);
-    return Number(result.lastInsertRowid);
+    if (db.dialect === "postgres") {
+      const rows = await db.query<Row>(`${sql} RETURNING *`, values);
+      return Number(rows[0]?.id ?? 0);
+    }
+
+    const result = await db.execute(sql, values);
+    return Number(result.lastInsertRowid ?? 0);
   }
 
-  update(id: number, data: Row, table: string): boolean {
+  async update(id: number, data: Row, table: string): Promise<boolean> {
     this.validateTableName(table);
     const columns = Object.keys(data);
     if (columns.length === 0) return false;
-    columns.forEach((c) => this.validateColumnName(c));
+    columns.forEach((column) => this.validateColumnName(column));
 
-    const setList = columns.map((c) => `\`${c}\` = @${c}`).join(", ");
-    const sql = `UPDATE \`${table}\` SET ${setList} WHERE id = @__id`;
-    const result = sqlite()
-      .prepare(sql)
-      .run({ ...data, __id: id });
+    const db = await this.gateway();
+    const sets = columns
+      .map(
+        (column, index) =>
+          `${quoteIdentifier(db.dialect, column)} = ${placeholder(db.dialect, index + 1)}`,
+      )
+      .join(", ");
+    const sql = `UPDATE ${quoteIdentifier(db.dialect, table)} SET ${sets} WHERE ${quoteIdentifier(
+      db.dialect,
+      "id",
+    )} = ${placeholder(db.dialect, columns.length + 1)}`;
+    const result = await db.execute(sql, [
+      ...columns.map((column) => data[column]),
+      id,
+    ]);
     return result.changes > 0;
   }
 
-  /** UPDATE ... WHERE â€” convenience used by modules (update_where in the wild). */
-  update_where(table: string, data: Row, column: string, value: unknown): boolean {
+  async update_where(
+    table: string,
+    data: Row,
+    column: string,
+    value: unknown,
+  ): Promise<boolean> {
     this.validateTableName(table);
     this.validateColumnName(column);
     const columns = Object.keys(data);
     if (columns.length === 0) return false;
-    columns.forEach((c) => this.validateColumnName(c));
+    columns.forEach((entry) => this.validateColumnName(entry));
 
-    const setList = columns.map((c) => `\`${c}\` = @${c}`).join(", ");
-    const sql = `UPDATE \`${table}\` SET ${setList} WHERE \`${column}\` = @__value`;
-    const result = sqlite()
-      .prepare(sql)
-      .run({ ...data, __value: value });
+    const db = await this.gateway();
+    const sets = columns
+      .map(
+        (entry, index) =>
+          `${quoteIdentifier(db.dialect, entry)} = ${placeholder(db.dialect, index + 1)}`,
+      )
+      .join(", ");
+    const sql = `UPDATE ${quoteIdentifier(db.dialect, table)} SET ${sets} WHERE ${quoteIdentifier(
+      db.dialect,
+      column,
+    )} = ${placeholder(db.dialect, columns.length + 1)}`;
+    const result = await db.execute(sql, [
+      ...columns.map((entry) => data[entry]),
+      value,
+    ]);
     return result.changes > 0;
   }
 
-  delete(id: number, table: string): boolean {
+  async delete(id: number | string, table: string): Promise<boolean> {
     this.validateTableName(table);
-    const sql = `DELETE FROM \`${table}\` WHERE id = @id`;
-    const result = sqlite().prepare(sql).run({ id });
+    const db = await this.gateway();
+    const sql = `DELETE FROM ${quoteIdentifier(db.dialect, table)} WHERE ${quoteIdentifier(
+      db.dialect,
+      "id",
+    )} = ${placeholder(db.dialect, 1)}`;
+    const result = await db.execute(sql, [id]);
     return result.changes > 0;
   }
 
-  /** DELETE ... WHERE â€” convenience used by modules. */
-  delete_where(table: string, column: string, value: unknown): boolean {
+  async delete_where(
+    table: string,
+    column: string,
+    value: unknown,
+  ): Promise<boolean> {
     this.validateTableName(table);
     this.validateColumnName(column);
-    const sql = `DELETE FROM \`${table}\` WHERE \`${column}\` = @value`;
-    const result = sqlite().prepare(sql).run({ value: value as never });
+    const db = await this.gateway();
+    const sql = `DELETE FROM ${quoteIdentifier(db.dialect, table)} WHERE ${quoteIdentifier(
+      db.dialect,
+      column,
+    )} = ${placeholder(db.dialect, 1)}`;
+    const result = await db.execute(sql, [value]);
     return result.changes > 0;
   }
 
-  insert_batch(records: Row[], table: string): number {
+  async insert_batch(records: Row[], table: string): Promise<number> {
     this.validateTableName(table);
     if (records.length === 0) return 0;
-
-    const columns = Object.keys(records[0]);
-    columns.forEach((c) => this.validateColumnName(c));
-    const columnList = columns.map((c) => `\`${c}\``).join(", ");
-    const placeholderList = columns.map((c) => `@${c}`).join(", ");
-    const sql = `INSERT INTO \`${table}\` (${columnList}) VALUES (${placeholderList})`;
-
-    const insertMany = sqlite().transaction((rows: Row[]) => {
-      const stmt = sqlite().prepare(sql);
-      for (const row of rows) {
-        stmt.run(row);
+    const db = await this.gateway();
+    return db.transaction(async (trx) => {
+      const scoped = new Db(this.moduleName, this.dbGroup, trx);
+      for (const record of records) {
+        await scoped.insert(record, table);
       }
-      return rows.length;
+      return records.length;
     });
+  }
 
-    return insertMany(records);
+  /** Runs a callback with a transaction-scoped Db facade. */
+  async transaction<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+    const db = await this.gateway();
+    return db.transaction((trx) =>
+      fn(new Db(this.moduleName, this.dbGroup, trx)),
+    );
   }
 
   // -------------------------------------------------------------------------
   // Raw SQL
   // -------------------------------------------------------------------------
 
-  query(sql: string, returnType: ReturnType = null): unknown {
+  async query(sql: string, returnType: ReturnType = null): Promise<unknown> {
     return this.query_bind(sql, [], returnType);
   }
 
-  query_bind(sql: string, data: Row | unknown[], returnType: ReturnType = null): unknown {
-    const connection = sqlite();
-    const trimmed = sql.trim().toUpperCase();
+  async query_bind(
+    sql: string,
+    data: Row | unknown[],
+    returnType: ReturnType = null,
+  ): Promise<unknown> {
+    void returnType;
+    const db = await this.gateway();
+    const prepared = prepareQuery(sql, data, db.dialect);
 
-    const isSelect =
-      trimmed.startsWith("SELECT") ||
-      trimmed.startsWith("PRAGMA") ||
-      trimmed.startsWith("WITH") ||
-      trimmed.startsWith("EXPLAIN");
-
-    if (isSelect) {
-      const params = Array.isArray(data) ? data : this.namedParamsObject(data);
-      const stmt = connection.prepare(sql);
-      const rows =
-        params === undefined
-          ? stmt.all()
-          : Array.isArray(params)
-            ? stmt.all(...(params as never[]))
-            : stmt.all(params);
-      return toRows(rows);
-    }
-
-    const params = Array.isArray(data) ? data : this.namedParamsObject(data);
-    const stmt = connection.prepare(sql);
-    const result =
-      params === undefined
-        ? stmt.run()
-        : Array.isArray(params)
-          ? stmt.run(...(params as never[]))
-          : stmt.run(params);
-
-    // Multi-statement DDL/scripts (e.g. setup SQL files): fall back to exec.
-    if (this.hasMultipleStatements(sql)) {
-      connection.exec(sql);
+    if (hasMultipleStatements(sql)) {
+      for (const statement of splitStatements(sql)) {
+        await db.execute(statement);
+      }
       return true;
     }
 
+    if (isReadQuery(sql)) {
+      return db.query<Row>(prepared.sql, prepared.params as never);
+    }
+
+    const result = await db.execute(prepared.sql, prepared.params as never);
     return {
-      lastInsertId: Number(result.lastInsertRowid),
+      lastInsertId: Number(result.lastInsertRowid ?? 0),
       affectedRows: result.changes,
     };
-  }
-
-  private namedParamsObject(data: Row | unknown[]): Row | undefined {
-    if (Array.isArray(data)) return undefined;
-    const keys = Object.keys(data);
-    if (keys.length === 0) return undefined;
-    // better-sqlite3 accepts named parameters with the @ prefix matched by key order.
-    return data;
-  }
-
-  private hasMultipleStatements(sql: string): boolean {
-    // Crude check â€” statements separated by ";" followed by more SQL.
-    const withoutTrailing = sql.trim().replace(/;\s*$/, "");
-    return /;\s*\S/.test(withoutTrailing);
   }
 
   // -------------------------------------------------------------------------
   // Reads
   // -------------------------------------------------------------------------
 
-  count(table: string): number {
+  async count(table: string): Promise<number> {
     this.validateTableName(table);
-    const row = sqlite()
-      .prepare(`SELECT COUNT(*) AS num FROM \`${table}\``)
-      .get() as { num: number };
-    return row.num;
+    const db = await this.gateway();
+    const row = await db.query<{ num: number | string }>(
+      `SELECT COUNT(*) AS num FROM ${quoteIdentifier(db.dialect, table)}`,
+    );
+    return Number(row[0]?.num ?? 0);
   }
 
-  get(
+  async get(
     orderBy: string,
     table: string,
     orderDirection = "ASC",
-    returnType: ReturnType = "object"
-  ): Row[] {
+    returnType: ReturnType = "object",
+  ): Promise<Row[]> {
     this.validateTableName(table);
     this.validateColumnName(orderBy);
+    void returnType;
 
     const direction = orderDirection.toUpperCase();
     if (direction !== "ASC" && direction !== "DESC") {
-      throw new Error(`Invalid order direction: '${orderDirection}'. Must be 'ASC' or 'DESC'.`);
+      throw new Error(
+        `Invalid order direction: '${orderDirection}'. Must be 'ASC' or 'DESC'.`,
+      );
     }
 
-    const sql = `SELECT * FROM \`${table}\` ORDER BY \`${orderBy}\` ${direction}`;
-    const rows = toRows(sqlite().prepare(sql).all());
-    return returnType === null && false ? [] : rows;
+    const db = await this.gateway();
+    const sql = `SELECT * FROM ${quoteIdentifier(db.dialect, table)} ORDER BY ${quoteIdentifier(
+      db.dialect,
+      orderBy,
+    )} ${direction}`;
+    return db.query<Row>(sql);
   }
 
-  get_where(id: number, table: string): Row | false {
+  async get_where(id: number | string, table: string): Promise<Row | false> {
     this.validateTableName(table);
-    const row = sqlite()
-      .prepare(`SELECT * FROM \`${table}\` WHERE id = ?`)
-      .get(id) as Row | undefined;
-    return row ?? false;
+    const db = await this.gateway();
+    const rows = await db.query<Row>(
+      `SELECT * FROM ${quoteIdentifier(db.dialect, table)} WHERE ${quoteIdentifier(
+        db.dialect,
+        "id",
+      )} = ${placeholder(db.dialect, 1)}`,
+      [id],
+    );
+    return rows[0] ?? false;
   }
 
-  get_one_where(column: string, value: unknown, table: string): Row | false {
+  async get_one_where(
+    column: string,
+    value: unknown,
+    table: string,
+  ): Promise<Row | false> {
     this.validateTableName(table);
     this.validateColumnName(column);
-    const row = sqlite()
-      .prepare(`SELECT * FROM \`${table}\` WHERE \`${column}\` = ?`)
-      .get(value as never) as Row | undefined;
-    return row ?? false;
+    const db = await this.gateway();
+    const rows = await db.query<Row>(
+      `SELECT * FROM ${quoteIdentifier(db.dialect, table)} WHERE ${quoteIdentifier(
+        db.dialect,
+        column,
+      )} = ${placeholder(db.dialect, 1)}`,
+      [value],
+    );
+    return rows[0] ?? false;
   }
 
-  get_where_in(
+  async get_where_in(
     table: string,
     column: string,
     values: unknown[],
-    options: { columns?: string | string[]; return_type?: ReturnType } = {}
-  ): Row[] {
+    options: { columns?: string | string[]; return_type?: ReturnType } = {},
+  ): Promise<Row[]> {
     this.validateTableName(table);
     this.validateColumnName(column);
     if (values.length === 0) return [];
 
+    const db = await this.gateway();
     let columnsSql = "*";
     if (options.columns) {
-      const cols = Array.isArray(options.columns) ? options.columns : [options.columns];
-      cols.forEach((c) => this.validateColumnName(c));
-      columnsSql = cols.map((c) => `\`${c}\``).join(", ");
+      const columns = Array.isArray(options.columns)
+        ? options.columns
+        : [options.columns];
+      columns.forEach((entry) => this.validateColumnName(entry));
+      columnsSql = columns
+        .map((entry) => quoteIdentifier(db.dialect, entry))
+        .join(", ");
     }
 
-    const placeholders = values.map(() => "?").join(", ");
-    const sql = `SELECT ${columnsSql} FROM \`${table}\` WHERE \`${column}\` IN (${placeholders})`;
-    return toRows(sqlite().prepare(sql).all(...(values as never[])));
+    const placeholders = values
+      .map((_value, index) => placeholder(db.dialect, index + 1))
+      .join(", ");
+    const sql = `SELECT ${columnsSql} FROM ${quoteIdentifier(
+      db.dialect,
+      table,
+    )} WHERE ${quoteIdentifier(db.dialect, column)} IN (${placeholders})`;
+    return db.query<Row>(sql, values);
   }
 
-  resequence_ids(tableName: string): boolean {
+  async resequence_ids(tableName: string): Promise<boolean> {
     this.validateTableName(tableName);
-    const connection = sqlite();
-    const rows = connection
-      .prepare(`SELECT id FROM \`${tableName}\` ORDER BY id ASC`)
-      .all() as Array<{ id: number }>;
-
-    const resequence = connection.transaction(() => {
-      for (let i = 0; i < rows.length; i++) {
-        const target = i + 1;
-        if (rows[i].id !== target) {
-          connection
-            .prepare(`UPDATE \`${tableName}\` SET id = ? WHERE id = ?`)
-            .run(target, rows[i].id);
+    const db = await this.gateway();
+    if (db.dialect !== "sqlite") {
+      throw new Error(
+        "Resequencing IDs is only supported for SQLite projects. " +
+          "Remote databases should use stable primary keys.",
+      );
+    }
+    const rows = await db.query<{ id: number | string }>(
+      `SELECT "id" FROM ${quoteIdentifier(db.dialect, tableName)} ORDER BY "id" ASC`,
+    );
+    await db.transaction(async (trx) => {
+      for (let index = 0; index < rows.length; index += 1) {
+        const target = index + 1;
+        if (Number(rows[index].id) !== target) {
+          await trx.execute(
+            `UPDATE ${quoteIdentifier(db.dialect, tableName)} SET "id" = ${placeholder(
+              db.dialect,
+              1,
+            )} WHERE "id" = ${placeholder(db.dialect, 2)}`,
+            [target, rows[index].id],
+          );
         }
       }
     });
-
-    resequence();
     return true;
   }
 
-  table_exists(table: string): boolean {
-    const row = sqlite()
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(table) as { name: string } | undefined;
-    return row !== undefined;
+  async table_exists(table: string): Promise<boolean> {
+    const db = await this.gateway();
+    if (db.dialect === "sqlite" || db.dialect === "libsql") {
+      const rows = await db.query<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        [table],
+      );
+      return rows.length > 0;
+    }
+    if (db.dialect === "postgres") {
+      const rows = await db.query<{ name: string }>(
+        "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1",
+        [table],
+      );
+      return rows.length > 0;
+    }
+    const rows = await db.query<{ name: string }>(
+      "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+      [table],
+    );
+    return rows.length > 0;
   }
 
-  get_tables(): string[] {
-    const rows = sqlite()
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC"
-      )
-      .all() as Array<{ name: string }>;
-    return rows.map((r) => r.name);
+  async get_tables(): Promise<string[]> {
+    const db = await this.gateway();
+    if (db.dialect === "sqlite" || db.dialect === "libsql") {
+      const rows = await db.query<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC",
+      );
+      return rows.map((row) => row.name);
+    }
+    if (db.dialect === "postgres") {
+      const rows = await db.query<{ name: string }>(
+        "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name ASC",
+      );
+      return rows.map((row) => row.name);
+    }
+    const rows = await db.query<{ name: string }>(
+      "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name ASC",
+    );
+    return rows.map((row) => row.name);
   }
 
-  describe_table(table: string, namesOnly = false): Row[] | boolean {
-    if (!this.table_exists(table)) return false;
-    const columns = sqlite().prepare(`PRAGMA table_info(\`${table}\`)`).all() as Array<{
-      name: string;
-      type: string;
-      notnull: number;
-      dflt_value: unknown;
-      pk: number;
-    }>;
+  async describe_table(
+    table: string,
+    namesOnly = false,
+  ): Promise<Row[] | boolean> {
+    if (!(await this.table_exists(table))) return false;
+    const db = await this.gateway();
 
-    if (namesOnly) {
-      return columns.map((c) => ({ name: c.name } as Row));
+    if (db.dialect === "sqlite" || db.dialect === "libsql") {
+      const columns = await db.query<{
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: unknown;
+        pk: number;
+      }>(`PRAGMA table_info(${quoteIdentifier(db.dialect, table)})`);
+      if (namesOnly) return columns.map((column) => ({ name: column.name }));
+      return columns.map(
+        (column) =>
+          ({
+            name: column.name,
+            type: column.type,
+            null: column.notnull === 0,
+            key: column.pk > 0 ? "PRI" : "",
+            default: column.dflt_value,
+            extra: column.pk > 0 ? "auto_increment" : "",
+          }) as Row,
+      );
     }
 
+    if (db.dialect === "postgres") {
+      const columns = await db.query<{
+        name: string;
+        type: string;
+        nullable: boolean;
+        default_value: unknown;
+        primary: boolean;
+      }>(
+        `SELECT a.attname AS name,
+                format_type(a.atttypid, a.atttypmod) AS type,
+                NOT a.attnotnull AS nullable,
+                pg_get_expr(d.adbin, d.adrelid) AS default_value,
+                COALESCE(i.indisprimary, false) AS primary
+           FROM pg_attribute a
+           LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+           LEFT JOIN pg_index i ON i.indrelid = a.attrelid AND a.attnum = ANY(i.indkey) AND i.indisprimary
+          WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped
+          ORDER BY a.attnum`,
+        [table],
+      );
+      if (namesOnly) return columns.map((column) => ({ name: column.name }));
+      return columns.map(
+        (column) =>
+          ({
+            name: column.name,
+            type: column.type,
+            null: column.nullable,
+            key: column.primary ? "PRI" : "",
+            default: column.default_value,
+            extra: column.primary ? "auto_increment" : "",
+          }) as Row,
+      );
+    }
+
+    const columns = await db.query<{
+      name: string;
+      type: string;
+      nullable: string;
+      default_value: unknown;
+      column_key: string;
+      extra: string;
+    }>(
+      `SELECT COLUMN_NAME AS name,
+              DATA_TYPE AS type,
+              IS_NULLABLE AS nullable,
+              COLUMN_DEFAULT AS default_value,
+              COLUMN_KEY AS column_key,
+              EXTRA AS extra
+         FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = ?
+        ORDER BY ORDINAL_POSITION`,
+      [table],
+    );
+    if (namesOnly) return columns.map((column) => ({ name: column.name }));
     return columns.map(
-      (c) =>
+      (column) =>
         ({
-          name: c.name,
-          type: c.type,
-          null: c.notnull === 0,
-          key: c.pk > 0 ? "PRI" : "",
-          default: c.dflt_value,
-          extra: c.pk > 0 ? "auto_increment" : "",
-        }) as Row
+          name: column.name,
+          type: column.type,
+          null: column.nullable === "YES",
+          key: column.column_key === "PRI" ? "PRI" : "",
+          default: column.default_value,
+          extra: column.extra,
+        }) as Row,
     );
   }
 
-  attempt_truncate(table: string, validateTable = true): boolean {
+  async attempt_truncate(
+    table: string,
+    validateTable = true,
+  ): Promise<boolean> {
     this.validateTableName(table);
-    if (validateTable && !this.table_exists(table)) return false;
-    sqlite().exec(`DELETE FROM \`${table}\``);
-    sqlite().exec(
-      `DELETE FROM sqlite_sequence WHERE name = '${table.replace(/'/g, "''")}'`
-    );
+    const db = await this.gateway();
+    if (validateTable && !(await this.table_exists(table))) return false;
+
+    if (db.dialect === "sqlite" || db.dialect === "libsql") {
+      await db.execute(`DELETE FROM ${quoteIdentifier(db.dialect, table)}`);
+      try {
+        await db.execute("DELETE FROM sqlite_sequence WHERE name = ?", [table]);
+      } catch {
+        // Tables without AUTOINCREMENT have no sqlite_sequence row.
+      }
+      return true;
+    }
+
+    if (db.dialect === "postgres") {
+      await db.execute(
+        `TRUNCATE TABLE ${quoteIdentifier(db.dialect, table)} RESTART IDENTITY CASCADE`,
+      );
+      return true;
+    }
+
+    await db.execute(`TRUNCATE TABLE ${quoteIdentifier(db.dialect, table)}`);
     return true;
   }
 }
@@ -363,6 +578,7 @@ export const db = new Db(null);
 
 /** Escape helper for identifiers embedded in dynamically built SQL. */
 export function escape_identifier(identifier: string): string {
-  return "`" + identifier.replace(/`/g, "``") + "`";
+  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
+export type { DatabaseDialect };

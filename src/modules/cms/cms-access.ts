@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
-import { sqlite, type Row } from "@/engine/db";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
+import { db, type Db, type Row } from "@/engine/db";
 import { Eterc_tokens, type EtercUserObj } from "@/engine/Eterc_tokens";
 import { get_context } from "@/engine/request-context";
 import { EtHttpError } from "@/engine/signals";
@@ -32,6 +33,29 @@ const MAX_RULE_PRESETS = 24;
 
 function empty_rule_group(): CmsRuleGroup {
   return { match: "all", conditions: [] };
+}
+
+async function query_rows<T = Row>(
+  sql: string,
+  params: unknown[] = [],
+  client: Db = db
+): Promise<T[]> {
+  return (await client.query_bind(sql, params)) as T[];
+}
+
+async function execute_statement(
+  sql: string,
+  params: unknown[] = [],
+  client: Db = db
+): Promise<{ changes: number; lastInsertRowid: number }> {
+  const result = (await client.query_bind(sql, params)) as {
+    affectedRows?: number;
+    lastInsertId?: number;
+  };
+  return {
+    changes: Number(result.affectedRows ?? 0),
+    lastInsertRowid: Number(result.lastInsertId ?? 0),
+  };
 }
 
 function parse_rule_group(value: unknown): CmsRuleGroup {
@@ -92,12 +116,17 @@ function parse_presets(value: unknown): CmsRulePreset[] {
     .filter((preset) => preset.field !== "");
 }
 
-function normalize_fields(collection: string, value: unknown): string[] {
+async function normalize_fields(
+  collection: string,
+  value: unknown
+): Promise<string[]> {
   if (!Array.isArray(value)) return ["*"];
   const names = value.map(String).filter(Boolean);
   if (names.includes("*")) return ["*"];
   if (collection === "*") return ["*"];
-  const available = new Set(collection_fields(collection).map((field) => field.name));
+  const available = new Set(
+    (await collection_fields(collection)).map((field) => field.name)
+  );
   for (const name of names) {
     if (!available.has(name)) {
       throw new EtHttpError(400, `Field '${name}' was not found in '${collection}'.`);
@@ -118,7 +147,10 @@ function normalize_rule_value(value: unknown): unknown {
   return value;
 }
 
-function normalize_rule_group(collection: string, value: unknown): CmsRuleGroup {
+async function normalize_rule_group(
+  collection: string,
+  value: unknown
+): Promise<CmsRuleGroup> {
   const group = parse_rule_group(value);
   if (collection === "*") {
     if (group.conditions.length > 0) {
@@ -132,7 +164,9 @@ function normalize_rule_group(collection: string, value: unknown): CmsRuleGroup 
       `A policy can contain at most ${MAX_RULE_CONDITIONS} conditions.`
     );
   }
-  const fields = new Map(collection_fields(collection).map((field) => [field.name, field]));
+  const fields = new Map(
+    (await collection_fields(collection)).map((field) => [field.name, field])
+  );
   const conditions = group.conditions.map((condition) => {
     const field = fields.get(condition.field);
     if (!field) {
@@ -179,7 +213,10 @@ function normalize_rule_group(collection: string, value: unknown): CmsRuleGroup 
   return { match: group.match, conditions };
 }
 
-function normalize_presets(collection: string, value: unknown): CmsRulePreset[] {
+async function normalize_presets(
+  collection: string,
+  value: unknown
+): Promise<CmsRulePreset[]> {
   if (!Array.isArray(value)) return [];
   if (collection === "*") {
     if (value.length > 0) {
@@ -190,7 +227,9 @@ function normalize_presets(collection: string, value: unknown): CmsRulePreset[] 
   if (value.length > MAX_RULE_PRESETS) {
     throw new EtHttpError(400, `A policy can contain at most ${MAX_RULE_PRESETS} presets.`);
   }
-  const fields = new Map(collection_fields(collection).map((field) => [field.name, field]));
+  const fields = new Map(
+    (await collection_fields(collection)).map((field) => [field.name, field])
+  );
   const presets: CmsRulePreset[] = [];
   const used = new Set<string>();
   for (const entry of value) {
@@ -284,36 +323,43 @@ function apiKeyFromRow(row: Row): CmsApiKey {
   };
 }
 
-export function get_role_by_level_id(levelId: number): CmsRole | null {
-  ensure_cms_schema();
-  const row = sqlite()
-    .prepare("SELECT * FROM eterc_roles WHERE user_level_id = ? LIMIT 1")
-    .get(levelId) as Row | undefined;
-  return row ? roleFromRow(row) : null;
+export async function get_role_by_level_id(
+  levelId: number
+): Promise<CmsRole | null> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    "SELECT * FROM eterc_roles WHERE user_level_id = ? LIMIT 1",
+    [levelId]
+  );
+  return rows[0] ? roleFromRow(rows[0]) : null;
 }
 
-export function get_role_by_id(roleId: number): CmsRole | null {
-  ensure_cms_schema();
-  const row = sqlite()
-    .prepare("SELECT * FROM eterc_roles WHERE id = ? LIMIT 1")
-    .get(roleId) as Row | undefined;
-  return row ? roleFromRow(row) : null;
+export async function get_role_by_id(roleId: number): Promise<CmsRole | null> {
+  await ensure_cms_schema();
+  const rows = await query_rows("SELECT * FROM eterc_roles WHERE id = ? LIMIT 1", [
+    roleId,
+  ]);
+  return rows[0] ? roleFromRow(rows[0]) : null;
 }
 
-export function get_role_by_slug(slug: string): CmsRole | null {
-  ensure_cms_schema();
-  const row = sqlite()
-    .prepare("SELECT * FROM eterc_roles WHERE slug = ? LIMIT 1")
-    .get(slug) as Row | undefined;
-  return row ? roleFromRow(row) : null;
+export async function get_role_by_slug(slug: string): Promise<CmsRole | null> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    "SELECT * FROM eterc_roles WHERE slug = ? LIMIT 1",
+    [slug]
+  );
+  return rows[0] ? roleFromRow(rows[0]) : null;
 }
 
-function validate_parent_role(roleId: number | null, parentId: number | null): number | null {
+async function validate_parent_role(
+  roleId: number | null,
+  parentId: number | null
+): Promise<number | null> {
   if (parentId === null || parentId <= 0) return null;
   if (roleId !== null && parentId === roleId) {
     throw new EtHttpError(400, "A role cannot be its own parent.");
   }
-  const parent = get_role_by_id(parentId);
+  const parent = await get_role_by_id(parentId);
   if (!parent) throw new EtHttpError(400, "The parent role was not found.");
   let cursor: CmsRole | null = parent;
   const seen = new Set<number>();
@@ -326,76 +372,79 @@ function validate_parent_role(roleId: number | null, parentId: number | null): n
     }
     seen.add(cursor.id);
     cursor =
-      cursor.parent_role_id === null ? null : get_role_by_id(cursor.parent_role_id);
+      cursor.parent_role_id === null
+        ? null
+        : await get_role_by_id(cursor.parent_role_id);
   }
   return parentId;
 }
 
-export function list_roles(): Array<CmsRole & { user_count: number }> {
-  ensure_cms_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT r.*, (
-         SELECT COUNT(*) FROM eterc_users u WHERE u.user_level_id = r.user_level_id
-       ) AS user_count
-       FROM eterc_roles r
-       ORDER BY r.is_system DESC, r.name ASC`
-    )
-    .all() as Row[];
+export async function list_roles(): Promise<
+  Array<CmsRole & { user_count: number }>
+> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    `SELECT r.*, (
+       SELECT COUNT(*) FROM eterc_users u WHERE u.user_level_id = r.user_level_id
+     ) AS user_count
+     FROM eterc_roles r
+     ORDER BY r.is_system DESC, r.name ASC`
+  );
   return rows.map((row) => ({
     ...roleFromRow(row),
     user_count: Number(row.user_count ?? 0),
   }));
 }
 
-export function create_role(input: {
+export async function create_role(input: {
   name: string;
   description?: string;
   app_access?: boolean;
   api_access?: boolean;
   admin_access?: boolean;
   parent_role_id?: number | null;
-}): CmsRole {
-  ensure_cms_schema();
+}): Promise<CmsRole> {
+  await ensure_cms_schema();
   const name = String(input.name ?? "").trim();
   if (name.length < 2 || name.length > 50) {
     throw new EtHttpError(400, "Role names must contain between 2 and 50 characters.");
   }
   const slug = make_slug(name);
   if (!slug) throw new EtHttpError(400, "Role name must contain letters or numbers.");
-  const existing = sqlite()
-    .prepare("SELECT id FROM eterc_roles WHERE name = ? OR slug = ? LIMIT 1")
-    .get(name, slug) as { id: number } | undefined;
-  if (existing) throw new EtHttpError(409, "A role with that name already exists.");
-  const parentId = validate_parent_role(null, input.parent_role_id ?? null);
+  const existing = await query_rows<{ id: number }>(
+    "SELECT id FROM eterc_roles WHERE name = ? OR slug = ? LIMIT 1",
+    [name, slug]
+  );
+  if (existing.length > 0) {
+    throw new EtHttpError(409, "A role with that name already exists.");
+  }
+  const parentId = await validate_parent_role(null, input.parent_role_id ?? null);
 
   const now = nowSeconds();
-  const levelResult = sqlite()
-    .prepare("INSERT INTO eterc_user_levels (level_title) VALUES (?)")
-    .run(name);
-  const levelId = Number(levelResult.lastInsertRowid);
-  const result = sqlite()
-    .prepare(
-      `INSERT INTO eterc_roles
-        (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, parent_role_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
-    )
-    .run(
-      levelId,
+  const levelId = await db.insert(
+    { level_title: name },
+    "eterc_user_levels"
+  );
+  const roleId = await db.insert(
+    {
+      user_level_id: levelId,
       name,
       slug,
-      String(input.description ?? ""),
-      input.app_access === false ? 0 : 1,
-      input.api_access === false ? 0 : 1,
-      input.admin_access ? 1 : 0,
-      parentId,
-      now,
-      now
-    );
-  return get_role_by_id(Number(result.lastInsertRowid)) as CmsRole;
+      description: String(input.description ?? ""),
+      app_access: input.app_access === false ? 0 : 1,
+      api_access: input.api_access === false ? 0 : 1,
+      admin_access: input.admin_access ? 1 : 0,
+      is_system: 0,
+      parent_role_id: parentId,
+      created_at: now,
+      updated_at: now,
+    },
+    "eterc_roles"
+  );
+  return (await get_role_by_id(roleId)) as CmsRole;
 }
 
-export function update_role(
+export async function update_role(
   roleId: number,
   patch: {
     name?: string;
@@ -405,8 +454,8 @@ export function update_role(
     admin_access?: boolean;
     parent_role_id?: number | null;
   }
-): CmsRole {
-  const role = get_role_by_id(roleId);
+): Promise<CmsRole> {
+  const role = await get_role_by_id(roleId);
   if (!role) throw new EtHttpError(404, "Role not found.");
 
   let name = patch.name !== undefined ? String(patch.name).trim() : role.name;
@@ -419,10 +468,13 @@ export function update_role(
       throw new EtHttpError(400, "Role names must contain between 2 and 50 characters.");
     }
     slug = make_slug(name);
-    const duplicate = sqlite()
-      .prepare("SELECT id FROM eterc_roles WHERE (name = ? OR slug = ?) AND id != ? LIMIT 1")
-      .get(name, slug, roleId) as { id: number } | undefined;
-    if (duplicate) throw new EtHttpError(409, "A role with that name already exists.");
+    const duplicate = await query_rows<{ id: number }>(
+      "SELECT id FROM eterc_roles WHERE (name = ? OR slug = ?) AND id != ? LIMIT 1",
+      [name, slug, roleId]
+    );
+    if (duplicate.length > 0) {
+      throw new EtHttpError(409, "A role with that name already exists.");
+    }
   }
 
   const appAccess = role.is_system ? true : patch.app_access ?? role.app_access;
@@ -431,16 +483,14 @@ export function update_role(
   const parentId = role.is_system
     ? null
     : patch.parent_role_id !== undefined
-      ? validate_parent_role(roleId, patch.parent_role_id)
+      ? await validate_parent_role(roleId, patch.parent_role_id)
       : role.parent_role_id;
 
-  sqlite()
-    .prepare(
-      `UPDATE eterc_roles
-       SET name = ?, slug = ?, description = ?, app_access = ?, api_access = ?, admin_access = ?, parent_role_id = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(
+  await execute_statement(
+    `UPDATE eterc_roles
+     SET name = ?, slug = ?, description = ?, app_access = ?, api_access = ?, admin_access = ?, parent_role_id = ?, updated_at = ?
+     WHERE id = ?`,
+    [
       name,
       slug,
       patch.description ?? role.description,
@@ -449,72 +499,78 @@ export function update_role(
       adminAccess ? 1 : 0,
       parentId,
       nowSeconds(),
-      roleId
-    );
-  sqlite()
-    .prepare("UPDATE eterc_user_levels SET level_title = ? WHERE id = ?")
-    .run(name, role.user_level_id);
-  return get_role_by_id(roleId) as CmsRole;
+      roleId,
+    ]
+  );
+  await execute_statement(
+    "UPDATE eterc_user_levels SET level_title = ? WHERE id = ?",
+    [name, role.user_level_id]
+  );
+  return (await get_role_by_id(roleId)) as CmsRole;
 }
 
-export function delete_role(roleId: number): void {
-  const role = get_role_by_id(roleId);
+export async function delete_role(roleId: number): Promise<void> {
+  const role = await get_role_by_id(roleId);
   if (!role) throw new EtHttpError(404, "Role not found.");
   if (role.is_system || role.user_level_id === ADMIN_LEVEL_ID) {
     throw new EtHttpError(403, "The system admin role cannot be deleted.");
   }
-  const users = sqlite()
-    .prepare("SELECT COUNT(*) AS count FROM eterc_users WHERE user_level_id = ?")
-    .get(role.user_level_id) as { count: number };
-  if (Number(users.count) > 0) {
+  const users = await query_rows<{ count: number | string }>(
+    "SELECT COUNT(*) AS count FROM eterc_users WHERE user_level_id = ?",
+    [role.user_level_id]
+  );
+  if (Number(users[0]?.count ?? 0) > 0) {
     throw new EtHttpError(409, "Move the users assigned to this role before deleting it.");
   }
-  const children = sqlite()
-    .prepare("SELECT COUNT(*) AS count FROM eterc_roles WHERE parent_role_id = ?")
-    .get(roleId) as { count: number };
-  if (Number(children.count) > 0) {
+  const children = await query_rows<{ count: number | string }>(
+    "SELECT COUNT(*) AS count FROM eterc_roles WHERE parent_role_id = ?",
+    [roleId]
+  );
+  if (Number(children[0]?.count ?? 0) > 0) {
     throw new EtHttpError(409, "Move or delete the child roles before deleting this role.");
   }
-  sqlite().prepare("DELETE FROM eterc_permissions WHERE role_id = ?").run(roleId);
-  sqlite().prepare("DELETE FROM eterc_roles WHERE id = ?").run(roleId);
-  sqlite().prepare("DELETE FROM eterc_user_levels WHERE id = ?").run(role.user_level_id);
+  await execute_statement("DELETE FROM eterc_permissions WHERE role_id = ?", [
+    roleId,
+  ]);
+  await execute_statement("DELETE FROM eterc_roles WHERE id = ?", [roleId]);
+  await execute_statement("DELETE FROM eterc_user_levels WHERE id = ?", [
+    role.user_level_id,
+  ]);
 }
 
-export function list_permissions(roleId: number): CmsPermission[] {
-  ensure_cms_schema();
-  return (
-    sqlite()
-      .prepare("SELECT * FROM eterc_permissions WHERE role_id = ? ORDER BY collection, action")
-      .all(roleId) as Row[]
-  ).map(permissionFromRow);
+export async function list_permissions(
+  roleId: number
+): Promise<CmsPermission[]> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    "SELECT * FROM eterc_permissions WHERE role_id = ? ORDER BY collection, action",
+    [roleId]
+  );
+  return rows.map(permissionFromRow);
 }
 
-export function replace_permissions(
+export async function replace_permissions(
   roleId: number,
   permissions: CmsPermissionInput[]
-): CmsPermission[] {
-  const role = get_role_by_id(roleId);
+): Promise<CmsPermission[]> {
+  const role = await get_role_by_id(roleId);
   if (!role) throw new EtHttpError(404, "Role not found.");
   if (role.is_system) {
     throw new EtHttpError(403, "The system admin role always has full access.");
   }
   const now = nowSeconds();
-  const transaction = sqlite().transaction(() => {
-    sqlite().prepare("DELETE FROM eterc_permissions WHERE role_id = ?").run(roleId);
-    const insert = sqlite().prepare(
-      `INSERT INTO eterc_permissions
-        (role_id, collection, action, fields, filter, validation, presets, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  await db.transaction(async (tx) => {
+    await execute_statement(
+      "DELETE FROM eterc_permissions WHERE role_id = ?",
+      [roleId],
+      tx
     );
     const seen = new Set<string>();
     for (const permission of permissions) {
       const collection = String(permission.collection ?? "").trim();
       if (!collection) continue;
-      if (collection !== "*") {
-        const table = sqlite()
-          .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-          .get(collection) as { name: string } | undefined;
-        if (!table) throw new EtHttpError(400, `Collection '${collection}' was not found.`);
+      if (collection !== "*" && !(await tx.table_exists(collection))) {
+        throw new EtHttpError(400, `Collection '${collection}' was not found.`);
       }
       if (!CMS_ACTIONS.includes(permission.action)) {
         throw new EtHttpError(400, `Unknown permission action '${permission.action}'.`);
@@ -524,32 +580,37 @@ export function replace_permissions(
         throw new EtHttpError(400, `Duplicate policy for '${collection}' (${permission.action}).`);
       }
       seen.add(key);
-      const fields = normalize_fields(collection, permission.fields);
-      const filter = normalize_rule_group(collection, permission.filter);
-      const validation = normalize_rule_group(collection, permission.validation);
-      const presets = normalize_presets(collection, permission.presets);
-      insert.run(
-        roleId,
+      const fields = await normalize_fields(collection, permission.fields);
+      const filter = await normalize_rule_group(collection, permission.filter);
+      const validation = await normalize_rule_group(
         collection,
-        permission.action,
-        JSON.stringify(fields),
-        JSON.stringify(filter),
-        JSON.stringify(validation),
-        JSON.stringify(presets),
-        now,
-        now
+        permission.validation
+      );
+      const presets = await normalize_presets(collection, permission.presets);
+      await tx.insert(
+        {
+          role_id: roleId,
+          collection,
+          action: permission.action,
+          fields: JSON.stringify(fields),
+          filter: JSON.stringify(filter),
+          validation: JSON.stringify(validation),
+          presets: JSON.stringify(presets),
+          created_at: now,
+          updated_at: now,
+        },
+        "eterc_permissions"
       );
     }
   });
-  transaction();
   return list_permissions(roleId);
 }
 
-export function set_permission(
+export async function set_permission(
   roleId: number,
   input: CmsPermissionInput & { enabled: boolean }
-): CmsPermission[] {
-  const role = get_role_by_id(roleId);
+): Promise<CmsPermission[]> {
+  const role = await get_role_by_id(roleId);
   if (!role) throw new EtHttpError(404, "Role not found.");
   if (role.is_system) {
     throw new EtHttpError(403, "The system admin role always has full access.");
@@ -559,68 +620,66 @@ export function set_permission(
   if (!CMS_ACTIONS.includes(input.action)) {
     throw new EtHttpError(400, "Unknown permission action.");
   }
-  if (collection !== "*") {
-    const table = sqlite()
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(collection) as { name: string } | undefined;
-    if (!table) throw new EtHttpError(400, `Collection '${collection}' was not found.`);
+  if (collection !== "*" && !(await db.table_exists(collection))) {
+    throw new EtHttpError(400, `Collection '${collection}' was not found.`);
   }
   if (input.enabled) {
     const now = nowSeconds();
-    sqlite()
-      .prepare(
-        `INSERT INTO eterc_permissions
-          (role_id, collection, action, fields, filter, validation, presets, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(role_id, collection, action)
-         DO UPDATE SET
-           fields = excluded.fields,
-           filter = excluded.filter,
-           validation = excluded.validation,
-           presets = excluded.presets,
-           updated_at = excluded.updated_at`
-      )
-      .run(
-        roleId,
-        collection,
-        input.action,
-        JSON.stringify(normalize_fields(collection, input.fields)),
-        JSON.stringify(normalize_rule_group(collection, input.filter)),
-        JSON.stringify(normalize_rule_group(collection, input.validation)),
-        JSON.stringify(normalize_presets(collection, input.presets)),
-        now,
-        now
-      );
+    const fields = JSON.stringify(await normalize_fields(collection, input.fields));
+    const filter = JSON.stringify(await normalize_rule_group(collection, input.filter));
+    const validation = JSON.stringify(
+      await normalize_rule_group(collection, input.validation)
+    );
+    const presets = JSON.stringify(await normalize_presets(collection, input.presets));
+    const conflict =
+      activeDbAdapter.dialect === "mysql"
+        ? `ON DUPLICATE KEY UPDATE
+             fields = VALUES(fields),
+             filter = VALUES(filter),
+             validation = VALUES(validation),
+             presets = VALUES(presets),
+             updated_at = VALUES(updated_at)`
+        : `ON CONFLICT(role_id, collection, action)
+           DO UPDATE SET
+             fields = excluded.fields,
+             filter = excluded.filter,
+             validation = excluded.validation,
+             presets = excluded.presets,
+             updated_at = excluded.updated_at`;
+    await execute_statement(
+      `INSERT INTO eterc_permissions
+        (role_id, collection, action, fields, filter, validation, presets, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ${conflict}`,
+      [roleId, collection, input.action, fields, filter, validation, presets, now, now]
+    );
   } else {
-    sqlite()
-      .prepare(
-        "DELETE FROM eterc_permissions WHERE role_id = ? AND collection = ? AND action = ?"
-      )
-      .run(roleId, collection, input.action);
+    await execute_statement(
+      "DELETE FROM eterc_permissions WHERE role_id = ? AND collection = ? AND action = ?",
+      [roleId, collection, input.action]
+    );
   }
   return list_permissions(roleId);
 }
 
-export function list_users(): CmsUserSummary[] {
-  ensure_cms_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT
-         a.id,
-         COALESCE(a.username, '') AS username,
-         COALESCE(a.email, '') AS email,
-         a.active,
-         a.eterc_user_id,
-         u.user_level_id,
-         r.id AS role_id,
-         COALESCE(r.name, '') AS role_name,
-         COALESCE(r.slug, '') AS role_slug
-       FROM eterc_administrators a
-       LEFT JOIN eterc_users u ON u.id = a.eterc_user_id
-       LEFT JOIN eterc_roles r ON r.user_level_id = u.user_level_id
-       ORDER BY a.id ASC`
-    )
-    .all() as Row[];
+export async function list_users(): Promise<CmsUserSummary[]> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    `SELECT
+       a.id,
+       COALESCE(a.username, '') AS username,
+       COALESCE(a.email, '') AS email,
+       a.active,
+       a.eterc_user_id,
+       u.user_level_id,
+       r.id AS role_id,
+       COALESCE(r.name, '') AS role_name,
+       COALESCE(r.slug, '') AS role_slug
+     FROM eterc_administrators a
+     LEFT JOIN eterc_users u ON u.id = a.eterc_user_id
+     LEFT JOIN eterc_roles r ON r.user_level_id = u.user_level_id
+     ORDER BY a.id ASC`
+  );
   return rows.map((row) => ({
     id: Number(row.id),
     username: String(row.username ?? ""),
@@ -633,82 +692,93 @@ export function list_users(): CmsUserSummary[] {
   }));
 }
 
-export function set_user_role(administratorId: number, roleId: number): CmsUserSummary {
-  const role = get_role_by_id(roleId);
+export async function set_user_role(
+  administratorId: number,
+  roleId: number
+): Promise<CmsUserSummary> {
+  const role = await get_role_by_id(roleId);
   if (!role) throw new EtHttpError(404, "Role not found.");
-  const admin = sqlite()
-    .prepare("SELECT * FROM eterc_administrators WHERE id = ? LIMIT 1")
-    .get(administratorId) as Row | undefined;
+  const admins = await query_rows(
+    "SELECT * FROM eterc_administrators WHERE id = ? LIMIT 1",
+    [administratorId]
+  );
+  const admin = admins[0];
   if (!admin) throw new EtHttpError(404, "User not found.");
 
   let userId = admin.eterc_user_id === null ? 0 : Number(admin.eterc_user_id);
   if (userId <= 0) {
-    const result = sqlite()
-      .prepare("INSERT INTO eterc_users (code, user_level_id) VALUES (?, ?)")
-      .run(crypto.randomBytes(16).toString("hex"), role.user_level_id);
-    userId = Number(result.lastInsertRowid);
-    sqlite()
-      .prepare("UPDATE eterc_administrators SET eterc_user_id = ? WHERE id = ?")
-      .run(userId, administratorId);
+    userId = await db.insert(
+      {
+        code: crypto.randomBytes(16).toString("hex"),
+        user_level_id: role.user_level_id,
+      },
+      "eterc_users"
+    );
+    await execute_statement(
+      "UPDATE eterc_administrators SET eterc_user_id = ? WHERE id = ?",
+      [userId, administratorId]
+    );
   } else {
-    sqlite()
-      .prepare("UPDATE eterc_users SET user_level_id = ? WHERE id = ?")
-      .run(role.user_level_id, userId);
+    await execute_statement(
+      "UPDATE eterc_users SET user_level_id = ? WHERE id = ?",
+      [role.user_level_id, userId]
+    );
   }
 
-  const updated = list_users().find((user) => user.id === administratorId);
+  const updated = (await list_users()).find(
+    (user) => user.id === administratorId
+  );
   if (!updated) throw new EtHttpError(500, "The user could not be updated.");
   return updated;
 }
 
-export function list_api_keys(): CmsApiKey[] {
-  ensure_cms_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name,
-         COALESCE((SELECT a.username FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
-         COALESCE((SELECT a.email FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
-       FROM eterc_api_keys k
-       LEFT JOIN eterc_roles r ON r.id = k.role_id
-       ORDER BY k.created_at DESC, k.id DESC`
-    )
-    .all() as Row[];
+export async function list_api_keys(): Promise<CmsApiKey[]> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    `SELECT k.*, COALESCE(r.name, '') AS role_name,
+       COALESCE((SELECT a.username FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+       COALESCE((SELECT a.email FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
+     FROM eterc_api_keys k
+     LEFT JOIN eterc_roles r ON r.id = k.role_id
+     ORDER BY k.created_at DESC, k.id DESC`
+  );
   return rows.map(apiKeyFromRow);
 }
 
-export function list_api_keys_for_user(userId: number): CmsApiKey[] {
-  ensure_cms_schema();
-  ensure_administrator_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name,
-         COALESCE((SELECT a.username FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
-         COALESCE((SELECT a.email FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
-       FROM eterc_api_keys k
-       LEFT JOIN eterc_roles r ON r.id = k.role_id
-       WHERE k.user_id = ?
-       ORDER BY k.created_at DESC, k.id DESC`
-    )
-    .all(userId) as Row[];
+export async function list_api_keys_for_user(
+  userId: number
+): Promise<CmsApiKey[]> {
+  await ensure_cms_schema();
+  await ensure_administrator_schema();
+  const rows = await query_rows(
+    `SELECT k.*, COALESCE(r.name, '') AS role_name,
+       COALESCE((SELECT a.username FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+       COALESCE((SELECT a.email FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
+     FROM eterc_api_keys k
+     LEFT JOIN eterc_roles r ON r.id = k.role_id
+     WHERE k.user_id = ?
+     ORDER BY k.created_at DESC, k.id DESC`,
+    [userId]
+  );
   return rows.map(apiKeyFromRow);
 }
 
-export function create_api_key(input: {
+export async function create_api_key(input: {
   name: string;
   roleId: number;
   userId?: number | null;
   expiresAt?: number | null;
-}): CmsApiKeyWithSecret {
-  ensure_cms_schema();
+}): Promise<CmsApiKeyWithSecret> {
+  await ensure_cms_schema();
   const name = String(input.name ?? "").trim();
   if (name.length < 2 || name.length > 80) {
     throw new EtHttpError(400, "API key names must contain between 2 and 80 characters.");
   }
-  const role = get_role_by_id(Number(input.roleId));
+  const role = await get_role_by_id(Number(input.roleId));
   if (!role) throw new EtHttpError(404, "Role not found.");
   if (!role.api_access) {
     throw new EtHttpError(403, "That role does not have API access.");
@@ -727,10 +797,13 @@ export function create_api_key(input: {
   let userId: number | null = null;
   if (input.userId !== null && input.userId !== undefined) {
     const candidate = Number(input.userId);
-    const user = sqlite()
-      .prepare("SELECT id FROM eterc_users WHERE id = ? LIMIT 1")
-      .get(candidate) as { id: number } | undefined;
-    if (!user) throw new EtHttpError(404, "The selected user was not found.");
+    const user = await query_rows<{ id: number }>(
+      "SELECT id FROM eterc_users WHERE id = ? LIMIT 1",
+      [candidate]
+    );
+    if (user.length === 0) {
+      throw new EtHttpError(404, "The selected user was not found.");
+    }
     userId = candidate;
   }
 
@@ -739,43 +812,41 @@ export function create_api_key(input: {
   const raw = `etk_${prefix}_${secret}`;
   const hash = crypto.createHash("sha256").update(raw).digest("hex");
   const now = nowSeconds();
-  const result = sqlite()
-    .prepare(
-      `INSERT INTO eterc_api_keys
-        (name, key_prefix, key_hash, role_id, user_id, active, expires_at, last_used_at, created_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, NULL, ?)`
-    )
-    .run(
+  const keyId = await db.insert(
+    {
       name,
-      prefix,
-      hash,
-      role.id,
-      userId,
-      expiresAt,
-      now
-    );
-  const row = sqlite()
-    .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name,
-         COALESCE((SELECT a.username FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
-         COALESCE((SELECT a.email FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
-       FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
-       WHERE k.id = ?`
-    )
-    .get(result.lastInsertRowid) as Row;
-  return { ...apiKeyFromRow(row), secret: raw };
+      key_prefix: prefix,
+      key_hash: hash,
+      role_id: role.id,
+      user_id: userId,
+      active: 1,
+      expires_at: expiresAt,
+      last_used_at: null,
+      created_at: now,
+    },
+    "eterc_api_keys"
+  );
+  const rows = await query_rows(
+    `SELECT k.*, COALESCE(r.name, '') AS role_name,
+       COALESCE((SELECT a.username FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+       COALESCE((SELECT a.email FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
+     FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
+     WHERE k.id = ?`,
+    [keyId]
+  );
+  return { ...apiKeyFromRow(rows[0]), secret: raw };
 }
 
 /**
  * Create a key for the signed-in user. The key inherits the user's current
  * role; callers cannot choose a different role or bind another account.
  */
-export function create_self_api_key(
+export async function create_self_api_key(
   principal: CmsPrincipal,
   input: { name: string; expiresAt?: number | null }
-): CmsApiKeyWithSecret {
+): Promise<CmsApiKeyWithSecret> {
   if (principal.kind !== "user" || principal.user_id === null) {
     throw new EtHttpError(403, "API keys cannot create other API keys.");
   }
@@ -791,32 +862,40 @@ export function create_self_api_key(
 }
 
 /** Revoke one key, but only when it belongs to the signed-in user. */
-export function revoke_self_api_key(principal: CmsPrincipal, keyId: number): void {
+export async function revoke_self_api_key(
+  principal: CmsPrincipal,
+  keyId: number
+): Promise<void> {
   if (principal.kind !== "user" || principal.user_id === null) {
     throw new EtHttpError(403, "API keys cannot revoke profile keys.");
   }
-  ensure_cms_schema();
-  const row = sqlite()
-    .prepare("SELECT user_id FROM eterc_api_keys WHERE id = ? LIMIT 1")
-    .get(keyId) as Row | undefined;
-  if (!row) throw new EtHttpError(404, "API key not found.");
-  if (Number(row.user_id ?? 0) !== principal.user_id) {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    "SELECT user_id FROM eterc_api_keys WHERE id = ? LIMIT 1",
+    [keyId]
+  );
+  if (rows.length === 0) throw new EtHttpError(404, "API key not found.");
+  if (Number(rows[0].user_id ?? 0) !== principal.user_id) {
     throw new EtHttpError(404, "API key not found.");
   }
-  revoke_api_key(keyId);
+  await revoke_api_key(keyId);
 }
 
-export function revoke_api_key(keyId: number): void {
-  ensure_cms_schema();
-  const result = sqlite()
-    .prepare("UPDATE eterc_api_keys SET active = 0 WHERE id = ?")
-    .run(keyId);
+export async function revoke_api_key(keyId: number): Promise<void> {
+  await ensure_cms_schema();
+  const result = await execute_statement(
+    "UPDATE eterc_api_keys SET active = 0 WHERE id = ?",
+    [keyId]
+  );
   if (result.changes === 0) throw new EtHttpError(404, "API key not found.");
 }
 
-export function delete_api_key(keyId: number): void {
-  ensure_cms_schema();
-  const result = sqlite().prepare("DELETE FROM eterc_api_keys WHERE id = ?").run(keyId);
+export async function delete_api_key(keyId: number): Promise<void> {
+  await ensure_cms_schema();
+  const result = await execute_statement(
+    "DELETE FROM eterc_api_keys WHERE id = ?",
+    [keyId]
+  );
   if (result.changes === 0) throw new EtHttpError(404, "API key not found.");
 }
 
@@ -826,22 +905,24 @@ function timing_safe_equal(left: string, right: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-export function verify_api_key(raw: string): CmsPrincipal | null {
-  ensure_cms_schema();
+export async function verify_api_key(
+  raw: string
+): Promise<CmsPrincipal | null> {
+  await ensure_cms_schema();
   const match = /^etk_([a-f0-9]{12})_([A-Za-z0-9_-]+)$/.exec(raw.trim());
   if (!match) return null;
   const [, prefix, secret] = match;
-  const row = sqlite()
-    .prepare(
-      `SELECT k.*, COALESCE(r.name, '') AS role_name,
-         COALESCE((SELECT a.username FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
-         COALESCE((SELECT a.email FROM eterc_administrators a
-                   WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
-       FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
-       WHERE k.key_prefix = ? LIMIT 1`
-    )
-    .get(prefix) as Row | undefined;
+  const rows = await query_rows(
+    `SELECT k.*, COALESCE(r.name, '') AS role_name,
+       COALESCE((SELECT a.username FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_name,
+       COALESCE((SELECT a.email FROM eterc_administrators a
+                 WHERE a.eterc_user_id = k.user_id LIMIT 1), '') AS user_email
+     FROM eterc_api_keys k LEFT JOIN eterc_roles r ON r.id = k.role_id
+     WHERE k.key_prefix = ? LIMIT 1`,
+    [prefix]
+  );
+  const row = rows[0];
   if (!row || !bool(row.active)) return null;
   const expiresAt = row.expires_at === null ? null : Number(row.expires_at);
   if (expiresAt !== null && expiresAt <= nowSeconds()) return null;
@@ -849,11 +930,12 @@ export function verify_api_key(raw: string): CmsPrincipal | null {
   const hash = crypto.createHash("sha256").update(rawKey).digest("hex");
   if (!timing_safe_equal(String(row.key_hash), hash)) return null;
 
-  const role = get_role_by_id(Number(row.role_id));
+  const role = await get_role_by_id(Number(row.role_id));
   if (!role || !role.api_access) return null;
-  sqlite()
-    .prepare("UPDATE eterc_api_keys SET last_used_at = ? WHERE id = ?")
-    .run(nowSeconds(), row.id);
+  await execute_statement(
+    "UPDATE eterc_api_keys SET last_used_at = ? WHERE id = ?",
+    [nowSeconds(), row.id]
+  );
 
   return {
     kind: "api_key",
@@ -866,17 +948,17 @@ export function verify_api_key(raw: string): CmsPrincipal | null {
   };
 }
 
-function principal_from_user(user: EtercUserObj): CmsPrincipal {
-  const role = get_role_by_level_id(Number(user.user_level_id));
+async function principal_from_user(user: EtercUserObj): Promise<CmsPrincipal> {
+  const role = await get_role_by_level_id(Number(user.user_level_id));
   if (!role) {
     throw new EtHttpError(403, "Your account has no role assigned.");
   }
-  const administrator = sqlite()
-    .prepare(
-      `SELECT username, email FROM eterc_administrators
-       WHERE eterc_user_id = ? LIMIT 1`
-    )
-    .get(Number(user.eterc_user_id)) as { username: string; email: string } | undefined;
+  const rows = await query_rows<{ username: string; email: string }>(
+    `SELECT username, email FROM eterc_administrators
+     WHERE eterc_user_id = ? LIMIT 1`,
+    [Number(user.eterc_user_id)]
+  );
+  const administrator = rows[0];
   return {
     kind: "user",
     role,
@@ -888,7 +970,9 @@ function principal_from_user(user: EtercUserObj): CmsPrincipal {
   };
 }
 
-export function resolve_principal(options: { requireApiAccess?: boolean } = {}): CmsPrincipal {
+export async function resolve_principal(
+  options: { requireApiAccess?: boolean } = {}
+): Promise<CmsPrincipal> {
   const context = get_context();
   const authorization = context.headers.get("authorization") ?? "";
   const bearer = authorization.toLowerCase().startsWith("bearer ")
@@ -898,7 +982,7 @@ export function resolve_principal(options: { requireApiAccess?: boolean } = {}):
   const rawKey = bearer.startsWith("etk_") ? bearer : headerKey;
 
   if (rawKey) {
-    const principal = verify_api_key(rawKey);
+    const principal = await verify_api_key(rawKey);
     if (!principal) {
       throw new EtHttpError(401, "The API key is invalid, expired or disabled.");
     }
@@ -909,26 +993,26 @@ export function resolve_principal(options: { requireApiAccess?: boolean } = {}):
   }
 
   const tokens = new Eterc_tokens();
-  const token = tokens.attempt_get_valid_token();
+  const token = await tokens.attempt_get_valid_token();
   if (token === false) {
     throw new EtHttpError(
       401,
       "Authentication required. Send an API key with the Authorization: Bearer header or an EtercToken header."
     );
   }
-  const user = tokens.get_user_obj(token);
+  const user = await tokens.get_user_obj(token);
   if (user === false) {
     throw new EtHttpError(401, "The supplied token is not valid.");
   }
-  const principal = principal_from_user(user);
+  const principal = await principal_from_user(user);
   if (options.requireApiAccess !== false && !principal.role.api_access) {
     throw new EtHttpError(403, "This role does not have API access.");
   }
   return principal;
 }
 
-export function require_admin_user(): CmsPrincipal {
-  const principal = resolve_principal({ requireApiAccess: false });
+export async function require_admin_user(): Promise<CmsPrincipal> {
+  const principal = await resolve_principal({ requireApiAccess: false });
   if (!principal.role.admin_access) {
     throw new EtHttpError(403, "You need the Admin role to open this area.");
   }
@@ -939,8 +1023,10 @@ export function require_admin_user(): CmsPrincipal {
  * Require a signed-in person (not an API key) for self-service account work.
  * App access is checked separately so an API-only role cannot open profile.
  */
-export function require_human_user(options: { requireAppAccess?: boolean } = {}): CmsPrincipal {
-  const principal = resolve_principal({ requireApiAccess: false });
+export async function require_human_user(
+  options: { requireAppAccess?: boolean } = {}
+): Promise<CmsPrincipal> {
+  const principal = await resolve_principal({ requireApiAccess: false });
   if (principal.kind !== "user" || principal.user_id === null) {
     throw new EtHttpError(403, "API keys cannot manage profile settings.");
   }
@@ -951,41 +1037,40 @@ export function require_human_user(options: { requireAppAccess?: boolean } = {})
 }
 
 /** Schema, role and API-key management require a signed-in administrator. */
-export function require_human_admin(): CmsPrincipal {
-  const principal = require_admin_user();
+export async function require_human_admin(): Promise<CmsPrincipal> {
+  const principal = await require_admin_user();
   if (principal.kind !== "user") {
     throw new EtHttpError(403, "API keys cannot manage the project schema or access control.");
   }
   return principal;
 }
 
-function direct_permission(
+async function direct_permission(
   roleId: number,
   collection: string,
   action: CmsPermissionAction
-): CmsPermission | null {
-  const row = sqlite()
-    .prepare(
-      `SELECT * FROM eterc_permissions
-       WHERE role_id = ? AND (collection = ? OR collection = '*') AND action = ?
-       ORDER BY CASE WHEN collection = '*' THEN 1 ELSE 0 END
-       LIMIT 1`
-    )
-    .get(roleId, collection, action) as Row | undefined;
-  return row ? permissionFromRow(row) : null;
+): Promise<CmsPermission | null> {
+  const rows = await query_rows(
+    `SELECT * FROM eterc_permissions
+     WHERE role_id = ? AND (collection = ? OR collection = '*') AND action = ?
+     ORDER BY CASE WHEN collection = '*' THEN 1 ELSE 0 END
+     LIMIT 1`,
+    [roleId, collection, action]
+  );
+  return rows[0] ? permissionFromRow(rows[0]) : null;
 }
 
-export function find_permission(
+export async function find_permission(
   roleId: number,
   collection: string,
   action: CmsPermissionAction,
   seen: Set<number> = new Set()
-): CmsPermission | null {
+): Promise<CmsPermission | null> {
   if (seen.has(roleId)) return null;
   seen.add(roleId);
-  const permission = direct_permission(roleId, collection, action);
+  const permission = await direct_permission(roleId, collection, action);
   if (permission) return permission;
-  const role = get_role_by_id(roleId);
+  const role = await get_role_by_id(roleId);
   if (!role || role.parent_role_id === null) return null;
   return find_permission(role.parent_role_id, collection, action, seen);
 }
@@ -1009,13 +1094,13 @@ function full_permission(
   };
 }
 
-export function authorize(
+export async function authorize(
   principal: CmsPrincipal,
   collection: string,
   action: CmsPermissionAction
-): CmsPermission {
+): Promise<CmsPermission> {
   if (principal.role.admin_access) return full_permission(principal, collection, action);
-  const permission = find_permission(principal.role.id, collection, action);
+  const permission = await find_permission(principal.role.id, collection, action);
   if (!permission) {
     throw new EtHttpError(
       403,
@@ -1025,20 +1110,31 @@ export function authorize(
   return permission;
 }
 
-export function can_use_collection(
+export async function can_use_collection(
   principal: CmsPrincipal,
   collection: string
-): boolean {
+): Promise<boolean> {
   if (principal.role.admin_access) return true;
-  return CMS_ACTIONS.some(
-    (action) => find_permission(principal.role.id, collection, action) !== null
-  );
+  for (const action of CMS_ACTIONS) {
+    if ((await find_permission(principal.role.id, collection, action)) !== null) {
+      return true;
+    }
+  }
+  return false;
 }
 
-export function accessible_collections(principal: CmsPrincipal): string[] {
-  const all = list_collections({ include_hidden: true }).map((collection) => collection.name);
+export async function accessible_collections(
+  principal: CmsPrincipal
+): Promise<string[]> {
+  const all = (await list_collections({ include_hidden: true })).map(
+    (collection) => collection.name
+  );
   if (principal.role.admin_access) return all;
-  return all.filter((name) => can_use_collection(principal, name));
+  const accessible: string[] = [];
+  for (const name of all) {
+    if (await can_use_collection(principal, name)) accessible.push(name);
+  }
+  return accessible;
 }
 
 export function filter_fields(
@@ -1053,16 +1149,16 @@ export function filter_fields(
   );
 }
 
-export function assert_field_access(
+export async function assert_field_access(
   principal: CmsPrincipal,
   collection: string,
   action: CmsPermissionAction,
   input: Record<string, unknown>,
   policy?: CmsPermission
-): void {
-  const permission = policy ?? authorize(principal, collection, action);
+): Promise<void> {
+  const permission = policy ?? (await authorize(principal, collection, action));
   if (permission.fields.includes("*")) return;
-  const primaryKey = get_collection(collection).primary_key;
+  const primaryKey = (await get_collection(collection)).primary_key;
   const allowed = new Set(permission.fields);
   const presetFields =
     action === "create" ? new Set(permission.presets.map((preset) => preset.field)) : new Set<string>();
@@ -1125,16 +1221,18 @@ function resolve_rule_variable(value: unknown, principal: CmsPrincipal): Resolve
   }
 }
 
-function resolve_rule_group(
+async function resolve_rule_group(
   group: CmsRuleGroup,
   principal: CmsPrincipal,
   collection: string
-): CmsRuleGroup {
+): Promise<CmsRuleGroup> {
   if (group.conditions.length === 0) return empty_rule_group();
   if (collection === "*") {
     throw new EtHttpError(403, "Wildcard policies cannot evaluate row conditions.");
   }
-  const fields = new Set(collection_fields(collection).map((field) => field.name));
+  const fields = new Set(
+    (await collection_fields(collection)).map((field) => field.name)
+  );
   const conditions: CmsRuleCondition[] = [];
   for (const condition of group.conditions) {
     if (!fields.has(condition.field)) {
@@ -1184,12 +1282,12 @@ function resolve_rule_group(
   return { match: group.match, conditions };
 }
 
-export function rule_group_to_filter(
+export async function rule_group_to_filter(
   group: CmsRuleGroup,
   principal: CmsPrincipal,
   collection: string
-): Record<string, unknown> | undefined {
-  const resolved = resolve_rule_group(group, principal, collection);
+): Promise<Record<string, unknown> | undefined> {
+  const resolved = await resolve_rule_group(group, principal, collection);
   if (resolved.conditions.length === 0) return undefined;
   const clauses = resolved.conditions.map((condition) => ({
     [condition.field]: { [condition.operator]: condition.value },
@@ -1295,26 +1393,28 @@ function condition_matches(
   }
 }
 
-export function row_matches_rule_group(
+export async function row_matches_rule_group(
   row: Record<string, unknown>,
   group: CmsRuleGroup,
   principal: CmsPrincipal,
   collection: string
-): boolean {
-  const resolved = resolve_rule_group(group, principal, collection);
+): Promise<boolean> {
+  const resolved = await resolve_rule_group(group, principal, collection);
   if (resolved.conditions.length === 0) return true;
   const matches = resolved.conditions.map((condition) => condition_matches(row, condition));
   return resolved.match === "any" ? matches.some(Boolean) : matches.every(Boolean);
 }
 
-export function apply_presets(
+export async function apply_presets(
   input: Record<string, unknown>,
   presets: CmsRulePreset[],
   principal: CmsPrincipal,
   collection: string
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   if (presets.length === 0) return { ...input };
-  const fields = new Set(collection_fields(collection).map((field) => field.name));
+  const fields = new Set(
+    (await collection_fields(collection)).map((field) => field.name)
+  );
   const values = { ...input };
   for (const preset of presets) {
     if (!fields.has(preset.field)) {
@@ -1332,14 +1432,14 @@ export function apply_presets(
   return values;
 }
 
-export function assert_rule_group(
+export async function assert_rule_group(
   row: Record<string, unknown>,
   group: CmsRuleGroup,
   principal: CmsPrincipal,
   collection: string,
   label: string
-): void {
-  if (!row_matches_rule_group(row, group, principal, collection)) {
+): Promise<void> {
+  if (!(await row_matches_rule_group(row, group, principal, collection))) {
     throw new EtHttpError(
       403,
       `The ${label} policy for '${collection}' rejected this record.`
@@ -1347,31 +1447,35 @@ export function assert_rule_group(
   }
 }
 
-export function app_access_for_user_level(levelId: number): boolean {
-  const role = get_role_by_level_id(levelId);
+export async function app_access_for_user_level(
+  levelId: number
+): Promise<boolean> {
+  const role = await get_role_by_level_id(levelId);
   return role ? role.app_access : false;
 }
 
 /** Account, role, policies, and keys for the signed-in user's profile page. */
-export function get_profile_overview(principal: CmsPrincipal): CmsProfileOverview {
-  ensure_cms_schema();
-  ensure_administrator_schema();
+export async function get_profile_overview(
+  principal: CmsPrincipal
+): Promise<CmsProfileOverview> {
+  await ensure_cms_schema();
+  await ensure_administrator_schema();
   if (principal.kind !== "user" || principal.user_id === null) {
     throw new EtHttpError(403, "Profile data is only available to signed-in users.");
   }
 
-  const row = sqlite()
-    .prepare(
-      `SELECT id, username, email, first_name, last_name, title, active, eterc_user_id
-         FROM eterc_administrators
-        WHERE eterc_user_id = ?
-        LIMIT 1`
-    )
-    .get(principal.user_id) as Row | undefined;
+  const rows = await query_rows(
+    `SELECT id, username, email, first_name, last_name, title, active, eterc_user_id
+       FROM eterc_administrators
+      WHERE eterc_user_id = ?
+      LIMIT 1`,
+    [principal.user_id]
+  );
+  const row = rows[0];
   if (!row) throw new EtHttpError(404, "Your account was not found.");
 
   const parent = principal.role.parent_role_id
-    ? get_role_by_id(principal.role.parent_role_id)
+    ? await get_role_by_id(principal.role.parent_role_id)
     : null;
 
   return {
@@ -1390,12 +1494,12 @@ export function get_profile_overview(principal: CmsPrincipal): CmsProfileOvervie
     },
     role: principal.role,
     parent_role_name: parent ? parent.name : null,
-    permissions: list_permissions(principal.role.id),
-    api_keys: list_api_keys_for_user(principal.user_id),
+    permissions: await list_permissions(principal.role.id),
+    api_keys: await list_api_keys_for_user(principal.user_id),
   };
 }
 
-export function get_access_overview(): {
+export async function get_access_overview(): Promise<{
   roles: Array<CmsRole & { user_count: number }>;
   users: CmsUserSummary[];
   api_keys: CmsApiKey[];
@@ -1405,33 +1509,39 @@ export function get_access_overview(): {
     label: string;
     fields: Array<Pick<CmsField, "name" | "label" | "type" | "required" | "hidden" | "readonly">>;
   }>;
-} {
-  const roles = list_roles();
+}> {
+  const roles = await list_roles();
   const permissions: Record<number, CmsPermission[]> = {};
-  for (const role of roles) permissions[role.id] = list_permissions(role.id);
+  for (const role of roles) {
+    permissions[role.id] = await list_permissions(role.id);
+  }
   return {
     roles,
-    users: list_users(),
-    api_keys: list_api_keys(),
+    users: await list_users(),
+    api_keys: await list_api_keys(),
     permissions,
-    collections: list_collections({ include_hidden: true }).map((collection) => ({
-      name: collection.name,
-      label: collection.label || collection.name,
-      fields: collection.fields.map((field) => ({
-        name: field.name,
-        label: field.label || field.name,
-        type: field.type,
-        required: field.required,
-        hidden: field.hidden,
-        readonly: field.readonly,
-      })),
-    })),
+    collections: (await list_collections({ include_hidden: true })).map(
+      (collection) => ({
+        name: collection.name,
+        label: collection.label || collection.name,
+        fields: collection.fields.map((field) => ({
+          name: field.name,
+          label: field.label || field.name,
+          type: field.type,
+          required: field.required,
+          hidden: field.hidden,
+          readonly: field.readonly,
+        })),
+      })
+    ),
   };
 }
 
-export function role_collection_matrix(roleId: number): Record<string, Record<CmsPermissionAction, boolean>> {
+export async function role_collection_matrix(
+  roleId: number
+): Promise<Record<string, Record<CmsPermissionAction, boolean>>> {
   const matrix: Record<string, Record<CmsPermissionAction, boolean>> = {};
-  for (const permission of list_permissions(roleId)) {
+  for (const permission of await list_permissions(roleId)) {
     matrix[permission.collection] ??= {
       read: false,
       create: false,

@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+﻿import crypto from "node:crypto";
 import { db } from "./db";
 import { get_context } from "./request-context";
 import { session_get, session_set, session_unset } from "./session";
@@ -32,16 +32,16 @@ export function hashAuthToken(token: string): string {
 
 let tokenMigrationDone = false;
 
-function migrateLegacyTokenHashes(): void {
+async function migrateLegacyTokenHashes(): Promise<void> {
   if (tokenMigrationDone) return;
   try {
-    const rows = db.query_bind("SELECT id, token FROM eterc_tokens", {}) as Array<{
+    const rows = (await db.query_bind("SELECT id, token FROM eterc_tokens", {})) as Array<{
       id: number;
       token: string | null;
     }>;
     for (const row of rows) {
       if (!row.token || HASHED_TOKEN.test(row.token)) continue;
-      db.query_bind("UPDATE eterc_tokens SET token = :token WHERE id = :id", {
+      await db.query_bind("UPDATE eterc_tokens SET token = :token WHERE id = :id", {
         token: hashAuthToken(row.token),
         id: row.id,
       });
@@ -55,12 +55,15 @@ function migrateLegacyTokenHashes(): void {
 export class Eterc_tokens {
   readonly moduleName = "eterc_tokens";
 
-  constructor() {
-    migrateLegacyTokenHashes();
+  private migration: Promise<void> | null = null;
+
+  private ensureMigrated(): Promise<void> {
+    if (!this.migration) this.migration = migrateLegacyTokenHashes();
+    return this.migration;
   }
 
   /** Gather candidate tokens from header, cookie and session. */
-  gather_user_tokens(): string[] {
+  async gather_user_tokens(): Promise<string[]> {
     const ctx = get_context();
     const tokens: string[] = [];
 
@@ -70,13 +73,13 @@ export class Eterc_tokens {
     const cookie = ctx.cookies[AUTH_TOKEN_COOKIE];
     if (cookie) tokens.push(escape_html(cookie));
 
-    const session = session_get<string>("eterctoken");
+    const session = await session_get<string>("eterctoken");
     if (session) tokens.push(escape_html(session));
 
     return [...new Set(tokens)];
   }
 
-  private buildTokenArray(token?: string | null): string[] {
+  private async buildTokenArray(token?: string | null): Promise<string[]> {
     if (token !== undefined && token !== null) {
       return [token];
     }
@@ -84,7 +87,7 @@ export class Eterc_tokens {
     const tokens: string[] = [];
     const cookie = ctx.cookies[AUTH_TOKEN_COOKIE];
     if (cookie) tokens.push(escape_html(cookie));
-    const session = session_get<string>("eterctoken");
+    const session = await session_get<string>("eterctoken");
     if (session) tokens.push(escape_html(session));
     const header = ctx.headers.get("eterctoken");
     if (header) tokens.push(escape_html(header));
@@ -92,9 +95,10 @@ export class Eterc_tokens {
   }
 
   /** Validate tokens against a single user level. Returns token or false. */
-  validate_token_single_level(userTokens: string[], userLevel: number): string | false {
+  async validate_token_single_level(userTokens: string[], userLevel: number): Promise<string | false> {
+    await this.ensureMigrated();
     for (const token of userTokens) {
-      const row = db.query_bind(
+      const row = await db.query_bind(
         `SELECT eterc_tokens.token AS token
            FROM eterc_tokens
            INNER JOIN eterc_users ON eterc_tokens.user_id = eterc_users.id
@@ -109,7 +113,8 @@ export class Eterc_tokens {
   }
 
   /** Validate tokens against multiple user levels. */
-  validate_token_multi_level(userTokens: string[], userLevels: number[]): string | false {
+  async validate_token_multi_level(userTokens: string[], userLevels: number[]): Promise<string | false> {
+    await this.ensureMigrated();
     for (const token of userTokens) {
       const levels = userLevels
         .map((level, index) => ({ name: `level_${index}`, level }))
@@ -122,7 +127,7 @@ export class Eterc_tokens {
           { params: {} as Record<string, number>, conditions: [] as string[] }
         );
 
-      const row = db.query_bind(
+      const row = await db.query_bind(
         `SELECT eterc_tokens.token AS token
            FROM eterc_tokens
            INNER JOIN eterc_users ON eterc_tokens.user_id = eterc_users.id
@@ -137,9 +142,10 @@ export class Eterc_tokens {
   }
 
   /** Validate tokens against any user level. */
-  validate_token_any_level(userTokens: string[]): string | false {
+  async validate_token_any_level(userTokens: string[]): Promise<string | false> {
+    await this.ensureMigrated();
     for (const token of userTokens) {
-      const rows = db.query_bind(
+      const rows = await db.query_bind(
         `SELECT token FROM eterc_tokens WHERE token = :token AND expiry_date > :now`,
         { token: hashAuthToken(token), now: Math.floor(Date.now() / 1000) }
       ) as Array<{ token: string }>;
@@ -149,21 +155,23 @@ export class Eterc_tokens {
   }
 
   /** Delete specific tokens. */
-  delete_tokens(tokens: string[]): void {
+  async delete_tokens(tokens: string[]): Promise<void> {
+    await this.ensureMigrated();
     for (const token of tokens) {
-      db.query_bind("DELETE FROM eterc_tokens WHERE token = :token", {
+      await db.query_bind("DELETE FROM eterc_tokens WHERE token = :token", {
         token: hashAuthToken(token),
       });
     }
   }
 
   /** Delete expired tokens (optionally also all tokens of one user). */
-  delete_old_tokens(userId?: number | null): void {
+  async delete_old_tokens(userId?: number | null): Promise<void> {
+    await this.ensureMigrated();
     const now = Math.floor(Date.now() / 1000);
     if (userId === undefined || userId === null) {
-      db.query_bind("DELETE FROM eterc_tokens WHERE expiry_date < :now", { now });
+      await db.query_bind("DELETE FROM eterc_tokens WHERE expiry_date < :now", { now });
     } else {
-      db.query_bind("DELETE FROM eterc_tokens WHERE expiry_date < :now OR user_id = :userId", {
+      await db.query_bind("DELETE FROM eterc_tokens WHERE expiry_date < :now OR user_id = :userId", {
         now,
         userId,
       });
@@ -171,11 +179,12 @@ export class Eterc_tokens {
   }
 
   /** Eterc user id for a token (or the ambient token sources). */
-  get_user_id(token?: string | null): number | false {
-    const tokens = this.buildTokenArray(token);
+  async get_user_id(token?: string | null): Promise<number | false> {
+    await this.ensureMigrated();
+    const tokens = await this.buildTokenArray(token);
     if (tokens.length === 0) return false;
     for (const value of tokens) {
-      const rows = db.query_bind("SELECT user_id FROM eterc_tokens WHERE token = :token", {
+      const rows = await db.query_bind("SELECT user_id FROM eterc_tokens WHERE token = :token", {
         token: hashAuthToken(value),
       }) as Array<{ user_id: number }>;
       if (rows.length > 0) return Number(rows[0].user_id);
@@ -184,12 +193,13 @@ export class Eterc_tokens {
   }
 
   /** Full Eterc user object for a token (or the ambient token sources). */
-  get_user_obj(token?: string | null): EtercUserObj | false {
-    const tokens = this.buildTokenArray(token);
+  async get_user_obj(token?: string | null): Promise<EtercUserObj | false> {
+    await this.ensureMigrated();
+    const tokens = await this.buildTokenArray(token);
     if (tokens.length === 0) return false;
 
     for (const value of tokens) {
-      const rows = db.query_bind(
+      const rows = await db.query_bind(
         `SELECT
             u.code as eterc_user_code,
             u.user_level_id as user_level_id,
@@ -209,19 +219,20 @@ export class Eterc_tokens {
   }
 
   /** Title of the user level associated with the token. */
-  get_user_level(token?: string | null): string | false {
+  async get_user_level(token?: string | null): Promise<string | false> {
+    await this.ensureMigrated();
     if (!token) {
-      const userObj = this.get_user_obj();
+      const userObj = await this.get_user_obj();
       if (userObj === false) return false;
       token = userObj.token;
     }
-    const userObj = this.get_user_obj(token);
+    const userObj = await this.get_user_obj(token);
     return userObj !== false ? (userObj.user_level ?? false) : false;
   }
 
   /** Attempt to find a valid token, optionally filtered by user level(s). */
-  attempt_get_valid_token(userLevels: number | number[] | null = null): string | false {
-    const userTokens = this.gather_user_tokens();
+  async attempt_get_valid_token(userLevels: number | number[] | null = null): Promise<string | false> {
+    const userTokens = await this.gather_user_tokens();
     if (userTokens.length === 0) return false;
 
     if (Array.isArray(userLevels)) {
@@ -237,12 +248,12 @@ export class Eterc_tokens {
    * Generate a token for a user.
    * data: { user_id, expiry_date?, set_cookie?, code? }
    */
-  generate_token(data: {
+  async generate_token(data: {
     user_id: number;
     expiry_date?: number;
     set_cookie?: boolean;
     code?: string;
-  }): string {
+  }): Promise<string> {
     const ctx = get_context();
     const token = make_rand_str(32);
     const expiryDate = data.expiry_date ?? Math.floor(Date.now() / 1000) + DEFAULT_TOKEN_LIFESPAN;
@@ -255,7 +266,7 @@ export class Eterc_tokens {
     if (data.code !== undefined) {
       dbData.code = data.code;
     }
-    db.insert(dbData, "eterc_tokens");
+    await db.insert(dbData, "eterc_tokens");
 
     if (data.set_cookie === true) {
       if (ctx.canSetCookies) {
@@ -272,21 +283,21 @@ export class Eterc_tokens {
         });
       }
     } else {
-      session_set("eterctoken", token);
+      await session_set("eterctoken", token);
     }
 
     return token;
   }
 
   /** Regenerate (rotate) an existing token with a new expiry date. */
-  regenerate_token(oldToken: string, expiryDate: number): string | false {
-    const rows = db.query_bind("SELECT * FROM eterc_tokens WHERE token = :token LIMIT 1", {
+  async regenerate_token(oldToken: string, expiryDate: number): Promise<string | false> {
+    const rows = await db.query_bind("SELECT * FROM eterc_tokens WHERE token = :token LIMIT 1", {
       token: hashAuthToken(oldToken),
     }) as TokenRow[];
     if (rows.length === 0) return false;
 
     const newToken = make_rand_str(32);
-    db.update(
+    await db.update(
       rows[0].id,
       { expiry_date: expiryDate, token: hashAuthToken(newToken) },
       "eterc_tokens"
@@ -295,14 +306,14 @@ export class Eterc_tokens {
   }
 
   /** Destroy the ambient token(s): session + cookie + database rows. */
-  destroy(): void {
+  async destroy(): Promise<void> {
     const ctx = get_context();
     const tokensToDelete: string[] = [];
 
-    const sessionToken = session_get<string>("eterctoken");
+    const sessionToken = await session_get<string>("eterctoken");
     if (sessionToken) {
       tokensToDelete.push(sessionToken);
-      session_unset("eterctoken");
+      await session_unset("eterctoken");
     }
 
     const cookieToken = ctx.cookies[AUTH_TOKEN_COOKIE];
@@ -323,10 +334,15 @@ export class Eterc_tokens {
     }
 
     if (tokensToDelete.length > 0) {
-      this.delete_tokens(tokensToDelete);
+      await this.delete_tokens(tokensToDelete);
     }
-    this.delete_old_tokens();
+    await this.delete_old_tokens();
   }
 }
 
 export const eterc_tokens = new Eterc_tokens();
+
+
+
+
+

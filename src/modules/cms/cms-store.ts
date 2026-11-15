@@ -1,4 +1,8 @@
-import { sqlite, type Row } from "@/engine/db";
+import crypto from "node:crypto";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
+import type { IDatabaseAdapter } from "@/engine/contracts/database";
+import { db, type Db, type Row } from "@/engine/db";
+import { prepareQuery } from "@/engine/db/sql";
 import { EtHttpError } from "@/engine/signals";
 import {
   CMS_FIELD_TYPES,
@@ -50,12 +54,74 @@ const MAX_LIMIT = 200;
 const UUID_DEFAULT_SQL =
   "(lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1,1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))))";
 
+function uuidDefaultSql(): string {
+  if (activeDbAdapter.dialect === "postgres") return "gen_random_uuid()";
+  if (activeDbAdapter.dialect === "mysql") return "(UUID())";
+  return UUID_DEFAULT_SQL;
+}
+
+function timestampDefaultSql(): string {
+  return activeDbAdapter.dialect === "sqlite" || activeDbAdapter.dialect === "libsql"
+    ? "(datetime('now'))"
+    : "CURRENT_TIMESTAMP";
+}
+
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
 function bool(value: unknown): boolean {
   return value === true || value === 1 || value === "1" || value === "true";
+}
+
+/**
+ * Raw SQL helpers bound to a database adapter. The `Db` facade is used for
+ * schema inspection; these helpers keep dialect placeholder rewriting in one
+ * place for the custom SQL this store builds at runtime.
+ */
+type SqlClient = IDatabaseAdapter | Db;
+
+function isFacade(client: SqlClient): client is Db {
+  return typeof (client as Db).query_bind === "function";
+}
+
+function client_dialect(client: SqlClient): string {
+  return isFacade(client) ? activeDbAdapter.dialect : client.dialect;
+}
+
+async function query_rows<T = Row>(
+  sql: string,
+  params: unknown[] = [],
+  client: SqlClient = activeDbAdapter
+): Promise<T[]> {
+  if (isFacade(client)) {
+    return (await client.query_bind(sql, params)) as T[];
+  }
+  const prepared = prepareQuery(sql, params, client.dialect);
+  return client.query<T>(prepared.sql, prepared.params as unknown[]);
+}
+
+async function execute_statement(
+  sql: string,
+  params: unknown[] = [],
+  client: SqlClient = activeDbAdapter
+): Promise<{ changes: number; lastInsertRowid: number }> {
+  if (isFacade(client)) {
+    const result = (await client.query_bind(sql, params)) as {
+      affectedRows?: number;
+      lastInsertId?: number;
+    };
+    return {
+      changes: Number(result.affectedRows ?? 0),
+      lastInsertRowid: Number(result.lastInsertId ?? 0),
+    };
+  }
+  const prepared = prepareQuery(sql, params, client.dialect);
+  const result = await client.execute(prepared.sql, prepared.params as unknown[]);
+  return {
+    changes: result.changes,
+    lastInsertRowid: Number(result.lastInsertRowid ?? 0),
+  };
 }
 
 function fieldFromRow(row: Row): CmsField {
@@ -211,43 +277,113 @@ function assert_collection_name(name: string): void {
   }
 }
 
+function bounded_index_name(prefix: string, collectionName: string, fieldName: string): string {
+  const raw = `${prefix}_${collectionName}_${fieldName}`;
+  if (raw.length <= 60) return raw;
+  const digest = crypto.createHash("sha1").update(raw).digest("hex").slice(0, 8);
+  return `${raw.slice(0, 50)}_${digest}`;
+}
+
 function unique_index_name(collectionName: string, fieldName: string): string {
-  return `cms_uq_${collectionName}_${fieldName}`;
+  return bounded_index_name("cms_uq", collectionName, fieldName);
 }
 
-function create_unique_index(collectionName: string, fieldName: string): void {
-  sqlite().exec(
-    `CREATE UNIQUE INDEX IF NOT EXISTS ${quote_identifier(
-      unique_index_name(collectionName, fieldName)
-    )} ON ${quote_identifier(collectionName)} (${quote_identifier(fieldName)})`
+async function index_exists_mysql(
+  name: string,
+  adapter: SqlClient = activeDbAdapter
+): Promise<boolean> {
+  if (client_dialect(adapter) !== "mysql") return false;
+  const result = await query_rows<{ name: string }>(
+    "SELECT index_name AS name FROM information_schema.statistics WHERE table_schema = DATABASE() AND index_name = ? LIMIT 1",
+    [name],
+    adapter
+  );
+  return result.length > 0;
+}
+
+async function create_index(
+  name: string,
+  collectionName: string,
+  columns: string[],
+  unique: boolean,
+  adapter: SqlClient = activeDbAdapter
+): Promise<void> {
+  const prefix = unique ? "CREATE UNIQUE INDEX" : "CREATE INDEX";
+  const ifNotExists = client_dialect(adapter) === "mysql" ? "" : " IF NOT EXISTS";
+  try {
+    await execute_statement(
+      `${prefix}${ifNotExists} ${quote_identifier(name)} ON ${quote_identifier(
+        collectionName
+      )} (${columns.map(quote_identifier).join(", ")})`,
+      [],
+      adapter
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      client_dialect(adapter) === "mysql" &&
+      /duplicate key name|already exists/i.test(message)
+    ) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function create_unique_index(
+  collectionName: string,
+  fieldName: string,
+  adapter: SqlClient = activeDbAdapter
+): Promise<void> {
+  await create_index(
+    unique_index_name(collectionName, fieldName),
+    collectionName,
+    [fieldName],
+    true,
+    adapter
   );
 }
 
-function drop_unique_index(collectionName: string, fieldName: string): void {
-  sqlite().exec(
-    `DROP INDEX IF EXISTS ${quote_identifier(unique_index_name(collectionName, fieldName))}`
+async function drop_unique_index(
+  collectionName: string,
+  fieldName: string,
+  adapter: SqlClient = activeDbAdapter
+): Promise<void> {
+  const name = unique_index_name(collectionName, fieldName);
+  if (client_dialect(adapter) === "mysql") {
+    if (!(await index_exists_mysql(name, adapter))) return;
+    await execute_statement(
+      `DROP INDEX ${quote_identifier(name)} ON ${quote_identifier(collectionName)}`,
+      [],
+      adapter
+    );
+    return;
+  }
+  await execute_statement(
+    `DROP INDEX IF EXISTS ${quote_identifier(name)}`,
+    [],
+    adapter
   );
 }
 
-function table_exists(name: string): boolean {
-  const row = sqlite()
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(name) as { name: string } | undefined;
-  return row !== undefined;
+async function table_exists(name: string): Promise<boolean> {
+  return db.table_exists(name);
 }
 
-function collection_row(name: string): Row | undefined {
-  return sqlite()
-    .prepare("SELECT * FROM cms_collections WHERE name = ? LIMIT 1")
-    .get(name) as Row | undefined;
+async function collection_row(name: string): Promise<Row | undefined> {
+  const rows = await query_rows(
+    "SELECT * FROM cms_collections WHERE name = ? LIMIT 1",
+    [name]
+  );
+  return rows[0];
 }
 
-function field_rows(collectionId: number): CmsField[] {
-  return (
-    sqlite()
-      .prepare("SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC")
-      .all(collectionId) as Row[]
-  ).map(fieldFromRow);
+async function field_rows(collectionId: number): Promise<CmsField[]> {
+  const rows = await query_rows(
+    "SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC",
+    [collectionId]
+  );
+  return rows.map(fieldFromRow);
 }
 
 function system_sort_field(fields: CmsField[]): CmsField | undefined {
@@ -261,77 +397,91 @@ function system_sort_field(fields: CmsField[]): CmsField | undefined {
 }
 
 function sort_index_name(collectionName: string, fieldName: string): string {
-  return `cms_sort_${collectionName}_${fieldName}`;
+  return bounded_index_name("cms_sort", collectionName, fieldName);
 }
 
-function ensure_sort_index(collectionName: string, fieldName: string): void {
-  sqlite().exec(
-    `CREATE INDEX IF NOT EXISTS ${quote_identifier(
-      sort_index_name(collectionName, fieldName)
-    )} ON ${quote_identifier(collectionName)} (${quote_identifier(fieldName)})`
+async function ensure_sort_index(
+  collectionName: string,
+  fieldName: string,
+  adapter: SqlClient = activeDbAdapter
+): Promise<void> {
+  await create_index(
+    sort_index_name(collectionName, fieldName),
+    collectionName,
+    [fieldName],
+    false,
+    adapter
   );
 }
 
-function require_collection(name: string): { collection: CmsCollection; fields: CmsField[] } {
-  ensure_cms_schema();
+async function require_collection(
+  name: string
+): Promise<{ collection: CmsCollection; fields: CmsField[] }> {
+  await ensure_cms_schema();
   if (!is_safe_identifier(name)) {
     throw new EtHttpError(400, "Invalid collection name.");
   }
-  const row = collection_row(name);
+  const row = await collection_row(name);
   if (!row) {
     throw new EtHttpError(404, `Collection '${name}' was not found.`);
   }
   const collection = collectionFromRow(row);
-  const fields = field_rows(Number(row.id));
+  const fields = await field_rows(Number(row.id));
   const sortField = system_sort_field(fields);
-  if (sortField) ensure_sort_index(name, sortField.name);
+  if (sortField) await ensure_sort_index(name, sortField.name);
   return { collection, fields };
 }
 
-function count_rows(table: string): number {
+async function count_rows(table: string): Promise<number> {
   try {
-    const row = sqlite()
-      .prepare(`SELECT COUNT(*) AS count FROM ${quote_identifier(table)}`)
-      .get() as { count: number };
-    return Number(row.count);
+    const rows = await query_rows(
+      `SELECT COUNT(*) AS count FROM ${quote_identifier(table)}`
+    );
+    return Number(rows[0]?.count ?? 0);
   } catch {
     return 0;
   }
 }
 
-export function list_collections(options: { include_hidden?: boolean } = {}): CmsCollectionWithFields[] {
-  ensure_cms_schema();
-  const rows = sqlite()
-    .prepare(
-      `SELECT * FROM cms_collections
-       ${options.include_hidden ? "" : "WHERE hidden = 0"}
-       ORDER BY system ASC, label ASC`
-    )
-    .all() as Row[];
-  return rows.map((row) => {
+export async function list_collections(
+  options: { include_hidden?: boolean } = {}
+): Promise<CmsCollectionWithFields[]> {
+  await ensure_cms_schema();
+  const rows = await query_rows(
+    `SELECT * FROM cms_collections
+     ${options.include_hidden ? "" : "WHERE hidden = 0"}
+     ORDER BY system ASC, label ASC`
+  );
+  const collections: CmsCollectionWithFields[] = [];
+  for (const row of rows) {
     const collection = collectionFromRow(row);
-    return {
+    collections.push({
       ...collection,
-      fields: field_rows(collection.id),
-      item_count: count_rows(collection.name),
-    };
-  });
+      fields: await field_rows(collection.id),
+      item_count: await count_rows(collection.name),
+    });
+  }
+  return collections;
 }
 
-export function get_collection(name: string): CmsCollectionWithFields {
-  const { collection, fields } = require_collection(name);
+export async function get_collection(
+  name: string
+): Promise<CmsCollectionWithFields> {
+  const { collection, fields } = await require_collection(name);
   return {
     ...collection,
     fields,
-    item_count: count_rows(collection.name),
+    item_count: await count_rows(collection.name),
   };
 }
 
-export function create_collection(input: CmsCollectionInput): CmsCollectionWithFields {
-  ensure_cms_schema();
+export async function create_collection(
+  input: CmsCollectionInput
+): Promise<CmsCollectionWithFields> {
+  await ensure_cms_schema();
   const name = String(input.name ?? "").trim();
   assert_collection_name(name);
-  if (table_exists(name)) {
+  if (await table_exists(name)) {
     throw new EtHttpError(409, `A table named '${name}' already exists.`);
   }
 
@@ -460,13 +610,29 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
   if (orderingMode === "fields" && defaultOrder.length === 0) {
     throw new EtHttpError(400, "Choose at least one field for field-based ordering.");
   }
-  const primaryColumn =
-    primaryKeyType === "integer" || primaryKeyType === "bigInteger"
-      ? `${quote_identifier(primaryKey)} INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`
-      : primaryKeyType === "uuid"
-        ? `${quote_identifier(primaryKey)} TEXT NOT NULL PRIMARY KEY DEFAULT ${UUID_DEFAULT_SQL}`
-        : `${quote_identifier(primaryKey)} TEXT NOT NULL PRIMARY KEY`;
-  const columns: string[] = [primaryColumn];
+function primaryColumnSql(
+  primaryKey: string,
+  primaryKeyType: string
+): string {
+  const quoted = quote_identifier(primaryKey);
+  const dialect = activeDbAdapter.dialect;
+  if (primaryKeyType === "integer" || primaryKeyType === "bigInteger") {
+    if (dialect === "postgres") return `${quoted} BIGSERIAL PRIMARY KEY`;
+    if (dialect === "mysql") return `${quoted} INT NOT NULL AUTO_INCREMENT PRIMARY KEY`;
+    return `${quoted} INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`;
+  }
+  if (primaryKeyType === "uuid") {
+    if (dialect === "postgres") {
+      return `${quoted} UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()`;
+    }
+    if (dialect === "mysql") {
+      return `${quoted} CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID())`;
+    }
+    return `${quoted} TEXT NOT NULL PRIMARY KEY DEFAULT ${uuidDefaultSql()}`;
+  }
+  return `${quoted} TEXT NOT NULL PRIMARY KEY`;
+}
+  const columns: string[] = [primaryColumnSql(primaryKey, primaryKeyType)];
   for (const field of normalizedFields) {
     if (field.type === "alias") continue;
     columns.push(default_field_sql(field, false));
@@ -479,17 +645,17 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
     columns.push(`${quote_identifier(sortField.name)} INTEGER`);
   }
   if (createdOnName) {
-    columns.push(`${quote_identifier(createdOnName)} TEXT NOT NULL DEFAULT (datetime('now'))`);
+    columns.push(`${quote_identifier(createdOnName)} TEXT NOT NULL DEFAULT ${timestampDefaultSql()}`);
   } else if (!names.has("created_at") && !input.optional_fields) {
-    columns.push("`created_at` TEXT NOT NULL DEFAULT (datetime('now'))");
+    columns.push(`"created_at" TEXT NOT NULL DEFAULT ${timestampDefaultSql()}`);
   }
   if (createdByName) {
     columns.push(`${quote_identifier(createdByName)} TEXT`);
   }
   if (updatedOnName) {
-    columns.push(`${quote_identifier(updatedOnName)} TEXT NOT NULL DEFAULT (datetime('now'))`);
+    columns.push(`${quote_identifier(updatedOnName)} TEXT NOT NULL DEFAULT ${timestampDefaultSql()}`);
   } else if (!names.has("updated_at") && !input.optional_fields) {
-    columns.push("`updated_at` TEXT NOT NULL DEFAULT (datetime('now'))");
+    columns.push(`"updated_at" TEXT NOT NULL DEFAULT ${timestampDefaultSql()}`);
   }
   if (updatedByName) {
     columns.push(`${quote_identifier(updatedByName)} TEXT`);
@@ -497,232 +663,234 @@ export function create_collection(input: CmsCollectionInput): CmsCollectionWithF
 
   const now = nowSeconds();
   const createSql = `CREATE TABLE ${quote_identifier(name)} (${columns.join(", ")})`;
-  const create = sqlite().transaction(() => {
-  sqlite().exec(createSql);
-  if (sortField) {
-    ensure_sort_index(name, sortField.name);
-  }
-  for (const field of normalizedFields) {
-    if (field.unique && field.type !== "alias") create_unique_index(name, field.name);
-  }
+  await db.transaction(async (tx) => {
+    await execute_statement(createSql, [], tx);
+    if (sortField) {
+      await ensure_sort_index(name, sortField.name, tx);
+    }
+    for (const field of normalizedFields) {
+      if (field.unique && field.type !== "alias") {
+        await create_unique_index(name, field.name, tx);
+      }
+    }
 
-  const result = sqlite()
-    .prepare(
-      `INSERT INTO cms_collections
-        (name, label, icon, color, display_template, ordering_mode, default_order, note, primary_key, singleton, hidden, system, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
-    )
-    .run(
-      name,
-      String(input.label ?? humanize_name(name)),
-      String(input.icon ?? "table"),
-      String(input.color ?? ""),
-      String(input.display_template ?? ""),
-      orderingMode,
-      JSON.stringify(defaultOrder),
-      String(input.note ?? ""),
-      primaryKey,
-      input.singleton ? 1 : 0,
-      input.hidden ? 1 : 0,
-      now,
-      now
+    const collectionId = await tx.insert(
+      {
+        name,
+        label: String(input.label ?? humanize_name(name)),
+        icon: String(input.icon ?? "table"),
+        color: String(input.color ?? ""),
+        display_template: String(input.display_template ?? ""),
+        ordering_mode: orderingMode,
+        default_order: JSON.stringify(defaultOrder),
+        note: String(input.note ?? ""),
+        primary_key: primaryKey,
+        singleton: input.singleton ? 1 : 0,
+        hidden: input.hidden ? 1 : 0,
+        system: 0,
+        created_at: now,
+        updated_at: now,
+      },
+      "cms_collections"
     );
-  const collectionId = Number(result.lastInsertRowid);
 
-  const insertField = sqlite().prepare(
-    `INSERT INTO cms_fields
-      (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, "group", sort, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+    const insertField = async (data: Row): Promise<void> => {
+      await tx.insert(data, "cms_fields");
+    };
 
-  insertField.run(
-    collectionId,
-    primaryKey,
-    primaryKey === "id" ? "ID" : humanize_name(primaryKey),
-    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? "integer" : "string",
-    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? "number" : "input",
-    "{}",
-    1,
-    1,
-    primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? 1 : 0,
-    primaryKeyType === "string" ? 0 : 1,
-    null,
-    0,
-    now,
-    now
-  );
+    await insertField({
+      collection_id: collectionId,
+      name: primaryKey,
+      label: primaryKey === "id" ? "ID" : humanize_name(primaryKey),
+      type:
+        primaryKeyType === "integer" || primaryKeyType === "bigInteger"
+          ? "integer"
+          : "string",
+      interface:
+        primaryKeyType === "integer" || primaryKeyType === "bigInteger"
+          ? "number"
+          : "input",
+      options: "{}",
+      required: 1,
+      unique: 1,
+      hidden:
+        primaryKeyType === "integer" || primaryKeyType === "bigInteger" ? 1 : 0,
+      readonly: primaryKeyType === "string" ? 0 : 1,
+      group: null,
+      sort: 0,
+      created_at: now,
+      updated_at: now,
+    });
 
-  let sort = 1;
-  for (const field of requested) {
-    const normalized = normalize_field(field);
-    insertField.run(
-      collectionId,
-      normalized.name,
-      normalized.label,
-      normalized.type,
-      normalized.interface,
-      JSON.stringify(normalized.options),
-      normalized.required ? 1 : 0,
-      normalized.unique ? 1 : 0,
-      normalized.hidden ? 1 : 0,
-      normalized.readonly ? 1 : 0,
-      normalized.group,
-      sort,
-      now,
-      now
-    );
-    sort += 1;
-  }
+    let sort = 1;
+    for (const field of requested) {
+      const normalized = normalize_field(field);
+      await insertField({
+        collection_id: collectionId,
+        name: normalized.name,
+        label: normalized.label,
+        type: normalized.type,
+        interface: normalized.interface,
+        options: JSON.stringify(normalized.options),
+        required: normalized.required ? 1 : 0,
+        unique: normalized.unique ? 1 : 0,
+        hidden: normalized.hidden ? 1 : 0,
+        readonly: normalized.readonly ? 1 : 0,
+        group: normalized.group,
+        sort,
+        created_at: now,
+        updated_at: now,
+      });
+      sort += 1;
+    }
 
-  if (statusField) {
-    insertField.run(
-      collectionId,
-      statusField.name,
-      statusField.label,
-      statusField.type,
-      statusField.interface,
-      JSON.stringify(statusField.options),
-      1,
-      0,
-      0,
-      0,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-  if (sortField) {
-    insertField.run(
-      collectionId,
-      sortField.name,
-      sortField.label,
-      sortField.type,
-      sortField.interface,
-      JSON.stringify(sortField.options),
-      0,
-      0,
-      0,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-  if (createdOnName) {
-    insertField.run(
-      collectionId,
-      createdOnName,
-      humanize_name(createdOnName),
-      "datetime",
-      "datetime",
-      "{}",
-      0,
-      0,
-      1,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  } else if (!names.has("created_at") && !input.optional_fields) {
-    insertField.run(
-      collectionId,
-      "created_at",
-      "Created At",
-      "datetime",
-      "datetime",
-      "{}",
-      0,
-      0,
-      1,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-  if (createdByName) {
-    insertField.run(
-      collectionId,
-      createdByName,
-      humanize_name(createdByName),
-      "string",
-      "input",
-      JSON.stringify({ _eterc_system_field: "user_created" }),
-      0,
-      0,
-      0,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-  if (updatedOnName) {
-    insertField.run(
-      collectionId,
-      updatedOnName,
-      humanize_name(updatedOnName),
-      "datetime",
-      "datetime",
-      "{}",
-      0,
-      0,
-      1,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  } else if (!names.has("updated_at") && !input.optional_fields) {
-    insertField.run(
-      collectionId,
-      "updated_at",
-      "Updated At",
-      "datetime",
-      "datetime",
-      "{}",
-      0,
-      0,
-      1,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-  if (updatedByName) {
-    insertField.run(
-      collectionId,
-      updatedByName,
-      humanize_name(updatedByName),
-      "string",
-      "input",
-      JSON.stringify({ _eterc_system_field: "user_updated" }),
-      0,
-      0,
-      0,
-      1,
-      null,
-      sort++,
-      now,
-      now
-    );
-  }
-
-  return get_collection(name);
+    if (statusField) {
+      await insertField({
+        collection_id: collectionId,
+        name: statusField.name,
+        label: statusField.label,
+        type: statusField.type,
+        interface: statusField.interface,
+        options: JSON.stringify(statusField.options),
+        required: 1,
+        unique: 0,
+        hidden: 0,
+        readonly: 0,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (sortField) {
+      await insertField({
+        collection_id: collectionId,
+        name: sortField.name,
+        label: sortField.label,
+        type: sortField.type,
+        interface: sortField.interface,
+        options: JSON.stringify(sortField.options),
+        required: 0,
+        unique: 0,
+        hidden: 0,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (createdOnName) {
+      await insertField({
+        collection_id: collectionId,
+        name: createdOnName,
+        label: humanize_name(createdOnName),
+        type: "datetime",
+        interface: "datetime",
+        options: "{}",
+        required: 0,
+        unique: 0,
+        hidden: 1,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    } else if (!names.has("created_at") && !input.optional_fields) {
+      await insertField({
+        collection_id: collectionId,
+        name: "created_at",
+        label: "Created At",
+        type: "datetime",
+        interface: "datetime",
+        options: "{}",
+        required: 0,
+        unique: 0,
+        hidden: 1,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (createdByName) {
+      await insertField({
+        collection_id: collectionId,
+        name: createdByName,
+        label: humanize_name(createdByName),
+        type: "string",
+        interface: "input",
+        options: JSON.stringify({ _eterc_system_field: "user_created" }),
+        required: 0,
+        unique: 0,
+        hidden: 0,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (updatedOnName) {
+      await insertField({
+        collection_id: collectionId,
+        name: updatedOnName,
+        label: humanize_name(updatedOnName),
+        type: "datetime",
+        interface: "datetime",
+        options: "{}",
+        required: 0,
+        unique: 0,
+        hidden: 1,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    } else if (!names.has("updated_at") && !input.optional_fields) {
+      await insertField({
+        collection_id: collectionId,
+        name: "updated_at",
+        label: "Updated At",
+        type: "datetime",
+        interface: "datetime",
+        options: "{}",
+        required: 0,
+        unique: 0,
+        hidden: 1,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (updatedByName) {
+      await insertField({
+        collection_id: collectionId,
+        name: updatedByName,
+        label: humanize_name(updatedByName),
+        type: "string",
+        interface: "input",
+        options: JSON.stringify({ _eterc_system_field: "user_updated" }),
+        required: 0,
+        unique: 0,
+        hidden: 0,
+        readonly: 1,
+        group: null,
+        sort: sort++,
+        created_at: now,
+        updated_at: now,
+      });
+    }
   });
-  return create();
+  return get_collection(name);
 }
 
-export function update_collection(
+export async function update_collection(
   name: string,
   patch: Partial<
     Pick<
@@ -738,12 +906,12 @@ export function update_collection(
       | "hidden"
     >
   >
-): CmsCollectionWithFields {
-  const { collection, fields } = require_collection(name);
+): Promise<CmsCollectionWithFields> {
+  const { collection, fields } = await require_collection(name);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
-  const current = collection_row(name);
+  const current = await collection_row(name);
   if (!current) throw new EtHttpError(404, "Collection not found.");
   const mode = collection_ordering_mode(
     patch.ordering_mode ?? collection.ordering_mode,
@@ -771,13 +939,11 @@ export function update_collection(
   if (mode === "fields" && defaultOrder.length === 0) {
     throw new EtHttpError(400, "Choose at least one field for field-based ordering.");
   }
-  sqlite()
-    .prepare(
-      `UPDATE cms_collections
-       SET label = ?, icon = ?, color = ?, display_template = ?, ordering_mode = ?, default_order = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(
+  await execute_statement(
+    `UPDATE cms_collections
+     SET label = ?, icon = ?, color = ?, display_template = ?, ordering_mode = ?, default_order = ?, note = ?, singleton = ?, hidden = ?, updated_at = ?
+     WHERE id = ?`,
+    [
       patch.label ?? collection.label,
       patch.icon ?? collection.icon,
       patch.color ?? collection.color ?? "",
@@ -788,24 +954,34 @@ export function update_collection(
       (patch.singleton ?? collection.singleton) ? 1 : 0,
       (patch.hidden ?? collection.hidden) ? 1 : 0,
       nowSeconds(),
-      collection.id
-    );
+      collection.id,
+    ]
+  );
   return get_collection(name);
 }
 
-export function delete_collection(name: string): void {
-  const { collection } = require_collection(name);
+export async function delete_collection(name: string): Promise<void> {
+  const { collection } = await require_collection(name);
   if (collection.system || is_system_table(name)) {
     throw new EtHttpError(403, "System collections cannot be deleted.");
   }
-  sqlite().exec(`DROP TABLE IF EXISTS ${quote_identifier(name)}`);
-  sqlite().prepare("DELETE FROM cms_fields WHERE collection_id = ?").run(collection.id);
-  sqlite().prepare("DELETE FROM cms_collections WHERE id = ?").run(collection.id);
-  sqlite().prepare("DELETE FROM eterc_permissions WHERE collection = ?").run(name);
+  await execute_statement(`DROP TABLE IF EXISTS ${quote_identifier(name)}`);
+  await execute_statement("DELETE FROM cms_fields WHERE collection_id = ?", [
+    collection.id,
+  ]);
+  await execute_statement("DELETE FROM cms_collections WHERE id = ?", [
+    collection.id,
+  ]);
+  await execute_statement("DELETE FROM eterc_permissions WHERE collection = ?", [
+    name,
+  ]);
 }
 
-export function add_field(collectionName: string, input: CmsFieldInput): CmsField {
-  const { collection, fields } = require_collection(collectionName);
+export async function add_field(
+  collectionName: string,
+  input: CmsFieldInput
+): Promise<CmsField> {
+  const { collection, fields } = await require_collection(collectionName);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
@@ -833,48 +1009,51 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
   assert_group_reference(fields, field.group, field.name);
   const metadataOnly = field.type === "alias";
   const ddl = metadataOnly ? "" : default_field_sql(field, false);
-  const apply = sqlite().transaction(() => {
-    if (!metadataOnly) {
-      sqlite().exec(
-        `ALTER TABLE ${quote_identifier(collectionName)} ADD COLUMN ${ddl}`
-      );
-      if (field.unique) create_unique_index(collectionName, field.name);
-    }
-    const now = nowSeconds();
-    const sort = fields.reduce((max, item) => Math.max(max, item.sort), 0) + 1;
-    const result = sqlite()
-      .prepare(
-        `INSERT INTO cms_fields
-          (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, clear_hidden_value_on_save, "group", validation, validation_message, conditions, display_options, sort, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        collection.id,
-        field.name,
-        field.label,
-        field.type,
-        field.interface,
-        JSON.stringify(field.options),
-        field.required ? 1 : 0,
-        field.unique ? 1 : 0,
-        field.hidden ? 1 : 0,
-        field.readonly ? 1 : 0,
-        field.clear_hidden_value_on_save ? 1 : 0,
-        field.group,
-        JSON.stringify(field.validation),
-        field.validation_message,
-        JSON.stringify(field.conditions),
-        JSON.stringify(field.display_options),
-        sort,
-        now,
-        now
-      );
-    return fieldFromRow(
-      sqlite().prepare("SELECT * FROM cms_fields WHERE id = ?").get(result.lastInsertRowid) as Row
-    );
-  });
   try {
-    return apply();
+    return await db.transaction(async (tx) => {
+      if (!metadataOnly) {
+        await execute_statement(
+          `ALTER TABLE ${quote_identifier(collectionName)} ADD COLUMN ${ddl}`,
+          [],
+          tx
+        );
+        if (field.unique) {
+          await create_unique_index(collectionName, field.name, tx);
+        }
+      }
+      const now = nowSeconds();
+      const sort = fields.reduce((max, item) => Math.max(max, item.sort), 0) + 1;
+      const fieldId = await tx.insert(
+        {
+          collection_id: collection.id,
+          name: field.name,
+          label: field.label,
+          type: field.type,
+          interface: field.interface,
+          options: JSON.stringify(field.options),
+          required: field.required ? 1 : 0,
+          unique: field.unique ? 1 : 0,
+          hidden: field.hidden ? 1 : 0,
+          readonly: field.readonly ? 1 : 0,
+          clear_hidden_value_on_save: field.clear_hidden_value_on_save ? 1 : 0,
+          group: field.group,
+          validation: JSON.stringify(field.validation),
+          validation_message: field.validation_message,
+          conditions: JSON.stringify(field.conditions),
+          display_options: JSON.stringify(field.display_options),
+          sort,
+          created_at: now,
+          updated_at: now,
+        },
+        "cms_fields"
+      );
+      const rows = await query_rows(
+        "SELECT * FROM cms_fields WHERE id = ?",
+        [fieldId],
+        tx
+      );
+      return fieldFromRow(rows[0]);
+    });
   } catch (error) {
     if (error instanceof EtHttpError) throw error;
     throw new EtHttpError(
@@ -886,7 +1065,7 @@ export function add_field(collectionName: string, input: CmsFieldInput): CmsFiel
   }
 }
 
-export function update_field(
+export async function update_field(
   collectionName: string,
   fieldName: string,
   patch: Partial<
@@ -908,8 +1087,8 @@ export function update_field(
       | "display_options"
     >
   >
-): CmsField {
-  const { collection, fields } = require_collection(collectionName);
+): Promise<CmsField> {
+  const { collection, fields } = await require_collection(collectionName);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
@@ -994,41 +1173,47 @@ export function update_field(
     clear_hidden_value_on_save: nextClearHiddenValue,
     conditions,
   });
-  const apply = sqlite().transaction(() => {
-    if (!requestedAlias) {
-      if (nextUnique && !field.unique) create_unique_index(collectionName, field.name);
-      if (!nextUnique && field.unique) drop_unique_index(collectionName, field.name);
-    }
-    sqlite()
-      .prepare(
+  try {
+    return await db.transaction(async (tx) => {
+      if (!requestedAlias) {
+        if (nextUnique && !field.unique) {
+          await create_unique_index(collectionName, field.name, tx);
+        }
+        if (!nextUnique && field.unique) {
+          await drop_unique_index(collectionName, field.name, tx);
+        }
+      }
+      await execute_statement(
         `UPDATE cms_fields
          SET label = ?, type = ?, interface = ?, options = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, clear_hidden_value_on_save = ?, "group" = ?, validation = ?, validation_message = ?, conditions = ?, display_options = ?, updated_at = ?
-         WHERE id = ?`
-      )
-      .run(
-        patch.label ?? field.label,
-        nextType,
-        nextInterface,
-        JSON.stringify(patch.options ?? field.options),
-        nextRequired ? 1 : 0,
-        nextUnique ? 1 : 0,
-        nextHidden ? 1 : 0,
-        (patch.readonly ?? field.readonly) ? 1 : 0,
-        nextClearHiddenValue ? 1 : 0,
-        nextGroup,
-        JSON.stringify(validation),
-        validationMessage,
-        JSON.stringify(conditions),
-        JSON.stringify(displayOptions),
-        nowSeconds(),
-        field.id
+         WHERE id = ?`,
+        [
+          patch.label ?? field.label,
+          nextType,
+          nextInterface,
+          JSON.stringify(patch.options ?? field.options),
+          nextRequired ? 1 : 0,
+          nextUnique ? 1 : 0,
+          nextHidden ? 1 : 0,
+          (patch.readonly ?? field.readonly) ? 1 : 0,
+          nextClearHiddenValue ? 1 : 0,
+          nextGroup,
+          JSON.stringify(validation),
+          validationMessage,
+          JSON.stringify(conditions),
+          JSON.stringify(displayOptions),
+          nowSeconds(),
+          field.id,
+        ],
+        tx
       );
-    return fieldFromRow(
-      sqlite().prepare("SELECT * FROM cms_fields WHERE id = ?").get(field.id) as Row
-    );
-  });
-  try {
-    return apply();
+      const rows = await query_rows(
+        "SELECT * FROM cms_fields WHERE id = ?",
+        [field.id],
+        tx
+      );
+      return fieldFromRow(rows[0]);
+    });
   } catch (error) {
     if (error instanceof EtHttpError) throw error;
     throw new EtHttpError(
@@ -1040,8 +1225,11 @@ export function update_field(
   }
 }
 
-export function reorder_fields(collectionName: string, fieldNames: string[]): CmsField[] {
-  const { collection, fields } = require_collection(collectionName);
+export async function reorder_fields(
+  collectionName: string,
+  fieldNames: string[]
+): Promise<CmsField[]> {
+  const { collection, fields } = await require_collection(collectionName);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
@@ -1053,21 +1241,25 @@ export function reorder_fields(collectionName: string, fieldNames: string[]): Cm
     throw new EtHttpError(400, "The field order must include every collection field exactly once.");
   }
 
-  const updateSort = sqlite().prepare(
-    "UPDATE cms_fields SET sort = ?, updated_at = ? WHERE collection_id = ? AND name = ?"
-  );
   const now = nowSeconds();
-  sqlite().transaction(() => {
-    fieldNames.forEach((name, index) => {
-      updateSort.run(index + 1, now, collection.id, name);
-    });
-  })();
+  await db.transaction(async (tx) => {
+    for (let index = 0; index < fieldNames.length; index += 1) {
+      await execute_statement(
+        "UPDATE cms_fields SET sort = ?, updated_at = ? WHERE collection_id = ? AND name = ?",
+        [index + 1, now, collection.id, fieldNames[index]],
+        tx
+      );
+    }
+  });
 
   return field_rows(collection.id);
 }
 
-export function delete_field(collectionName: string, fieldName: string): void {
-  const { collection, fields } = require_collection(collectionName);
+export async function delete_field(
+  collectionName: string,
+  fieldName: string
+): Promise<void> {
+  const { collection, fields } = await require_collection(collectionName);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be changed.");
   }
@@ -1077,63 +1269,64 @@ export function delete_field(collectionName: string, fieldName: string): void {
     throw new EtHttpError(403, "The primary key field cannot be deleted.");
   }
   const metadataOnly = field.type === "alias" || cms_is_alias_interface(field.interface);
-  const apply = sqlite().transaction(() => {
-    const updateRules = sqlite().prepare(
-      `UPDATE cms_fields SET validation = ?, conditions = ?, updated_at = ?
-       WHERE id = ?`
-    );
-    for (const other of fields) {
-      if (other.id === field.id) continue;
-      const conditions = other.conditions
-        .map((condition) => ({
-          ...condition,
-          rule: remove_field_from_rule(condition.rule, field.name),
-        }))
-        .filter((condition) => condition.rule.conditions.length > 0);
-      updateRules.run(
-        JSON.stringify(remove_field_from_rule(other.validation, field.name)),
-        JSON.stringify(conditions),
-        nowSeconds(),
-        other.id
-      );
-    }
-    if (!metadataOnly) {
-      drop_unique_index(collectionName, field.name);
-      sqlite().exec(
-        `ALTER TABLE ${quote_identifier(collectionName)} DROP COLUMN ${quote_identifier(field.name)}`
-      );
-    }
-    sqlite().prepare("DELETE FROM cms_fields WHERE id = ?").run(field.id);
-    sqlite()
-      .prepare("UPDATE cms_fields SET \"group\" = NULL WHERE collection_id = ? AND \"group\" = ?")
-      .run(collection.id, field.name);
-    const defaultOrder = collection.default_order.filter(
-      (rule) => rule.field !== field.name
-    );
-    const deletedSystemSort =
-      field.options._eterc_system_field === "sort" ||
-      (field.name === "sort" &&
-        field.type === "integer" &&
-        field.interface === "number");
-    const nextMode =
-      (deletedSystemSort && collection.ordering_mode === "manual") ||
-      (collection.ordering_mode === "fields" && defaultOrder.length === 0)
-        ? "default"
-        : collection.ordering_mode;
-    sqlite()
-      .prepare(
-        "UPDATE cms_collections SET default_order = ?, ordering_mode = ?, updated_at = ? WHERE id = ?"
-      )
-      .run(
-        JSON.stringify(defaultOrder),
-        nextMode,
-        nowSeconds(),
-        collection.id
-      );
-    if (!metadataOnly) remove_field_from_policies(collectionName, field.name);
-  });
   try {
-    apply();
+    await db.transaction(async (tx) => {
+      for (const other of fields) {
+        if (other.id === field.id) continue;
+        const conditions = other.conditions
+          .map((condition) => ({
+            ...condition,
+            rule: remove_field_from_rule(condition.rule, field.name),
+          }))
+          .filter((condition) => condition.rule.conditions.length > 0);
+        await execute_statement(
+          `UPDATE cms_fields SET validation = ?, conditions = ?, updated_at = ?
+           WHERE id = ?`,
+          [
+            JSON.stringify(remove_field_from_rule(other.validation, field.name)),
+            JSON.stringify(conditions),
+            nowSeconds(),
+            other.id,
+          ],
+          tx
+        );
+      }
+      if (!metadataOnly) {
+        await drop_unique_index(collectionName, field.name, tx);
+        await execute_statement(
+          `ALTER TABLE ${quote_identifier(collectionName)} DROP COLUMN ${quote_identifier(field.name)}`,
+          [],
+          tx
+        );
+      }
+      await execute_statement("DELETE FROM cms_fields WHERE id = ?", [field.id], tx);
+      await execute_statement(
+        `UPDATE cms_fields SET "group" = NULL WHERE collection_id = ? AND "group" = ?`,
+        [collection.id, field.name],
+        tx
+      );
+      const defaultOrder = collection.default_order.filter(
+        (rule) => rule.field !== field.name
+      );
+      const deletedSystemSort =
+        field.options._eterc_system_field === "sort" ||
+        (field.name === "sort" &&
+          field.type === "integer" &&
+          field.interface === "number");
+      const nextMode =
+        (deletedSystemSort && collection.ordering_mode === "manual") ||
+        (collection.ordering_mode === "fields" && defaultOrder.length === 0)
+          ? "default"
+          : collection.ordering_mode;
+      await execute_statement(
+        "UPDATE cms_collections SET default_order = ?, ordering_mode = ?, updated_at = ? WHERE id = ?",
+        [JSON.stringify(defaultOrder), nextMode, nowSeconds(), collection.id],
+        tx
+      );
+      if (!metadataOnly) {
+        await remove_field_from_policies(collectionName, field.name, tx);
+      }
+    });
   } catch (error) {
     throw new EtHttpError(
       409,
@@ -1239,6 +1432,15 @@ function order_field(
   );
 }
 
+/**
+ * SQLite and MySQL expose `instr()`, while PostgreSQL needs `position()`.
+ */
+function contains_sql(column: string, needle = "?"): string {
+  return activeDbAdapter.dialect === "postgres"
+    ? `position(${needle} in ${column}) > 0`
+    : `instr(${column}, ${needle}) > 0`;
+}
+
 function build_filter_clauses(
   fields: CmsField[],
   filter: Record<string, unknown>,
@@ -1301,15 +1503,17 @@ function build_filter_clauses(
             }
             break;
           case "_contains":
-            clauses.push(`instr(${column}, ?) > 0`);
+            clauses.push(contains_sql(column));
             params.push(String(operand));
             break;
           case "_not_contains":
-            clauses.push(`(${column} IS NULL OR instr(${column}, ?) = 0)`);
+            clauses.push(`(${column} IS NULL OR NOT (${contains_sql(column)}))`);
             params.push(String(operand));
             break;
           case "_icontains":
-            clauses.push(`instr(lower(${column}), lower(?)) > 0`);
+            clauses.push(
+              contains_sql(`lower(${column})`, "lower(?)")
+            );
             params.push(String(operand));
             break;
           case "_starts_with":
@@ -1479,11 +1683,11 @@ function build_where(
   };
 }
 
-export function list_records(
+export async function list_records(
   collectionName: string,
   options: CmsRecordListOptions = {}
-): CmsRecordListResult {
-  const { collection, fields } = require_collection(collectionName);
+): Promise<CmsRecordListResult> {
+  const { collection, fields } = await require_collection(collectionName);
   const page = Math.max(1, Number(options.page ?? 1) || 1);
   const configuredMax = Math.min(
     500,
@@ -1576,21 +1780,19 @@ export function list_records(
   }
   const orderBy = orderByParts.join(", ");
 
-  const totalRow = sqlite()
-    .prepare(
-      `SELECT COUNT(*) AS count FROM ${quote_identifier(collectionName)} ${where.sql}`
-    )
-    .get(...where.params) as { count: number };
-  const total = Number(totalRow.count);
+  const totalRows = await query_rows<{ count: number | string }>(
+    `SELECT COUNT(*) AS count FROM ${quote_identifier(collectionName)} ${where.sql}`,
+    where.params
+  );
+  const total = Number(totalRows[0]?.count ?? 0);
 
-  const rows = sqlite()
-    .prepare(
-      `SELECT * FROM ${quote_identifier(collectionName)}
-       ${where.sql}
-       ORDER BY ${orderBy}
-       LIMIT ? OFFSET ?`
-    )
-    .all(...where.params, limit, offset) as Row[];
+  const rows = await query_rows(
+    `SELECT * FROM ${quote_identifier(collectionName)}
+     ${where.sql}
+     ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+    [...where.params, limit, offset]
+  );
 
   return {
     rows: rows.map(sanitize_row),
@@ -1601,29 +1803,29 @@ export function list_records(
   };
 }
 
-export function get_record(
+export async function get_record(
   collectionName: string,
   id: string | number
-): Record<string, unknown> {
-  const { collection } = require_collection(collectionName);
-  const row = sqlite()
-    .prepare(
-      `SELECT * FROM ${quote_identifier(collectionName)} WHERE ${quote_identifier(
-        collection.primary_key
-      )} = ? LIMIT 1`
-    )
-    .get(id) as Row | undefined;
+): Promise<Record<string, unknown>> {
+  const { collection } = await require_collection(collectionName);
+  const rows = await query_rows(
+    `SELECT * FROM ${quote_identifier(collectionName)} WHERE ${quote_identifier(
+      collection.primary_key
+    )} = ? LIMIT 1`,
+    [id]
+  );
+  const row = rows[0];
   if (!row) throw new EtHttpError(404, "Record not found.");
   return sanitize_row(row);
 }
 
-export function create_record(
+export async function create_record(
   collectionName: string,
   input: Record<string, unknown>,
   actorUserId: number | null = null,
   options: { allowSortOverride?: boolean } = {}
-): Record<string, unknown> {
-  const { collection, fields } = require_collection(collectionName);
+): Promise<Record<string, unknown>> {
+  const { collection, fields } = await require_collection(collectionName);
   const sortField = system_sort_field(fields);
   const sortInput =
     sortField && options.allowSortOverride ? input[sortField.name] : undefined;
@@ -1663,18 +1865,20 @@ export function create_record(
   Object.assign(validationValues, values);
   validate_effective_record(fields, validationValues, values);
   try {
-    const create = sqlite().transaction(() => {
+    // The adapter transaction allows `INSERT ... RETURNING` rows to be read
+    // directly; the Db facade only exposes mutation metadata for writes.
+    return await activeDbAdapter.transaction(async (tx) => {
       if (sortField) {
         if (explicitSort !== undefined) {
           values[sortField.name] = explicitSort;
         } else {
-          const maximum = sqlite()
-            .prepare(
-              `SELECT MAX(${quote_identifier(sortField.name)}) AS maximum
-               FROM ${quote_identifier(collectionName)}`
-            )
-            .get() as { maximum: number | null };
-          const next = Number(maximum.maximum ?? 0) + 1;
+          const maximum = await query_rows<{ maximum: number | string | null }>(
+            `SELECT MAX(${quote_identifier(sortField.name)}) AS maximum
+             FROM ${quote_identifier(collectionName)}`,
+            [],
+            tx
+          );
+          const next = Number(maximum[0]?.maximum ?? 0) + 1;
           if (!Number.isSafeInteger(next)) {
             throw new EtHttpError(409, "No available integer sort position remains.");
           }
@@ -1682,34 +1886,67 @@ export function create_record(
         }
       }
 
+      // MySQL has no INSERT ... RETURNING. Integer keys come back as
+      // insertId; UUID keys are generated here so the row can be read back.
+      const supportsReturning = activeDbAdapter.dialect !== "mysql";
+      if (!supportsReturning && values[collection.primary_key] === undefined) {
+        const primaryField = fields.find(
+          (field) => field.name === collection.primary_key
+        );
+        if (
+          primaryField &&
+          primaryField.type === "string" &&
+          primaryField.readonly
+        ) {
+          values[collection.primary_key] = crypto.randomUUID();
+        }
+      }
       const currentColumns = Object.keys(values);
-      const currentSql =
+      const insertBase =
         currentColumns.length === 0
-          ? `INSERT INTO ${quote_identifier(collectionName)} DEFAULT VALUES RETURNING *`
+          ? `INSERT INTO ${quote_identifier(collectionName)} DEFAULT VALUES`
           : `INSERT INTO ${quote_identifier(collectionName)}
              (${currentColumns.map(quote_identifier).join(", ")})
-             VALUES (${currentColumns.map(() => "?").join(", ")}) RETURNING *`;
-      const row = sqlite()
-        .prepare(currentSql)
-        .get(...currentColumns.map((column) => values[column])) as Row | undefined;
+             VALUES (${currentColumns.map(() => "?").join(", ")})`;
+      const params = currentColumns.map((column) => values[column]);
+
+      let row: Row | undefined;
+      if (supportsReturning) {
+        const rows = await query_rows(
+          `${insertBase} RETURNING *`,
+          params,
+          tx
+        );
+        row = rows[0];
+      } else {
+        const result = await execute_statement(insertBase, params, tx);
+        const insertedKey =
+          values[collection.primary_key] ?? result.lastInsertRowid;
+        const rows = await query_rows(
+          `SELECT * FROM ${quote_identifier(collectionName)}
+           WHERE ${quote_identifier(collection.primary_key)} = ? LIMIT 1`,
+          [insertedKey],
+          tx
+        );
+        row = rows[0];
+      }
       if (!row) {
         throw new EtHttpError(500, "The record was created but could not be read back.");
       }
       return sanitize_row(row);
     });
-    return create.immediate();
   } catch (error) {
     throw database_error(error);
   }
 }
 
-export function reorder_records(
+export async function reorder_records(
   collectionName: string,
   page: number,
   recordIds: Array<string | number>,
   limit = 20
-): void {
-  const { collection, fields } = require_collection(collectionName);
+): Promise<void> {
+  const { collection, fields } = await require_collection(collectionName);
   if (collection.system) {
     throw new EtHttpError(403, "System collections cannot be reordered.");
   }
@@ -1744,91 +1981,93 @@ export function reorder_records(
   const table = quote_identifier(collectionName);
   const primaryKey = quote_identifier(collection.primary_key);
   const sortColumn = quote_identifier(sortField.name);
-  const readRows = sqlite().prepare(
-    `SELECT ${primaryKey} AS id, ${sortColumn} AS sort_value
+  type SortRow = { id: string | number; sort_value: number | null };
+  const pageSql = `SELECT ${primaryKey} AS id, ${sortColumn} AS sort_value
      FROM ${table}
      ORDER BY ${sortColumn} IS NULL ASC, ${sortColumn} ASC, ${primaryKey} ASC
-     LIMIT ? OFFSET ?`
-  );
-  const updateSort = sqlite().prepare(
-    `UPDATE ${table} SET ${sortColumn} = ? WHERE ${primaryKey} = ?`
-  );
-
-  const reorder = sqlite().transaction(() => {
-    const pageRows = readRows.all(limit, offset) as Array<{
-      id: string | number;
-      sort_value: number | null;
-    }>;
-    if (
-      pageRows.length !== recordIds.length ||
-      pageRows.some((row) => !recordIds.some((id) => String(id) === String(row.id)))
-    ) {
-      throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
-    }
-
-    const rowsById = new Map(pageRows.map((row) => [String(row.id), row]));
-    const orderedPage = recordIds.map((id) => rowsById.get(String(id))!);
-    const previous =
-      offset > 0 ? (readRows.get(1, offset - 1) as { id: string | number; sort_value: number | null } | undefined) : undefined;
-    const next = readRows.get(1, offset + pageRows.length) as
-      | { id: string | number; sort_value: number | null }
-      | undefined;
-
-    const pageHasNulls = pageRows.some((row) => row.sort_value === null);
-    const previousIsNull = previous?.sort_value === null;
-    const lower = previous ? Number(previous.sort_value) : 0;
-    const upper =
-      next && next.sort_value !== null ? Number(next.sort_value) : null;
-    const available = upper === null ? Number.POSITIVE_INFINITY : upper - lower - 1;
-
-    if (!pageHasNulls && !previousIsNull && available >= orderedPage.length) {
-      const step =
-        upper === null
-          ? 1
-          : Math.floor((upper - lower) / (orderedPage.length + 1));
-      const start = upper === null ? lower + 1 : lower + step;
-      if (step >= 1 && (previous || start >= 1)) {
-        orderedPage.forEach((row, index) => {
-          updateSort.run(start + index * step, row.id);
-        });
-        return;
-      }
-    }
-
-    const allRows = sqlite()
-      .prepare(
-        `SELECT ${primaryKey} AS id
-         FROM ${table}
-         ORDER BY ${sortColumn} IS NULL ASC, ${sortColumn} ASC, ${primaryKey} ASC`
-      )
-      .all() as Array<{ id: string | number }>;
-    const allById = new Map(allRows.map((row) => [String(row.id), row]));
-    const reorderedIds = allRows.map((row) => String(row.id));
-    reorderedIds.splice(offset, orderedPage.length, ...recordIds.map(String));
-    reorderedIds.forEach((id, index) => {
-      const row = allById.get(id);
-      if (!row) {
-        throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
-      }
-      updateSort.run(index + 1, row.id);
-    });
-  });
+     LIMIT ? OFFSET ?`;
+  const updateSql = `UPDATE ${table} SET ${sortColumn} = ? WHERE ${primaryKey} = ?`;
 
   try {
-    reorder.immediate();
+    await db.transaction(async (tx) => {
+      const pageRows = await query_rows<SortRow>(pageSql, [limit, offset], tx);
+      if (
+        pageRows.length !== recordIds.length ||
+        pageRows.some((row) => !recordIds.some((id) => String(id) === String(row.id)))
+      ) {
+        throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
+      }
+
+      const rowsById = new Map(pageRows.map((row) => [String(row.id), row]));
+      const orderedPage = recordIds.map((id) => rowsById.get(String(id))!);
+      const previousRows =
+        offset > 0
+          ? await query_rows<SortRow>(pageSql, [1, offset - 1], tx)
+          : [];
+      const nextRows = await query_rows<SortRow>(
+        pageSql,
+        [1, offset + pageRows.length],
+        tx
+      );
+      const previous = previousRows[0];
+      const next = nextRows[0];
+
+      const pageHasNulls = pageRows.some((row) => row.sort_value === null);
+      const previousIsNull = previous?.sort_value === null;
+      const lower = previous ? Number(previous.sort_value) : 0;
+      const upper =
+        next && next.sort_value !== null ? Number(next.sort_value) : null;
+      const available = upper === null ? Number.POSITIVE_INFINITY : upper - lower - 1;
+
+      if (!pageHasNulls && !previousIsNull && available >= orderedPage.length) {
+        const step =
+          upper === null
+            ? 1
+            : Math.floor((upper - lower) / (orderedPage.length + 1));
+        const start = upper === null ? lower + 1 : lower + step;
+        if (step >= 1 && (previous || start >= 1)) {
+          for (let index = 0; index < orderedPage.length; index += 1) {
+            await execute_statement(
+              updateSql,
+              [start + index * step, orderedPage[index].id],
+              tx
+            );
+          }
+          return;
+        }
+      }
+
+      const allRows = await query_rows<{ id: string | number }>(
+        `SELECT ${primaryKey} AS id
+         FROM ${table}
+         ORDER BY ${sortColumn} IS NULL ASC, ${sortColumn} ASC, ${primaryKey} ASC`,
+        [],
+        tx
+      );
+      const allById = new Map(allRows.map((row) => [String(row.id), row]));
+      const reorderedIds = allRows.map((row) => String(row.id));
+      reorderedIds.splice(offset, orderedPage.length, ...recordIds.map(String));
+      for (let index = 0; index < reorderedIds.length; index += 1) {
+        const row = allById.get(reorderedIds[index]);
+        if (!row) {
+          throw new EtHttpError(409, "The record list changed. Refresh and try reordering again.");
+        }
+        await execute_statement(updateSql, [index + 1, row.id], tx);
+      }
+    });
   } catch (error) {
     throw database_error(error);
   }
 }
 
-export function update_record(
+export async function update_record(
   collectionName: string,
   id: string | number,
   input: Record<string, unknown>,
   actorUserId: number | null = null
-): Record<string, unknown> {
-  const { collection, fields } = require_collection(collectionName);
-  const currentRecord = get_record(collectionName, id);
+): Promise<Record<string, unknown>> {
+  const { collection, fields } = await require_collection(collectionName);
+  const currentRecord = await get_record(collectionName, id);
   const sortField = system_sort_field(fields);
   const writeInput = sortField
     ? Object.fromEntries(
@@ -1848,7 +2087,7 @@ export function update_record(
   );
   if (updatedByField) values[updatedByField.name] = actorUserId;
   if (Object.keys(values).length === 0) {
-    return get_record(collectionName, id);
+    return await get_record(collectionName, id);
   }
   if (fields.some((field) => field.name === "updated_at")) {
     values.updated_at = new Date().toISOString();
@@ -1858,13 +2097,14 @@ export function update_record(
     SET ${columns.map((column) => `${quote_identifier(column)} = ?`).join(", ")}
     WHERE ${quote_identifier(collection.primary_key)} = ?`;
   try {
-    const result = sqlite()
-      .prepare(sql)
-      .run(...columns.map((column) => values[column]), id);
+    const result = await execute_statement(sql, [
+      ...columns.map((column) => values[column]),
+      id,
+    ]);
     if (result.changes === 0) {
       throw new EtHttpError(404, "Record not found.");
     }
-    return get_record(collectionName, id);
+    return await get_record(collectionName, id);
   } catch (error) {
     throw database_error(error);
   }
@@ -1888,14 +2128,16 @@ function database_error(error: unknown): EtHttpError {
   );
 }
 
-export function delete_record(collectionName: string, id: string | number): void {
-  const { collection } = require_collection(collectionName);
-  const result = sqlite()
-    .prepare(
-      `DELETE FROM ${quote_identifier(collectionName)}
-       WHERE ${quote_identifier(collection.primary_key)} = ?`
-    )
-    .run(id);
+export async function delete_record(
+  collectionName: string,
+  id: string | number
+): Promise<void> {
+  const { collection } = await require_collection(collectionName);
+  const result = await execute_statement(
+    `DELETE FROM ${quote_identifier(collectionName)}
+     WHERE ${quote_identifier(collection.primary_key)} = ?`,
+    [id]
+  );
   if (result.changes === 0) {
     throw new EtHttpError(404, "Record not found.");
   }
@@ -2072,20 +2314,22 @@ export function format_record_for_api(
   return result;
 }
 
-export function collection_fields(collectionName: string): CmsField[] {
-  return require_collection(collectionName).fields;
+export async function collection_fields(
+  collectionName: string
+): Promise<CmsField[]> {
+  return (await require_collection(collectionName)).fields;
 }
 
-export function collection_exists(name: string): boolean {
-  ensure_cms_schema();
-  return collection_row(name) !== undefined;
+export async function collection_exists(name: string): Promise<boolean> {
+  await ensure_cms_schema();
+  return (await collection_row(name)) !== undefined;
 }
 
-export function create_starter_collection(): CmsCollectionWithFields {
-  if (collection_exists("posts")) {
-    return get_collection("posts");
+export async function create_starter_collection(): Promise<CmsCollectionWithFields> {
+  if (await collection_exists("posts")) {
+    return await get_collection("posts");
   }
-  return create_collection({
+  return await create_collection({
     name: "posts",
     label: "Posts",
     icon: "file-text",

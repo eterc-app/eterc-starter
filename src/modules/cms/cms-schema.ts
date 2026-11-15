@@ -1,4 +1,7 @@
-import { sqlite, type Row } from "@/engine/db";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
+import { db, type Db, type Row } from "@/engine/db";
+import { configuredDatabaseProvider } from "@/engine/db/gateway";
+import { ensure_remote_schema, sync_postgres_sequence } from "@/engine/db/schema/remote";
 import { ensure_flow_schema } from "@/modules/flows/flow-schema";
 import {
   cms_field_interface,
@@ -145,16 +148,44 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-function has_column(table: string, column: string): boolean {
-  const columns = sqlite()
-    .prepare(`PRAGMA table_info(${quote_identifier(table)})`)
-    .all() as Array<{ name: string }>;
-  return columns.some((entry) => entry.name === column);
+/** Read rows through the async facade (or a transaction-scoped facade). */
+async function query_rows<T = Row>(
+  sql: string,
+  params: unknown[] = [],
+  client: Db = db
+): Promise<T[]> {
+  return (await client.query_bind(sql, params)) as T[];
 }
 
-function ensure_column(table: string, column: string, definition: string): void {
-  if (has_column(table, column)) return;
-  sqlite().exec(
+/** Run a statement through the async facade and normalize mutation metadata. */
+async function execute_statement(
+  sql: string,
+  params: unknown[] = [],
+  client: Db = db
+): Promise<{ changes: number; lastInsertRowid: number }> {
+  const result = (await client.query_bind(sql, params)) as {
+    affectedRows?: number;
+    lastInsertId?: number;
+  };
+  return {
+    changes: Number(result.affectedRows ?? 0),
+    lastInsertRowid: Number(result.lastInsertId ?? 0),
+  };
+}
+
+async function has_column(table: string, column: string): Promise<boolean> {
+  const described = await db.describe_table(table, true);
+  if (described === false) return false;
+  return (described as Row[]).some((entry) => String(entry.name) === column);
+}
+
+async function ensure_column(
+  table: string,
+  column: string,
+  definition: string
+): Promise<void> {
+  if (await has_column(table, column)) return;
+  await execute_statement(
     `ALTER TABLE ${quote_identifier(table)} ADD COLUMN ${quote_identifier(column)} ${definition}`
   );
 }
@@ -166,56 +197,56 @@ function ensure_column(table: string, column: string, definition: string): void 
  * so a policy can deny every client field, while `["*"]` means every field.
  * Existing rows are migrated once to preserve their original behavior.
  */
-function migrate_access_schema(): void {
-  ensure_column("cms_collections", "color", "TEXT NOT NULL DEFAULT ''");
-  ensure_column("cms_collections", "display_template", "TEXT NOT NULL DEFAULT ''");
-  ensure_column("cms_collections", "ordering_mode", "TEXT NOT NULL DEFAULT ''");
-  ensure_column("cms_collections", "default_order", "TEXT NOT NULL DEFAULT '[]'");
-  ensure_column("cms_fields", "group", "TEXT");
-  ensure_column(
+async function migrate_access_schema(): Promise<void> {
+  await ensure_column("cms_collections", "color", "TEXT NOT NULL DEFAULT ''");
+  await ensure_column("cms_collections", "display_template", "TEXT NOT NULL DEFAULT ''");
+  await ensure_column("cms_collections", "ordering_mode", "TEXT NOT NULL DEFAULT ''");
+  await ensure_column("cms_collections", "default_order", "TEXT NOT NULL DEFAULT '[]'");
+  await ensure_column("cms_fields", "group", "TEXT");
+  await ensure_column(
     "cms_fields",
     "clear_hidden_value_on_save",
     "INTEGER NOT NULL DEFAULT 0"
   );
-  ensure_column(
+  await ensure_column(
     "cms_fields",
     "validation",
     `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
   );
-  ensure_column("cms_fields", "validation_message", "TEXT NOT NULL DEFAULT ''");
-  ensure_column("cms_fields", "conditions", "TEXT NOT NULL DEFAULT '[]'");
-  ensure_column("cms_fields", "display_options", "TEXT NOT NULL DEFAULT '{}'");
-  ensure_column("eterc_roles", "parent_role_id", "INTEGER");
-  sqlite().exec(
+  await ensure_column("cms_fields", "validation_message", "TEXT NOT NULL DEFAULT ''");
+  await ensure_column("cms_fields", "conditions", "TEXT NOT NULL DEFAULT '[]'");
+  await ensure_column("cms_fields", "display_options", "TEXT NOT NULL DEFAULT '{}'");
+  await ensure_column("eterc_roles", "parent_role_id", "INTEGER");
+  await execute_statement(
     `CREATE INDEX IF NOT EXISTS "eterc_roles_parent_idx" ON "eterc_roles"("parent_role_id")`
   );
-  ensure_column("eterc_api_keys", "user_id", "INTEGER");
-  ensure_column(
+  await ensure_column("eterc_api_keys", "user_id", "INTEGER");
+  await ensure_column(
     "eterc_permissions",
     "filter",
     `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
   );
-  ensure_column(
+  await ensure_column(
     "eterc_permissions",
     "validation",
     `TEXT NOT NULL DEFAULT '{"match":"all","conditions":[]}'`
   );
-  ensure_column("eterc_permissions", "presets", "TEXT NOT NULL DEFAULT '[]'");
+  await ensure_column("eterc_permissions", "presets", "TEXT NOT NULL DEFAULT '[]'");
 
-  const marker = sqlite()
-    .prepare("SELECT id FROM cms_migrations WHERE id = ? LIMIT 1")
-    .get("access_fields_wildcard_v1") as { id: string } | undefined;
-  if (marker) return;
-  sqlite()
-    .prepare(
-      `UPDATE eterc_permissions
-       SET fields = '["*"]'
-       WHERE fields IS NULL OR fields = '' OR fields = '[]'`
-    )
-    .run();
-  sqlite()
-    .prepare("INSERT INTO cms_migrations (id, applied_at) VALUES (?, ?)")
-    .run("access_fields_wildcard_v1", nowSeconds());
+  const marker = await query_rows<{ id: string }>(
+    "SELECT id FROM cms_migrations WHERE id = ? LIMIT 1",
+    ["access_fields_wildcard_v1"]
+  );
+  if (marker.length > 0) return;
+  await execute_statement(
+    `UPDATE eterc_permissions
+     SET fields = '["*"]'
+     WHERE fields IS NULL OR fields = '' OR fields = '[]'`
+  );
+  await execute_statement(
+    "INSERT INTO cms_migrations (id, applied_at) VALUES (?, ?)",
+    ["access_fields_wildcard_v1", nowSeconds()]
+  );
 }
 
 function humanize(value: string): string {
@@ -280,75 +311,87 @@ function inferInterface(name: string, type: CmsFieldType): CmsFieldInterface {
   return cms_field_interface(type);
 }
 
-export function ensure_cms_schema(): void {
-  if (schemaReady) return;
-  sqlite().exec(CMS_DDL);
-  ensure_flow_schema();
-  migrate_access_schema();
-  seed_roles();
-  sync_collections();
+let schemaInitialization: Promise<void> | null = null;
+
+export function ensure_cms_schema(): Promise<void> {
+  if (schemaReady) return Promise.resolve();
+  schemaInitialization ??= initialize_cms_schema().finally(() => {
+    schemaInitialization = null;
+  });
+  return schemaInitialization;
+}
+
+async function initialize_cms_schema(): Promise<void> {
+  if (configuredDatabaseProvider() === "sqlite") {
+    await execute_statement(CMS_DDL);
+    await ensure_flow_schema();
+    await migrate_access_schema();
+    await seed_roles();
+    await sync_collections();
+  } else {
+    await ensure_remote_schema();
+    await seed_roles();
+    await sync_collections();
+  }
   schemaReady = true;
 }
 
 /** Re-scan the database for tables created outside the content service. */
-export function refresh_cms_schema(): void {
+export async function refresh_cms_schema(): Promise<void> {
   schemaReady = false;
-  ensure_cms_schema();
-  bootstrap_database();
+  await ensure_cms_schema();
+  await bootstrap_database();
 }
 
-function seed_roles(): void {
+async function seed_roles(): Promise<void> {
   const now = nowSeconds();
-  const adminLevel = sqlite()
-    .prepare("SELECT id FROM eterc_user_levels WHERE id = 1 LIMIT 1")
-    .get() as { id: number } | undefined;
+  const adminLevel = await query_rows<{ id: number }>(
+    "SELECT id FROM eterc_user_levels WHERE id = 1 LIMIT 1"
+  );
 
-  if (!adminLevel) {
-    sqlite()
-      .prepare("INSERT INTO eterc_user_levels (id, level_title) VALUES (1, 'admin')")
-      .run();
+  if (adminLevel.length === 0) {
+    await execute_statement(
+      "INSERT INTO eterc_user_levels (id, level_title) VALUES (1, 'admin')"
+    );
+  }
+  await sync_postgres_sequence("eterc_user_levels");
+
+  const admin = await query_rows<{ id: number }>(
+    "SELECT id FROM eterc_roles WHERE user_level_id = 1 LIMIT 1"
+  );
+
+  if (admin.length === 0) {
+    await execute_statement(
+      `INSERT INTO eterc_roles
+        (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, created_at, updated_at)
+       VALUES (1, 'Admin', 'admin', 'Full access to the content service, access control and project settings.', 1, 1, 1, 1, ?, ?)`,
+      [now, now]
+    );
   }
 
-  const admin = sqlite()
-    .prepare("SELECT id FROM eterc_roles WHERE user_level_id = 1 LIMIT 1")
-    .get() as { id: number } | undefined;
+  const memberLevel = await query_rows<{ id: number }>(
+    "SELECT id FROM eterc_user_levels WHERE level_title = 'Member' LIMIT 1"
+  );
 
-  if (!admin) {
-    sqlite()
-      .prepare(
-        `INSERT INTO eterc_roles
-          (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, created_at, updated_at)
-         VALUES (1, 'Admin', 'admin', 'Full access to the content service, access control and project settings.', 1, 1, 1, 1, ?, ?)`
-      )
-      .run(now, now);
-  }
-
-  const memberLevel = sqlite()
-    .prepare("SELECT id FROM eterc_user_levels WHERE level_title = 'Member' LIMIT 1")
-    .get() as { id: number } | undefined;
-
-  if (!memberLevel) {
-    const result = sqlite()
-      .prepare("INSERT INTO eterc_user_levels (level_title) VALUES ('Member')")
-      .run();
-    const levelId = Number(result.lastInsertRowid);
-    sqlite()
-      .prepare(
-        `INSERT INTO eterc_roles
-          (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, created_at, updated_at)
-         VALUES (?, 'Member', 'member', 'Default application role. Grant collection permissions from Access.', 1, 1, 0, 0, ?, ?)`
-      )
-      .run(levelId, now, now);
+  if (memberLevel.length === 0) {
+    await execute_statement(
+      "INSERT INTO eterc_user_levels (level_title) VALUES ('Member')"
+    );
+    const inserted = await query_rows<{ id: number }>(
+      "SELECT id FROM eterc_user_levels WHERE level_title = 'Member' ORDER BY id ASC LIMIT 1"
+    );
+    const levelId = Number(inserted[0]?.id ?? 0);
+    await execute_statement(
+      `INSERT INTO eterc_roles
+        (user_level_id, name, slug, description, app_access, api_access, admin_access, is_system, created_at, updated_at)
+       VALUES (?, 'Member', 'member', 'Default application role. Grant collection permissions from Access.', 1, 1, 0, 0, ?, ?)`,
+      [levelId, now, now]
+    );
   }
 }
 
-function table_names(): string[] {
-  const rows = sqlite()
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-    )
-    .all() as Array<{ name: string }>;
-  return rows.map((row) => row.name);
+async function table_names(): Promise<string[]> {
+  return db.get_tables();
 }
 
 function is_internal_table(name: string): boolean {
@@ -356,10 +399,12 @@ function is_internal_table(name: string): boolean {
   return SYSTEM_TABLE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
-function collection_row(name: string): Row | undefined {
-  return sqlite()
-    .prepare("SELECT * FROM cms_collections WHERE name = ? LIMIT 1")
-    .get(name) as Row | undefined;
+async function collection_row(name: string): Promise<Row | undefined> {
+  const rows = await query_rows(
+    "SELECT * FROM cms_collections WHERE name = ? LIMIT 1",
+    [name]
+  );
+  return rows[0];
 }
 
 interface ColumnInfo {
@@ -369,6 +414,7 @@ interface ColumnInfo {
   notnull: number;
   dflt_value: string | null;
   pk: number;
+  extra?: string;
 }
 
 interface PlannedField {
@@ -396,27 +442,68 @@ interface TablePlan {
   removed: string[];
 }
 
+function supportsSqliteIntrospection(): boolean {
+  return (
+    activeDbAdapter.dialect === "sqlite" || activeDbAdapter.dialect === "libsql"
+  );
+}
+
 function is_rowid_alias_type(declared: string): boolean {
   return declared.replace(/\(.*\)/g, "").trim().toUpperCase() === "INTEGER";
 }
 
-function table_is_without_rowid(table: string): boolean {
-  const row = sqlite()
-    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1")
-    .get(table) as { sql: string | null } | undefined;
-  return /WITHOUT\s+ROWID/i.test(row?.sql ?? "");
+async function table_is_without_rowid(table: string): Promise<boolean> {
+  // WITHOUT ROWID is a SQLite-only table option.
+  if (!supportsSqliteIntrospection()) return false;
+  const rows = await query_rows<{ sql: string | null }>(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    [table]
+  );
+  return /WITHOUT\s+ROWID/i.test(rows[0]?.sql ?? "");
 }
 
-function unique_columns(table: string): Set<string> {
+async function unique_columns(table: string): Promise<Set<string>> {
   const unique = new Set<string>();
-  const indexes = sqlite()
-    .prepare(`PRAGMA index_list(${quote_identifier(table)})`)
-    .all() as Array<{ name: string; unique: number; partial: number }>;
+  if (!supportsSqliteIntrospection()) {
+    if (activeDbAdapter.dialect === "postgres") {
+      const rows = await activeDbAdapter.query<{ name: string }>(
+        `SELECT a.attname AS name
+           FROM pg_index i
+           JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+          WHERE i.indrelid = $1::regclass
+            AND i.indisunique = true
+            AND i.indisprimary = false
+            AND i.indnatts = 1`,
+        [table]
+      );
+      for (const row of rows) unique.add(row.name);
+    } else if (activeDbAdapter.dialect === "mysql") {
+      const rows = await activeDbAdapter.query<{ name: string }>(
+        `SELECT column_name AS name
+           FROM information_schema.statistics
+          WHERE table_schema = DATABASE()
+            AND table_name = ?
+            AND non_unique = 0
+          GROUP BY index_name, column_name
+         HAVING COUNT(*) = 1`,
+        [table]
+      );
+      for (const row of rows) unique.add(row.name);
+    }
+    return unique;
+  }
+  // PRAGMA statements are not classified as reads by the Db facade, so they
+  // must go straight to the SQLite adapter.
+  const indexes = await activeDbAdapter.query<{
+    name: string;
+    unique: number;
+    partial: number;
+  }>(`PRAGMA index_list(${quote_identifier(table)})`);
   for (const index of indexes) {
     if (!index.unique || index.partial) continue;
-    const columns = sqlite()
-      .prepare(`PRAGMA index_info(${quote_identifier(index.name)})`)
-      .all() as Array<{ name: string | null }>;
+    const columns = await activeDbAdapter.query<{ name: string | null }>(
+      `PRAGMA index_info(${quote_identifier(index.name)})`
+    );
     if (columns.length === 1 && columns[0]?.name) {
       unique.add(columns[0].name);
     }
@@ -429,14 +516,35 @@ function metadata_only_row(row: Row): boolean {
   return String(row.interface ?? "") === "alias" || String(row.type ?? "") === "alias";
 }
 
-function build_table_plan(name: string, reconcile: boolean): TablePlan {
-  const collection = collection_row(name);
-  const columns = sqlite()
-    .prepare(`PRAGMA table_info(${quote_identifier(name)})`)
-    .all() as ColumnInfo[];
-  const primaryColumns = columns
-    .filter((column) => Number(column.pk) > 0)
-    .sort((left, right) => Number(left.pk) - Number(right.pk));
+/** Column metadata through the dialect-aware Db facade. */
+async function describe_columns(table: string): Promise<ColumnInfo[]> {
+  const described = await db.describe_table(table);
+  if (described === false) return [];
+  return (described as Row[]).map((column, index) => {
+    const nullable =
+      column.null === true || column.null === 1 || column.null === "YES";
+    return {
+      cid: index,
+      name: String(column.name ?? ""),
+      type: String(column.type ?? ""),
+      notnull: nullable ? 0 : 1,
+      dflt_value:
+        column.default === null || column.default === undefined
+          ? null
+          : String(column.default),
+      pk: String(column.key ?? "") === "PRI" ? 1 : 0,
+      extra: String(column.extra ?? ""),
+    };
+  });
+}
+
+async function build_table_plan(
+  name: string,
+  reconcile: boolean
+): Promise<TablePlan> {
+  const collection = await collection_row(name);
+  const columns = await describe_columns(name);
+  const primaryColumns = columns.filter((column) => Number(column.pk) > 0);
 
   if (primaryColumns.length === 0) {
     return {
@@ -469,13 +577,22 @@ function build_table_plan(name: string, reconcile: boolean): TablePlan {
   }
 
   const primary = primaryColumns[0];
-  const primaryAuto = is_rowid_alias_type(primary.type) && !table_is_without_rowid(name);
-  const unique = unique_columns(name);
+  // SQLite exposes auto-increment only through its INTEGER PRIMARY KEY rowid
+  // alias; the Db facade labels every SQLite primary key with `extra`.
+  const primaryAuto = supportsSqliteIntrospection()
+    ? is_rowid_alias_type(primary.type) && !(await table_is_without_rowid(name))
+    : /auto_increment/i.test(primary.extra ?? "");
+  const unique = await unique_columns(name);
   const fields: PlannedField[] = columns.map((column) => {
     const isPrimary = column.name === primary.name;
     const hasDefault = column.dflt_value !== null;
+    const autoIncrement =
+      !supportsSqliteIntrospection() && /auto_increment/i.test(column.extra ?? "");
     const type = inferType(column.name, column.type);
-    const required = !hasDefault && (isPrimary ? !primaryAuto : Number(column.notnull) === 1);
+    const required =
+      !hasDefault &&
+      !autoIncrement &&
+      (isPrimary ? !primaryAuto : Number(column.notnull) === 1);
     const systemTimestamp =
       !required && (column.name === "created_at" || column.name === "updated_at");
     return {
@@ -492,9 +609,10 @@ function build_table_plan(name: string, reconcile: boolean): TablePlan {
   });
 
   const existingRows = collection
-    ? (sqlite()
-        .prepare("SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC")
-        .all(Number(collection.id)) as Row[])
+    ? await query_rows(
+        "SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC",
+        [Number(collection.id)]
+      )
     : [];
   const existingByName = new Map(existingRows.map((row) => [String(row.name), row]));
   const added = fields
@@ -528,10 +646,13 @@ function build_table_plan(name: string, reconcile: boolean): TablePlan {
   };
 }
 
-function collect_plans(reconcile: boolean): TablePlan[] {
-  return table_names()
-    .filter((name) => !is_internal_table(name))
-    .map((name) => build_table_plan(name, reconcile));
+async function collect_plans(reconcile: boolean): Promise<TablePlan[]> {
+  const names = (await table_names()).filter((name) => !is_internal_table(name));
+  const plans: TablePlan[] = [];
+  for (const name of names) {
+    plans.push(await build_table_plan(name, reconcile));
+  }
+  return plans;
 }
 
 function report_from_plans(plans: TablePlan[], applied: boolean): CmsBootstrapReport {
@@ -559,78 +680,86 @@ function report_from_plans(plans: TablePlan[], applied: boolean): CmsBootstrapRe
   };
 }
 
-function apply_plan(plan: TablePlan): void {
+async function apply_plan(plan: TablePlan): Promise<void> {
   if (plan.status === "skipped" || plan.status === "ready") return;
   const now = nowSeconds();
-  const apply = sqlite().transaction(() => {
+  await db.transaction(async (tx) => {
     let collectionId: number;
     if (!plan.collection) {
-      const result = sqlite()
-        .prepare(
-          `INSERT INTO cms_collections
-            (name, label, icon, note, primary_key, singleton, hidden, system, created_at, updated_at)
-           VALUES (?, ?, 'table', '', ?, 0, 0, 0, ?, ?)`
-        )
-        .run(plan.name, plan.label, plan.primary_key, now, now);
-      collectionId = Number(result.lastInsertRowid);
+      collectionId = await tx.insert(
+        {
+          name: plan.name,
+          label: plan.label,
+          icon: "table",
+          note: "",
+          primary_key: plan.primary_key,
+          singleton: 0,
+          hidden: 0,
+          system: 0,
+          created_at: now,
+          updated_at: now,
+        },
+        "cms_collections"
+      );
     } else {
       collectionId = Number(plan.collection.id);
       if (String(plan.collection.primary_key ?? "id") !== plan.primary_key) {
-        sqlite()
-          .prepare("UPDATE cms_collections SET primary_key = ?, updated_at = ? WHERE id = ?")
-          .run(plan.primary_key, now, collectionId);
+        await execute_statement(
+          "UPDATE cms_collections SET primary_key = ?, updated_at = ? WHERE id = ?",
+          [plan.primary_key, now, collectionId],
+          tx
+        );
       }
     }
 
-    const existingRows = sqlite()
-      .prepare("SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC")
-      .all(collectionId) as Row[];
+    const existingRows = await query_rows(
+      "SELECT * FROM cms_fields WHERE collection_id = ? ORDER BY sort ASC, id ASC",
+      [collectionId],
+      tx
+    );
     const existingByName = new Map(existingRows.map((row) => [String(row.name), row]));
     const maxSort = existingRows.reduce(
       (maximum, row) => Math.max(maximum, Number(row.sort ?? 0)),
       -1
     );
     let nextSort = maxSort + 1;
-    const insertField = sqlite().prepare(
-      `INSERT INTO cms_fields
-        (collection_id, name, label, type, interface, options, required, "unique", hidden, readonly, sort, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?, ?)`
-    );
-    const updateField = sqlite().prepare(
-      `UPDATE cms_fields
-       SET label = ?, type = ?, interface = ?, required = ?, "unique" = ?, hidden = ?, readonly = ?, updated_at = ?
-       WHERE id = ?`
-    );
     for (const field of plan.fields) {
       const row = existingByName.get(field.name);
       if (row && metadata_only_row(row)) {
-        updateField.run(
-          field.label,
-          field.type,
-          field.interface,
-          field.required ? 1 : 0,
-          field.unique ? 1 : 0,
-          field.hidden ? 1 : 0,
-          field.readonly ? 1 : 0,
-          now,
-          Number(row.id)
+        await tx.update(
+          Number(row.id),
+          {
+            label: field.label,
+            type: field.type,
+            interface: field.interface,
+            required: field.required ? 1 : 0,
+            unique: field.unique ? 1 : 0,
+            hidden: field.hidden ? 1 : 0,
+            readonly: field.readonly ? 1 : 0,
+            updated_at: now,
+          },
+          "cms_fields"
         );
         continue;
       }
       if (row) continue;
-      insertField.run(
-        collectionId,
-        field.name,
-        field.label,
-        field.type,
-        field.interface,
-        field.required ? 1 : 0,
-        field.unique ? 1 : 0,
-        field.hidden ? 1 : 0,
-        field.readonly ? 1 : 0,
-        nextSort,
-        now,
-        now
+      await tx.insert(
+        {
+          collection_id: collectionId,
+          name: field.name,
+          label: field.label,
+          type: field.type,
+          interface: field.interface,
+          options: "{}",
+          required: field.required ? 1 : 0,
+          unique: field.unique ? 1 : 0,
+          hidden: field.hidden ? 1 : 0,
+          readonly: field.readonly ? 1 : 0,
+          sort: nextSort,
+          created_at: now,
+          updated_at: now,
+        },
+        "cms_fields"
       );
       nextSort += 1;
     }
@@ -638,29 +767,30 @@ function apply_plan(plan: TablePlan): void {
     for (const fieldName of plan.removed) {
       const row = existingByName.get(fieldName);
       if (!row) continue;
-      sqlite().prepare("DELETE FROM cms_fields WHERE id = ?").run(Number(row.id));
-      remove_field_from_policies(plan.name, fieldName);
+      await tx.delete(Number(row.id), "cms_fields");
+      await remove_field_from_policies(plan.name, fieldName, tx);
     }
 
     if (plan.added.length > 0 || plan.updated.length > 0 || plan.removed.length > 0) {
-      sqlite()
-        .prepare("UPDATE cms_collections SET updated_at = ? WHERE id = ?")
-        .run(now, collectionId);
+      await execute_statement(
+        "UPDATE cms_collections SET updated_at = ? WHERE id = ?",
+        [now, collectionId],
+        tx
+      );
     }
   });
-  apply();
 }
 
-function sync_collections(): void {
-  for (const plan of collect_plans(false)) {
-    apply_plan(plan);
+async function sync_collections(): Promise<void> {
+  for (const plan of await collect_plans(false)) {
+    await apply_plan(plan);
   }
 }
 
 /** Scan user tables without changing CMS metadata. */
-export function scan_database_schema(): CmsBootstrapReport {
-  ensure_cms_schema();
-  return report_from_plans(collect_plans(true), false);
+export async function scan_database_schema(): Promise<CmsBootstrapReport> {
+  await ensure_cms_schema();
+  return report_from_plans(await collect_plans(true), false);
 }
 
 /**
@@ -669,10 +799,10 @@ export function scan_database_schema(): CmsBootstrapReport {
  * The explicit bootstrap keeps existing labels, icons, interfaces, options and
  * policies while bringing field metadata back in sync with the SQLite schema.
  */
-export function bootstrap_database(): CmsBootstrapReport {
-  ensure_cms_schema();
-  const plans = collect_plans(true);
-  for (const plan of plans) apply_plan(plan);
+export async function bootstrap_database(): Promise<CmsBootstrapReport> {
+  await ensure_cms_schema();
+  const plans = await collect_plans(true);
+  for (const plan of plans) await apply_plan(plan);
   return report_from_plans(plans, true);
 }
 
@@ -692,22 +822,18 @@ function strip_field_from_group(value: unknown, fieldName: string): unknown {
 }
 
 /** Keep policies valid when a collection field is removed. */
-export function remove_field_from_policies(
+export async function remove_field_from_policies(
   collectionName: string,
-  fieldName: string
-): void {
-  const rows = sqlite()
-    .prepare(
-      `SELECT id, fields, filter, validation, presets
-       FROM eterc_permissions WHERE collection = ?`
-    )
-    .all(collectionName) as Row[];
-  if (rows.length === 0) return;
-  const update = sqlite().prepare(
-    `UPDATE eterc_permissions
-     SET fields = ?, filter = ?, validation = ?, presets = ?, updated_at = ?
-     WHERE id = ?`
+  fieldName: string,
+  client: Db = db
+): Promise<void> {
+  const rows = await query_rows(
+    `SELECT id, fields, filter, validation, presets
+     FROM eterc_permissions WHERE collection = ?`,
+    [collectionName],
+    client
   );
+  if (rows.length === 0) return;
   const now = nowSeconds();
   for (const row of rows) {
     let fields: unknown = [];
@@ -745,19 +871,29 @@ export function remove_field_from_policies(
           return String((preset as Record<string, unknown>).field ?? "") !== fieldName;
         })
       : [];
-    update.run(
-      JSON.stringify(nextFields),
-      JSON.stringify(strip_field_from_group(filter, fieldName)),
-      JSON.stringify(strip_field_from_group(validation, fieldName)),
-      JSON.stringify(nextPresets),
-      now,
-      row.id
+    await execute_statement(
+      `UPDATE eterc_permissions
+       SET fields = ?, filter = ?, validation = ?, presets = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        JSON.stringify(nextFields),
+        JSON.stringify(strip_field_from_group(filter, fieldName)),
+        JSON.stringify(strip_field_from_group(validation, fieldName)),
+        JSON.stringify(nextPresets),
+        now,
+        row.id,
+      ],
+      client
     );
   }
 }
 
+/**
+ * Double quotes work for SQLite, PostgreSQL and MySQL (ANSI_QUOTES), while
+ * backticks are SQLite/MySQL-only. CMS identifiers are validated before use.
+ */
 export function quote_identifier(value: string): string {
-  return "`" + value.replace(/`/g, "``") + "`";
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 export function is_safe_identifier(value: string): boolean {
@@ -779,11 +915,23 @@ export function default_field_sql(
   if (type === "alias") {
     throw new Error("Alias fields are CMS metadata only and do not create SQL columns.");
   }
+  const dialect = activeDbAdapter.dialect;
+  const numeric = type === "integer" || type === "boolean" || type === "relation";
+  const decimal = type === "decimal";
+  const textual = !numeric && !decimal;
   let sqlType = "TEXT";
-  if (type === "integer" || type === "boolean" || type === "relation") sqlType = "INTEGER";
-  if (type === "decimal") sqlType = "REAL";
+  if (numeric) sqlType = "INTEGER";
+  if (decimal) sqlType = "REAL";
+  // MySQL does not accept literal defaults on TEXT columns. Use a bounded
+  // VARCHAR for common string types and expression defaults for long text.
+  if (dialect === "mysql" && textual) {
+    sqlType = type === "text" || type === "json" ? "TEXT" : "VARCHAR(255)";
+  }
 
   let sql = `${quote_identifier(field.name)} ${sqlType}`;
+  const defaultExpression =
+    dialect === "mysql" &&
+    (sqlType === "TEXT" || sqlType === "BLOB" || sqlType === "JSON");
   if (type === "boolean") sql += " NOT NULL DEFAULT 0";
   else if (field.required) {
     const fallback =
@@ -793,9 +941,11 @@ export function default_field_sql(
       sql +=
         type === "integer" || type === "decimal" || type === "relation"
           ? ` NOT NULL DEFAULT ${Number(raw) || 0}`
-          : ` NOT NULL DEFAULT '${raw}'`;
+          : defaultExpression
+            ? ` NOT NULL DEFAULT ('${raw}')`
+            : ` NOT NULL DEFAULT '${raw}'`;
     } else {
-      sql += ` NOT NULL DEFAULT ${fallback}`;
+      sql += ` NOT NULL DEFAULT ${defaultExpression && fallback === "''" ? "('')" : fallback}`;
     }
   }
   if (includeUnique && (field.unique === true || options.unique === true)) {
@@ -804,12 +954,14 @@ export function default_field_sql(
   return sql;
 }
 
-export function collection_metadata_row(name: string): Row | undefined {
+export async function collection_metadata_row(
+  name: string
+): Promise<Row | undefined> {
   return collection_row(name);
 }
 
-export function list_known_tables(): string[] {
-  return table_names().filter((name) => !is_internal_table(name));
+export async function list_known_tables(): Promise<string[]> {
+  return (await table_names()).filter((name) => !is_internal_table(name));
 }
 
 export function is_system_table(name: string): boolean {

@@ -1,10 +1,12 @@
+﻿import { activeDbAdapter } from "@/engine/active/db-adapter";
 import { escape_identifier, sqlite, type Row } from "@/engine/db";
+import { configuredDatabaseProvider } from "@/engine/db/gateway";
 
 export type { Row };
 import { Model } from "@/engine/model";
 import { post } from "@/engine/post";
 
-/** Identifier guard — identical to the engine's table/column validation. */
+/** Identifier guard â€” identical to the engine's table/column validation. */
 const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /** SQLite type affinity (https://sqlite.org/datatype3.html#affinity). */
@@ -35,7 +37,7 @@ export interface FormField {
   has_default: boolean;
   is_primary_key: boolean;
   auto_increment: boolean;
-  /** false → rendered read-only and never submitted (primary keys). */
+  /** false â†’ rendered read-only and never submitted (primary keys). */
   submit: boolean;
 }
 
@@ -65,28 +67,31 @@ export class Db_model extends Model {
   // -------------------------------------------------------------------------
 
   /** Table list with row/column counts and the primary key column name. */
-  get_tables_with_counts(): TableSummary[] {
-    return this.db.get_tables().map((name) => {
-      const columns = this.describe_columns(name);
-      return {
-        name,
-        num_rows: this.db.count(name),
-        num_columns: columns.length,
-        primary_key: columns.find((column) => column.is_primary_key)?.name ?? "",
-      };
-    });
+  async get_tables_with_counts(): Promise<TableSummary[]> {
+    const names = await this.db.get_tables();
+    return Promise.all(
+      names.map(async (name) => {
+        const columns = await this.describe_columns(name);
+        return {
+          name,
+          num_rows: await this.db.count(name),
+          num_columns: columns.length,
+          primary_key: columns.find((column) => column.is_primary_key)?.name ?? "",
+        };
+      }),
+    );
   }
 
   /** True when `table` is a valid identifier for an existing table. */
-  table_exists(table: string): boolean {
-    return IDENTIFIER.test(table) && this.db.table_exists(table);
+  async table_exists(table: string): Promise<boolean> {
+    return IDENTIFIER.test(table) && (await this.db.table_exists(table));
   }
 
   /** Normalized column metadata. */
-  describe_columns(table: string): ColumnInfo[] {
-    if (!this.table_exists(table)) return [];
+  async describe_columns(table: string): Promise<ColumnInfo[]> {
+    if (!(await this.table_exists(table))) return [];
 
-    const rows = this.db.describe_table(table);
+    const rows = await this.db.describe_table(table);
     if (rows === false) return [];
 
     return (rows as Row[]).map((row) => this.to_column_info(row));
@@ -116,7 +121,7 @@ export class Db_model extends Model {
   // Record browser
   // -------------------------------------------------------------------------
 
-  count_rows(table: string): number {
+  async count_rows(table: string): Promise<number> {
     this.validate_table(table);
     return this.db.count(table);
   }
@@ -127,13 +132,13 @@ export class Db_model extends Model {
     if (primary_key) return primary_key.name;
     return columns.length > 0 ? columns[0].name : "rowid";
   }
-  get_page_rows(
+  async get_page_rows(
     table: string,
     order_by: string,
     order_direction: string,
     limit: number,
     offset: number
-  ): Row[] {
+  ): Promise<Row[]> {
     this.validate_table(table);
     this.validate_identifier(order_by, "column");
 
@@ -143,18 +148,18 @@ export class Db_model extends Model {
       ` ORDER BY ${escape_identifier(order_by)} ${direction}` +
       ` LIMIT @limit OFFSET @offset`;
 
-    const rows = this.db.query_bind(sql, {
+    const rows = (await this.db.query_bind(sql, {
       limit: Math.max(0, limit),
       offset: Math.max(0, offset),
-    }) as Row[];
+    })) as Row[];
 
     return to_display_rows(rows);
   }
 
   /** A single record (display-safe values), or false when missing. */
-  get_record(table: string, id: number): Row | false {
+  async get_record(table: string, id: number): Promise<Row | false> {
     this.validate_table(table);
-    const row = this.db.get_where(id, table);
+    const row = await this.db.get_where(id, table);
     if (row === false) return false;
     return to_display_rows([row])[0] ?? false;
   }
@@ -259,39 +264,50 @@ export class Db_model extends Model {
     return data;
   }
 
-  insert_record(table: string, data: Row): number {
+  async insert_record(table: string, data: Row): Promise<number> {
     this.validate_table(table);
     return this.db.insert(data, table);
   }
 
-  /** INSERT INTO `t` DEFAULT VALUES — tables whose only column is the rowid. */
-  insert_empty_row(table: string): number {
+  /** Insert a row into a table whose only column is an auto key. */
+  async insert_empty_row(table: string): Promise<number> {
     this.validate_table(table);
-    const result = this.db.query_bind(
-      `INSERT INTO ${escape_identifier(table)} DEFAULT VALUES`,
-      []
-    ) as { lastInsertId?: number } | true;
+    if (activeDbAdapter.dialect === "postgres") {
+      const rows = await activeDbAdapter.query<Record<string, unknown>>(
+        `INSERT INTO ${escape_identifier(table)} DEFAULT VALUES RETURNING *`,
+      );
+      const row = rows[0] ?? {};
+      const key = Object.keys(row)[0];
+      return key ? Number(row[key] ?? 0) : 0;
+    }
+    const sql =
+      activeDbAdapter.dialect === "mysql"
+        ? `INSERT INTO ${escape_identifier(table)} () VALUES ()`
+        : `INSERT INTO ${escape_identifier(table)} DEFAULT VALUES`;
+    const result = (await this.db.query_bind(sql, [])) as {
+      lastInsertId?: number;
+    } | true;
     return typeof result === "object" && result !== null && "lastInsertId" in result
       ? Number(result.lastInsertId ?? 0)
       : 0;
   }
 
-  update_record(table: string, id: number, data: Row): boolean {
+  async update_record(table: string, id: number, data: Row): Promise<boolean> {
     this.validate_table(table);
     return this.db.update(id, data, table);
   }
 
-  delete_record(table: string, id: number): boolean {
+  async delete_record(table: string, id: number): Promise<boolean> {
     this.validate_table(table);
     return this.db.delete(id, table);
   }
 
   /** DELETE FROM plus sqlite_sequence reset (TRUNCATE stand-in). */
-  truncate_table(table: string): boolean {
+  async truncate_table(table: string): Promise<boolean> {
     this.validate_table(table);
     return this.db.attempt_truncate(table);
   }
-  resequence_ids(table: string): boolean {
+  async resequence_ids(table: string): Promise<boolean> {
     this.validate_table(table);
     return this.db.resequence_ids(table);
   }
@@ -300,7 +316,7 @@ export class Db_model extends Model {
   // SQL console
   // -------------------------------------------------------------------------
 
-  run_sql(sql: string): SqlResult {
+  async run_sql(sql: string): Promise<SqlResult> {
     const statement = sql.trim();
     const empty: SqlResult = {
       ok: false,
@@ -317,7 +333,7 @@ export class Db_model extends Model {
     }
 
     try {
-      const result = this.db.query_bind(statement, [], "array");
+      const result = (await this.db.query_bind(statement, [], "array"));
 
       if (Array.isArray(result)) {
         const rows = to_display_rows(result as Row[]);
@@ -354,6 +370,7 @@ export class Db_model extends Model {
 
   /** Column names for an empty result set (better-sqlite3 stmt.columns()). */
   private column_names(sql: string): string[] {
+    if (configuredDatabaseProvider() !== "sqlite") return [];
     try {
       return sqlite()
         .prepare(sql)
@@ -379,7 +396,7 @@ export class Db_model extends Model {
   }
 }
 
-/** SQLite type affinity — mirrors the rules from the SQLite documentation. */
+/** SQLite type affinity â€” mirrors the rules from the SQLite documentation. */
 function sqlite_affinity(declared_type: string): ColumnAffinity {
   const type = declared_type.toUpperCase();
   if (type.includes("INT")) return "integer";
@@ -393,7 +410,7 @@ function is_numeric_affinity(affinity: ColumnAffinity): boolean {
   return affinity === "integer" || affinity === "real" || affinity === "numeric";
 }
 
-/** column_name → "Column Name" (labels used by validation messages). */
+/** column_name â†’ "Column Name" (labels used by validation messages). */
 function format_label(name: string): string {
   return name
     .split("_")
@@ -408,7 +425,7 @@ function prefers_textarea(column: ColumnInfo, value: string): boolean {
   return value.length > 120 || value.includes("\n");
 }
 
-/** Value → form input string (NULL becomes ''). */
+/** Value â†’ form input string (NULL becomes ''). */
 function input_value(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "bigint") return value.toString();
@@ -418,7 +435,7 @@ function input_value(value: unknown): string {
 
 /**
  * Make database rows safe for React rendering and JSON responses: SQLite
- * BLOBs arrive as Buffers (rendered as 0x… hex) and integers can exceed the
+ * BLOBs arrive as Buffers (rendered as 0xâ€¦ hex) and integers can exceed the
  * safe JS range (rendered as strings).
  */
 export function to_display_rows(rows: Row[]): Row[] {
@@ -444,3 +461,4 @@ function to_display_value(value: unknown): unknown {
   }
   return value;
 }
+

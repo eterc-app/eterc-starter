@@ -32,8 +32,10 @@ export class EtApiResponse {
     this.headers = headers;
   }
 }
-export function require_api_user(level: number | null = 1): EtercUserObj {
-  const principal = resolve_principal();
+export async function require_api_user(
+  level: number | null = 1
+): Promise<EtercUserObj> {
+  const principal = await resolve_principal();
 
   if (level !== null && principal.role.user_level_id !== level) {
     throw new EtHttpError(403, "This API resource requires a different role.");

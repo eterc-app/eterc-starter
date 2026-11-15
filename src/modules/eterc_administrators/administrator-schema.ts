@@ -1,4 +1,4 @@
-import { sqlite } from "@/engine/db";
+import { activeDbAdapter } from "@/engine/active/db-adapter";
 
 /**
  * Account-profile columns added after the original administrator table.
@@ -13,30 +13,56 @@ const ADMIN_PROFILE_COLUMNS: ReadonlyArray<readonly [string, string]> = [
   ["title", "TEXT NOT NULL DEFAULT ''"],
 ];
 
-let ready = false;
+function mysqlSafeDefinition(definition: string): string {
+  if (activeDbAdapter.dialect !== "mysql") return definition;
+  // MySQL cannot apply literal defaults to TEXT columns.
+  return definition
+    .replace(/^TEXT/i, "VARCHAR(255)")
+    .replace(/DEFAULT ''/i, "DEFAULT ''");
+}
 
-export function ensure_administrator_schema(): void {
-  if (ready) return;
+let ready: Promise<void> | null = null;
 
-  const table = sqlite()
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'eterc_administrators' LIMIT 1"
-    )
-    .get() as { name: string } | undefined;
+export function ensure_administrator_schema(): Promise<void> {
+  if (!ready) {
+    ready = migrate().catch((error) => {
+      ready = null;
+      throw error;
+    });
+  }
+  return ready;
+}
 
-  if (!table) return;
+async function migrate(): Promise<void> {
+  const dialect = activeDbAdapter.dialect;
+  const sqliteLike = dialect === "sqlite" || dialect === "libsql";
+  if (!sqliteLike) {
+    const exists = await activeDbAdapter.query<{ name: string }>(
+      dialect === "postgres"
+        ? "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'eterc_administrators' LIMIT 1"
+        : "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'eterc_administrators' LIMIT 1",
+    );
+    if (exists.length === 0) return;
+  } else {
+    const exists = await activeDbAdapter.query<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'eterc_administrators' LIMIT 1",
+    );
+    if (exists.length === 0) return;
+  }
 
-  const columns = sqlite()
-    .prepare("PRAGMA table_info('eterc_administrators')")
-    .all() as Array<{ name: string }>;
+  const columns = await activeDbAdapter.query<{ name: string }>(
+    sqliteLike
+      ? "PRAGMA table_info('eterc_administrators')"
+      : dialect === "postgres"
+        ? "SELECT column_name AS name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'eterc_administrators'"
+        : "SELECT column_name AS name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'eterc_administrators'",
+  );
   const existing = new Set(columns.map((column) => column.name));
 
   for (const [name, definition] of ADMIN_PROFILE_COLUMNS) {
     if (existing.has(name)) continue;
-    sqlite().exec(
-      `ALTER TABLE "eterc_administrators" ADD COLUMN "${name}" ${definition}`
+    await activeDbAdapter.execute(
+      `ALTER TABLE "eterc_administrators" ADD COLUMN "${name}" ${mysqlSafeDefinition(definition)}`,
     );
   }
-
-  ready = true;
 }

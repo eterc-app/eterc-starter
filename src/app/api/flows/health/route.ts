@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
           ? request.headers.get("authorization")?.slice(7).trim() ?? null
           : null)
     );
-  const health = flow_health();
+  const health = await flow_health();
   if (!authorized) {
     return NextResponse.json(
       {

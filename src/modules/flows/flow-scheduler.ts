@@ -12,8 +12,10 @@ export interface ScheduleTickResult {
  * Enqueue every due schedule and advance its next run before draining.
  * Advancing first keeps a slow flow from being enqueued twice on the next tick.
  */
-export function tick_schedules(at = Math.floor(Date.now() / 1000)): ScheduleTickResult {
-  const flows = due_schedule_flows(at);
+export async function tick_schedules(
+  at = Math.floor(Date.now() / 1000)
+): Promise<ScheduleTickResult> {
+  const flows = await due_schedule_flows(at);
   const errors: string[] = [];
   let enqueued = 0;
 
@@ -21,7 +23,7 @@ export function tick_schedules(at = Math.floor(Date.now() / 1000)): ScheduleTick
     const expression = String(flow.options.interval ?? "");
     const next = next_cron_seconds(expression, new Date(at * 1000));
     try {
-      enqueue_flow_trigger(flow.id, "schedule", {
+      await enqueue_flow_trigger(flow.id, "schedule", {
         type: "schedule",
         body: { scheduled_at: at },
       });
@@ -31,7 +33,7 @@ export function tick_schedules(at = Math.floor(Date.now() / 1000)): ScheduleTick
         `${flow.name}: ${error instanceof Error ? error.message : "could not enqueue"}`
       );
     }
-    set_flow_next_run(flow.id, next);
+    await set_flow_next_run(flow.id, next);
   }
 
   return { due: flows.length, enqueued, errors };

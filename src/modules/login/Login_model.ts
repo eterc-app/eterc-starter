@@ -67,18 +67,18 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
   // Authentication
   // -----------------------------------------------------------------
-  validate_credentials(
+  async validate_credentials(
     identifier: string,
     password: string,
     user_level_id: number
-  ): boolean {
+  ): Promise<boolean> {
     const config = this.get_level_config(user_level_id);
     const password_field = config.fields.password.column;
 
-    const user = this.find_user(identifier, user_level_id);
+    const user = await this.find_user(identifier, user_level_id);
 
     // Get a timing-safe hash.
-    let hash_to_verify = this.get_timing_safe_hash(user_level_id);
+    let hash_to_verify = await this.get_timing_safe_hash(user_level_id);
 
     const stored_password =
       user !== false ? user[password_field] : undefined;
@@ -115,7 +115,7 @@ export class Login_model extends Model {
    * Find a user record, trying each configured identifier column in order.
    * The submitted value can match any configured identifier (username OR email).
    */
-  find_user(identifier: string, user_level_id: number): Row | false {
+  async find_user(identifier: string, user_level_id: number): Promise<Row | false> {
     const config = this.get_level_config(user_level_id);
     const table = config.target_table;
 
@@ -123,13 +123,13 @@ export class Login_model extends Model {
     if (!normalized) return false;
 
     for (const column of this.get_identifier_columns(user_level_id)) {
-      const rows = this.db.query_bind(
+      const rows = (await this.db.query_bind(
         `SELECT * FROM ${quote_id(table)}
           WHERE LOWER(${quote_id(column)}) = LOWER(:identifier)
           LIMIT 1`,
         { identifier: normalized },
         "object"
-      ) as Row[];
+      )) as Row[];
       if (rows.length > 0) {
         return rows[0];
       }
@@ -139,8 +139,8 @@ export class Login_model extends Model {
   }
 
   /** Find a user by any configured identifier — used by the forgot-password flow. */
-  find_user_lax(submitted: string, user_level_id: number): Row | false {
-    return this.find_user(submitted, user_level_id);
+  async find_user_lax(submitted: string, user_level_id: number): Promise<Row | false> {
+    return await this.find_user(submitted, user_level_id);
   }
 
   /**
@@ -150,7 +150,7 @@ export class Login_model extends Model {
    * instead of the broader login identifier lookup so a provider email can
    * never match a username by accident.
    */
-  find_user_by_email(email: string, user_level_id: number): Row | false {
+  async find_user_by_email(email: string, user_level_id: number): Promise<Row | false> {
     const normalized = email.trim();
 
     if (!normalized) return false;
@@ -162,13 +162,13 @@ export class Login_model extends Model {
 
     if (!email_column) return false;
 
-    const rows = this.db.query_bind(
+    const rows = (await this.db.query_bind(
       `SELECT * FROM ${quote_id(config.target_table)}
         WHERE LOWER(${quote_id(email_column)}) = LOWER(:email)
         LIMIT 2`,
       { email: normalized },
       "object"
-    ) as Row[];
+    )) as Row[];
 
     return rows.length === 1 ? rows[0] : false;
   }
@@ -177,19 +177,19 @@ export class Login_model extends Model {
    * Timing-safe bcrypt hash: the first stored password hash in the table, or a
    * freshly generated dummy hash when the table has no hashes yet.
    */
-  private get_timing_safe_hash(user_level_id: number): string {
+  private async get_timing_safe_hash(user_level_id: number): Promise<string> {
     const config = this.get_level_config(user_level_id);
     const table = config.target_table;
     const pw_field = config.fields.password.column;
     const cost = LOGIN_CONFIG.password_hash_cost ?? 11;
 
-    const rows = this.db.query_bind(
+    const rows = (await this.db.query_bind(
       `SELECT ${quote_id(pw_field)} FROM ${quote_id(table)}
         WHERE ${quote_id(pw_field)} IS NOT NULL
           AND ${quote_id(pw_field)} != '' LIMIT 1`,
       [],
       "object"
-    ) as Row[];
+    )) as Row[];
 
     if (rows.length > 0) {
       const candidate = rows[0][pw_field];
@@ -206,8 +206,8 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
 
   /** Whether a login attempt is allowed for the identifier / IP. */
-  is_login_allowed(identifier: string, user_level_id: number): boolean {
-    this.remove_expired_restrictions(user_level_id);
+  async is_login_allowed(identifier: string, user_level_id: number): Promise<boolean> {
+    await this.remove_expired_restrictions(user_level_id);
 
     const max_attempts = Number(LOGIN_CONFIG.max_failed_attempts ?? 3);
     const block_duration = Number(LOGIN_CONFIG.block_duration ?? 900);
@@ -215,7 +215,7 @@ export class Login_model extends Model {
 
     // Check by identifier.
     if (
-      this.count_recent_attempts(user_level_id, "identifier", identifier, block_time) >=
+      (await this.count_recent_attempts(user_level_id, "identifier", identifier, block_time)) >=
       max_attempts
     ) {
       return false;
@@ -223,7 +223,7 @@ export class Login_model extends Model {
 
     // Check by IP.
     if (
-      this.count_recent_attempts(user_level_id, "ip_address", this.ip_address(), block_time) >=
+      (await this.count_recent_attempts(user_level_id, "ip_address", this.ip_address(), block_time)) >=
       max_attempts
     ) {
       return false;
@@ -233,15 +233,15 @@ export class Login_model extends Model {
   }
 
   /** Count recent failed attempts matching a field. */
-  private count_recent_attempts(
+  private async count_recent_attempts(
     user_level_id: number,
     field: "identifier" | "ip_address",
     value: string,
     since_time: number
-  ): number {
+  ): Promise<number> {
     const config = this.get_level_config(user_level_id);
 
-    const rows = this.db.query_bind(
+    const rows = (await this.db.query_bind(
       `SELECT COUNT(*) as cnt FROM login_attempts
         WHERE target_table = :target_table
           AND ${quote_id(field)} = :value
@@ -252,16 +252,16 @@ export class Login_model extends Model {
         since_time,
       },
       "object"
-    ) as Array<{ cnt: number }>;
+    )) as Array<{ cnt: number }>;
 
     return rows.length > 0 ? Number(rows[0].cnt) : 0;
   }
 
   /** Record a failed login attempt. */
-  record_failed_attempt(identifier: string, user_level_id: number): void {
+  async record_failed_attempt(identifier: string, user_level_id: number): Promise<void> {
     const config = this.get_level_config(user_level_id);
 
-    this.db.insert(
+    await this.db.insert(
       {
         target_table: config.target_table,
         identifier,
@@ -273,12 +273,12 @@ export class Login_model extends Model {
   }
 
   /** Remove expired restriction records for the level's target table. */
-  remove_expired_restrictions(user_level_id: number): void {
+  async remove_expired_restrictions(user_level_id: number): Promise<void> {
     const config = this.get_level_config(user_level_id);
     const block_duration = Number(LOGIN_CONFIG.block_duration ?? 900);
     const cutoff = now_seconds() - block_duration;
 
-    this.db.query_bind(
+    await this.db.query_bind(
       `DELETE FROM login_attempts
         WHERE target_table = :target_table
           AND attempted_at < :cutoff`,
@@ -290,10 +290,10 @@ export class Login_model extends Model {
   }
 
   /** Clear all failed attempts for a given identifier. */
-  clear_failed_attempts(identifier: string, user_level_id: number): void {
+  async clear_failed_attempts(identifier: string, user_level_id: number): Promise<void> {
     const config = this.get_level_config(user_level_id);
 
-    this.db.query_bind(
+    await this.db.query_bind(
       `DELETE FROM login_attempts
         WHERE target_table = :target_table
           AND identifier = :identifier`,
@@ -305,8 +305,8 @@ export class Login_model extends Model {
   }
 
   /** Unlock all users (dev mode only). */
-  unlock_all(): void {
-    this.db.attempt_truncate("login_attempts");
+  async unlock_all(): Promise<void> {
+    await this.db.attempt_truncate("login_attempts");
   }
 
   // -----------------------------------------------------------------
@@ -319,18 +319,18 @@ export class Login_model extends Model {
    * @param remember 0 for session storage, 1 for a persistent cookie.
    * @returns the token string, or false on failure.
    */
-  log_user_in(
+  async log_user_in(
     identifier: string,
     user_level_id: number,
     remember = 0
-  ): string | false {
-    const user = this.find_user(identifier, user_level_id);
+  ): Promise<string | false> {
+    const user = await this.find_user(identifier, user_level_id);
 
     if (user === false) {
       return false;
     }
 
-    return this.login_user_row(user, user_level_id, remember);
+    return await this.login_user_row(user, user_level_id, remember);
   }
 
   /**
@@ -340,7 +340,7 @@ export class Login_model extends Model {
    * callback after its own account/linking checks. It deliberately does not
    * accept an identifier, so callers cannot skip those checks accidentally.
    */
-  login_user_row(user: Row, user_level_id: number, remember = 0): string | false {
+  async login_user_row(user: Row, user_level_id: number, remember = 0): Promise<string | false> {
     const config = this.get_level_config(user_level_id);
     const eterc_user_id = this.get_user_ref_id(user, config);
 
@@ -357,16 +357,16 @@ export class Login_model extends Model {
 
     if (remember === 1 && config.allow_remember === 1) {
       const expiry_date = now_seconds() + 86400 * config.remember_days;
-      token = tokens.generate_token({
+      token = await tokens.generate_token({
         user_id: eterc_user_id,
         expiry_date,
         set_cookie: true,
       });
     } else {
-      token = tokens.generate_token({ user_id: eterc_user_id });
+      token = await tokens.generate_token({ user_id: eterc_user_id });
     }
 
-    this.update_login_stats(config, user);
+    await this.update_login_stats(config, user);
     return token;
   }
 
@@ -378,7 +378,7 @@ export class Login_model extends Model {
    * incremented and last_login is set to the current date/time. This is
    * purely opt-in: if the columns do not exist, nothing happens.
    */
-  private update_login_stats(config: LoginUserLevel, user: Row): void {
+  private async update_login_stats(config: LoginUserLevel, user: Row): Promise<void> {
     const table = config.target_table;
     const user_ref_field = config.user_ref_field;
     const user_id = this.get_user_ref_id(user, config);
@@ -387,7 +387,7 @@ export class Login_model extends Model {
       return;
     }
 
-    const columns = this.db.describe_table(table);
+    const columns = await this.db.describe_table(table);
 
     if (columns === false || !Array.isArray(columns)) {
       return; // Table not found or error.
@@ -432,7 +432,7 @@ export class Login_model extends Model {
       return; // Neither column exists (or unknown type).
     }
 
-    this.db.query_bind(
+    await this.db.query_bind(
       `UPDATE ${quote_id(table)}
           SET ${set_clauses.join(", ")}
         WHERE ${quote_id(user_ref_field)} = :user_id`,
@@ -445,11 +445,11 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
 
   /** Generate a password reset token, or false when the user is not found. */
-  generate_reset_token(
+  async generate_reset_token(
     identifier: string,
     user_level_id: number
-  ): string | false {
-    const user = this.find_user(identifier, user_level_id);
+  ): Promise<string | false> {
+    const user = await this.find_user(identifier, user_level_id);
 
     if (user === false) {
       return false;
@@ -459,7 +459,7 @@ export class Login_model extends Model {
     const lifespan = Number(LOGIN_CONFIG.reset_token_lifespan ?? 3600);
     const token = make_rand_str(64);
 
-    this.db.insert(
+    await this.db.insert(
       {
         target_table: config.target_table,
         identifier,
@@ -475,8 +475,8 @@ export class Login_model extends Model {
   }
 
   /** Validate a password reset token — returns the reset record or false. */
-  validate_reset_token(token: string): PasswordResetRow | false {
-    const rows = this.db.query_bind(
+  async validate_reset_token(token: string): Promise<PasswordResetRow | false> {
+    const rows = (await this.db.query_bind(
       `SELECT * FROM password_resets
         WHERE token = :token
           AND used = 0
@@ -487,14 +487,14 @@ export class Login_model extends Model {
         now: now_seconds(),
       },
       "object"
-    ) as PasswordResetRow[];
+    )) as PasswordResetRow[];
 
     return rows.length > 0 ? rows[0] : false;
   }
 
   /** Update a user's password using a validated reset token. */
-  reset_password(token: string, new_password: string): boolean {
-    const reset = this.validate_reset_token(token);
+  async reset_password(token: string, new_password: string): Promise<boolean> {
+    const reset = await this.validate_reset_token(token);
 
     if (reset === false) {
       return false;
@@ -522,7 +522,7 @@ export class Login_model extends Model {
     }
 
     // Update password in target table.
-    this.db.query_bind(
+    await this.db.query_bind(
       `UPDATE ${quote_id(reset.target_table)}
           SET ${quote_id(pw_field)} = :hash
         WHERE ${quote_id(ident_field)} = :identifier`,
@@ -533,7 +533,7 @@ export class Login_model extends Model {
     );
 
     // Mark token as used.
-    this.db.query_bind("UPDATE password_resets SET used = 1 WHERE token = :token", {
+    await this.db.query_bind("UPDATE password_resets SET used = 1 WHERE token = :token", {
       token,
     });
 
@@ -542,13 +542,13 @@ export class Login_model extends Model {
 
     if (level_id > 0) {
       const level_config = this.get_level_config(level_id);
-      const user = this.find_user(reset.identifier, level_id);
+      const user = await this.find_user(reset.identifier, level_id);
 
       if (user !== false) {
         const eterc_user_id = this.get_user_ref_id(user, level_config);
 
         if (eterc_user_id > 0) {
-          new Eterc_tokens().delete_old_tokens(eterc_user_id);
+          await new Eterc_tokens().delete_old_tokens(eterc_user_id);
         }
       }
     }
@@ -565,7 +565,7 @@ export class Login_model extends Model {
 
     const html_body = body.replace(/\n/g, "<br />\n");
 
-    return send_email(to_email, "Password Reset Request", `<p>${html_body}</p>`);
+    return await send_email(to_email, "Password Reset Request", `<p>${html_body}</p>`);
   }
 
   // -----------------------------------------------------------------
@@ -573,8 +573,8 @@ export class Login_model extends Model {
   // -----------------------------------------------------------------
 
   /** Get the user level ID associated with a reset token (null when invalid). */
-  get_level_id_for_token(token: string): number | null {
-    const reset = this.validate_reset_token(token);
+  async get_level_id_for_token(token: string): Promise<number | null> {
+    const reset = await this.validate_reset_token(token);
 
     if (reset === false) {
       return null;
@@ -644,7 +644,7 @@ function quote_id(identifier: string): string {
     throw new Error("Invalid database identifier.");
   }
 
-  return "`" + clean + "`";
+  return `"${clean}"`;
 }
 
 /** bcrypt comparison that mirrors password_verify() on malformed hashes. */
@@ -674,3 +674,5 @@ function date_ymd_his(): string {
 }
 
 export default Login_model;
+
+

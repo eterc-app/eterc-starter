@@ -1,4 +1,4 @@
-import { Eterc } from "@/engine/controller";
+﻿import { Eterc } from "@/engine/controller";
 import { set_flashdata } from "@/engine/Flashdata";
 import { post } from "@/engine/post";
 import { session_get, session_set } from "@/engine/session";
@@ -31,7 +31,7 @@ export default class Db extends Eterc {
 
   /** Table list with record counts and the per-table actions. */
   async index() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -41,7 +41,7 @@ export default class Db extends Eterc {
       headline: "Database Tables",
       subheading:
         "Browse table contents, forge new records and run SQL queries directly against the SQLite database.",
-      tables: this.dbModel().get_tables_with_counts(),
+      tables: await this.dbModel().get_tables_with_counts(),
       browse_url_root: site_url(`${this.module_name}/browse`),
       forger_url_root: site_url(`${this.module_name}/forger`),
       sql_console_url: site_url(`${this.module_name}/sql_console`),
@@ -58,25 +58,25 @@ export default class Db extends Eterc {
 
   /** Paginated browser for one table: db/browse/{table}/{page}. */
   async browse() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
 
-    const columns = this.dbModel().describe_columns(table);
-    const limit = this.getLimit();
-    const total_rows = this.dbModel().count_rows(table);
+    const columns = await this.dbModel().describe_columns(table);
+    const limit = await this.getLimit();
+    const total_rows = await this.dbModel().count_rows(table);
     const total_pages = limit > 0 ? Math.max(1, Math.ceil(total_rows / limit)) : 1;
     const requested_page = Number(segment(4, "int"));
     const current_page = Math.min(Math.max(1, requested_page), total_pages);
     const offset = (current_page - 1) * limit;
     const order_by = this.dbModel().default_order_by(columns);
 
-    const rows = this.dbModel().get_page_rows(table, order_by, "ASC", limit, offset);
+    const rows = await this.dbModel().get_page_rows(table, order_by, "ASC", limit, offset);
     const primary_key = columns.find((column) => column.is_primary_key)?.name ?? "";
 
     const data: EtTemplateData = {
@@ -99,7 +99,7 @@ export default class Db extends Eterc {
         include_showing_statement: true,
       },
       per_page_options: this.per_page_options,
-      selected_per_page: this.getSelectedPerPage(),
+      selected_per_page: await this.getSelectedPerPage(),
       tables_url: site_url(this.module_name),
       forger_url: site_url(`${this.module_name}/forger/${table}`),
       sql_console_url: site_url(`${this.module_name}/sql_console`),
@@ -112,13 +112,13 @@ export default class Db extends Eterc {
 
   /** "Records Per Page" selector: db/set_per_page/{index}/{table}. */
   async set_per_page() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
     let selected_index = Number(segment(3, "int"));
 
-    const table = this.resolve_table(4);
+    const table = await this.resolve_table(4);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
@@ -127,7 +127,7 @@ export default class Db extends Eterc {
       selected_index = 1;
     }
 
-    session_set("db_selected_per_page", selected_index);
+    await session_set("db_selected_per_page", selected_index);
     redirect(`${this.module_name}/browse/${table}`);
   }
 
@@ -137,21 +137,21 @@ export default class Db extends Eterc {
 
   /** Forge a new record or edit an existing one: db/forger/{table}/{id}. */
   async forger() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
 
     const update_id = Number(segment(4, "int"));
-    const columns = this.dbModel().describe_columns(table);
+    const columns = await this.dbModel().describe_columns(table);
 
     let record: Row | false = false;
     if (update_id > 0) {
-      record = this.dbModel().get_record(table, update_id);
+      record = await this.dbModel().get_record(table, update_id);
       if (record === false) {
         return this.not_found(
           `Record #${update_id} was not found in table '${table}'.`
@@ -166,11 +166,11 @@ export default class Db extends Eterc {
 
   /** Handle the forger form submission (insert or update). */
   async submit_forge() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
@@ -182,7 +182,7 @@ export default class Db extends Eterc {
       redirect(`${this.module_name}/browse/${table}`);
     }
 
-    const columns = this.dbModel().describe_columns(table);
+    const columns = await this.dbModel().describe_columns(table);
     const fields = this.dbModel().build_form_fields(columns);
 
     for (const field of fields) {
@@ -206,7 +206,7 @@ export default class Db extends Eterc {
 
     if ((await this.validation.run()) !== true) {
       const record: Row | false =
-        update_id > 0 ? this.dbModel().get_record(table, update_id) : this.dbModel().posted_record(columns);
+        update_id > 0 ? await this.dbModel().get_record(table, update_id) : this.dbModel().posted_record(columns);
 
       if (update_id > 0 && record === false) {
         redirect(`${this.module_name}/browse/${table}`);
@@ -221,18 +221,18 @@ export default class Db extends Eterc {
     const data = this.dbModel().collect_posted_data(fields);
 
     if (update_id > 0) {
-      const existing = this.dbModel().get_record(table, update_id);
+      const existing = await this.dbModel().get_record(table, update_id);
       if (existing === false) {
         redirect(`${this.module_name}/browse/${table}`);
       }
 
-      this.dbModel().update_record(table, update_id, data);
+      await this.dbModel().update_record(table, update_id, data);
       set_flashdata(`Record #${update_id} was updated in '${table}'`);
     } else {
       if (Object.keys(data).length > 0) {
-        this.dbModel().insert_record(table, data);
+        await this.dbModel().insert_record(table, data);
       } else {
-        this.dbModel().insert_empty_row(table);
+        await this.dbModel().insert_empty_row(table);
       }
       set_flashdata(`A new record was forged in '${table}'`);
     }
@@ -242,11 +242,11 @@ export default class Db extends Eterc {
 
   /** Confirmation page before deleting a record. */
   async delete_conf() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
@@ -256,7 +256,7 @@ export default class Db extends Eterc {
       return this.not_found("No record was specified.");
     }
 
-    const record = this.dbModel().get_record(table, update_id);
+    const record = await this.dbModel().get_record(table, update_id);
     if (record === false) {
       return this.not_found(
         `Record #${update_id} was not found in table '${table}'.`
@@ -264,7 +264,7 @@ export default class Db extends Eterc {
     }
 
     // A short, read-only preview of the record being deleted.
-    const columns = this.dbModel().describe_columns(table);
+    const columns = await this.dbModel().describe_columns(table);
     const preview = columns.slice(0, 12).map((column) => ({
       label: column.name,
       value: record[column.name] === null ? "NULL" : input_preview(record[column.name]),
@@ -287,11 +287,11 @@ export default class Db extends Eterc {
 
   /** Delete the record after confirmation. */
   async submit_delete() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return this.not_found("The requested table does not exist.");
     }
@@ -306,12 +306,12 @@ export default class Db extends Eterc {
       redirect(`${this.module_name}/browse/${table}`);
     }
 
-    const record = this.dbModel().get_record(table, update_id);
+    const record = await this.dbModel().get_record(table, update_id);
     if (record === false) {
       redirect(`${this.module_name}/browse/${table}`);
     }
 
-    this.dbModel().delete_record(table, update_id);
+    await this.dbModel().delete_record(table, update_id);
     set_flashdata(`Record #${update_id} was deleted from '${table}'`);
     redirect(`${this.module_name}/browse/${table}`);
   }
@@ -320,9 +320,9 @@ export default class Db extends Eterc {
   // Table maintenance (XHR)
   // -------------------------------------------------------------------------
 
-  /** POST /api/xhr/db/truncate — empty a table. */
+  /** POST /api/xhr/db/truncate â€” empty a table. */
   async truncate() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -330,13 +330,13 @@ export default class Db extends Eterc {
       return { ok: false, message: "CSRF token validation failed." };
     }
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return { ok: false, message: "The requested table does not exist." };
     }
 
     try {
-      const truncated = this.dbModel().truncate_table(table);
+      const truncated = await this.dbModel().truncate_table(table);
       return truncated
         ? { ok: true, message: `Table '${table}' was truncated.` }
         : { ok: false, message: `Table '${table}' could not be truncated.` };
@@ -345,9 +345,9 @@ export default class Db extends Eterc {
     }
   }
 
-  /** POST /api/xhr/db/resequence — renumber the id column from 1. */
+  /** POST /api/xhr/db/resequence â€” renumber the id column from 1. */
   async resequence() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -355,13 +355,13 @@ export default class Db extends Eterc {
       return { ok: false, message: "CSRF token validation failed." };
     }
 
-    const table = this.resolve_table(3);
+    const table = await this.resolve_table(3);
     if (table === false) {
       return { ok: false, message: "The requested table does not exist." };
     }
 
     try {
-      this.dbModel().resequence_ids(table);
+      await this.dbModel().resequence_ids(table);
       return { ok: true, message: `IDs in '${table}' were resequenced.` };
     } catch (error) {
       return { ok: false, message: errorMessage(error) };
@@ -374,7 +374,7 @@ export default class Db extends Eterc {
 
   /** The SQL console view. */
   async sql_console() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -382,7 +382,7 @@ export default class Db extends Eterc {
       theme: this.admin_theme,
       pageTitle: "SQL Console",
       headline: "SQL Console",
-      tables: this.dbModel().get_tables_with_counts(),
+      tables: await this.dbModel().get_tables_with_counts(),
       browse_url_root: site_url(`${this.module_name}/browse`),
       tables_url: site_url(this.module_name),
       sample_sql: "SELECT * FROM sqlite_master WHERE type = 'table' ORDER BY name;",
@@ -393,9 +393,9 @@ export default class Db extends Eterc {
     return this.templates.admin(data);
   }
 
-  /** POST /api/xhr/db/run_sql — execute one SQL statement. */
+  /** POST /api/xhr/db/run_sql â€” execute one SQL statement. */
   async run_sql() {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -410,7 +410,7 @@ export default class Db extends Eterc {
       };
     }
 
-    return this.dbModel().run_sql(String(post("sql") ?? ""));
+    return await this.dbModel().run_sql(String(post("sql") ?? ""));
   }
 
   // -------------------------------------------------------------------------
@@ -421,7 +421,7 @@ export default class Db extends Eterc {
   async not_found(
     message = "The requested database resource could not be found."
   ) {
-    (
+    await (
       this as unknown as { eterc_security: Eterc_security }
     ).eterc_security.make_sure_allowed();
 
@@ -447,10 +447,10 @@ export default class Db extends Eterc {
    * Resolve a URL segment to an existing table name. Returns false for invalid
    * identifiers or unknown tables (the caller renders not_found()).
    */
-  private resolve_table(segment_index: number): string | false {
+  private async resolve_table(segment_index: number): Promise<string | false> {
     const raw = String(segment(segment_index) ?? "");
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(raw)) return false;
-    return this.dbModel().table_exists(raw) ? raw : false;
+    return (await this.dbModel().table_exists(raw)) ? raw : false;
   }
   private buildForgerViewData(
     table: string,
@@ -475,8 +475,8 @@ export default class Db extends Eterc {
       viewFile: "forger",
     };
   }
-  private getLimit(): number {
-    const selected = session_get<number>("db_selected_per_page");
+  private async getLimit(): Promise<number> {
+    const selected = await session_get<number>("db_selected_per_page");
 
     if (selected !== undefined && this.per_page_options[selected] !== undefined) {
       return this.per_page_options[selected];
@@ -486,8 +486,8 @@ export default class Db extends Eterc {
   }
 
   /** Selected per-page index from the session. */
-  private getSelectedPerPage(): number {
-    return session_get<number>("db_selected_per_page") ?? 1;
+  private async getSelectedPerPage(): Promise<number> {
+    return (await session_get<number>("db_selected_per_page")) ?? 1;
   }
 }
 
@@ -498,5 +498,9 @@ function errorMessage(error: unknown): string {
 /** One-line, read-only preview of a record value. */
 function input_preview(value: unknown): string {
   const text = typeof value === "string" ? value : String(value ?? "");
-  return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+  return text.length > 80 ? `${text.slice(0, 80)}â€¦` : text;
 }
+
+
+
+

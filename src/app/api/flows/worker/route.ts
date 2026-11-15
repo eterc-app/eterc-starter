@@ -24,7 +24,7 @@ async function run(request: NextRequest): Promise<NextResponse> {
       { status: 503 }
     );
   }
-  const recovered = recover_stale_flow_jobs();
+  const recovered = await recover_stale_flow_jobs();
   const queue = await drain_flow_queue(25);
   return NextResponse.json({ ok: true, recovered, queue });
 }
