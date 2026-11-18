@@ -18,7 +18,6 @@ export default function MediaLibraryView({ data }: EtViewProps) {
       initialMedia={media}
       initialStats={stats}
       csrfToken={String(data.csrf_token ?? "")}
-      uploadUrl={String(data.upload_url ?? "/api/media/upload")}
       apiRoot={String(data.api_root ?? "/api/xhr/media")}
     />
   );

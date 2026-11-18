@@ -254,6 +254,52 @@ function baseTables(dialect: DatabaseDialect): string[] {
       ${q("created_at")} ${int} NOT NULL,
       UNIQUE(${q("provider")}, ${q("subject")})
     )`,
+    `CREATE TABLE IF NOT EXISTS ${q("cms_media_assets")} (
+      ${q("id")} ${text({ primaryKey: true, notNull: true })},
+      ${q("status")} ${text({ notNull: true, defaultValue: "pending" })},
+      ${q("provider")} ${text({ notNull: true })},
+      ${q("bucket")} ${text()},
+      ${q("object_key")} ${text({ long: true, notNull: true })},
+      ${q("original_name")} ${text({ long: true, notNull: true })},
+      ${q("title")} ${text({ long: true, notNull: true, defaultValue: "" })},
+      ${q("alt")} ${text({ long: true, notNull: true, defaultValue: "" })},
+      ${q("mime")} ${text({ notNull: true })},
+      ${q("extension")} ${text({ notNull: true, defaultValue: "" })},
+      ${q("size")} ${int} NOT NULL DEFAULT 0,
+      ${q("checksum")} ${text()},
+      ${q("width")} ${int},
+      ${q("height")} ${int},
+      ${q("kind")} ${text({ notNull: true })},
+      ${q("folder")} ${text({ notNull: true, defaultValue: "" })},
+      ${q("visibility")} ${text({ notNull: true, defaultValue: "public" })},
+      ${q("uploaded_by")} ${int},
+      ${q("error")} ${text({ long: true })},
+      ${q("expires_at")} ${int},
+      ${q("created_at")} ${int} NOT NULL,
+      ${q("updated_at")} ${int} NOT NULL,
+      ${q("deleted_at")} ${int},
+      UNIQUE(${q("provider")}, ${q("object_key")})
+    )`,
+    `CREATE TABLE IF NOT EXISTS ${q("cms_media_variants")} (
+      ${q("id")} ${text({ primaryKey: true, notNull: true })},
+      ${q("asset_id")} ${text({ notNull: true })},
+      ${q("name")} ${text({ notNull: true })},
+      ${q("object_key")} ${text({ long: true, notNull: true })},
+      ${q("mime")} ${text({ notNull: true })},
+      ${q("width")} ${int},
+      ${q("height")} ${int},
+      ${q("bytes")} ${int} NOT NULL DEFAULT 0,
+      UNIQUE(${q("asset_id")}, ${q("name")})
+    )`,
+    `CREATE TABLE IF NOT EXISTS ${q("cms_media_audit")} (
+      ${q("id")} ${text({ primaryKey: true, notNull: true })},
+      ${q("asset_id")} ${text()},
+      ${q("user_id")} ${int},
+      ${q("action")} ${text({ notNull: true })},
+      ${q("ip")} ${text()},
+      ${q("detail")} ${text({ long: true })},
+      ${q("created_at")} ${int} NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS ${q("cms_flows")} (
       ${q("id")} ${text({ primaryKey: true, notNull: true })},
       ${q("name")} ${text({ notNull: true })},
@@ -352,6 +398,12 @@ async function indexes(adapter: IDatabaseAdapter): Promise<void> {
   await createIndex(adapter, "eterc_api_keys_prefix_idx", "eterc_api_keys", ["key_prefix"]);
   await createIndex(adapter, "eterc_identities_user_idx", "eterc_identities", ["user_id"]);
   await createIndex(adapter, "eterc_roles_parent_idx", "eterc_roles", ["parent_role_id"]);
+  await createIndex(adapter, "cms_media_assets_status_idx", "cms_media_assets", ["status", "created_at"]);
+  await createIndex(adapter, "cms_media_assets_folder_idx", "cms_media_assets", ["folder", "status"]);
+  await createIndex(adapter, "cms_media_assets_checksum_idx", "cms_media_assets", ["checksum"]);
+  await createIndex(adapter, "cms_media_assets_user_idx", "cms_media_assets", ["uploaded_by"]);
+  await createIndex(adapter, "cms_media_variants_asset_idx", "cms_media_variants", ["asset_id"]);
+  await createIndex(adapter, "cms_media_audit_asset_idx", "cms_media_audit", ["asset_id"]);
   await createIndex(adapter, "cms_flows_status_trigger_idx", "cms_flows", ["status", "trigger"]);
   await createIndex(adapter, "cms_flows_next_run_idx", "cms_flows", ["status", "next_run_at"]);
   await createIndex(adapter, "cms_flow_operations_flow_idx", "cms_flow_operations", ["flow_id"]);

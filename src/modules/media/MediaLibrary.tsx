@@ -19,6 +19,7 @@ import {
   List,
   Loader2,
   Pencil,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -28,6 +29,7 @@ import { Notice } from "@/components/app/Notice";
 import { PageActions } from "@/components/app/PageActions";
 import { PageActionsPortal } from "@/components/app/PageActionsSlot";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +42,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { MediaItem, MediaStats } from "./media-store";
+import { upload_asset } from "./upload-client";
 
 type ViewMode = "grid" | "list";
 
@@ -47,17 +50,7 @@ interface MediaLibraryProps {
   initialMedia: MediaItem[];
   initialStats: MediaStats;
   csrfToken: string;
-  uploadUrl: string;
   apiRoot: string;
-}
-
-interface XhrEnvelope {
-  ok?: boolean;
-  media?: MediaItem;
-  media_items?: MediaItem[];
-  stats?: MediaStats;
-  error?: string;
-  message?: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -109,7 +102,6 @@ export function MediaLibrary({
   initialMedia,
   initialStats,
   csrfToken,
-  uploadUrl,
   apiRoot,
 }: MediaLibraryProps) {
   const [media, setMedia] = useState<MediaItem[]>(initialMedia);
@@ -122,6 +114,7 @@ export function MediaLibrary({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [privateUpload, setPrivateUpload] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAlt, setDraftAlt] = useState("");
@@ -177,55 +170,17 @@ export function MediaLibrary({
 
   const uploadOne = useCallback(
     (file: File, index: number, total: number): Promise<MediaItem> =>
-      new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", uploadUrl);
-        xhr.responseType = "json";
-
-        xhr.upload.onprogress = (event) => {
-          if (!event.lengthComputable) return;
-          const current = (event.loaded / event.total) * 100;
-          setProgress(Math.round(((index + current / 100) / total) * 100));
-        };
-
-        xhr.onload = () => {
-          const payload =
-            (xhr.response as XhrEnvelope | null) ??
-            (() => {
-              try {
-                return JSON.parse(xhr.responseText) as XhrEnvelope;
-              } catch {
-                return null;
-              }
-            })();
-
-          if (
-            xhr.status >= 200 &&
-            xhr.status < 300 &&
-            payload?.media !== undefined
-          ) {
-            resolve(payload.media);
-            return;
-          }
-
-          reject(
-            new Error(
-              payload?.error ??
-                payload?.message ??
-                "The image could not be uploaded."
-            )
-          );
-        };
-
-        xhr.onerror = () =>
-          reject(new Error("The upload could not reach the server."));
-
-        const body = new FormData();
-        body.append("file", file);
-        body.append("csrf_token", csrfToken);
-        xhr.send(body);
-      }),
-    [csrfToken, uploadUrl]
+      upload_asset({
+        apiRoot,
+        csrfToken,
+        file,
+        kind: "image",
+        visibility: privateUpload ? "private" : "public",
+        onProgress: (percent) => {
+          setProgress(Math.round(((index + percent / 100) / total) * 100));
+        },
+      }).then((item) => item as MediaItem),
+    [apiRoot, csrfToken, privateUpload]
   );
 
   const uploadFiles = useCallback(
@@ -285,6 +240,39 @@ export function MediaLibrary({
     if (files.length > 0) void uploadFiles(files);
   };
 
+  const run_maintenance = useCallback(
+    async (action: "asset_reconcile" | "asset_cleanup") => {
+      setError("");
+      setNotice("");
+      try {
+        const response = await fetch(`${apiRoot}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csrf_token: csrfToken }),
+        });
+        const data = await unwrapJson(response);
+        if (action === "asset_cleanup") {
+          setNotice(`Removed ${Number(data.deleted ?? 0)} expired pending uploads.`);
+        } else {
+          const orphans = Array.isArray(data.orphans) ? data.orphans.length : 0;
+          const missing = Array.isArray(data.missing) ? data.missing.length : 0;
+          setNotice(
+            `Storage check: ${Number(data.registry ?? 0)} registry objects, ${Number(
+              data.storage ?? 0
+            )} stored objects, ${orphans} orphans, ${missing} missing.`
+          );
+        }
+      } catch (maintenanceError) {
+        setError(
+          maintenanceError instanceof Error
+            ? maintenanceError.message
+            : "The storage maintenance task failed."
+        );
+      }
+    },
+    [apiRoot, csrfToken]
+  );
+
   const deleteSelected = async () => {
     if (selected === null) return;
     const confirmed = await confirm({
@@ -309,6 +297,7 @@ export function MediaLibrary({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           file: selected.file,
+          asset_id: selected.id ?? "",
           csrf_token: csrfToken,
         }),
       });
@@ -350,6 +339,7 @@ export function MediaLibrary({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           file: selected.file,
+          asset_id: selected.id ?? "",
           title: draftTitle,
           alt: draftAlt,
           csrf_token: csrfToken,
@@ -404,6 +394,18 @@ export function MediaLibrary({
               variant: "default",
               onSelect: () => fileInputRef.current?.click(),
             },
+            {
+              label: "Reconcile storage",
+              icon: <RefreshCw className="size-4" strokeWidth={1.75} />,
+              variant: "outline",
+              onSelect: () => void run_maintenance("asset_reconcile"),
+            },
+            {
+              label: "Clean pending uploads",
+              icon: <Trash2 className="size-4" strokeWidth={1.75} />,
+              variant: "outline",
+              onSelect: () => void run_maintenance("asset_cleanup"),
+            },
           ]}
         />
       </PageActionsPortal>
@@ -444,6 +446,17 @@ export function MediaLibrary({
                 <List className="size-4" strokeWidth={1.75} />
               </Button>
             </div>
+            <label className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground">
+              <Checkbox
+                checked={privateUpload}
+                onCheckedChange={(checked) => setPrivateUpload(checked === true)}
+              />
+              Private
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {stats.count} {stats.count === 1 ? "asset" : "assets"}
+              {stats.total_bytes > 0 ? ` · ${stats.total_label}` : ""}
+            </span>
           </div>
 
           {error ? (
@@ -706,6 +719,8 @@ export function MediaLibrary({
                         </dd>
                         <dt className="text-muted-foreground">Type</dt>
                         <dd>{selected.mime}</dd>
+                        <dt className="text-muted-foreground">Visibility</dt>
+                        <dd className="capitalize">{selected.visibility ?? "public"}</dd>
                         <dt className="text-muted-foreground">Alt text</dt>
                         <dd className="break-words">
                           {selected.alt || "Not set"}

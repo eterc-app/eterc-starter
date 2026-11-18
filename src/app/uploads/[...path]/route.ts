@@ -37,7 +37,13 @@ export async function GET(
 
   const root = path.resolve(UPLOADS_DIR);
   const resolved = path.resolve(root, ...clean);
-  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+  if (
+    resolved !== root &&
+    !resolved.startsWith(`${root}${path.sep}`)
+  ) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+  if (clean[0]?.toLowerCase() === "private") {
     return new NextResponse("Not found", { status: 404 });
   }
 
@@ -56,13 +62,19 @@ export async function GET(
     "application/octet-stream";
   const body = new Uint8Array(file.byteLength);
   body.set(file);
+  const is_image = contentType.startsWith("image/");
 
   return new NextResponse(body, {
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(body.byteLength),
+      "Content-Disposition": `${is_image ? "inline" : "attachment"}; filename="${encodeURIComponent(
+        path.basename(resolved)
+      )}"`,
       "Cache-Control": "public, max-age=31536000, immutable",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+      "Cross-Origin-Resource-Policy": "same-site",
     },
   });
 }

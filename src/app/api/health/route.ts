@@ -8,11 +8,20 @@ import { activePaymentProvider } from "@/engine/active/payment-provider";
 import { activeQueueProvider } from "@/engine/active/queue-provider";
 import { activeSmsProvider } from "@/engine/active/sms-provider";
 import { activeStorageProvider } from "@/engine/active/storage-provider";
+import { storage_policy } from "@/engine/active/storage-policy";
 import { activeTelegramProvider } from "@/engine/active/telegram-provider";
 import { activeWhatsAppProvider } from "@/engine/active/whatsapp-provider";
 
 export async function GET() {
+  const policy = storage_policy();
   const checks = await Promise.all([
+    Promise.resolve({
+      name: "storage_policy",
+      ok: policy.error === null,
+      message:
+        policy.error ??
+        `Storage provider '${policy.provider}' is allowed on '${policy.deployment}'.`,
+    }),
     activeDbAdapter.ping().then((ok) => ({
       name: "database",
       ok,

@@ -23,6 +23,7 @@
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "check:db": "tsx scripts/db-gateway-check.mjs",
+    "check:uploads": "tsx scripts/uploads-check.mts",
     "validate": "npm run typecheck && npm run styles:check && npm run lint && npm run build"
   },
   "dependencies": {

@@ -46,6 +46,8 @@ export function assertLocalMediaStorage(): void {
 const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
 
 export interface MediaItem {
+  /** Registry id. Legacy items imported from disk receive one on first load. */
+  id?: string;
   /** Stored file name (the stable identifier). */
   file: string;
   original_name: string;
@@ -61,6 +63,9 @@ export interface MediaItem {
   /** Public URL of the thumbnail, or the main image when none exists. */
   thumbnail_url: string;
   has_thumbnail: boolean;
+  visibility?: "public" | "private";
+  folder?: string;
+  kind?: "image" | "file";
 }
 
 export interface MediaStats {

@@ -16,6 +16,13 @@ import { EtHttpError, EtRedirectSignal } from "@/engine/signals";
  * therefore stay in one place.
  */
 export async function POST(request: NextRequest) {
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declared) && declared > 30 * 1024 * 1024) {
+    return NextResponse.json(
+      { ok: false, error: "The upload is too large. The limit is 25 MB." },
+      { status: 413 }
+    );
+  }
   let formData: FormData;
 
   try {

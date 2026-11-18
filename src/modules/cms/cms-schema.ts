@@ -136,10 +136,65 @@ CREATE TABLE IF NOT EXISTS "eterc_identities" (
   UNIQUE("provider", "subject")
 );
 
+CREATE TABLE IF NOT EXISTS "cms_media_assets" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "status" TEXT NOT NULL DEFAULT 'pending',
+  "provider" TEXT NOT NULL,
+  "bucket" TEXT,
+  "object_key" TEXT NOT NULL,
+  "original_name" TEXT NOT NULL,
+  "title" TEXT NOT NULL DEFAULT '',
+  "alt" TEXT NOT NULL DEFAULT '',
+  "mime" TEXT NOT NULL,
+  "extension" TEXT NOT NULL DEFAULT '',
+  "size" INTEGER NOT NULL DEFAULT 0,
+  "checksum" TEXT,
+  "width" INTEGER,
+  "height" INTEGER,
+  "kind" TEXT NOT NULL,
+  "folder" TEXT NOT NULL DEFAULT '',
+  "visibility" TEXT NOT NULL DEFAULT 'public',
+  "uploaded_by" INTEGER,
+  "error" TEXT,
+  "expires_at" INTEGER,
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL,
+  "deleted_at" INTEGER,
+  UNIQUE("provider", "object_key")
+);
+
+CREATE TABLE IF NOT EXISTS "cms_media_variants" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "asset_id" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "object_key" TEXT NOT NULL,
+  "mime" TEXT NOT NULL,
+  "width" INTEGER,
+  "height" INTEGER,
+  "bytes" INTEGER NOT NULL DEFAULT 0,
+  UNIQUE("asset_id", "name")
+);
+
+CREATE TABLE IF NOT EXISTS "cms_media_audit" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "asset_id" TEXT,
+  "user_id" INTEGER,
+  "action" TEXT NOT NULL,
+  "ip" TEXT,
+  "detail" TEXT,
+  "created_at" INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS "cms_fields_collection_idx" ON "cms_fields"("collection_id");
 CREATE INDEX IF NOT EXISTS "eterc_permissions_role_idx" ON "eterc_permissions"("role_id");
 CREATE INDEX IF NOT EXISTS "eterc_api_keys_prefix_idx" ON "eterc_api_keys"("key_prefix");
 CREATE INDEX IF NOT EXISTS "eterc_identities_user_idx" ON "eterc_identities"("user_id");
+CREATE INDEX IF NOT EXISTS "cms_media_assets_status_idx" ON "cms_media_assets"("status", "created_at");
+CREATE INDEX IF NOT EXISTS "cms_media_assets_folder_idx" ON "cms_media_assets"("folder", "status");
+CREATE INDEX IF NOT EXISTS "cms_media_assets_checksum_idx" ON "cms_media_assets"("checksum");
+CREATE INDEX IF NOT EXISTS "cms_media_assets_user_idx" ON "cms_media_assets"("uploaded_by");
+CREATE INDEX IF NOT EXISTS "cms_media_variants_asset_idx" ON "cms_media_variants"("asset_id");
+CREATE INDEX IF NOT EXISTS "cms_media_audit_asset_idx" ON "cms_media_audit"("asset_id");
 `;
 
 let schemaReady = false;

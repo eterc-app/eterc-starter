@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { CmsField } from "@/modules/cms/cms-types";
+import { upload_asset } from "@/modules/media/upload-client";
 import {
   as_string,
   as_string_array,
@@ -105,76 +106,20 @@ export function upload_image(
   folder: string,
   on_progress: (percent: number) => void
 ): Promise<CmsMediaImage> {
-  let uploadUrl: URL;
-  try {
-    uploadUrl = new URL(media.uploadUrl, window.location.origin);
-  } catch {
-    return Promise.reject(new Error("The media upload endpoint is invalid."));
-  }
-  if (uploadUrl.origin !== window.location.origin) {
-    return Promise.reject(new Error("Uploads must use this site's media endpoint."));
-  }
-  if (!media.csrfToken) {
-    return Promise.reject(new Error("The upload security token is missing. Refresh and try again."));
-  }
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", uploadUrl.href);
-    xhr.responseType = "json";
-    xhr.timeout = 120_000;
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      on_progress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      const payload = media_object(
-        xhr.response ??
-          (() => {
-            try {
-              return JSON.parse(xhr.responseText) as unknown;
-            } catch {
-              return null;
-            }
-          })()
-      );
-      const item = media_object(payload.media);
-      if (
-        xhr.status >= 200 &&
-        xhr.status < 300 &&
-        typeof item.url === "string" &&
-        item.url !== ""
-      ) {
-        resolve({
-          file: typeof item.file === "string" ? item.file : "",
-          url: item.url,
-          thumbnail_url:
-            typeof item.thumbnail_url === "string" ? item.thumbnail_url : item.url,
-          title: typeof item.title === "string" ? item.title : "",
-          alt: typeof item.alt === "string" ? item.alt : "",
-        });
-        return;
-      }
-      reject(
-        new Error(
-          String(
-            payload.error ??
-              payload.message ??
-              "The image could not be uploaded."
-          )
-        )
-      );
-    };
-    xhr.onerror = () =>
-      reject(new Error("The upload could not reach the server."));
-    xhr.ontimeout = () => reject(new Error("The upload timed out. Try again."));
-    const body = new FormData();
-    body.append("file", file);
-    body.append("csrf_token", media.csrfToken);
-    body.append("kind", "image");
-    body.append("folder", folder);
-    xhr.send(body);
-  });
+  return upload_asset({
+    apiRoot: media.apiRoot,
+    csrfToken: media.csrfToken,
+    file,
+    kind: "image",
+    folder,
+    onProgress: on_progress,
+  }).then((asset) => ({
+    file: asset.file,
+    url: asset.url,
+    thumbnail_url: asset.thumbnail_url,
+    title: asset.title,
+    alt: asset.alt,
+  }));
 }
 
 function upload_file(
@@ -183,64 +128,14 @@ function upload_file(
   folder: string,
   on_progress: (percent: number) => void
 ): Promise<{ url: string }> {
-  let uploadUrl: URL;
-  try {
-    uploadUrl = new URL(media.uploadUrl, window.location.origin);
-  } catch {
-    return Promise.reject(new Error("The media upload endpoint is invalid."));
-  }
-  if (uploadUrl.origin !== window.location.origin) {
-    return Promise.reject(new Error("Uploads must use this site's media endpoint."));
-  }
-  if (!media.csrfToken) {
-    return Promise.reject(new Error("The upload security token is missing. Refresh and try again."));
-  }
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", uploadUrl.href);
-    xhr.responseType = "json";
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      on_progress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      const payload = media_object(
-        xhr.response ??
-          (() => {
-            try {
-              return JSON.parse(xhr.responseText) as unknown;
-            } catch {
-              return null;
-            }
-          })()
-      );
-      const item = media_object(payload.file);
-      if (
-        xhr.status >= 200 &&
-        xhr.status < 300 &&
-        typeof item.url === "string" &&
-        item.url !== ""
-      ) {
-        resolve({ url: item.url });
-        return;
-      }
-      reject(
-        new Error(
-          String(payload.error ?? payload.message ?? "The file could not be uploaded.")
-        )
-      );
-    };
-    xhr.onerror = () => reject(new Error("The upload could not reach the server."));
-    xhr.ontimeout = () => reject(new Error("The upload timed out. Try again."));
-    xhr.timeout = 120_000;
-    const body = new FormData();
-    body.append("file", file);
-    body.append("csrf_token", media.csrfToken);
-    body.append("kind", "file");
-    body.append("folder", folder);
-    xhr.send(body);
-  });
+  return upload_asset({
+    apiRoot: media.apiRoot,
+    csrfToken: media.csrfToken,
+    file,
+    kind: "file",
+    folder,
+    onProgress: on_progress,
+  }).then((asset) => ({ url: asset.url }));
 }
 
 export function UploadAssetPicker({
