@@ -112,7 +112,7 @@ function slugify(value: string): string {
 }
 
 /**
- * Directus-style Collection Setup and Optional Fields Dialog.
+ * Collection Setup and Optional Fields dialog.
  */
 export function CollectionDialog(props: CollectionDialogProps) {
   if (!props.open) return null;

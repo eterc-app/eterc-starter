@@ -266,8 +266,7 @@ disables two Next rules on purpose: `no-assign-module-variable` (the framework
 uses `module` as a local identifier) and `no-html-link-for-pages` (plain
 anchors force full-page navigation for post-back flows).
 
-## Attribution
+## Third-party notices
 
-Eterc is derived from the Trongate framework. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the original project,
-copyright, and license.
+Dependency and asset licenses are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,11 +1,9 @@
 # Data Studio fields
 
-Data Studio follows Directus's distinction between a field's **storage type**
-and its **interface**. The storage type determines how a value is stored;
-the interface determines how an editor enters and views it. Directus describes
-this model in its [fields](https://docs.directus.io/guides/data-model/fields)
-and [interfaces](https://docs.directus.io/guides/data-model/interfaces)
-guides.
+Data Studio separates a field's **storage type** from its **interface**. The
+storage type determines how a value is stored; the interface determines how an
+editor enters and views it. Keeping the two independent lets a field change its
+editor without changing the underlying database column.
 
 ## How it works here
 
@@ -32,8 +30,8 @@ separately from interface options.
 
 Relationship interfaces use the selected collection's existing records and
 primary keys. In this SQLite-backed CMS, to-many values are stored as JSON and
-single relations as scalar IDs; this provides editor pickers without claiming
-Directus's database-level relationship or junction-table semantics.
+single relations as scalar IDs; this provides editor pickers without implying
+database-level relationship or junction-table semantics.
 
 ## Adding an interface
 

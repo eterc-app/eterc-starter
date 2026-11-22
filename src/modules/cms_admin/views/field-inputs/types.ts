@@ -62,7 +62,7 @@ export type FieldRenderer = (
 ) => ReactNode;
 
 /**
- * Read an option by any of its known names. Directus option names are
+ * Read an option by any of its known names. Current option names are
  * camelCase, while projects created by older versions of this CMS used
  * snake_case. Both must keep working.
  */
@@ -302,7 +302,7 @@ export function choice_value_from_text(
 }
 
 /**
- * Directus applies a field default when a record is created. JSON interfaces
+ * A field default is applied when a record is created. JSON interfaces
  * receive an empty array/object so their editor always has a stable shape.
  */
 export function default_value_for_field(field: CmsField): unknown {

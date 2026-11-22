@@ -166,8 +166,8 @@ visible top-level JSX.
   to apply to the edited field when the rule matches.
 - Support conditional hidden, required, and read-only behavior, and any
   interface options needed for the selected field interface.
-- Match Directus-style precedence: the last matching condition wins; when
-  none match, use the field's base configuration.
+- Use last-match precedence: the last matching condition wins; when none
+  match, use the field's base configuration.
 - Decide and implement whether hidden values are retained or cleared on save;
   if clear-on-hide is supported, make it an explicit condition setting.
 - State clearly that hiding a field is not access control.

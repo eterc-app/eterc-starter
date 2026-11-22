@@ -1,6 +1,6 @@
 # Flows runtime
 
-Eterc Flows is a Directus-style automation engine. A flow has one trigger and a
+Eterc Flows is a first-class automation engine. A flow has one trigger and a
 graph of operations connected by **resolve** and **reject** paths. Flows are
 managed at `/admin/flows`.
 

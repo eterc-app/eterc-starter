@@ -131,7 +131,7 @@ export default function DataStudio({ data }: EtViewProps) {
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [bootstrapApplying, setBootstrapApplying] = useState(false);
 
-  // Live collection setup settings (matching Directus Collection Setup)
+  // Live collection setup settings
   const [colSettings, setColSettings] = useState(() =>
     collection_settings(selected)
   );
@@ -697,7 +697,7 @@ export default function DataStudio({ data }: EtViewProps) {
               )}
             </div>
           ) : (
-            /* COLLECTION SCHEMA STUDIO (Directus Style) */
+            /* COLLECTION SCHEMA STUDIO */
             <div className="space-y-6">
               {/* Fields List */}
               <div className="grid grid-cols-1 gap-2.5">
@@ -861,7 +861,7 @@ export default function DataStudio({ data }: EtViewProps) {
                 </button>
               </div>
 
-              {/* Directus-style Collection Setup */}
+              {/* Collection Setup */}
               <div className="space-y-4 pt-16">
                 <div className="flex items-center gap-2">
                   <DynamicIcon
@@ -1013,7 +1013,7 @@ export default function DataStudio({ data }: EtViewProps) {
         }}
       />
 
-      {/* FIELD DRAWER (Directus Style) */}
+      {/* FIELD DRAWER */}
       <FieldDrawer
         key={editingField ? `edit-${editingField.name}` : "create"}
         open={fieldOpen}

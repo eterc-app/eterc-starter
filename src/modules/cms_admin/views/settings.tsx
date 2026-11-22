@@ -222,7 +222,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
         />
       </PageActionsPortal>
 
-      {/* DIRECTUS-STYLE PROJECT SETTINGS (Image 3 & 4) */}
+      {/* PROJECT SETTINGS */}
       <div className="space-y-6">
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="grid gap-3">

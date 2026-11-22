@@ -1,8 +1,8 @@
 /**
  * Interface registry for the CMS field builder.
  *
- * Directus separates a field's storage type from the interface that edits it.
- * This registry keeps the same idea: each interface declares the storage types
+ * A field's storage type is separate from the interface that edits it.
+ * This registry follows that split: each interface declares the storage types
  * it can edit, the type it selects by default and the options it understands.
  * The Data Studio drawer and the record form both read from this file so they
  * cannot drift apart.
@@ -587,8 +587,8 @@ function choice_value(value: unknown, fallback: string): string | number | boole
 }
 
 /**
- * Accept both the legacy comma-separated string list and the Directus choice
- * object shape so existing projects keep working after the upgrade.
+ * Accept both the legacy comma-separated string list and the choice object
+ * shape so existing projects keep working after the upgrade.
  */
 export function cms_normalize_choices(value: unknown): CmsChoice[] {
   if (!Array.isArray(value)) return [];

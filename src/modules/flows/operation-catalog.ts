@@ -75,7 +75,7 @@ export const OPERATION_DEFINITIONS: FlowOperationDefinition[] = [
         label: "Filter",
         type: "json",
         description:
-          "Directus-style filter evaluated against $last. A failed filter takes the reject path.",
+          "Filter evaluated against $last. A failed filter takes the reject path.",
         defaultValue: { status: { _eq: "published" } },
       },
     ],

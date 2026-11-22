@@ -4,6 +4,11 @@
   "description": "Eterc - a TypeScript-first framework for Next.js",
   "license": "MIT",
   "private": true,
+  "eterc": {
+    "starterVersion": "1.1.0",
+    "channel": "16",
+    "nextRange": ">=16.4.2 <17.0.0"
+  },
   "allowScripts": {
     "0": "better-sqlite3",
     "1": "unrs-resolver",
@@ -24,7 +29,10 @@
     "db:studio": "drizzle-kit studio",
     "check:db": "tsx scripts/db-gateway-check.mjs",
     "check:uploads": "tsx scripts/uploads-check.mts",
-    "validate": "npm run typecheck && npm run styles:check && npm run lint && npm run build"
+    "validate": "npm run typecheck && npm run styles:check && npm run lint && npm run build",
+    "channel:check": "node scripts/channel-check.mjs",
+    "channel:update": "node scripts/channel-check.mjs --write --manifest",
+    "channel:validate": "node scripts/channel-check.mjs --write --manifest --validate"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
@@ -60,7 +68,7 @@
     "drizzle-orm": "^0.45.4",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.60.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "next-themes": "^0.4.6",
     "nodemailer": "^10.3.1",
     "radix-ui": "^1.8.1",
@@ -89,9 +97,10 @@
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
     "mysql2": "^3.24.6",
     "pg": "^8.23.1",
+    "semver": "^7.8.6",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

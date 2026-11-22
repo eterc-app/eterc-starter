@@ -3,8 +3,8 @@
  *
  * The content service is intentionally database-shaped: a collection is a
  * table, a field is a column, and an item is a row. That keeps existing
- * databases useful while giving the CMS and API a Directus-style
- * layer for metadata, roles, permissions and API keys.
+ * databases useful while giving the CMS and API a metadata layer for
+ * roles, permissions and API keys.
  */
 
 export type CmsFieldType =
@@ -116,7 +116,7 @@ export interface CmsFieldDisplayOptions {
   suffix?: string;
 }
 
-/** A Directus-style choice used by dropdown, radio and checkbox interfaces. */
+/** A choice used by dropdown, radio and checkbox interfaces. */
 export interface CmsChoice {
   text: string;
   value: string | number | boolean;

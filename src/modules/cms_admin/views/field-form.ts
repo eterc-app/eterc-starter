@@ -16,9 +16,9 @@ import {
 /**
  * The editable shape of a field in the Data Studio drawer.
  *
- * Directus keeps the interface, the storage type, the interface options and
- * the list of choices in separate places. The form mirrors that split so the
- * drawer can switch interfaces without losing the underlying column.
+ * The form keeps the interface, the storage type, the interface options and
+ * the list of choices in separate places so the drawer can switch
+ * interfaces without losing the underlying column.
  */
 export interface FieldFormState {
   name: string;

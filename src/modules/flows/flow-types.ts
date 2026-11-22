@@ -2,8 +2,7 @@
  * Shared types for the Eterc flow engine.
  *
  * A flow is a trigger plus a graph of operations linked by `resolve` and
- * `reject` paths. The shape intentionally mirrors Directus Flows so the UI and
- * the execution model stay familiar, without copying Directus source code.
+ * `reject` paths. The shape keeps the UI and the execution model aligned.
  */
 
 export const FLOW_TRIGGERS = [

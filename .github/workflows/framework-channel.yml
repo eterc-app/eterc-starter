@@ -1,0 +1,80 @@
+name: Next.js channel verification
+
+on:
+  schedule:
+    # Weekly, Monday morning UTC. Security releases also trigger a manual run.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: nextjs-channel
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the pinned channel
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3 sharp
+
+      - name: Resolve the newest patch in the channel
+        run: node scripts/channel-check.mjs --write --manifest
+
+      - name: Install the resolved patch
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck against the resolved patch
+        run: npm run typecheck
+
+      - name: Production build against the resolved patch
+        run: npm run build
+
+      - name: Open a channel update pull request
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if git diff --quiet -- package.json package-lock.json channels.json; then
+            echo "The starter is already on the newest verified patch."
+            exit 0
+          fi
+
+          VERSION=$(node -p "require('./package.json').dependencies.next")
+          BRANCH="chore/nextjs-${VERSION}"
+          git config user.name "eterc-bot"
+          git config user.email "eterc-bot@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add package.json package-lock.json channels.json
+          git commit -m "chore(framework): verify Next.js ${VERSION}"
+          git push --force origin "$BRANCH"
+
+          if gh pr list --head "$BRANCH" --state open --json number --jq 'length' | grep -q '^[1-9]'; then
+            echo "A pull request already exists for $BRANCH."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(framework): Next.js ${VERSION}" \
+            --body "Automated Next.js channel verification. The starter typecheck and production build passed against Next.js ${VERSION}."

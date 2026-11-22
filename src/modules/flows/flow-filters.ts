@@ -1,5 +1,5 @@
 /**
- * In-memory Directus-style filter evaluation used by the condition operation.
+ * In-memory filter evaluation used by the condition operation.
  * The CMS query filter supports a similar subset; this evaluator also supports
  * nested logical groups and common comparison operators.
  */

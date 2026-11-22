@@ -1,10 +1,10 @@
-# Directus-Style Collection Creation & Field Management Plan
+# Collection Creation & Field Management Plan
 
-This document details the functional specifications, UX/UI analysis based on Directus CMS references, and step-by-step implementation tasks for collection creation and field interfaces in Eterc Starter.
+This document details the functional specifications, UX/UI analysis based on the supplied reference designs, and step-by-step implementation tasks for collection creation and field interfaces in Eterc Starter.
 
 ---
 
-## 1. Deep Analysis of Reference Images (Directus CMS)
+## 1. Analysis of Reference Images
 
 ### Image 1: Collection Creation - Step 1: Collection Setup
 - **Wizard Layout**:
@@ -19,7 +19,7 @@ This document details the functional specifications, UX/UI analysis based on Dir
       `"Name the collection and setup its unique "key" field..."`
   - Form Fields:
     - **Name \*** (Input with placeholder / text, note: *"Collection names are case sensitive"* or slugified).
-    - **Singleton**: Switch/toggle card or switch input labeled *"Treat as single object"*. Note: Real Directus uses a toggle/switch, not merely a plain checkbox!
+    - **Singleton**: Switch/toggle card or switch input labeled *"Treat as single object"*. Use a toggle/switch rather than a plain checkbox.
     - Subtle horizontal divider.
     - **Primary Key Field**: Input (`id`).
     - **Type**: Dropdown / Select with options:
@@ -129,7 +129,7 @@ This document details the functional specifications, UX/UI analysis based on Dir
        - Field type indicator icon (flag for status, arrows for sort, clock for dates, user for users).
      - Top right: Finish circle button `Check` (submits `data_collection_create`).
 3. **Field Creation Drawer (`FieldDrawer` / Type Selector in Data Studio)**:
-   - Provide visual interface cards matching Directus style when adding a field to a collection.
+   - Provide visual interface cards when adding a field to a collection.
 4. **Compatibility Guard**:
    - Ensure content management (`content.tsx`) correctly reads and edits collections created with these optional fields (e.g. status badge, date displays).
 
@@ -142,7 +142,7 @@ This document details the functional specifications, UX/UI analysis based on Dir
 - [ ] **Task 1.2**: Update `CmsCollectionInput` and `create_collection` in `src/modules/cms/cms-types.ts` and `src/modules/cms/cms-store.ts` to support optional field definitions (status, sort, date_created, user_created, date_updated, user_updated).
 - [ ] **Task 1.3**: Update `data_collection_create` in `src/modules/cms_admin/Cms_admin.ts` to forward optional fields payload.
 
-### Phase 2: CollectionDialog UI Overhaul (Directus Replica)
+### Phase 2: CollectionDialog UI Overhaul
 - [ ] **Task 2.1**: Refactor `src/modules/cms_admin/views/CollectionDialog.tsx`:
   - Implement two-step flow (`Collection Setup` and `Optional Fields`) with the left sidebar navigation.
   - Implement top-right circular next (`ArrowRight`) and complete (`Check`) buttons.
@@ -151,7 +151,7 @@ This document details the functional specifications, UX/UI analysis based on Dir
   - Connect form state to submit the chosen optional fields.
 
 ### Phase 3: Field Creation & Data Studio Polish
-- [ ] **Task 3.1**: Enhance field creation in `src/modules/cms_admin/views/data.tsx` to provide visual interface categories (Text & Numbers, Selection, Relational, etc.) inspired by Directus.
+- [ ] **Task 3.1**: Enhance field creation in `src/modules/cms_admin/views/data.tsx` to provide visual interface categories (Text & Numbers, Selection, Relational, etc.).
 - [ ] **Task 3.2**: Verify content editing in `src/modules/cms_admin/views/content.tsx` seamlessly supports the new optional fields (status dropdown, sorting, etc.).
 
 ### Phase 4: Validation & Quality Checks
