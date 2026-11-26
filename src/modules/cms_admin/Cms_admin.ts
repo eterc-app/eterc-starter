@@ -28,6 +28,10 @@ import {
   save_cms_settings,
 } from "@/modules/cms/cms-runtime";
 import {
+  get_cms_project_settings,
+  save_cms_project_settings,
+} from "@/modules/cms/cms-project";
+import {
   add_field,
   reorder_fields,
   create_collection,
@@ -311,10 +315,15 @@ export default class Cms_admin extends Eterc {
 
   async settings() {
     const principal = await this.principal();
+    const projectDefaults = {
+      owner: principal.user_email,
+      url: this.origin(),
+    };
     return this.admin_view("settings", "Project settings", {
       principal,
       collections: await list_collections({ include_hidden: true }),
       runtime: get_public_runtime_config(),
+      project: get_cms_project_settings(projectDefaults),
     });
   }
 
@@ -732,17 +741,26 @@ export default class Cms_admin extends Eterc {
   // -------------------------------------------------------------------------
 
   async settings_state() {
-    await this.principal();
+    const principal = await this.principal();
+    const projectDefaults = {
+      owner: principal.user_email,
+      url: this.origin(),
+    };
     return {
       runtime: get_public_runtime_config(),
       collections: await list_collections({ include_hidden: true }),
+      project: get_cms_project_settings(projectDefaults),
     };
   }
 
   async settings_save() {
-    await this.principal();
+    const principal = await this.principal();
     const payload = body();
     const cms = object_value(payload.cms);
+    const projectDefaults = {
+      owner: principal.user_email,
+      url: this.origin(),
+    };
     save_cms_settings({
       max_page_size: Math.max(
         1,
@@ -750,7 +768,12 @@ export default class Cms_admin extends Eterc {
       ),
       seed_member_role: bool_value(cms.seed_member_role, true),
     });
-    return { runtime: get_public_runtime_config() };
+    const projectInput = object_value(payload.project);
+    const project =
+      Object.keys(projectInput).length > 0
+        ? save_cms_project_settings(projectInput, projectDefaults)
+        : get_cms_project_settings(projectDefaults);
+    return { runtime: get_public_runtime_config(), project };
   }
 
   async settings_bootstrap() {

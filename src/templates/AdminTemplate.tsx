@@ -96,9 +96,9 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     id: "system-support",
     items: [
-      { href: "/api-reference", label: "System Logs", ariaLabel: "System logs", icon: SquareTerminal },
+      { href: "/api-reference", label: "API Reference", ariaLabel: "API reference", icon: SquareTerminal },
       { href: `${ETERC_GITHUB_URL}/issues`, label: "Report Bug", icon: Bug, external: true },
-      { href: `${ETERC_GITHUB_URL}/discussions`, label: "Request Feature", icon: BadgeCheck, external: true },
+      { href: `${ETERC_GITHUB_URL}/discussions`, label: "Feedback", ariaLabel: "Request a feature", icon: BadgeCheck, external: true },
     ],
   },
 ];
@@ -110,7 +110,6 @@ function is_active(pathname: string, href: string): boolean {
 }
 
 const BREADCRUMB_LABELS: Record<string, string> = {
-  "API Reference": "System Logs",
   "Database Tables": "Database tables",
   "Content": "Content",
   "Data Studio": "Data Model",
@@ -323,19 +322,51 @@ export function AdminTemplate({
   children,
   pageTitle = "Admin Panel",
   theme = "default",
+  projectName = "Eterc",
+  projectDescriptor = "CMS workspace",
+  accountName = "Administrator",
+  accountEmail = "Eterc account",
 }: {
   children: ReactNode;
   pageTitle?: string;
   theme?: string;
+  projectName?: string;
+  projectDescriptor?: string;
+  accountName?: string;
+  accountEmail?: string;
 }) {
   const pathname = usePathname();
   const current_path = to_public_path(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [liveProject, setLiveProject] = useState({
+    name: projectName,
+    descriptor: projectDescriptor,
+  });
   const navbarMeta = usePageNavbarMeta();
   const contentPage = current_path === "/admin/content";
   const compactSidebar = sidebarCollapsed || contentPage;
+
+  useEffect(() => {
+    setLiveProject({ name: projectName, descriptor: projectDescriptor });
+  }, [projectDescriptor, projectName]);
+
+  useEffect(() => {
+    const onProjectIdentity = (event: Event) => {
+      const detail = (event as CustomEvent<{ name?: unknown; descriptor?: unknown }>)
+        .detail;
+      if (!detail || typeof detail.name !== "string" || !detail.name.trim()) return;
+      setLiveProject({
+        name: detail.name,
+        descriptor:
+          typeof detail.descriptor === "string" ? detail.descriptor : "",
+      });
+    };
+    window.addEventListener("eterc:project-identity", onProjectIdentity);
+    return () =>
+      window.removeEventListener("eterc:project-identity", onProjectIdentity);
+  }, []);
 
   const [section, current] = breadcrumb_items(current_path, pageTitle);
   useEffect(() => {
@@ -411,8 +442,8 @@ export function AdminTemplate({
       <div className="border-t border-border p-2">
         <button
           type="button"
-          aria-label="Account"
-          title="Account"
+          aria-label={`Account: ${accountName}`}
+          title={`${accountName} · ${accountEmail}`}
           onClick={() => setAccountOpen((open) => !open)}
           className="grid size-10 place-items-center rounded-lg border border-border bg-surface-subtle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
@@ -427,12 +458,20 @@ export function AdminTemplate({
       {/* Top Header - exact matching from attached image */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
         <div className="min-w-0 flex-1">
-          <span className="sidebar-brand block truncate text-xs font-semibold uppercase tracking-wider text-foreground">
-            ETERC APP
+          <span
+            className="sidebar-brand block truncate text-xs font-semibold uppercase tracking-wider text-foreground"
+            title={liveProject.name}
+          >
+            {liveProject.name}
           </span>
-          <span className="sidebar-subtitle block truncate text-xs text-muted-foreground">
-            ercent.com backend
-          </span>
+          {liveProject.descriptor ? (
+            <span
+              className="sidebar-subtitle block truncate text-xs text-muted-foreground"
+              title={liveProject.descriptor}
+            >
+              {liveProject.descriptor}
+            </span>
+          ) : null}
         </div>
         {mobile ? (
           <button
@@ -534,11 +573,17 @@ export function AdminTemplate({
               <UserRound className="size-4" strokeWidth={1.75} />
             </span>
             <span className="min-w-0 flex-1 space-y-0.5">
-              <span className="sidebar-meta block truncate font-medium text-foreground leading-tight">
-                Administrator
+              <span
+                className="sidebar-meta block truncate font-medium text-foreground leading-tight"
+                title={accountName}
+              >
+                {accountName}
               </span>
-              <span className="sidebar-meta block truncate text-xs text-muted-foreground leading-tight">
-                Eterc account
+              <span
+                className="sidebar-meta block truncate text-xs text-muted-foreground leading-tight"
+                title={accountEmail}
+              >
+                {accountEmail}
               </span>
             </span>
             <ChevronsUpDown

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import "leaflet/dist/leaflet.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { get_cms_project_settings } from "@/modules/cms/cms-project";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,11 +21,15 @@ const firaMono = Fira_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Eterc",
-  description:
-    "Eterc is an API-first CMS and TypeScript framework with collections, access control, API keys, and a Next.js runtime.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const project = get_cms_project_settings();
+  return {
+    title: project.name,
+    description:
+      project.descriptor ||
+      "Eterc is an API-first CMS and TypeScript framework with collections, access control, API keys, and a Next.js runtime.",
+  };
+}
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

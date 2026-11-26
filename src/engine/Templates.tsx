@@ -3,6 +3,9 @@ import { render_view } from "./views-registry";
 import { PublicTemplate } from "@/templates/PublicTemplate";
 import { AdminTemplate } from "@/templates/AdminTemplate";
 import { Error404 } from "@/templates/Error404";
+import { resolve_principal } from "@/modules/cms/cms-access";
+import { get_cms_project_settings } from "@/modules/cms/cms-project";
+import type { CmsPrincipal } from "@/modules/cms/cms-types";
 
 export interface EtTemplateData extends Record<string, unknown> {
   viewModule?: string;
@@ -36,10 +39,27 @@ export class Templates {
 
   /** Admin theme. */
   async admin(data: EtTemplateData): Promise<ReactNode> {
+    const project = get_cms_project_settings();
+    let principal = data.principal as CmsPrincipal | undefined;
+    if (!principal) {
+      try {
+        principal = await resolve_principal({ requireApiAccess: false });
+      } catch {
+        principal = undefined;
+      }
+    }
+    const accountName =
+      principal?.user_username || principal?.user_email || "Administrator";
+    const accountEmail = principal?.user_email || principal?.label || "Eterc account";
+
     return (
       <AdminTemplate
         pageTitle={data.pageTitle ? String(data.pageTitle) : "Admin Panel"}
         theme={data.theme ? String(data.theme) : "default"}
+        projectName={project.name}
+        projectDescriptor={project.descriptor}
+        accountName={accountName}
+        accountEmail={accountEmail}
       >
         {viewNode(data)}
       </AdminTemplate>

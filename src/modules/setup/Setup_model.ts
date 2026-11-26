@@ -3,7 +3,7 @@ import { sqlite } from "@/engine/db";
 import { configuredDatabaseProvider } from "@/engine/db/gateway";
 import { ensure_remote_schema, sync_postgres_sequence } from "@/engine/db/schema/remote";
 import { make_rand_str } from "@/engine/String_service";
-import { DB_FILE, ensure_dir } from "@/engine/paths";
+import { DATA_DIR, DB_FILE, ensure_dir } from "@/engine/paths";
 import { ensure_cms_schema } from "@/modules/cms/cms-schema";
 import { ensure_administrator_schema } from "@/modules/eterc_administrators/administrator-schema";
 import { hashSync } from "bcryptjs";
@@ -155,7 +155,7 @@ export class Setup_model extends Model {
   /** Persist the "installed" marker. */
   finalize(adminUsername: string): { ok: boolean; message?: string } {
     try {
-      const settingsDir = path.join(process.cwd(), "data", "settings");
+      const settingsDir = path.join(DATA_DIR, "settings");
       ensure_dir(settingsDir);
       fs.writeFileSync(
         path.join(settingsDir, "setup.json"),

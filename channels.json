@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-21T21:39:33.587Z",
+  "generatedAt": "2026-11-22T00:00:00.000Z",
   "channels": [
     {
       "id": "16",
@@ -9,9 +9,9 @@
       "nextMajor": 16,
       "minimumNext": "16.4.2",
       "maximumNext": "17.0.0",
-      "starterUrl": "https://github.com/eterc-app/eterc-starter/archive/refs/heads/main.zip",
+      "starterUrl": null,
       "starterSha256": null,
-      "notes": "Active LTS channel. Projects stay on 16.x and receive 16.x patches. When Next.js 17 is adopted, move this channel to an immutable starter-16 tag and point 17.x at main."
+      "notes": "Active LTS channel. Projects stay on 16.x and receive 16.x patches. Use the bundled clean starter until an immutable archive with a SHA-256 is published."
     }
   ]
 }

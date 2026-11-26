@@ -39,9 +39,13 @@ yarn-error.log*
 
 # desktop-managed runtime state
 /data/settings/runtime.json
+/data/settings/project.json
+/data/settings/setup.json
+/data/settings/login.json
 /backups/
 /data/settings/flows-secret
 /.eterc/
+/.eterc-smoke-*/
 /public/uploads/
 /.trigger/
 

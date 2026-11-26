@@ -322,6 +322,15 @@ export interface CmsUserSummary {
   role_slug: string;
 }
 
+/** Project identity shown in the admin shell and Project settings. */
+export interface CmsProjectSettings {
+  name: string;
+  descriptor: string;
+  url: string;
+  owner: string;
+  language: string;
+}
+
 export interface CmsPrincipal {
   kind: "user" | "api_key";
   role: CmsRole;

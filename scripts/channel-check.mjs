@@ -152,9 +152,7 @@ if (shouldUpdateManifest) {
     nextMajor: Number(channel),
     minimumNext: minimum.version,
     maximumNext,
-    starterUrl:
-      existing?.starterUrl ??
-      "https://github.com/eterc-app/eterc-starter/archive/refs/heads/main.zip",
+    starterUrl: existing?.starterUrl ?? null,
     starterSha256: existing?.starterSha256 ?? null,
     notes:
       existing?.notes ??

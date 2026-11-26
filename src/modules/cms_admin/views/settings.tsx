@@ -5,21 +5,17 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Box,
   Check,
   CheckCircle2,
   ChevronDown,
   Database,
-  Edit3,
   FilePlus2,
-  GripHorizontal,
   KeyRound,
   Link as LinkIcon,
   Loader2,
   Pencil,
   Settings2,
   Type,
-  Users,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,11 +27,13 @@ import {
 } from "@/components/app/PageActionsSlot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EtViewProps } from "@/engine/views-registry";
-import type { CmsRuntimeConfig } from "@/modules/cms/cms-types";
+import type {
+  CmsProjectSettings,
+  CmsRuntimeConfig,
+} from "@/modules/cms/cms-types";
 import { BusyButton, cms_call } from "./ui";
 
 function StatusPill({ status }: { status?: string }) {
@@ -101,18 +99,19 @@ function RuntimeRow({
 
 export default function ProjectSettings({ data }: EtViewProps) {
   const initialRuntime = data.runtime as CmsRuntimeConfig;
+  const initialProject = (data.project ?? {}) as Partial<CmsProjectSettings>;
   const [runtime, setRuntime] = useState<CmsRuntimeConfig>(initialRuntime);
-  const [projectName, setProjectName] = useState("ETERC APP");
-  const [projectDescriptor, setProjectDescriptor] = useState("ercent.com backend");
-  const [projectUrl, setProjectUrl] = useState("https://eterc.app");
-  const [defaultLanguage, setDefaultLanguage] = useState("en-US");
-  const [projectOwner, setProjectOwner] = useState("isghanson@gmail.com");
-
-  const [modules, setModules] = useState([
-    { id: "content", name: "Content", route: "/content", icon: Box, enabled: true },
-    { id: "visual", name: "Visual Editor", route: "/visual", icon: Edit3, enabled: false },
-    { id: "users", name: "User Directory", route: "/users", icon: Users, enabled: true },
-  ]);
+  const [projectName, setProjectName] = useState(
+    initialProject.name || "Eterc project"
+  );
+  const [projectDescriptor, setProjectDescriptor] = useState(
+    initialProject.descriptor || "CMS workspace"
+  );
+  const [projectUrl, setProjectUrl] = useState(initialProject.url || "");
+  const [defaultLanguage, setDefaultLanguage] = useState(
+    initialProject.language || "en-US"
+  );
+  const [projectOwner, setProjectOwner] = useState(initialProject.owner || "");
 
   const [maxPageSize, setMaxPageSize] = useState(
     initialRuntime.cms.max_page_size
@@ -126,17 +125,42 @@ export default function ProjectSettings({ data }: EtViewProps) {
   const save = useCallback(async () => {
     setSaving(true);
     try {
-      const result = await cms_call<{ runtime: CmsRuntimeConfig }>(
-        "settings_save",
-        {
-          cms: {
-            max_page_size: maxPageSize,
-            seed_member_role: seedMemberRole,
-          },
-        }
-      );
+      const result = await cms_call<{
+        runtime: CmsRuntimeConfig;
+        project: CmsProjectSettings;
+      }>("settings_save", {
+        cms: {
+          max_page_size: maxPageSize,
+          seed_member_role: seedMemberRole,
+        },
+        project: {
+          name: projectName,
+          descriptor: projectDescriptor,
+          url: projectUrl,
+          owner: projectOwner,
+          language: defaultLanguage,
+        },
+      });
       setRuntime(result.runtime);
+      if (result.project) {
+        setProjectName(result.project.name);
+        setProjectDescriptor(result.project.descriptor);
+        setProjectUrl(result.project.url);
+        setProjectOwner(result.project.owner);
+        setDefaultLanguage(result.project.language);
+      }
       toast.success("Project settings saved.");
+      if (result.project) {
+        document.title = result.project.name;
+        window.dispatchEvent(
+          new CustomEvent("eterc:project-identity", {
+            detail: {
+              name: result.project.name,
+              descriptor: result.project.descriptor,
+            },
+          })
+        );
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not save settings."
@@ -144,7 +168,15 @@ export default function ProjectSettings({ data }: EtViewProps) {
     } finally {
       setSaving(false);
     }
-  }, [maxPageSize, seedMemberRole]);
+  }, [
+    defaultLanguage,
+    maxPageSize,
+    projectDescriptor,
+    projectName,
+    projectOwner,
+    projectUrl,
+    seedMemberRole,
+  ]);
 
   const createStarter = useCallback(async () => {
     setUtilityBusy(true);
@@ -266,6 +298,7 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 id="project-url"
                 value={projectUrl}
                 onChange={(e) => setProjectUrl(e.target.value)}
+                placeholder="https://example.com"
                 className="h-11 rounded-xl bg-card border-input pr-10"
               />
               <LinkIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -303,60 +336,11 @@ export default function ProjectSettings({ data }: EtViewProps) {
                 id="project-owner"
                 value={projectOwner}
                 onChange={(e) => setProjectOwner(e.target.value)}
+                placeholder="owner@example.com"
                 className="h-11 rounded-xl bg-card border-input pr-10"
               />
               <Pencil className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             </div>
-          </div>
-        </div>
-
-        {/* MODULES SECTION (Image 3 & 4) */}
-        <div className="pt-6 border-t border-border space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-semibold text-foreground">≡ Modules</span>
-          </div>
-
-          <p className="text-xs font-semibold text-muted-foreground">Module Bar</p>
-
-          <div className="space-y-2">
-            {modules.map((mod) => {
-              const Icon = mod.icon;
-              return (
-                <div
-                  key={mod.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-foreground/30"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="cursor-grab text-muted-foreground">
-                      <GripHorizontal className="size-4" />
-                    </span>
-                    <span className="grid size-8 place-items-center rounded-lg border border-border bg-surface-subtle text-foreground">
-                      <Icon className="size-4" />
-                    </span>
-                    <div>
-                      <span className="block text-sm font-semibold text-foreground">
-                        {mod.name}
-                      </span>
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {mod.route}
-                      </span>
-                    </div>
-                  </div>
-
-                  <Checkbox
-                    checked={mod.enabled}
-                    onCheckedChange={(checked) =>
-                      setModules((prev) =>
-                        prev.map((m) =>
-                          m.id === mod.id ? { ...m, enabled: checked === true } : m
-                        )
-                      )
-                    }
-                    aria-label={`Toggle module ${mod.name}`}
-                  />
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

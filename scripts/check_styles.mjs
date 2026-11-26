@@ -476,8 +476,17 @@ if (!read("src/modules/login/Login.ts").includes("get_public_login_settings")) {
 if (!read(".gitignore").includes("/data/settings/login.secrets.json")) {
   problems.push("OAuth client secrets must be gitignored");
 }
-if (!read("data/settings/login.json").includes('"version": 1')) {
+// A clean starter has no runtime login.json: the versioned defaults live in
+// code and the optional file only carries project-specific customization.
+const loginSettingsFile = path.join(root, "data", "settings", "login.json");
+if (
+  fs.existsSync(loginSettingsFile) &&
+  !fs.readFileSync(loginSettingsFile, "utf8").includes('"version": 1')
+) {
   problems.push("data/settings/login.json must contain the versioned defaults");
+}
+if (!read("src/modules/login/login-settings.ts").includes("version: 1")) {
+  problems.push("login-settings.ts must keep versioned default settings");
 }
 
 const setup = read("src/modules/setup/SetupWizard.tsx");
